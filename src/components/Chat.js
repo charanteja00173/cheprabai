@@ -13,6 +13,10 @@ const ChatContainer = styled.div`
   padding: 10px;
   background: ${({ theme }) => theme.chatBackground};
   overflow: hidden;
+
+  @media (max-width: 600px) {
+    padding: 5px;
+  }
 `;
 
 const Header = styled.div`
@@ -23,15 +27,17 @@ const Header = styled.div`
   color: ${({ theme }) => theme.timestampColor};
   border-bottom: 1px solid ${({ theme }) => theme.borderColor};
   position: relative;
+
+  @media (max-width: 600px) {
+    padding: 5px;
+  }
 `;
 
 const Avatar = styled.img`
-  font-size: 2.5rem;
-  margin-right: 10px;
-  color: ${({ theme }) => theme.primaryHoverColor};
   border-radius: 50%;
   width: 2rem; 
   height: 2rem;
+  margin-right: 10px;
 `;
 
 const RoomActions = styled.div`
@@ -66,6 +72,10 @@ const MessageContainer = styled.div`
   background: ${({ theme }) => theme.messageBackground};
   display: flex;
   flex-direction: column;
+
+  @media (max-width: 600px) {
+    padding: 10px;
+  }
 `;
 
 const MessageBubble = styled.div`
@@ -104,6 +114,10 @@ const MessageInputContainer = styled.div`
   padding: 10px;
   border-top: 1px solid ${({ theme }) => theme.borderColor};
   background: ${({ theme }) => theme.chatBackground};
+
+  @media (max-width: 600px) {
+    padding: 5px;
+  }
 `;
 
 const MessageInput = styled.input`
@@ -117,6 +131,11 @@ const MessageInput = styled.input`
   background: ${({ theme }) => theme.primaryColor};
   color: ${({ theme }) => theme.secondaryColor};
   transition: border-color 0.3s, box-shadow 0.3s;
+
+  @media (max-width: 600px) {
+    padding: 8px;
+    font-size: 0.9rem;
+  }
 `;
 
 const FileInput = styled.input`
@@ -165,6 +184,10 @@ const JoinRoomContainer = styled.div`
     text-transform: uppercase;
     color: ${({ theme }) => theme.primaryHoverColor};
     letter-spacing: 2px;
+
+    @media (max-width: 600px) {
+      font-size: 2rem;
+    }
   }
 `;
 
@@ -186,6 +209,12 @@ const GlowingInput = styled.input`
     border-color: ${({ theme }) => theme.primaryHoverColor};
     box-shadow: 0px 0px 12px ${({ theme }) => theme.primaryHoverColor};
   }
+
+  @media (max-width: 600px) {
+    max-width: 90%;
+    padding: 10px;
+    font-size: 0.9rem;
+  }
 `;
 
 const JoinButton = styled.button`
@@ -204,6 +233,11 @@ const JoinButton = styled.button`
     background: ${({ theme }) => theme.primaryHoverColor};
     transform: scale(1.05);
   }
+
+  @media (max-width: 600px) {
+    padding: 10px 20px;
+    font-size: 1rem;
+  }
 `;
 
 const ChatRoom = () => {
@@ -213,8 +247,6 @@ const ChatRoom = () => {
   const [roomId, setRoomId] = useState('');
   const [userName, setUserName] = useState('');
   const [joined, setJoined] = useState(false);
-
-  console.log(users);
 
   useEffect(() => {
     if (joined) {
@@ -314,44 +346,44 @@ const ChatRoom = () => {
         </RoomActions>
       </Header>
       <MessageContainer>
-            {messages.map((msg, index) => (
-              <MessageBubble
-                key={index}
-                isSender={msg.userName === userName}
-                issystem={msg.userName === 'System'}
-                style={{margin:'1% 0%'}}
-              >
-                {msg.userName === 'System' ? (
+        {messages.map((msg, index) => (
+          <MessageBubble
+            key={index}
+            isSender={msg.userName === userName}
+            issystem={msg.userName === 'System'}
+            style={{margin: '1% 0'}}
+          >
+            {msg.userName === 'System' ? (
+              <>
+                {msg.text}
+                <Timestamp>{msg.timestamp}</Timestamp>
+              </>
+            ) : (
+              <>
+                {msg.file ? (
                   <>
-                    {msg.text}
+                    <strong>{msg.userName} uploaded:</strong>
+                    <br />
+                    <a href={msg.file.url} target="_blank" rel="noopener noreferrer">
+                      {msg.file.name}
+                    </a>
                     <Timestamp>{msg.timestamp}</Timestamp>
                   </>
                 ) : (
                   <>
-                    {msg.file ? (
-                      <>
-                        <strong>{msg.userName} uploaded:</strong>
-                        <br />
-                        <a href={msg.file.url} target="_blank" rel="noopener noreferrer">
-                          {msg.file.name}
-                        </a>
-                        <Timestamp>{msg.timestamp}</Timestamp>
-                      </>
-                    ) : (
-                      <>
-                        <strong>{msg.userName}:</strong> {msg.text}
-                        <Timestamp>{msg.timestamp}</Timestamp>
-                      </>
-                    )}
+                    <strong>{msg.userName}:</strong> {msg.text}
+                    <Timestamp>{msg.timestamp}</Timestamp>
                   </>
                 )}
-              </MessageBubble>
-            ))}
-          </MessageContainer>
+              </>
+            )}
+          </MessageBubble>
+        ))}
+      </MessageContainer>
       <MessageInputContainer>
-        <FileUploadLabel htmlFor="file-input">
+        {/* <FileUploadLabel htmlFor="file-input">
           <FaFileUpload />
-        </FileUploadLabel>
+        </FileUploadLabel> */}
         <FileInput id="file-input" type="file" onChange={handleFileUpload} />
         <MessageInput
           placeholder="Type a message..."
