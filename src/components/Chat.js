@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
 import styled from 'styled-components';
-import { FaPaperPlane, FaFileUpload, FaVideo, FaPhoneAlt } from 'react-icons/fa';
+import { FaPaperPlane, FaVideo, FaPhoneAlt } from 'react-icons/fa';
 import { CiStreamOn } from "react-icons/ci";
+import { useMediaQuery } from 'react-responsive';
 
 const socket = io('https://cheprabai-t7os4lzd.b4a.run/');
 
@@ -13,7 +14,6 @@ const ChatContainer = styled.div`
   padding: 10px;
   background: ${({ theme }) => theme.chatBackground};
   overflow: hidden;
-
   @media (max-width: 600px) {
     padding: 5px;
   }
@@ -142,16 +142,16 @@ const FileInput = styled.input`
   display: none;
 `;
 
-const FileUploadLabel = styled.label`
-  cursor: pointer;
-  margin-right: 10px;
-  color: ${({ theme }) => theme.primaryHoverColor};
-  font-size: 1.5rem;
+// const FileUploadLabel = styled.label`
+//   cursor: pointer;
+//   margin-right: 10px;
+//   color: ${({ theme }) => theme.primaryHoverColor};
+//   font-size: 1.5rem;
 
-  &:hover {
-    color: ${({ theme }) => theme.primaryColor};
-  }
-`;
+//   &:hover {
+//     color: ${({ theme }) => theme.primaryColor};
+//   }
+// `;
 
 const SendButton = styled.button`
   padding: 12px;
@@ -247,6 +247,7 @@ const ChatRoom = () => {
   const [roomId, setRoomId] = useState('');
   const [userName, setUserName] = useState('');
   const [joined, setJoined] = useState(false);
+  const isSmall = useMediaQuery({ query: '(max-width: 768px)' });
 
   useEffect(() => {
     if (joined) {
@@ -335,7 +336,7 @@ const ChatRoom = () => {
     );
   }
   return (
-    <ChatContainer style={{marginTop:"4%"}}>
+    <ChatContainer>
       <Header>
         <Avatar src='https://i.pravatar.cc/150?img=3'/>
         <span>Room: {roomId}</span>
@@ -348,11 +349,11 @@ const ChatRoom = () => {
       <MessageContainer>
         {messages.map((msg, index) => (
           <MessageBubble
-            key={index}
-            isSender={msg.userName === userName}
-            issystem={msg.userName === 'System'}
-            style={{margin: '1% 0'}}
-          >
+          key={index}
+          isSender={msg.userName === userName}
+          issystem={msg.userName === 'System'}
+          style={{margin:isSmall? '3.5% 0%': '1% 0%'}}
+        >
             {msg.userName === 'System' ? (
               <>
                 {msg.text}

@@ -2,30 +2,30 @@ import React, { useState } from 'react';
 import { ThemeProvider } from 'styled-components';
 import { lightTheme, darkTheme } from './theme';
 import { GlobalStyle } from './globalStyles';
-import { FaSun, FaMoon } from 'react-icons/fa';
+// import { FaSun, FaMoon } from 'react-icons/fa';
 import ChatRoom from './components/Chat';
 import styled from 'styled-components';
 
-const ThemeToggle = styled.button`
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  background: transparent;
-  border: none;
-  color: ${({ theme }) => theme.primaryColor};
-  font-size: 1.8rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 5px;
-  border-radius: 50%;
-  transition: color 0.3s ease, transform 0.3s ease;
-  cursor: pointer;
+// const ThemeToggle = styled.button`
+//   position: fixed;
+//   top: 20px;
+//   right: 20px;
+//   background: transparent;
+//   border: none;
+//   color: ${({ theme }) => theme.primaryColor};
+//   font-size: 1.8rem;
+//   display: flex;
+//   align-items: center;
+//   justify-content: center;
+//   padding: 5px;
+//   border-radius: 50%;
+//   transition: color 0.3s ease, transform 0.3s ease;
+//   cursor: pointer;
 
-  &:hover {
-    transform: scale(1.1);
-  }
-`;
+//   &:hover {
+//     transform: scale(1.1);
+//   }
+// `;
 
 const AppContainer = styled.div`
   display: flex;
@@ -39,9 +39,9 @@ const AppContainer = styled.div`
 const App = () => {
   const [isDarkMode, setIsDarkMode] = useState(true);
 
-  const toggleTheme = () => {
-    setIsDarkMode(!isDarkMode);
-  };
+  // const toggleTheme = () => {
+  //   setIsDarkMode(!isDarkMode);
+  // };
 
   return (
     <ThemeProvider theme={isDarkMode ? darkTheme : lightTheme}>
