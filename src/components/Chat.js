@@ -335,7 +335,7 @@ const ChatRoom = () => {
     );
   }
   return (
-    <ChatContainer>
+    <ChatContainer style={{marginTop:"4%"}}>
       <Header>
         <Avatar src='https://i.pravatar.cc/150?img=3'/>
         <span>Room: {roomId}</span>

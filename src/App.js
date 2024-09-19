@@ -1,4 +1,3 @@
-// App.js - Main Application Entry
 import React, { useState } from 'react';
 import { ThemeProvider } from 'styled-components';
 import { lightTheme, darkTheme } from './theme';
@@ -48,9 +47,9 @@ const App = () => {
     <ThemeProvider theme={isDarkMode ? darkTheme : lightTheme}>
       <GlobalStyle />
       <AppContainer>
-        <ThemeToggle onClick={toggleTheme} aria-label="Toggle Theme">
+        {/* <ThemeToggle onClick={toggleTheme} aria-label="Toggle Theme" >
           {isDarkMode ? <FaSun /> : <FaMoon />}
-        </ThemeToggle>
+        </ThemeToggle> */}
         <ChatRoom />
       </AppContainer>
     </ThemeProvider>
