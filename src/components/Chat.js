@@ -4,7 +4,7 @@ import styled from 'styled-components';
 import { FaPaperPlane, FaFileUpload, FaVideo, FaPhoneAlt } from 'react-icons/fa';
 import { CiStreamOn } from "react-icons/ci";
 
-const socket = io('https://whisperbox-4g4f3o5k.b4a.run/');
+const socket = io('https://cheprabai-t7os4lzd.b4a.run/');
 
 const ChatContainer = styled.div`
   display: flex;
@@ -213,6 +213,8 @@ const ChatRoom = () => {
   const [roomId, setRoomId] = useState('');
   const [userName, setUserName] = useState('');
   const [joined, setJoined] = useState(false);
+
+  console.log(users);
 
   useEffect(() => {
     if (joined) {
