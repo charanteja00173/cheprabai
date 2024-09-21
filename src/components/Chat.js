@@ -4,6 +4,7 @@ import styled from 'styled-components';
 import { FaPaperPlane, FaVideo, FaPhoneAlt } from 'react-icons/fa';
 import { CiStreamOn } from "react-icons/ci";
 import { useMediaQuery } from 'react-responsive';
+import image from '../logo192.png';
 
 const socket = io('https://cheprabai-t7os4lzd.b4a.run/');
 
@@ -338,7 +339,7 @@ const ChatRoom = () => {
   return (
     <ChatContainer>
       <Header>
-        <Avatar src='https://i.pravatar.cc/150?img=3'/>
+        <Avatar src={image}/>
         <span>Room: {roomId}</span>
         <RoomActions>
           <ActionButton><FaVideo /></ActionButton>
