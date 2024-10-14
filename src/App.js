@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { ThemeProvider } from 'styled-components';
-import { lightTheme, darkTheme } from './theme';
+import { darkTheme } from './theme';
 import { GlobalStyle } from './globalStyles';
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 // import { FaSun, FaMoon } from 'react-icons/fa';
 import ChatRoom from './components/Chat';
 import styled from 'styled-components';
+import VideoCall from './components/VideoCall';
+import LiveStream from './components/LiveStream';
 
 // const ThemeToggle = styled.button`
 //   position: fixed;
@@ -37,20 +40,26 @@ const AppContainer = styled.div`
 `;
 
 const App = () => {
-  const [isDarkMode, setIsDarkMode] = useState(true);
+  // const [isDarkMode, setIsDarkMode] = useState(true);
 
   // const toggleTheme = () => {
   //   setIsDarkMode(!isDarkMode);
   // };
 
   return (
-    <ThemeProvider theme={isDarkMode ? darkTheme : lightTheme}>
+    <ThemeProvider theme={darkTheme}>
       <GlobalStyle />
       <AppContainer>
         {/* <ThemeToggle onClick={toggleTheme} aria-label="Toggle Theme" >
           {isDarkMode ? <FaSun /> : <FaMoon />}
         </ThemeToggle> */}
-        <ChatRoom />
+        <Router>
+          <Routes>
+            <Route path="/" element={<ChatRoom />} />
+            <Route path="/call" element={<VideoCall />} />
+            <Route path="/live-stream" element={<LiveStream />} />
+          </Routes>
+        </Router>
       </AppContainer>
     </ThemeProvider>
   );

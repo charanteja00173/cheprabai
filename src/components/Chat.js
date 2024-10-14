@@ -5,6 +5,7 @@ import { FaPaperPlane, FaVideo, FaPhoneAlt } from 'react-icons/fa';
 import { CiStreamOn } from "react-icons/ci";
 import { useMediaQuery } from 'react-responsive';
 import image from '../logo192.png';
+import { Link } from 'react-router-dom';
 
 const socket = io('https://cheprabai-t7os4lzd.b4a.run/');
 
@@ -244,7 +245,7 @@ const JoinButton = styled.button`
 const ChatRoom = () => {
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState([]);
-  const [users, setUsers] = useState([]);
+  // const [users, setUsers] = useState([]);
   const [roomId, setRoomId] = useState('');
   const [userName, setUserName] = useState('');
   const [joined, setJoined] = useState(false);
@@ -256,7 +257,7 @@ const ChatRoom = () => {
 
       const handleNewMessage = (msg) => setMessages((prev) => [...prev, msg]);
       const handleUserLeft = ({ userName }) => {
-        setUsers((prev) => prev.filter((user) => user !== userName));
+        // setUsers((prev) => prev.filter((user) => user !== userName));
         setMessages((prev) => [
           ...prev,
           { text: `${userName} left the room.`, userName: 'System', timestamp: new Date().toLocaleTimeString() },
@@ -265,7 +266,7 @@ const ChatRoom = () => {
 
       socket.on('newMessage', handleNewMessage);
       socket.on('userJoined', ({ userName }) => {
-        setUsers((prev) => [...prev, userName]);
+        // setUsers((prev) => [...prev, userName]);
         setMessages((prev) => [
           ...prev,
           { text: `${userName} joined the room.`, userName: 'System', timestamp: new Date().toLocaleTimeString() },
@@ -336,15 +337,24 @@ const ChatRoom = () => {
       </ChatContainer>
     );
   }
+
+  const actionItems = [
+    { icon: <FaVideo />, path: '/call' },
+    { icon: <FaPhoneAlt />, path: '/call' },
+    { icon: <CiStreamOn />, path: '/live-stream' },
+  ];
+
   return (
     <ChatContainer>
       <Header>
         <Avatar src={image}/>
         <span>Room: {roomId}</span>
         <RoomActions>
-          <ActionButton><FaVideo /></ActionButton>
-          <ActionButton><FaPhoneAlt /></ActionButton>
-          <ActionButton><CiStreamOn /></ActionButton>
+          {actionItems.map((item, index) => (
+            <Link key={index} to={item.path}>
+              <ActionButton>{item.icon}</ActionButton>
+            </Link>
+          ))}
         </RoomActions>
       </Header>
       <MessageContainer>
