@@ -13,7 +13,7 @@ const ChatContainer = styled.div`
   display: flex;
   flex-direction: column;
   height: 100vh;
-  padding: 10px;
+  padding: 0px;
   background: ${({ theme }) => theme.chatBackground};
   overflow: hidden;
   @media (max-width: 600px) {

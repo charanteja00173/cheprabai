@@ -5,14 +5,14 @@ import { CiStreamOn } from 'react-icons/ci';
 import { Link } from 'react-router-dom';
 
 const colors = {
-  background: '#0b0c1f',  // Dark blue background
-  header: '#1f1f2c',      // Darker shade for header
-  cardBackground: '#292b40', // Card background color
-  cardHover: '#3b3f5c',   // Card hover color
-  participantName: 'rgba(255, 255, 255, 0.85)', // Participant name color
-  controlButtonBackground: 'rgba(255, 255, 255, 0.2)', // Control button background
-  controlButtonHover: 'rgba(255, 255, 255, 0.3)', // Control button hover
-  controlOverlay: 'rgba(0, 0, 0, 0.5)', // Control overlay background
+  background: '#0b0c1f',  
+  header: '#1f1f2c',   
+  cardBackground: '#292b40',
+  cardHover: '#3b3f5c',  
+  participantName: 'rgba(255, 255, 255, 0.85)', 
+  controlButtonBackground: 'rgba(255, 255, 255, 0.2)', 
+  controlButtonHover: 'rgba(255, 255, 255, 0.3)', 
+  controlOverlay: 'rgba(0, 0, 0, 0.5)',
 };
 
 const StreamContainer = styled.div`
@@ -65,27 +65,27 @@ const StreamGrid = styled.div`
 const VideoStream = styled.div`
   background: ${colors.cardBackground};
   border-radius: 10px;
-  height: 250px; /* Fixed height for cards */
+  height: 250px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-start; /* Align items to the top */
+  justify-content: flex-start; 
   color: #ccc;
   font-weight: bold;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
   position: relative;
-  overflow: hidden; /* Prevent overflow of child elements */
+  overflow: hidden; 
   transition: background 0.3s;
 
   &:hover {
-    background: ${colors.cardHover}; /* Slightly lighter background on hover */
+    background: ${colors.cardHover}; 
   }
 `;
 
 const ParticipantImage = styled.img`
   width: 100%;
-  height: 100%; /* Fixed height for image */
-  object-fit: cover; /* Maintain aspect ratio */
+  height: 100%;
+  object-fit: cover; 
   border-radius: 10px 10px 0 0;
 `;
 
@@ -96,7 +96,7 @@ const ParticipantName = styled.div`
   width: 100%;
   text-align: center;
   position: absolute;
-  bottom: 0; /* Position name at the bottom of the card */
+  bottom: 0;
   color: ${colors.participantName};
 `;
 
@@ -109,12 +109,12 @@ const ControlsOverlay = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
-  opacity: 0; /* Hidden by default */
+  opacity: 0; 
   transition: opacity 0.3s;
-  background: ${colors.controlOverlay}; /* Background for the controls */
+  background: ${colors.controlOverlay};
 
   ${VideoStream}:hover & {
-    opacity: 1; /* Show on hover */
+    opacity: 1; 
   }
 `;
 
