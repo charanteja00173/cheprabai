@@ -260,7 +260,7 @@ const ChatRoom = () => {
         // setUsers((prev) => prev.filter((user) => user !== userName));
         setMessages((prev) => [
           ...prev,
-          { text: `${userName} left the room.`, userName: 'System', timestamp: new Date().toLocaleTimeString() },
+          { text: `${userName} left the room`, userName: 'System', timestamp: new Date().toLocaleTimeString() },
         ]);
       };
 
@@ -269,7 +269,7 @@ const ChatRoom = () => {
         // setUsers((prev) => [...prev, userName]);
         setMessages((prev) => [
           ...prev,
-          { text: `${userName} joined the room.`, userName: 'System', timestamp: new Date().toLocaleTimeString() },
+          { text: `${userName} joined the room`, userName: 'System', timestamp: new Date().toLocaleTimeString() },
         ]);
       });
       socket.on('userLeft', handleUserLeft);
