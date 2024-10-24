@@ -9,7 +9,7 @@ import { Link } from 'react-router-dom';
 
 const socket = io('https://cheprabai-t7os4lzd.b4a.run/');
 
-const SECURITY_CODE = '@Chat123#';
+const SECURITY_CODE = '@HelloWorld@';
 
 const ChatContainer = styled.div`
   display: flex;
@@ -254,7 +254,7 @@ const ErrorMessage = styled.div`
 const ChatRoom = () => {
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState([]);
-  const [users, setUsers] = useState([]);
+  // const [users, setUsers] = useState([]);
   const [securityCode, setSecurityCode] = useState(''); 
   const [roomId, setRoomId] = useState('');
   const [userName, setUserName] = useState('');
