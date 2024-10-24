@@ -9,6 +9,8 @@ import { Link } from 'react-router-dom';
 
 const socket = io('https://cheprabai-t7os4lzd.b4a.run/');
 
+const SECURITY_CODE = '@Chat123#';
+
 const ChatContainer = styled.div`
   display: flex;
   flex-direction: column;
@@ -242,12 +244,21 @@ const JoinButton = styled.button`
   }
 `;
 
+const ErrorMessage = styled.div`
+  color: red;
+  margin: 10px;
+  font-size: 0.9rem;
+`;
+
+
 const ChatRoom = () => {
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState([]);
   // const [users, setUsers] = useState([]);
+  const [securityCode, setSecurityCode] = useState(''); 
   const [roomId, setRoomId] = useState('');
   const [userName, setUserName] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
   const [joined, setJoined] = useState(false);
   const isSmall = useMediaQuery({ query: '(max-width: 768px)' });
 
@@ -285,11 +296,18 @@ const ChatRoom = () => {
   }, [roomId, userName, joined]);
 
   const handleJoinRoom = () => {
-    if (roomId.trim() && userName.trim()) {
-      setJoined(true);
-    } else {
-      alert('Please enter both room number and your name.');
+    if (!roomId.trim() || !userName.trim()) {
+      setErrorMessage('Please enter both room number and your name.');
+      return;
     }
+
+    if (securityCode !== SECURITY_CODE) {
+      setErrorMessage('Invalid security code. Please try again.');
+      return;
+    }
+
+    setJoined(true);
+    setErrorMessage('');
   };
 
   const handleSendMessage = () => {
@@ -332,6 +350,12 @@ const ChatRoom = () => {
             value={userName}
             onChange={(e) => setUserName(e.target.value)}
           />
+            <GlowingInput
+            placeholder="Enter Security Code" 
+            value={securityCode}
+            onChange={(e) => setSecurityCode(e.target.value)}
+          />
+          {errorMessage && <ErrorMessage>{errorMessage}</ErrorMessage>}
           <JoinButton onClick={handleJoinRoom}>Join</JoinButton>
         </JoinRoomContainer>
       </ChatContainer>
