@@ -254,7 +254,7 @@ const ErrorMessage = styled.div`
 const ChatRoom = () => {
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState([]);
-  // const [users, setUsers] = useState([]);
+  const [users, setUsers] = useState([]);
   const [securityCode, setSecurityCode] = useState(''); 
   const [roomId, setRoomId] = useState('');
   const [userName, setUserName] = useState('');
