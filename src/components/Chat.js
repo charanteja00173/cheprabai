@@ -9,7 +9,7 @@ import { Link } from 'react-router-dom';
 
 const socket = io('https://cheprabai-t7os4lzd.b4a.run/');
 
-const SECURITY_CODE = ['@HelloWorld@','@Letsdoit'];
+const SECURITY_CODE = ['@HelloWorld@'];
 
 const ChatContainer = styled.div`
   display: flex;
