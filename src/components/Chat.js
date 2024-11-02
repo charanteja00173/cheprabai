@@ -9,9 +9,9 @@ import { Link } from 'react-router-dom';
 import notificationSound from '../assets/iphone-sms.mp3';
 import { useToast } from '@chakra-ui/react';
 
-const socket = io('http://localhost:4000/');
+const socket = io('https://cheprabai-t7os4lzd.b4a.run/');
 
-const SECURITY_CODE = ['@HelloWorld@'];
+const SECURITY_CODE = ['@Charan@'];
 
 const ChatContainer = styled.div`
   display: flex;
