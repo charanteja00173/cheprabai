@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
 import styled from 'styled-components';
-import { FaPaperPlane, FaVideo, FaPhoneAlt } from 'react-icons/fa';
+import { FaPaperPlane, FaVideo, FaPhoneAlt, FaFileUpload } from 'react-icons/fa';
 import { CiStreamOn } from "react-icons/ci";
 import { useMediaQuery } from 'react-responsive';
 import image from '../logo192.png';
 import { Link } from 'react-router-dom';
 import notificationSound from '../assets/iphone-sms.mp3';
+import { useToast } from '@chakra-ui/react';
 
-const socket = io('https://cheprabai-t7os4lzd.b4a.run/');
+const socket = io('http://localhost:4000/');
 
 const SECURITY_CODE = ['@HelloWorld@'];
 
@@ -147,16 +148,16 @@ const FileInput = styled.input`
   display: none;
 `;
 
-// const FileUploadLabel = styled.label`
-//   cursor: pointer;
-//   margin-right: 10px;
-//   color: ${({ theme }) => theme.primaryHoverColor};
-//   font-size: 1.5rem;
+const FileUploadLabel = styled.label`
+  cursor: pointer;
+  margin-right: 10px;
+  color: ${({ theme }) => theme.primaryHoverColor};
+  font-size: 1.5rem;
 
-//   &:hover {
-//     color: ${({ theme }) => theme.primaryColor};
-//   }
-// `;
+  &:hover {
+    color: ${({ theme }) => theme.primaryColor};
+  }
+`;
 
 const SendButton = styled.button`
   padding: 12px;
@@ -255,12 +256,14 @@ const ChatRoom = () => {
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState([]);
   // const [users, setUsers] = useState([]);
+  const [userCount, setUserCount] = useState(0);
   const [securityCode, setSecurityCode] = useState(''); 
   const [roomId, setRoomId] = useState('');
   const [userName, setUserName] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [joined, setJoined] = useState(false);
   const isSmall = useMediaQuery({ query: '(max-width: 768px)' });
+  const toast = useToast();
 
   const audioRef = React.useRef(new Audio(notificationSound));
 
@@ -284,6 +287,10 @@ const ChatRoom = () => {
       };
 
       socket.on('newMessage', handleNewMessage);
+      socket.on('newFile', (fileData) => {
+        setMessages(prevMessages => [...prevMessages, fileData]);
+        console.log("Data: ", fileData);
+      });
       socket.on('userJoined', ({ userName }) => {
         // setUsers((prev) => [...prev, userName]);
         setMessages((prev) => [
@@ -294,11 +301,17 @@ const ChatRoom = () => {
       socket.on('userLeft', handleUserLeft);
       socket.on('fileReceived', (fileData) => setMessages((prev) => [...prev, fileData]));
 
+      socket.on('userCountUpdate', ({ count }) => {
+        console.log(`Current users in the room: ${count}`);
+        setUserCount(count);
+      });
+
       return () => {
         socket.off('newMessage', handleNewMessage);
         socket.off('userJoined');
         socket.off('userLeft', handleUserLeft);
         socket.off('fileReceived');
+        socket.off('newFile');
       };
     }
   }, [roomId, userName, joined]);
@@ -329,10 +342,21 @@ const ChatRoom = () => {
   const handleFileUpload = (event) => {
     const file = event.target.files[0];
     if (file && roomId && userName) {
+      const fileType = file.type;
+    if (fileType.startsWith("video/")) {
+      toast({
+        title: "File Type Not Supported",
+        description: "Videos files are not supported for upload.",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+      return;
+    }
       const reader = new FileReader();
       reader.onload = () => {
         const fileData = {
-          text: `${userName} sent a file: ${file.name}`,
+          text: `${file.name}`,
           file: reader.result,
           userName,
           timestamp: new Date().toLocaleTimeString(),
@@ -376,159 +400,125 @@ const ChatRoom = () => {
     { icon: <CiStreamOn />, path: '/live-stream' },
   ];
 
-
-//   const renderMessage = (msg = {}) => {
-//     const { file = {}, text = "Text Message", userName, isSender, timestamp } = msg;
-//     const { url, name, type } = file;
-
-//     const urls = {
-//         image: 'https://cdn.prod.website-files.com/62d84e447b4f9e7263d31e94/6399a4d27711a5ad2c9bf5cd_ben-sweet-2LowviVHZ-E-unsplash-1.jpeg',
-//         video: 'https://cdn.artstation.com/p/video_sources/002/148/208/bullrun01-b.mp4',
-//         audio: 'https://commondatastorage.googleapis.com/codeskulptor-demos/DDR_assets/Kangaroo_MusiQue_-_The_Neverwritten_Role_Playing_Game.mp3',
-//         pdf: 'https://ia904501.us.archive.org/4/items/rich-dad-poor-dad_202106/Rich%20Dad%20Poor%20Dad.pdf',
-//         ppt: '',
-//         gif: 'https://i.giphy.com/media/v1.Y2lkPTc5MGI3NjExYWRibGFwd3lrZjNhdmEzMjJqdTV0MmR2OGh0emhtbm5lN3RweG5wciZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/hoYYHtlt1EIVMJkE5t/giphy.gif',
-//     };
-
-//     const bubbleStyle = {
-//         display: 'flex',
-//         flexDirection: 'column',
-//         alignItems: isSender ? 'flex-end' : 'flex-start',
-//         // margin: '10px 0',
-//     };
-
-//     const messageBubbleStyle = {
-//         backgroundColor: isSender ? '#e1ffc7' : '#f1f1f1',
-//         borderRadius: '15px',
-//         padding: '15px 20px',
-//         maxWidth: '75%',
-//         position: 'relative',
-//         boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
-//         border: `1px solid ${isSender ? '#e1ffc7' : '#d1d1d1'}`,
-//         transition: 'transform 0.2s, box-shadow 0.2s',
-//     };
-
-//     const messageTextStyle = {
-//         margin: 0,
-//         color: '#333',
-//         fontSize: '15px',
-//         lineHeight: '1.5',
-//         wordWrap: 'break-word',
-//         fontFamily: '"Helvetica Neue", Arial, sans-serif',
-//     };
-
-//     const mediaStyle = {
-//         maxWidth: '100%',
-//         borderRadius: '8px',
-//         margin: '5px 0',
-//         transition: 'transform 0.2s',
-//     };
-
-//     const timestampStyle = {
-//         fontSize: '12px',
-//         color: '#999',
-//         marginTop: '5px',
-//         alignSelf: isSender ? 'flex-end' : 'flex-start',
-//         fontStyle: 'italic',
-//     };
-
-//     return (
-//         <div style={bubbleStyle}>
-//             <div
-//                 style={messageBubbleStyle}
-//                 onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.2)'}
-//                 onMouseLeave={e => e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.15)'}
-//             >
-//                 <p style={messageTextStyle}>{text}</p>
-//                     <>
-//                         <img src={urls.image} alt={name || "Image"} style={mediaStyle} />
-//                         <video controls src={urls.video} style={mediaStyle}>Your browser does not support the video tag.</video>
-//                         <audio controls src={urls.audio} style={{ width: '100%', margin: '5px 0' }}>Your browser does not support the audio element.</audio>
-//                         <iframe src={urls.pdf} style={{ width: '100%', height: '300px', borderRadius: '8px', margin: '5px 0' }} title={name || "PDF Document"}></iframe>
-//                         <iframe src={urls.ppt} style={{ width: '100%', height: '300px', borderRadius: '8px', margin: '5px 0' }} title={name || "PowerPoint Presentation"}></iframe>
-//                         <img src={urls.gif} alt={name || "GIF"} style={mediaStyle} />
-//                         <a
-//                             href={url}
-//                             target="_blank"
-//                             rel="noopener noreferrer"
-//                             download={name || "Download File"}
-//                             style={{ display: 'block', marginTop: '5px', color: '#007bff', textDecoration: 'underline', fontWeight: 'bold', fontSize: '14px' }}
-//                         >
-//                             {name || "Download File"}
-//                         </a>
-//                     </>
-//             </div>
-//             <span style={timestampStyle}>
-//                 {timestamp}
-//             </span>
-//         </div>
-//     );
-// };
-
-
-  
   return (
     <ChatContainer>
-      <Header>
-        <Avatar src={image}/>
-        <span>Room: {roomId}</span>
-        <RoomActions>
-          {actionItems.map((item, index) => (
-            <Link key={index} to={item.path}>
-              <ActionButton>{item.icon}</ActionButton>
-            </Link>
-          ))}
-        </RoomActions>
-      </Header>
-      <MessageContainer>
-        {messages.map((msg, index) => (
-          <MessageBubble
-          key={index}
-          isSender={msg.userName === userName}
-          issystem={msg.userName === 'System'}
-          style={{margin:isSmall? '3.5% 0%': '1% 0%'}}
-        >
-            {msg.userName === 'System' ? (
-              <>
-                {msg.text}
-                <Timestamp>{msg.timestamp}</Timestamp>
-              </>
-            ) : (
-              <>
-                {msg.file ? (
-                  <>
-                    <strong>{msg.userName} uploaded:</strong>
-                    <br />
-                    <a href={msg.file.url} target="_blank" rel="noopener noreferrer">
-                      {msg.file.name}
-                    </a>
-                    <Timestamp>{msg.timestamp}</Timestamp>
-                  </>
-                ) : (
-                  <>
-                    <strong>{msg.userName}:</strong> {msg.text}
-                    <Timestamp>{msg.timestamp}</Timestamp>
-                  </>
-                )}
-              </>
-            )}
-          </MessageBubble>
+    <Header>
+      <Avatar src={image} />
+      <span>Room: {roomId}</span>
+      <span style={{ position:"fixed", left: '50%'}}>C - {userCount}</span>
+      <RoomActions>
+        {actionItems.map((item, index) => (
+          <Link key={index} to={item.path}>
+            <ActionButton>{item.icon}</ActionButton>
+          </Link>
         ))}
-      </MessageContainer>
-      <MessageInputContainer>
-        {/* <FileUploadLabel htmlFor="file-input">
-          <FaFileUpload />
-        </FileUploadLabel> */}
-        <FileInput id="file-input" type="file" onChange={handleFileUpload} />
-        <MessageInput
-          placeholder="Type a message..."
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-        />
-        <SendButton onClick={handleSendMessage}><FaPaperPlane /></SendButton>
-      </MessageInputContainer>
-    </ChatContainer>
+      </RoomActions>
+    </Header>
+    <MessageContainer>
+  {messages.map((msg, index) => (
+    <MessageBubble
+      key={index}
+      isSender={msg.userName === userName}
+      issystem={msg.userName === 'System'}
+      style={{ margin: isSmall ? '3.5% 0%' : '1% 0%' }}
+    >
+      {msg.userName === 'System' ? (
+        <>
+          {msg.text}
+          <Timestamp>{msg.timestamp}</Timestamp>
+        </>
+      ) : (
+        <>
+          {msg.file ? (
+            <>
+              <strong>{msg.userName} uploaded:</strong>
+              <br />
+              {msg.file.startsWith('data:audio/') && (
+                <audio controls>
+                  <source src={msg.file} type={msg.file.type} />
+                  Your browser does not support the audio tag.
+                </audio>
+              )}
+              {msg.file.startsWith('data:video/') && (
+                <video controls style={{ width: '100%' }}>
+                  <source src={msg.file} type={msg.file.type} />
+                  Your browser does not support the video tag.
+                </video>
+              )}
+              {msg.file.startsWith('data:image/') && (
+                <img
+                  src={msg.file}
+                  alt={msg.originalname}
+                  style={{ maxWidth: '100%', height: 'auto', borderRadius: '8px', marginTop: '8px' }}
+                />
+              )}
+              {msg.file.startsWith('data:application/pdf') && (
+                <>
+                  <p>{msg.originalname}</p>
+                  <iframe
+                    src={msg.file}
+                    style={{ width: '100%', height: '300px', borderRadius: '8px', margin: '5px 0' }}
+                    title="PDF Document"
+                  ></iframe>
+                </>
+              )}
+              {msg.file.startsWith('data:application/zip') && (
+                <a href={msg.file} target="_blank" rel="noopener noreferrer" download={msg.originalname}>
+                  {msg.originalname}
+                </a>
+              )}
+              {msg.file.startsWith('data:application/vnd.openxmlformats-officedocument.wordprocessingml.document') && (
+                <a href={msg.file} target="_blank" rel="noopener noreferrer" download={msg.originalname}>
+                  {msg.originalname}
+                </a>
+              )}
+              {msg.file.startsWith('data:application/vnd.ms-excel') && (
+                <a href={msg.file} target="_blank" rel="noopener noreferrer" download={msg.originalname}>
+                  {msg.originalname}
+                </a>
+              )}
+              {msg.file.startsWith('data:application/vnd.ms-powerpoint') && (
+                <a href={msg.file} target="_blank" rel="noopener noreferrer" download={msg.originalname}>
+                   {msg.originalname}
+                </a>
+              )}
+              {msg.file.startsWith('data:text/plain') && (
+                <a href={msg.file} target="_blank" rel="noopener noreferrer" download={msg.originalname}>
+                  {msg.originalname}
+                </a>
+              )}
+              {msg.file.startsWith('data:application/') && !msg.file.startsWith('data:application/pdf') && !msg.file.startsWith('data:text/') && (
+                <a href={msg.file} target="_blank" rel="noopener noreferrer" download={msg.originalname}>
+                  {msg.originalname}
+                </a>
+              )}
+              <Timestamp>{msg.timestamp}</Timestamp>
+            </>
+          ) : (
+            <>
+              <strong>{msg.userName}:</strong> {msg.text}
+              <Timestamp>{msg.timestamp}</Timestamp>
+            </>
+          )}
+        </>
+      )}
+    </MessageBubble>
+  ))}
+</MessageContainer>
+    <MessageInputContainer>
+      <FileUploadLabel htmlFor="file-input">
+        <FaFileUpload />
+      </FileUploadLabel>
+      <FileInput id="file-input" type="file" onChange={handleFileUpload} />
+      <MessageInput
+        placeholder="Type a message..."
+        value={message}
+        onChange={(e) => setMessage(e.target.value)}
+        onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+      />
+      <SendButton onClick={handleSendMessage}><FaPaperPlane /></SendButton>
+    </MessageInputContainer>
+  </ChatContainer>  
   );
 };
 
