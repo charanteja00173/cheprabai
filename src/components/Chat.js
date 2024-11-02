@@ -270,8 +270,11 @@ const ChatRoom = () => {
 
       const handleNewMessage = (msg) => {
         setMessages((prev) => [...prev, msg]);
-        audioRef.current.play().catch(err => console.error("Error playing sound:", err));
+        if (msg.userName !== userName) {
+          audioRef.current.play().catch(err => console.error("Error playing sound:", err));
+      }
       };
+
       const handleUserLeft = ({ userName }) => {
         // setUsers((prev) => prev.filter((user) => user !== userName));
         setMessages((prev) => [
