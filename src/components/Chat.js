@@ -9,7 +9,7 @@ import { Link } from 'react-router-dom';
 
 const socket = io('https://cheprabai-t7os4lzd.b4a.run/');
 
-const SECURITY_CODE = '@HelloWorld@';
+const SECURITY_CODE = ['@HelloWorld@','@Letsdoit@'];
 
 const ChatContainer = styled.div`
   display: flex;
@@ -301,7 +301,7 @@ const ChatRoom = () => {
       return;
     }
 
-    if (securityCode !== SECURITY_CODE) {
+    if (!SECURITY_CODE.includes(securityCode)) {
       setErrorMessage('Invalid security code. Please try again.');
       return;
     }
