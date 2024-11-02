@@ -11,7 +11,7 @@ import { useToast } from '@chakra-ui/react';
 
 const socket = io('https://cheprabai-t7os4lzd.b4a.run/');
 
-const SECURITY_CODE = ['@Anonymous@'];
+const SECURITY_CODE = ['@Anonymous@', '@HelloWorld@'];
 
 const ChatContainer = styled.div`
   display: flex;
