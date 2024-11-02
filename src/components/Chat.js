@@ -6,6 +6,7 @@ import { CiStreamOn } from "react-icons/ci";
 import { useMediaQuery } from 'react-responsive';
 import image from '../logo192.png';
 import { Link } from 'react-router-dom';
+import notificationSound from '../assets/iphone-sms.mp3';
 
 const socket = io('https://cheprabai-t7os4lzd.b4a.run/');
 
@@ -250,7 +251,6 @@ const ErrorMessage = styled.div`
   font-size: 0.9rem;
 `;
 
-
 const ChatRoom = () => {
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState([]);
@@ -262,11 +262,16 @@ const ChatRoom = () => {
   const [joined, setJoined] = useState(false);
   const isSmall = useMediaQuery({ query: '(max-width: 768px)' });
 
+  const audioRef = React.useRef(new Audio(notificationSound));
+
   useEffect(() => {
     if (joined) {
       socket.emit('joinRoom', { roomId, userName });
 
-      const handleNewMessage = (msg) => setMessages((prev) => [...prev, msg]);
+      const handleNewMessage = (msg) => {
+        setMessages((prev) => [...prev, msg]);
+        audioRef.current.play().catch(err => console.error("Error playing sound:", err));
+      };
       const handleUserLeft = ({ userName }) => {
         // setUsers((prev) => prev.filter((user) => user !== userName));
         setMessages((prev) => [
