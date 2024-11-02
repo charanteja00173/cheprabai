@@ -9,7 +9,7 @@ import { Link } from 'react-router-dom';
 
 const socket = io('https://cheprabai-t7os4lzd.b4a.run/');
 
-const SECURITY_CODE = ['@HelloWorld@','@Letsdoit@'];
+const SECURITY_CODE = ['@HelloWorld@','@Letsdoit'];
 
 const ChatContainer = styled.div`
   display: flex;
@@ -368,6 +368,97 @@ const ChatRoom = () => {
     { icon: <CiStreamOn />, path: '/live-stream' },
   ];
 
+
+//   const renderMessage = (msg = {}) => {
+//     const { file = {}, text = "Text Message", userName, isSender, timestamp } = msg;
+//     const { url, name, type } = file;
+
+//     const urls = {
+//         image: 'https://cdn.prod.website-files.com/62d84e447b4f9e7263d31e94/6399a4d27711a5ad2c9bf5cd_ben-sweet-2LowviVHZ-E-unsplash-1.jpeg',
+//         video: 'https://cdn.artstation.com/p/video_sources/002/148/208/bullrun01-b.mp4',
+//         audio: 'https://commondatastorage.googleapis.com/codeskulptor-demos/DDR_assets/Kangaroo_MusiQue_-_The_Neverwritten_Role_Playing_Game.mp3',
+//         pdf: 'https://ia904501.us.archive.org/4/items/rich-dad-poor-dad_202106/Rich%20Dad%20Poor%20Dad.pdf',
+//         ppt: '',
+//         gif: 'https://i.giphy.com/media/v1.Y2lkPTc5MGI3NjExYWRibGFwd3lrZjNhdmEzMjJqdTV0MmR2OGh0emhtbm5lN3RweG5wciZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/hoYYHtlt1EIVMJkE5t/giphy.gif',
+//     };
+
+//     const bubbleStyle = {
+//         display: 'flex',
+//         flexDirection: 'column',
+//         alignItems: isSender ? 'flex-end' : 'flex-start',
+//         // margin: '10px 0',
+//     };
+
+//     const messageBubbleStyle = {
+//         backgroundColor: isSender ? '#e1ffc7' : '#f1f1f1',
+//         borderRadius: '15px',
+//         padding: '15px 20px',
+//         maxWidth: '75%',
+//         position: 'relative',
+//         boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
+//         border: `1px solid ${isSender ? '#e1ffc7' : '#d1d1d1'}`,
+//         transition: 'transform 0.2s, box-shadow 0.2s',
+//     };
+
+//     const messageTextStyle = {
+//         margin: 0,
+//         color: '#333',
+//         fontSize: '15px',
+//         lineHeight: '1.5',
+//         wordWrap: 'break-word',
+//         fontFamily: '"Helvetica Neue", Arial, sans-serif',
+//     };
+
+//     const mediaStyle = {
+//         maxWidth: '100%',
+//         borderRadius: '8px',
+//         margin: '5px 0',
+//         transition: 'transform 0.2s',
+//     };
+
+//     const timestampStyle = {
+//         fontSize: '12px',
+//         color: '#999',
+//         marginTop: '5px',
+//         alignSelf: isSender ? 'flex-end' : 'flex-start',
+//         fontStyle: 'italic',
+//     };
+
+//     return (
+//         <div style={bubbleStyle}>
+//             <div
+//                 style={messageBubbleStyle}
+//                 onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.2)'}
+//                 onMouseLeave={e => e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.15)'}
+//             >
+//                 <p style={messageTextStyle}>{text}</p>
+//                     <>
+//                         <img src={urls.image} alt={name || "Image"} style={mediaStyle} />
+//                         <video controls src={urls.video} style={mediaStyle}>Your browser does not support the video tag.</video>
+//                         <audio controls src={urls.audio} style={{ width: '100%', margin: '5px 0' }}>Your browser does not support the audio element.</audio>
+//                         <iframe src={urls.pdf} style={{ width: '100%', height: '300px', borderRadius: '8px', margin: '5px 0' }} title={name || "PDF Document"}></iframe>
+//                         <iframe src={urls.ppt} style={{ width: '100%', height: '300px', borderRadius: '8px', margin: '5px 0' }} title={name || "PowerPoint Presentation"}></iframe>
+//                         <img src={urls.gif} alt={name || "GIF"} style={mediaStyle} />
+//                         <a
+//                             href={url}
+//                             target="_blank"
+//                             rel="noopener noreferrer"
+//                             download={name || "Download File"}
+//                             style={{ display: 'block', marginTop: '5px', color: '#007bff', textDecoration: 'underline', fontWeight: 'bold', fontSize: '14px' }}
+//                         >
+//                             {name || "Download File"}
+//                         </a>
+//                     </>
+//             </div>
+//             <span style={timestampStyle}>
+//                 {timestamp}
+//             </span>
+//         </div>
+//     );
+// };
+
+
+  
   return (
     <ChatContainer>
       <Header>
