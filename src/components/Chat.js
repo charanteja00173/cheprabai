@@ -342,17 +342,6 @@ const ChatRoom = () => {
   const handleFileUpload = (event) => {
     const file = event.target.files[0];
     if (file && roomId && userName) {
-      const fileType = file.type;
-    if (fileType.startsWith("video/")) {
-      toast({
-        title: "File Type Not Supported",
-        description: "Videos files are not supported for upload.",
-        status: "error",
-        duration: 3000,
-        isClosable: true,
-      });
-      return;
-    }
       const reader = new FileReader();
       reader.onload = () => {
         const fileData = {
