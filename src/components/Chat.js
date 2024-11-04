@@ -288,6 +288,8 @@ const ChatRoom = () => {
 
       socket.on('newMessage', handleNewMessage);
       socket.on('newFile', (fileData) => {
+        const currentTimestamp = new Date().toLocaleTimeString();
+        fileData.timestamp = currentTimestamp;
         setMessages(prevMessages => [...prevMessages, fileData]);
         console.log("response: ", fileData);
       });
