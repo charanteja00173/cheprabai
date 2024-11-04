@@ -81,6 +81,7 @@ const MessageContainer = styled.div`
 
   @media (max-width: 600px) {
     padding: 0px;
+    margin: 0px;
   }
 `;
 
