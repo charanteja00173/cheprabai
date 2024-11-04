@@ -7,7 +7,7 @@ import { useMediaQuery } from 'react-responsive';
 import image from '../logo192.png';
 import { Link } from 'react-router-dom';
 import notificationSound from '../assets/iphone-sms.mp3';
-import { useToast } from '@chakra-ui/react';
+// import { useToast } from '@chakra-ui/react';
 
 const socket = io('https://cheprabai-t7os4lzd.b4a.run/');
 
@@ -263,7 +263,7 @@ const ChatRoom = () => {
   const [errorMessage, setErrorMessage] = useState('');
   const [joined, setJoined] = useState(false);
   const isSmall = useMediaQuery({ query: '(max-width: 768px)' });
-  const toast = useToast();
+  // const toast = useToast();
 
   const audioRef = React.useRef(new Audio(notificationSound));
 
@@ -289,7 +289,6 @@ const ChatRoom = () => {
       socket.on('newMessage', handleNewMessage);
       socket.on('newFile', (fileData) => {
         setMessages(prevMessages => [...prevMessages, fileData]);
-        console.log("Data: ", fileData);
       });
       socket.on('userJoined', ({ userName }) => {
         // setUsers((prev) => [...prev, userName]);
@@ -302,7 +301,6 @@ const ChatRoom = () => {
       socket.on('fileReceived', (fileData) => setMessages((prev) => [...prev, fileData]));
 
       socket.on('userCountUpdate', ({ count }) => {
-        console.log(`Current users in the room: ${count}`);
         setUserCount(count);
       });
 
@@ -342,6 +340,17 @@ const ChatRoom = () => {
   const handleFileUpload = (event) => {
     const file = event.target.files[0];
     if (file && roomId && userName) {
+    //   const fileType = file.type;
+    // if (fileType.startsWith("video/")) {
+    //   toast({
+    //     title: "File Type Not Supported",
+    //     description: "Videos files are not supported for upload.",
+    //     status: "error",
+    //     duration: 3000,
+    //     isClosable: true,
+    //   });
+    //   return;
+    // }
       const reader = new FileReader();
       reader.onload = () => {
         const fileData = {
@@ -423,7 +432,7 @@ const ChatRoom = () => {
               <strong>{msg.userName} uploaded:</strong>
               <br />
               {msg.file.startsWith('data:audio/') && (
-                <audio controls>
+                <audio controls style={{width: '-webkit-fill-available'}}>
                   <source src={msg.file} type={msg.file.type} />
                   Your browser does not support the audio tag.
                 </audio>
