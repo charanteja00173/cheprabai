@@ -7,7 +7,7 @@ import { useMediaQuery } from 'react-responsive';
 import image from '../logo192.png';
 import { Link } from 'react-router-dom';
 import notificationSound from '../assets/iphone-sms.mp3';
-// import { useToast } from '@chakra-ui/react';
+import { useToast } from '@chakra-ui/react';
 
 const socket = io('https://cheprabai-t7os4lzd.b4a.run/');
 
@@ -263,7 +263,7 @@ const ChatRoom = () => {
   const [errorMessage, setErrorMessage] = useState('');
   const [joined, setJoined] = useState(false);
   const isSmall = useMediaQuery({ query: '(max-width: 768px)' });
-  // const toast = useToast();
+  const toast = useToast();
 
   const audioRef = React.useRef(new Audio(notificationSound));
 
@@ -289,6 +289,7 @@ const ChatRoom = () => {
       socket.on('newMessage', handleNewMessage);
       socket.on('newFile', (fileData) => {
         setMessages(prevMessages => [...prevMessages, fileData]);
+        console.log("response: ", fileData);
       });
       socket.on('userJoined', ({ userName }) => {
         // setUsers((prev) => [...prev, userName]);
@@ -340,6 +341,18 @@ const ChatRoom = () => {
   const handleFileUpload = (event) => {
     const file = event.target.files[0];
     if (file && roomId && userName) {
+      // Check file size (1MB = 1,048,576 bytes)
+      if (file.size > 1048576) {
+        toast({
+          title: "File Too Large",
+          description: "Please upload a file smaller than 1MB.",
+          status: "error",
+          duration: 3000,
+          isClosable: true,
+        });
+        return;
+      }
+    // Optional: Check if the file is a video and prevent upload
     //   const fileType = file.type;
     // if (fileType.startsWith("video/")) {
     //   toast({
@@ -359,6 +372,7 @@ const ChatRoom = () => {
           userName,
           timestamp: new Date().toLocaleTimeString(),
         };
+        console.log("request: ", fileData);
         socket.emit('sendFile', { roomId, fileData });
       };
       reader.readAsDataURL(file);
