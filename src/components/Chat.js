@@ -291,7 +291,7 @@ const ChatRoom = () => {
         const currentTimestamp = new Date().toLocaleTimeString();
         fileData.timestamp = currentTimestamp;
         setMessages(prevMessages => [...prevMessages, fileData]);
-        console.log("response: ", fileData);
+        // console.log("response: ", fileData);
       });
       socket.on('userJoined', ({ userName }) => {
         // setUsers((prev) => [...prev, userName]);
@@ -374,7 +374,7 @@ const ChatRoom = () => {
           userName,
           timestamp: new Date().toLocaleTimeString(),
         };
-        console.log("request: ", fileData);
+        // console.log("request: ", fileData);
         socket.emit('sendFile', { roomId, fileData });
       };
       reader.readAsDataURL(file);
