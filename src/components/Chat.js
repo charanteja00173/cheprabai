@@ -80,7 +80,7 @@ const MessageContainer = styled.div`
   flex-direction: column;
 
   @media (max-width: 600px) {
-    padding: 10px;
+    padding: 0px;
   }
 `;
 
