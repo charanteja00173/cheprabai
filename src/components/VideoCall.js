@@ -134,8 +134,8 @@ const Toast = styled.div`
 `;
 
 const VideoCall = ({
-  user = { name: "Ram", img: "https://i.pravatar.cc/150?img=1" },
-  remoteUser = { name: "Alex", img: "https://i.pravatar.cc/150?img=2" }
+  user = { name: "Jack", img: "https://i.pravatar.cc/150?img=12" },
+  remoteUser = { name: "Rose", img: "https://i.pravatar.cc/150?img=1" }
 }) => {
   const [toastMessage, setToastMessage] = useState('');
   const [mute, setMute] = useState(false);
