@@ -448,13 +448,13 @@ const ChatRoom = () => {
               <strong>{msg.userName} uploaded:</strong>
               <br />
               {msg.file.startsWith('data:audio/') && (
-                <audio style={{width: '-webkit-fill-available'}}>
+                <audio controls style={{width: '-webkit-fill-available'}}>
                   <source src={msg.file} type={msg.file.type} />
                   Your browser does not support the audio tag.
                 </audio>
               )}
               {msg.file.startsWith('data:video/') && (
-                <video style={{ width: '100%' }}>
+                <video controls style={{ width: '100%' }}>
                   <source src={msg.file} type={msg.file.type} />
                   Your browser does not support the video tag.
                 </video>
