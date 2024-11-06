@@ -264,7 +264,7 @@ const ChatRoom = () => {
   const [joined, setJoined] = useState(false);
   const isSmall = useMediaQuery({ query: '(max-width: 768px)' });
   const toast = useToast();
-const urlRegex = /(https?:\/\/[^\s]+)/g;
+const urlRegex = '/(https?:\/\/[^\s]+)/g';
 
   const audioRef = React.useRef(new Audio(notificationSound));
 
