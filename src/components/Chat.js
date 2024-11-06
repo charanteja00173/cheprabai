@@ -264,7 +264,7 @@ const ChatRoom = () => {
   const [joined, setJoined] = useState(false);
   const isSmall = useMediaQuery({ query: '(max-width: 768px)' });
   const toast = useToast();
-const urlRegex = '/(https?:\/\/[^\s]+)/g';
+const urlRegex = /(https?:\/\/[^\s]+)/g;
 
   const audioRef = React.useRef(new Audio(notificationSound));
 
@@ -510,7 +510,20 @@ const urlRegex = '/(https?:\/\/[^\s]+)/g';
               <Timestamp>{msg.timestamp}</Timestamp>
             </>
           ) : (
-            <> <strong>{msg.userName}:</strong> { // Inline URL detection and rendering logic msg.text.split(urlRegex).map((part, index) => ( urlRegex.test(part) ? ( <a key={index} href={part} target="_blank" rel="noopener noreferrer"> {part} </a> ) : ( part ) )) } <Timestamp>{msg.timestamp}</Timestamp> </>
+          
+<div>
+  <strong>{msg.userName}:</strong> 
+  {msg.text.split(urlRegex).map((part, index) =>
+    urlRegex.test(part) ? (
+      <a key={index} href={part} target="_blank" rel="noopener noreferrer">
+        {part}
+      </a>
+    ) : (
+      part
+    )
+  )}
+  <Timestamp>{msg.timestamp}</Timestamp>
+</div>
           )}
         </>
       )}
