@@ -512,7 +512,7 @@ const urlRegex = /(https?:\/\/[^\s]+)/g;
           ) : (
           
 <div>
-  <strong>{msg.userName}:</strong> 
+  <strong>{msg.userName}: </strong> 
   {msg.text.split(urlRegex).map((part, index) =>
     urlRegex.test(part) ? (
       <a key={index} href={part} target="_blank" rel="noopener noreferrer">
