@@ -16,7 +16,7 @@ const UploadContainer = styled(motion.div)`
 
 const FileUpload = () => {
   const handleFileChange = (e) => {
-    console.log(e.target.files[0]);//
+   // console.log(e.target.files[0]);
   };
 
   return (
