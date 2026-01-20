@@ -1,54 +1,55 @@
-import React, { useState, useEffect } from 'react';
-import { io } from 'socket.io-client';
-import styled from 'styled-components';
-import { FaPaperPlane, FaVideo, FaPhoneAlt, FaFileUpload } from 'react-icons/fa';
+import { useState, useEffect, useRef } from "react";
+import { io } from "socket.io-client";
+import styled, { keyframes } from "styled-components";
+import { FaPaperPlane, FaVideo, FaPhoneAlt, FaFileUpload } from "react-icons/fa";
 import { CiStreamOn } from "react-icons/ci";
-import { useMediaQuery } from 'react-responsive';
-import image from '../logo192.png';
-import { Link } from 'react-router-dom';
-import notificationSound from '../assets/iphone-sms.mp3';
-import { useToast } from '@chakra-ui/react';
+import image from "../logo192.png";
+import notificationSound from "../assets/iphone-sms.mp3";
 
-const socket = io('https://cheprabai-t7os4lzd.b4a.run/');
+const SECURITY_CODE = process.env.REACT_APP_SECURITY_CODES.split(",");
+const CHUNK_SIZE = 1024 * 1024 * 5;
 
-const SECURITY_CODE = ['@Anonymous@', 'Letsdoit','letsStart', '3Idiots'];
+const colorPalette = [
+  "#FF5722", "#4CAF50", "#2196F3", "#9C27B0", "#FFC107", "#00BCD4",
+  "#E91E63", "#8BC34A", "#FF9800", "#3F51B5"
+];
+
+const glow = keyframes`
+  0% { opacity: 0.3; }
+  50% { opacity: 1; }
+  100% { opacity: 0.3; }
+`;
 
 const ChatContainer = styled.div`
   display: flex;
   flex-direction: column;
   height: 100vh;
-  padding: 0px;
-  background: ${({ theme }) => theme.chatBackground};
   overflow: hidden;
-  @media (max-width: 600px) {
-    padding: 5px;
-  }
+  background: #121212;
 `;
 
 const Header = styled.div`
   display: flex;
   align-items: center;
-  padding: 10px;
-  background: ${({ theme }) => theme.primaryColor};
-  color: ${({ theme }) => theme.timestampColor};
-  border-bottom: 1px solid ${({ theme }) => theme.borderColor};
+  padding: 10px 20px;
+  background: #1f1f1f;
+  color: #fff;
+  border-bottom: 1px solid #333;
   position: relative;
-
-  @media (max-width: 600px) {
-    padding: 5px;
-  }
+  font-weight: bold;
+  font-size: 1.1rem;
 `;
 
 const Avatar = styled.img`
-  border-radius: 50%;
-  width: 2rem; 
+  width: 2rem;
   height: 2rem;
+  border-radius: 50%;
   margin-right: 10px;
 `;
 
 const RoomActions = styled.div`
   position: absolute;
-  right: 10px;
+  right: 20px;
   top: 50%;
   transform: translateY(-50%);
   display: flex;
@@ -56,494 +57,409 @@ const RoomActions = styled.div`
 `;
 
 const ActionButton = styled.button`
-  background: ${({ theme }) => theme.primaryColor};
+  background: transparent;
   border: none;
-  border-radius: 50%;
-  padding: 10px;
-  color: ${({ theme }) => theme.secondaryColor};
-  font-size: 1rem;
+  color: #fff;
+  font-size: 1.2rem;
   cursor: pointer;
-  transition: background 0.3s, transform 0.2s;
-
-  &:hover {
-    background: ${({ theme }) => theme.primaryHoverColor};
-    transform: scale(1.1);
-  }
+  &:hover { color: #00bfa5; }
 `;
 
 const MessageContainer = styled.div`
   flex: 1;
-  overflow-y: auto;
   padding: 20px;
-  background: ${({ theme }) => theme.messageBackground};
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
-
-  @media (max-width: 600px) {
-    padding: 5px;
-  }
+  gap: 10px;
+  background: #181818;
 `;
 
 const MessageBubble = styled.div`
-  max-width: ${({ issystem }) => (issystem ? '100%' : '75%')};
-  padding: 10px 15px;
-  margin-bottom: 10px;
+  max-width: 75%;
+  padding: ${({ isFile }) => (isFile ? "5px" : "10px 15px")};
   border-radius: 12px;
-  background: ${({ isSender, issystem, theme }) =>
-    issystem ? '#f8d7da' : isSender ? theme.primaryHoverColor : theme.primaryColor};
-  color: ${({ isSender, issystem }) =>
-    issystem ? '#721c24' : isSender ? '#0b0c10' : '#ffffff'};
-  align-self: ${({ isSender, issystem }) =>
-    issystem ? 'center' : isSender ? 'flex-end' : 'flex-start'};
-  position: relative;
-  box-shadow: ${({ issystem, theme }) =>
-    issystem ? '0px 0px 8px #f5c6cb' : `0px 0px 8px ${theme.primaryHoverColor}`};
-  word-wrap: break-word;
-  transition: transform 0.2s;
+  background: ${({ isSender, isSystem, userColor }) =>
+  isSystem
+    ? "#555"               
+    : isSender
+      ? "#3a3f55"          
+      : userColor || "#444" 
+};
+color: #fff;
 
-  &:hover {
-    transform: scale(1.02);
-  }
+  align-self: ${({ isSender, isSystem }) =>
+    isSystem ? "center" : isSender ? "flex-end" : "flex-start"};
+  text-align: ${({ isSystem }) => (isSystem ? "center" : "left")};
+  font-style: ${({ isSystem }) => (isSystem ? "italic" : "normal")};
+  opacity: ${({ isSystem }) => (isSystem ? 0.8 : 1)};
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
 `;
 
+const FileCard = styled.div`
+  background: #222;
+  border-radius: 10px;
+  padding: 5px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  position: relative;
+`;
+
+// const FileName = styled.span`
+//   font-size: 0.8rem;
+//   color: #ccc;
+//   font-weight: bold;
+// `;
+
+// const FileActions = styled.div`
+//   display: flex;
+//   justify-content: flex-end;
+//   gap: 10px;
+// `;
+
 const Timestamp = styled.span`
-  font-size: 0.75rem;
-  color: ${({ theme }) => theme.timestampColor};
+  font-size: 0.7rem;
+  color: #ccc;
   position: absolute;
-  bottom: -18px;
-  right: 12px;
+  bottom: -15px;
+  right: 10px;
+`;
+
+const TypingIndicator = styled.div`
+  font-size: 0.8rem;
+  color: #aaa;
+  font-style: italic;
+  animation: ${glow} 1.5s infinite;
 `;
 
 const MessageInputContainer = styled.div`
   display: flex;
   align-items: center;
-  padding: 10px;
-  border-top: 1px solid ${({ theme }) => theme.borderColor};
-  background: ${({ theme }) => theme.chatBackground};
-
-  @media (max-width: 600px) {
-    padding: 5px;
-  }
+  padding: 10px 20px;
+  background: #1f1f1f;
+  border-top: 1px solid #333;
 `;
 
 const MessageInput = styled.input`
   flex: 1;
-  padding: 12px;
-  border: 1px solid ${({ theme }) => theme.borderColor};
+  padding: 12px 15px;
   border-radius: 20px;
-  margin-right: 10px;
-  font-size: 1rem;
+  border: 1px solid #333;
+  background: #121212;
+  color: #fff;
   outline: none;
-  background: ${({ theme }) => theme.primaryColor};
-  color: ${({ theme }) => theme.secondaryColor};
-  transition: border-color 0.3s, box-shadow 0.3s;
-
-  @media (max-width: 600px) {
-    padding: 8px;
-    font-size: 0.9rem;
-  }
 `;
 
-const FileInput = styled.input`
-  display: none;
-`;
-
+const FileInput = styled.input` display: none; `;
 const FileUploadLabel = styled.label`
-  cursor: pointer;
   margin-right: 10px;
-  color: ${({ theme }) => theme.primaryHoverColor};
-  font-size: 1.5rem;
-
-  &:hover {
-    color: ${({ theme }) => theme.primaryColor};
-  }
-`;
-
-const SendButton = styled.button`
-  padding: 12px;
-  background: ${({ theme }) => theme.primaryHoverColor};
-  color: #0b0c10;
-  border: none;
-  border-radius: 50%;
+  font-size: 1.3rem;
   cursor: pointer;
-  transition: background 0.3s ease, transform 0.2s ease-in-out;
-
-  &:hover {
-    background: ${({ theme }) => theme.primaryHoverColor};
-    transform: scale(1.1);
-  }
+  color: #fff;
+`;
+const SendButton = styled.button`
+  margin-left: 10px;
+  padding: 10px 12px;
+  border-radius: 50%;
+  border: none;
+  background: #00bfa5;
+  color: #000;
+  cursor: pointer;
 `;
 
 const JoinRoomContainer = styled.div`
   display: flex;
   flex-direction: column;
-  align-items: center;
   justify-content: center;
   height: 100%;
-  text-align: center;
-  color: ${({ theme }) => theme.secondaryColor};
-  padding: 20px;
-
-  h2 {
-    font-size: 2.5rem;
-    margin-bottom: 1rem;
-    text-transform: uppercase;
-    color: ${({ theme }) => theme.primaryHoverColor};
-    letter-spacing: 2px;
-
-    @media (max-width: 600px) {
-      font-size: 2rem;
-    }
-  }
+  align-items: center;
+  color: #fff;
 `;
 
 const GlowingInput = styled.input`
-  width: 100%;
-  max-width: 300px;
+  width: 250px;
   padding: 12px;
-  margin-bottom: 15px;
-  border: 2px solid ${({ theme }) => theme.borderColor};
+  margin-bottom: 10px;
   border-radius: 25px;
-  outline: none;
-  font-size: 1rem;
-  color: ${({ theme }) => theme.secondaryColor};
-  background: ${({ theme }) => theme.primaryColor};
-  transition: border-color 0.3s, box-shadow 0.3s;
-  box-shadow: 0px 0px 8px ${({ theme }) => theme.borderColor};
-
-  &:focus {
-    border-color: ${({ theme }) => theme.primaryHoverColor};
-    box-shadow: 0px 0px 12px ${({ theme }) => theme.primaryHoverColor};
-  }
-
-  @media (max-width: 600px) {
-    max-width: 90%;
-    padding: 10px;
-    font-size: 0.9rem;
-  }
+  border: 2px solid #333;
+  background: #121212;
+  color: #fff;
 `;
 
 const JoinButton = styled.button`
   padding: 12px 25px;
-  background: ${({ theme }) => theme.primaryHoverColor};
-  color: #0b0c10;
-  border: none;
   border-radius: 25px;
+  border: none;
+  background: #00bfa5;
   cursor: pointer;
-  font-size: 1.1rem;
-  text-transform: uppercase;
-  transition: background 0.3s, transform 0.2s ease-in-out;
-  box-shadow: 0px 0px 8px ${({ theme }) => theme.primaryHoverColor};
-
-  &:hover {
-    background: ${({ theme }) => theme.primaryHoverColor};
-    transform: scale(1.05);
-  }
-
-  @media (max-width: 600px) {
-    padding: 10px 20px;
-    font-size: 1rem;
-  }
-`;
-
-const ErrorMessage = styled.div`
-  color: red;
-  margin: 10px;
-  font-size: 0.9rem;
+  font-weight: bold;
 `;
 
 const ChatRoom = () => {
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState("");
   const [messages, setMessages] = useState([]);
-  // const [users, setUsers] = useState([]);
-  const [userCount, setUserCount] = useState(0);
-  const [securityCode, setSecurityCode] = useState(''); 
-  const [roomId, setRoomId] = useState('');
-  const [userName, setUserName] = useState('');
-  const [errorMessage, setErrorMessage] = useState('');
   const [joined, setJoined] = useState(false);
-  const isSmall = useMediaQuery({ query: '(max-width: 768px)' });
-  const toast = useToast();
-const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const [roomId, setRoomId] = useState("");
+  const [userName, setUserName] = useState("");
+  const [securityCode, setSecurityCode] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
+  const [typingUsers, setTypingUsers] = useState([]);
+  const [ownerToken, setOwnerToken] = useState("");
+  const [onlineCount, setOnlineCount] = useState(0);
+  const audioRef = useRef(new Audio(notificationSound));
+  const fileChunksRef = useRef({});
+  const typingTimeout = useRef(null);
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const userColorsRef = useRef({}); 
 
-  const audioRef = React.useRef(new Audio(notificationSound));
+   const socketRef = useRef(null);
+
+useEffect(() => {
+  socketRef.current = io(process.env.REACT_APP_SOCKET_ENDPOINT);
+
+  return () => {
+    socketRef.current?.disconnect();
+  };
+}, []);
+
+
+  // Function to get a color for a username
+const getUsernameColor = (name) => {
+  if (!userColorsRef.current[name]) {
+    // Assign a random color from the palette
+    const color = colorPalette[Object.keys(userColorsRef.current).length % colorPalette.length];
+    userColorsRef.current[name] = color;
+  }
+  return userColorsRef.current[name];
+};
+
+  const handleTyping = (value) => {
+    socketRef.current.emit("typing", value.length > 0);
+    clearTimeout(typingTimeout.current);
+    typingTimeout.current = setTimeout(() => socketRef.current.emit("typing", false), 1000);
+  };
 
   useEffect(() => {
-    if (joined) {
-      socket.emit('joinRoom', { roomId, userName });
+    if (!joined) return;
 
-      const handleNewMessage = (msg) => {
-        setMessages((prev) => [...prev, msg]);
-        if (msg.userName !== userName) {
-          audioRef.current.play().catch(err => console.error("Error playing sound:", err));
+    socketRef.current.emit("joinRoom", { roomId, userName });
+
+    socketRef.current.on("newMessage", (msg) => {
+      if (msg.userName === "System") {
+        if (msg.text.includes("joined the room"))
+          msg.text = msg.userNameRef === userName ? "You joined the room" : `${msg.userNameRef} joined the room`;
+        if (msg.text.includes("left the room"))
+          msg.text = msg.userNameRef === userName ? "You left the room" : `${msg.userNameRef} left the room`;
       }
-      };
 
-      const handleUserLeft = ({ userName }) => {
-        // setUsers((prev) => prev.filter((user) => user !== userName));
-        setMessages((prev) => [
-          ...prev,
-          { text: `${userName} left the room`, userName: 'System', timestamp: new Date().toLocaleTimeString() },
-        ]);
-      };
+      setMessages(prev => [...prev, msg]);
+      if (msg.userName !== userName && msg.userName !== "System") audioRef.current.play().catch(() => {});
+    });
 
-      socket.on('newMessage', handleNewMessage);
-      socket.on('newFile', (fileData) => {
-        const currentTimestamp = new Date().toLocaleTimeString();
-        fileData.timestamp = currentTimestamp;
-        setMessages(prevMessages => [...prevMessages, fileData]);
-        // console.log("response: ", fileData);
-      });
-      socket.on('userJoined', ({ userName }) => {
-        // setUsers((prev) => [...prev, userName]);
-        setMessages((prev) => [
-          ...prev,
-          { text: `${userName} joined the room`, userName: 'System', timestamp: new Date().toLocaleTimeString() },
-        ]);
-      });
-      socket.on('userLeft', handleUserLeft);
-      socket.on('fileReceived', (fileData) => setMessages((prev) => [...prev, fileData]));
+    socketRef.current.on("presence", ({ online }) => setOnlineCount(online.length));
+    socketRef.current.on("typing", (users) => setTypingUsers(users.filter(u => u !== userName)));
 
-      socket.on('userCountUpdate', ({ count }) => {
-        setUserCount(count);
-      });
+    socketRef.current.on("receiveFileChunk", ({ chunk, chunkIndex, totalChunks, fileName, fileType, userName: senderName }) => {
+      if (!fileChunksRef.current[fileName]) fileChunksRef.current[fileName] = [];
+      fileChunksRef.current[fileName][chunkIndex] = chunk;
 
-      return () => {
-        socket.off('newMessage', handleNewMessage);
-        socket.off('userJoined');
-        socket.off('userLeft', handleUserLeft);
-        socket.off('fileReceived');
-        socket.off('newFile');
-      };
-    }
-  }, [roomId, userName, joined]);
+      const receivedChunks = fileChunksRef.current[fileName].filter(Boolean).length;
+      if (receivedChunks === totalChunks) {
+        const blob = new Blob(fileChunksRef.current[fileName], { type: fileType || 'application/octet-stream' });
+        const url = URL.createObjectURL(blob);
+        setMessages(prev => [...prev, { userName: senderName, file: { name: fileName, url, type: fileType || 'application/octet-stream' }, ts: Date.now() }]);
+         if (senderName !== userName) {
+        audioRef.current.currentTime = 0;
+        audioRef.current.play().catch(() => {});
+      }
+        delete fileChunksRef.current[fileName];
+      }
+    });
+
+    socketRef.current.on("roomOwner", (token) => setOwnerToken(token));
+    socketRef.current.on("roomDestroyed", () => { alert("Room was destroyed!"); setJoined(false); setMessages([]); });
+
+    return () => {
+      socketRef.current.off("newMessage"); socketRef.current.off("typing"); socketRef.current.off("receiveFileChunk");
+      socketRef.current.off("roomOwner"); socketRef.current.off("roomDestroyed");
+    };
+  }, [joined, roomId, userName]);
 
   const handleJoinRoom = () => {
-    if (!roomId.trim() || !userName.trim()) {
-      setErrorMessage('Please enter both room number and your name.');
-      return;
-    }
-
-    if (!SECURITY_CODE.includes(securityCode)) {
-      setErrorMessage('Invalid security code. Please try again.');
-      return;
-    }
-
+    if (!roomId || !userName) return setErrorMessage("Enter room and name");
+    if (!SECURITY_CODE.includes(securityCode)) return setErrorMessage("Invalid security code");
     setJoined(true);
-    setErrorMessage('');
+    setErrorMessage("");
   };
 
   const handleSendMessage = () => {
-    if (message.trim()) {
-      const msg = { text: message, userName, timestamp: new Date().toLocaleTimeString() };
-      socket.emit('sendMessage', { roomId, msg });
-      setMessage('');
+    if (!message.trim()) return;
+    socketRef.current.emit("sendMessage", { text: message, userName, ts: Date.now() });
+    setMessage("");
+  };
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0]; if (!file) return;
+    const totalChunks = Math.ceil(file.size / CHUNK_SIZE); let chunkIndex = 0; const reader = new FileReader();
+    const loadNext = () => { const start = chunkIndex * CHUNK_SIZE; const end = Math.min(file.size, start + CHUNK_SIZE); reader.readAsArrayBuffer(file.slice(start, end)); };
+    reader.onload = (ev) => {
+      socketRef.current.emit("sendFileChunk", { roomId, chunk: ev.target.result, chunkIndex, totalChunks, fileName: file.name, fileType: file.type, userName });
+      chunkIndex++; if (chunkIndex < totalChunks) loadNext();
+    };
+    loadNext();
+  };
+
+  const handleDestroyRoom = () => {
+    if (!roomId || !ownerToken) return;
+    if (window.confirm("Destroy this room? All messages will be lost!")) {
+      socketRef.current.emit("destroyRoom", { roomId, token: ownerToken });
+      setMessages([]);
+      setJoined(false);
     }
   };
 
-  const handleFileUpload = (event) => {
-    const file = event.target.files[0];
-    if (file && roomId && userName) {
-      // Check file size (1MB = 1,048,576 bytes)
-      if (file.size > 1048576) {
-        toast({
-          title: "File Too Large",
-          description: "Please upload a file smaller than 1MB.",
-          status: "error",
-          duration: 3000,
-          isClosable: true,
-        });
-        return;
-      }
-    // Optional: Check if the file is a video and prevent upload
-    //   const fileType = file.type;
-    // if (fileType.startsWith("video/")) {
-    //   toast({
-    //     title: "File Type Not Supported",
-    //     description: "Videos files are not supported for upload.",
-    //     status: "error",
-    //     duration: 3000,
-    //     isClosable: true,
-    //   });
-    //   return;
-    // }
-      const reader = new FileReader();
-      reader.onload = () => {
-        const fileData = {
-          text: `${file.name}`,
-          file: reader.result,
-          userName,
-          timestamp: new Date().toLocaleTimeString(),
-        };
-        // console.log("request: ", fileData);
-        socket.emit('sendFile', { roomId, fileData });
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  if (!joined) {
-    return (
-      <ChatContainer>
-        <JoinRoomContainer>
-          <h2>Join Chat Room</h2>
-          <GlowingInput
-            placeholder="Enter Room Number"
-            value={roomId}
-            onChange={(e) => setRoomId(e.target.value)}
-          />
-          <GlowingInput
-            placeholder="Enter Your Name"
-            value={userName}
-            onChange={(e) => setUserName(e.target.value)}
-          />
-            <GlowingInput
-            placeholder="Enter Security Code" 
-            value={securityCode}
-            onChange={(e) => setSecurityCode(e.target.value)}
-          />
-          {errorMessage && <ErrorMessage>{errorMessage}</ErrorMessage>}
-          <JoinButton onClick={handleJoinRoom}>Join</JoinButton>
-        </JoinRoomContainer>
-      </ChatContainer>
-    );
-  }
-
-  const actionItems = [
-    { icon: <FaVideo />, path: '/call' },
-    { icon: <FaPhoneAlt />, path: '/call' },
-    { icon: <CiStreamOn />, path: '/live-stream' },
-  ];
+  if (!joined) return (
+    <ChatContainer>
+      <JoinRoomContainer>
+        <h2>Join Room</h2>
+        <GlowingInput placeholder="Room" value={roomId} onChange={(e) => setRoomId(e.target.value)} />
+        <GlowingInput placeholder="Name" value={userName} onChange={(e) => setUserName(e.target.value)} />
+        <GlowingInput placeholder="Security Code" value={securityCode} onChange={(e) => setSecurityCode(e.target.value)} />
+        {errorMessage && <p style={{ color: "red" }}>{errorMessage}</p>}
+        <JoinButton onClick={handleJoinRoom}>Join</JoinButton>
+      </JoinRoomContainer>
+    </ChatContainer>
+  );
 
   return (
     <ChatContainer>
-    <Header>
-      <Avatar src={image} />
-      <span>Room: {roomId}</span>
-      <span style={{ position:"fixed", left: '50%'}}>C - {userCount}</span>
-      <RoomActions>
-        {actionItems.map((item, index) => (
-          <Link key={index} to={item.path}>
-            <ActionButton>{item.icon}</ActionButton>
-          </Link>
-        ))}
-      </RoomActions>
-    </Header>
-    <MessageContainer>
-  {messages.map((msg, index) => (
-    <MessageBubble
-      key={index}
-      isSender={msg.userName === userName}
-      issystem={msg.userName === 'System'}
-      style={{ margin: isSmall ? '3.5% 0%' : '1% 0%' }}
-    >
-      {msg.userName === 'System' ? (
-        <>
-          {msg.text}
-          <Timestamp>{msg.timestamp}</Timestamp>
-        </>
-      ) : (
-        <>
-          {msg.file ? (
-            <>
-              <strong>{msg.userName} uploaded:</strong>
-              <br />
-              {msg.file.startsWith('data:audio/') && (
-                <audio controls style={{width: '-webkit-fill-available'}}>
-                  <source src={msg.file} type={msg.file.type} />
-                  Your browser does not support the audio tag.
-                </audio>
-              )}
-              {msg.file.startsWith('data:video/') && (
-                <video controls style={{ width: '100%' }}>
-                  <source src={msg.file} type={msg.file.type} />
-                  Your browser does not support the video tag.
-                </video>
-              )}
-              {msg.file.startsWith('data:image/') && (
-                <img
-                  src={msg.file}
-                  alt={msg.originalname}
-                  style={{ maxWidth: '100%', height: 'auto', borderRadius: '8px', marginTop: '8px' }}
-                />
-              )}
-              {msg.file.startsWith('data:application/pdf') && (
-                <>
-                  <p>{msg.originalname}</p>
-                  <iframe
-                    src={msg.file}
-                    style={{ width: '100%', height: '300px', borderRadius: '8px', margin: '5px 0' }}
-                    title="PDF Document"
-                  ></iframe>
-                </>
-              )}
-              {msg.file.startsWith('data:application/zip') && (
-                <a href={msg.file} target="_blank" rel="noopener noreferrer" download={msg.originalname}>
-                  {msg.originalname}
-                </a>
-              )}
-              {msg.file.startsWith('data:application/vnd.openxmlformats-officedocument.wordprocessingml.document') && (
-                <a href={msg.file} target="_blank" rel="noopener noreferrer" download={msg.originalname}>
-                  {msg.originalname}
-                </a>
-              )}
-              {msg.file.startsWith('data:application/vnd.ms-excel') && (
-                <a href={msg.file} target="_blank" rel="noopener noreferrer" download={msg.originalname}>
-                  {msg.originalname}
-                </a>
-              )}
-              {msg.file.startsWith('data:application/vnd.ms-powerpoint') && (
-                <a href={msg.file} target="_blank" rel="noopener noreferrer" download={msg.originalname}>
-                   {msg.originalname}
-                </a>
-              )}
-              {msg.file.startsWith('data:text/plain') && (
-                <a href={msg.file} target="_blank" rel="noopener noreferrer" download={msg.originalname}>
-                  {msg.originalname}
-                </a>
-              )}
-              {msg.file.startsWith('data:application/') && !msg.file.startsWith('data:application/pdf') && !msg.file.startsWith('data:text/') && (
-                <a href={msg.file} target="_blank" rel="noopener noreferrer" download={msg.originalname}>
-                  {msg.originalname}
-                </a>
-              )}
-              <Timestamp>{msg.timestamp}</Timestamp>
-            </>
-          ) : (
-          
-<div>
-  <strong>{msg.userName}: </strong> 
-  {msg.text.split(urlRegex).map((part, index) =>
-    urlRegex.test(part) ? (
-      <a key={index} href={part} target="_blank" rel="noopener noreferrer">
-        {part}
-      </a>
-    ) : (
-      part
-    )
-  )}
-  <Timestamp>{msg.timestamp}</Timestamp>
-</div>
+      <Header>
+        <Avatar src={image} />
+        <span>{roomId} ({onlineCount} online)</span>
+        <RoomActions>
+          <ActionButton><FaVideo /></ActionButton>
+          <ActionButton><FaPhoneAlt /></ActionButton>
+          <ActionButton><CiStreamOn /></ActionButton>
+           {ownerToken && (
+            <ActionButton onClick={handleDestroyRoom} style={{ color: "red" }}>
+              ✖
+            </ActionButton>
           )}
-        </>
+        </RoomActions>
+      </Header>
+
+   <MessageContainer>
+  {messages.map((msg, idx) => (
+    <MessageBubble
+      key={idx}
+      isSender={msg.userName === userName}
+      isSystem={msg.userName === "System"}
+      isFile={!!msg.file}
+      style={{ marginBottom: "15px", fontSize: msg.userName === "System" ? "0.85rem" : "0.9rem" }}
+    >
+      {/* SYSTEM MESSAGE */}
+      {msg.userName === "System" && (
+        <div
+          style={{
+            color: "#00bfa5",
+            fontStyle: "italic",
+            textAlign: "center",
+            fontSize: "0.85rem",
+            marginBottom: "5px",
+          }}
+        >
+          {msg.text}
+        </div>
       )}
+
+      {/* FILE MESSAGE */}
+      {msg.file && (
+        <FileCard style={{ marginBottom: "5px" }}>
+          {msg.file.type.startsWith("image/") && (
+            <img alt={msg.file.name} src={msg.file.url} style={{ width: "100%", borderRadius: 10 }} />
+          )}
+          {msg.file.type.startsWith("video/") && (
+            <video src={msg.file.url} controls style={{ width: "100%", borderRadius: 10 }} />
+          )}
+          {msg.file.type.startsWith("audio/") && (
+            <audio
+  src={msg.file.url}
+  controls
+  style={{
+    height: "40px",
+    borderRadius: "8px",
+    backgroundColor: "#222",
+  }}
+/>
+          )}
+          {msg.file.type === "application/pdf" && (
+            <iframe title={msg.file.name} src={msg.file.url} style={{ width: "100%", height: 250, borderRadius: 10 }} />
+          )}
+          {!msg.file.type.startsWith("image/") &&
+           !msg.file.type.startsWith("video/") &&
+           !msg.file.type.startsWith("audio/") &&
+           msg.file.type !== "application/pdf" && (
+            <a href={msg.file.url} download={msg.file.name} style={{ color: "#00bfa5", fontSize: "0.9rem" }}>
+              📎 {msg.file.name}
+            </a>
+          )}
+        </FileCard>
+      )}
+
+      {/* TEXT MESSAGE */}
+{!msg.file && msg.userName !== "System" && (
+  <div style={{ marginBottom: "5px", fontSize: "0.9rem" }}>
+    {msg.userName !== userName && (
+      <strong
+        style={{
+          fontSize: "0.85rem",
+          color: getUsernameColor(msg.userName),
+          fontWeight: "bold",
+        }}
+      >
+        {msg.userName}
+      </strong>
+    )}
+    <div>
+      {msg.text.split(urlRegex).map((part, i) =>
+        urlRegex.test(part) ? (
+          <a
+            key={i}
+            href={part}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ fontSize: "0.9rem", color: "#fff" }}
+          >
+            {part}
+          </a>
+        ) : (
+          part
+        )
+      )}
+    </div>
+  </div>
+)}
+
+
+      <Timestamp style={{ fontSize: "0.7rem" }}>{new Date(msg.ts).toLocaleTimeString()}</Timestamp>
     </MessageBubble>
   ))}
+
+  {typingUsers.length > 0 && <TypingIndicator style={{ fontSize: "0.8rem" }}>{typingUsers.join(", ")} typing...</TypingIndicator>}
 </MessageContainer>
-    <MessageInputContainer>
-      <FileUploadLabel htmlFor="file-input">
-        <FaFileUpload />
-      </FileUploadLabel>
-      <FileInput id="file-input" type="file" onChange={handleFileUpload} />
-      <MessageInput
-        placeholder="Type a message..."
-        value={message}
-        onChange={(e) => setMessage(e.target.value)}
-        onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-      />
-      <SendButton onClick={handleSendMessage}><FaPaperPlane /></SendButton>
-    </MessageInputContainer>
-  </ChatContainer>  
+
+
+      <MessageInputContainer>
+        <FileUploadLabel htmlFor="file-input"><FaFileUpload /></FileUploadLabel>
+        <FileInput id="file-input" type="file" onChange={handleFileUpload} />
+        <MessageInput placeholder="Type a message..." value={message} onChange={(e) => { setMessage(e.target.value); handleTyping(e.target.value); }} onKeyDown={(e) => e.key==="Enter" && handleSendMessage()} />
+        <SendButton onClick={handleSendMessage}><FaPaperPlane /></SendButton>
+      </MessageInputContainer>
+    </ChatContainer>
   );
 };
 
