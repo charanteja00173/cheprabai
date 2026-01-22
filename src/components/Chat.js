@@ -1,139 +1,218 @@
 import { useState, useEffect, useRef } from "react";
 import { io } from "socket.io-client";
 import styled, { keyframes } from "styled-components";
-import { FaPaperPlane, FaVideo, FaPhoneAlt, FaFileUpload } from "react-icons/fa";
-import { CiStreamOn } from "react-icons/ci";
+import { FaPaperPlane, 
+  // FaVideo, FaPhoneAlt, 
+  FaFileUpload, FaSearch } from "react-icons/fa";
+import { HiGif } from "react-icons/hi2";
+// import { CiStreamOn } from "react-icons/ci";
 import image from "../logo192.png";
 import notificationSound from "../assets/iphone-sms.mp3";
+// import { Link } from 'react-router-dom';
+import { AiOutlineClose } from "react-icons/ai";
+
+/* ================= CONFIG ================= */
 
 const SECURITY_CODE = process.env.REACT_APP_SECURITY_CODES.split(",");
 const CHUNK_SIZE = 1024 * 1024 * 5;
 
+const urlRegex = /(https?:\/\/[^\s]+)/g;
+
+/* ================= STYLES ================= */
+
 const colorPalette = [
-  "#FF5722", "#4CAF50", "#2196F3", "#9C27B0", "#FFC107", "#00BCD4",
-  "#E91E63", "#8BC34A", "#FF9800", "#3F51B5"
+  "#FF5722","#4CAF50","#2196F3","#9C27B0","#FFC107",
+  "#00BCD4","#E91E63","#8BC34A","#FF9800","#3F51B5"
 ];
 
 const glow = keyframes`
-  0% { opacity: 0.3; }
-  50% { opacity: 1; }
-  100% { opacity: 0.3; }
+  0% { opacity: .3 }
+  50% { opacity: 1 }
+  100% { opacity: .3 }
 `;
 
 const ChatContainer = styled.div`
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  overflow: hidden;
-  background: #121212;
+  display:flex; flex-direction:column;
+  height:100vh; background:#121212;
 `;
 
 const Header = styled.div`
-  display: flex;
-  align-items: center;
-  padding: 10px 20px;
-  background: #1f1f1f;
-  color: #fff;
-  border-bottom: 1px solid #333;
-  position: relative;
-  font-weight: bold;
-  font-size: 1.1rem;
+  display:flex; align-items:center;
+  padding:10px 20px; background:#1f1f1f;
+  color:#fff; border-bottom:1px solid #333;
 `;
 
 const Avatar = styled.img`
-  width: 2rem;
-  height: 2rem;
-  border-radius: 50%;
-  margin-right: 10px;
+  width:32px; height:32px;
+  border-radius:50%; margin-right:10px;
 `;
 
 const RoomActions = styled.div`
-  position: absolute;
-  right: 20px;
-  top: 50%;
-  transform: translateY(-50%);
-  display: flex;
-  gap: 10px;
+  margin-left:auto; display:flex; gap:12px;
 `;
 
 const ActionButton = styled.button`
-  background: transparent;
-  border: none;
-  color: #fff;
-  font-size: 1.2rem;
-  cursor: pointer;
-  &:hover { color: #00bfa5; }
+  background:none; border:none; color:#fff;
+  cursor:pointer; font-size:1.2rem;
 `;
 
 const MessageContainer = styled.div`
-  flex: 1;
-  padding: 20px;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  background: #181818;
+  flex:1; padding:20px; overflow-y:auto;
+  display:flex; flex-direction:column; gap:12px;
 `;
 
-const MessageBubble = styled.div`
-  max-width: 75%;
-  padding: ${({ isFile }) => (isFile ? "5px" : "10px 15px")};
-  border-radius: 12px;
-  background: ${({ isSender, isSystem, userColor }) =>
-  isSystem
-    ? "#555"               
-    : isSender
-      ? "#3a3f55"          
-      : userColor || "#444" 
-};
-color: #fff;
+// const ActionLink = styled(Link)`
+//   background:none; border:none; color:#fff;
+//   cursor:pointer; font-size:1.2rem;
+//   display: flex;
+//   align-items: center;
+//   justify-content: center;
+// `;
 
-  align-self: ${({ isSender, isSystem }) =>
-    isSystem ? "center" : isSender ? "flex-end" : "flex-start"};
-  text-align: ${({ isSystem }) => (isSystem ? "center" : "left")};
-  font-style: ${({ isSystem }) => (isSystem ? "italic" : "normal")};
-  opacity: ${({ isSystem }) => (isSystem ? 0.8 : 1)};
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
+const MessageBubble = styled.div`
+   max-width: ${p =>
+    p.isSystem
+      ? "60%"
+      : p.isFile
+      ? "40%"
+      : "100%"};
+  padding: ${p => (p.isSystem ? "0" : p.isFile ? "6px" : "10px 14px")};
+
+  background: transparent;
+
+  border-radius: ${p => (p.isSystem ? "0" : "12px")};
+
+  align-self: ${p =>
+    p.isSystem
+      ? "center"
+      : p.isSender
+      ? "flex-end"
+      : "flex-start"};
+
+  
+
+  color: ${p =>
+    p.isSystem
+      ? p.systemType === "join"
+        ? "#2ecc71"  
+        : "#e74c3c" 
+      : "#fff"};
+
+  font-size: ${p => (p.isSystem ? "13px" : "14px")};
+  font-style: ${p => (p.isSystem ? "italic" : "normal")};
+  opacity: ${p => (p.isSystem ? 0.9 : 1)};
+  text-align: left;
+`;
+
+
+const Username = styled.div`
+  font-size:.75rem;
+  font-weight:bold;
+  color:${p => p.color};
+  margin-bottom:4px;
+`;
+
+const Timestamp = styled.div`
+  font-size:.65rem;
+  color:#aaa; text-align:right;
+  margin-top:4px;
 `;
 
 const FileCard = styled.div`
-  background: #222;
-  border-radius: 10px;
-  padding: 5px;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  position: relative;
-`;
-
-// const FileName = styled.span`
-//   font-size: 0.8rem;
-//   color: #ccc;
-//   font-weight: bold;
-// `;
-
-// const FileActions = styled.div`
-//   display: flex;
-//   justify-content: flex-end;
-//   gap: 10px;
-// `;
-
-const Timestamp = styled.span`
-  font-size: 0.7rem;
-  color: #ccc;
-  position: absolute;
-  bottom: -15px;
-  right: 10px;
+  background:#1c1c1c;
+  border-radius:10px;
+  padding:6px;
 `;
 
 const TypingIndicator = styled.div`
-  font-size: 0.8rem;
-  color: #aaa;
-  font-style: italic;
-  animation: ${glow} 1.5s infinite;
+  font-size:.8rem; color:#aaa;
+  animation:${glow} 1.5s infinite;
+`;
+
+const JoinContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 320px;
+`;
+
+const JoinInput = styled.input`
+  padding: 12px 16px;
+  border-radius: 25px;
+  border: 1px solid #333;
+  background: #1e1e1e;
+  color: #fff;
+  outline: none;
+
+  ::placeholder {
+    color: #aaa;
+  }
+`;
+
+const JoinButton = styled.button`
+  padding: 12px;
+  border-radius: 25px;
+  border: none;
+  background: #00bfa5;
+  color: #000;
+  font-weight: bold;
+  cursor: pointer;
+`;
+
+const PreviewOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+   backdrop-filter: blur(4px);
+  background: rgba(0,0,0,0.8);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+`;
+
+const PreviewModal = styled.div`
+  background: #1f1f1f;
+  border-radius: 14px;
+  max-width: 90%;
+  max-height: 90%;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+`;
+
+const PreviewContent = styled.div`
+  max-height: 70vh;
+  overflow: auto;
+
+  img, video {
+    max-width: 100%;
+    border-radius: 10px;
+  }
+`;
+
+const PreviewActions = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+`;
+
+const PreviewButton = styled.button`
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-weight: bold;
+`;
+
+const CancelBtn = styled(PreviewButton)`
+  background: #444;
+  color: #fff;
+`;
+
+const SendBtn = styled(PreviewButton)`
+  background: #00bfa5;
+  color: #000;
 `;
 
 const MessageInputContainer = styled.div`
@@ -142,6 +221,7 @@ const MessageInputContainer = styled.div`
   padding: 10px 20px;
   background: #1f1f1f;
   border-top: 1px solid #333;
+  gap: 10px; /* consistent spacing between elements */
 `;
 
 const MessageInput = styled.input`
@@ -152,315 +232,702 @@ const MessageInput = styled.input`
   background: #121212;
   color: #fff;
   outline: none;
+
+  ::placeholder {
+    color: #aaa;
+  }
 `;
 
-const FileInput = styled.input` display: none; `;
+const FileInput = styled.input`
+  display: none;
+`;
+
 const FileUploadLabel = styled.label`
-  margin-right: 10px;
   font-size: 1.3rem;
   cursor: pointer;
   color: #fff;
 `;
+
 const SendButton = styled.button`
-  margin-left: 10px;
-  padding: 10px 12px;
+  padding: 10px;
   border-radius: 50%;
   border: none;
   background: #00bfa5;
   color: #000;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 `;
 
-const JoinRoomContainer = styled.div`
+/* ================= GIF PICKER IMPROVED ================= */
+
+const GifPickerOverlay = styled(PreviewOverlay)`
+  background: rgba(0, 0, 0, 0.9);
+  backdrop-filter: blur(5px);
+`;
+
+const GifPickerModal = styled(PreviewModal)`
+  width: 90%;
+  max-width: 640px;   /* desktop cap */
+  max-height: 80vh;
+
+  padding: 16px;
+  background: #1f1f1f;
+  border-radius: 16px;
+
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  height: 100%;
-  align-items: center;
-  color: #fff;
+  gap: 12px;
+
+  box-shadow: 0 6px 24px rgba(0,0,0,0.5);
+
+  @media (min-width: 768px) {
+    width: 60%;
+  }
+
+  @media (min-width: 1024px) {
+    width: 45%;
+  }
 `;
 
-const GlowingInput = styled.input`
-  width: 250px;
+
+const GifPickerHeader = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+`;
+
+const GifSearchInput = styled.input`
+  flex: 1;
   padding: 12px;
-  margin-bottom: 10px;
   border-radius: 25px;
-  border: 2px solid #333;
+  border: 1px solid #333;
   background: #121212;
   color: #fff;
+  font-size: 0.95rem;
+  outline: none;
+  box-sizing: border-box;
+
+  ::placeholder {
+    color: #aaa;
+  }
 `;
 
-const JoinButton = styled.button`
-  padding: 12px 25px;
-  border-radius: 25px;
-  border: none;
+const SearchGifButton = styled.button`
   background: #00bfa5;
+  border: none;
+  color: #000;
+  border-radius: 25px;
+  padding: 8px 12px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: #00d8b0;
+  }
+`;
+
+const CloseGifPickerButton = styled.button`
+  background: #ff4d4d;
+  border: none;
+  color: #fff;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  font-weight: bold;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: #ff6666;
+  }
+`;
+
+const GifGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 4px; /* very small gap so no visible white space */
+  overflow-y: auto;
+  max-height: 65vh;
+  justify-items: center;
+  scroll-behavior: smooth;
+`;
+
+const GifCard = styled.div`
+  position: relative;
+  width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  cursor: pointer;
+  background: #000;
+  aspect-ratio: 1 / 1; /* square cards for uniform layout */
+`;
+
+const GifItem = styled.img`
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* fill the card, no gaps */
+  transition: transform 0.2s, box-shadow 0.2s;
+
+  &:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 12px rgba(0,0,0,0.5);
+  }
+`;
+
+const CardOverlay = styled.div`
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.25);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  opacity: 0;
+  transition: opacity 0.2s;
+
+  ${GifCard}:hover & {
+    opacity: 1;
+  }
+`;
+
+const OverlayButton = styled.button`
+  background: #00bfa5;
+  color: #000;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 12px;
   cursor: pointer;
   font-weight: bold;
+  opacity: 0.9;
+  font-size: 0.85rem;
+  transition: all 0.2s;
+
+  &:hover {
+    background: #00d8b0;
+    opacity: 1;
+  }
 `;
 
-const ChatRoom = () => {
-  const [message, setMessage] = useState("");
-  const [messages, setMessages] = useState([]);
+
+
+/* ================= COMPONENT ================= */
+
+export default function ChatRoom() {
+  const socketRef = useRef(null);
+  const audioRef = useRef(new Audio(notificationSound));
+  const fileChunksRef = useRef({});
+  const userColorsRef = useRef({});
+
   const [joined, setJoined] = useState(false);
   const [roomId, setRoomId] = useState("");
   const [userName, setUserName] = useState("");
   const [securityCode, setSecurityCode] = useState("");
-  const [errorMessage, setErrorMessage] = useState("");
+  const [messages, setMessages] = useState([]);
+  const [message, setMessage] = useState("");
   const [typingUsers, setTypingUsers] = useState([]);
+
+  const [pendingFile, setPendingFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState(null);
+  const [fullscreen, setFullscreen] = useState(null);
+  const typingTimeout = useRef(null);
+  const fileInputRef = useRef(null);
   const [ownerToken, setOwnerToken] = useState("");
   const [onlineCount, setOnlineCount] = useState(0);
-  const audioRef = useRef(new Audio(notificationSound));
-  const fileChunksRef = useRef({});
-  const typingTimeout = useRef(null);
-  const urlRegex = /(https?:\/\/[^\s]+)/g;
-  const userColorsRef = useRef({}); 
 
-   const socketRef = useRef(null);
+  const [showGifPicker, setShowGifPicker] = useState(false);
+const [gifQuery, setGifQuery] = useState("");
 
-useEffect(() => {
-  socketRef.current = io(process.env.REACT_APP_SOCKET_ENDPOINT);
-
-  return () => {
-    socketRef.current?.disconnect();
-  };
-}, []);
+const [gifs, setGifs] = useState([]);
+const [gifOffset, setGifOffset] = useState(0); // track offset
+const [hasMoreGifs, setHasMoreGifs] = useState(true);
+const GIF_LIMIT = 30;
 
 
-  // Function to get a color for a username
-const getUsernameColor = (name) => {
-  if (!userColorsRef.current[name]) {
-    // Assign a random color from the palette
-    const color = colorPalette[Object.keys(userColorsRef.current).length % colorPalette.length];
-    userColorsRef.current[name] = color;
+
+const fetchGifs = async (query = "", offset = 0) => {
+  const API_KEY = process.env.REACT_APP_GIPHY_API_KEY;
+  const url = query
+    ? `https://api.giphy.com/v1/gifs/search?api_key=${API_KEY}&q=${query}&limit=${GIF_LIMIT}&offset=${offset}`
+    : `https://api.giphy.com/v1/gifs/trending?api_key=${API_KEY}&limit=${GIF_LIMIT}&offset=${offset}`;
+
+  try {
+    const res = await fetch(url);
+    const data = await res.json();
+    if (data.data.length < GIF_LIMIT) setHasMoreGifs(false); // no more GIFs
+    if (offset === 0) setGifs(data.data);
+    else setGifs(prev => [...prev, ...data.data]); // append
+  } catch (err) {
+    console.error("Error fetching GIFs:", err);
   }
-  return userColorsRef.current[name];
 };
 
-  const handleTyping = (value) => {
-    socketRef.current.emit("typing", value.length > 0);
-    clearTimeout(typingTimeout.current);
-    typingTimeout.current = setTimeout(() => socketRef.current.emit("typing", false), 1000);
+const gifGridRef = useRef(null);
+
+useEffect(() => {
+  const grid = gifGridRef.current;
+  if (!grid) return;
+
+  const handleScroll = () => {
+    if (grid.scrollTop + grid.clientHeight >= grid.scrollHeight - 10 && hasMoreGifs) {
+      fetchGifs(gifQuery, gifOffset + GIF_LIMIT);
+      setGifOffset(prev => prev + GIF_LIMIT);
+    }
   };
+
+  grid.addEventListener("scroll", handleScroll);
+  return () => grid.removeEventListener("scroll", handleScroll);
+}, [gifOffset, gifQuery, hasMoreGifs]);
+  
+
+
+  /* ================= HELPERS ================= */
+
+  const getColor = name => {
+    if (!userColorsRef.current[name]) {
+      userColorsRef.current[name] =
+        colorPalette[Object.keys(userColorsRef.current).length % colorPalette.length];
+    }
+    return userColorsRef.current[name];
+  };
+
+  const extractYoutubeId = url => {
+  try {
+    const u = new URL(url);
+    if (u.hostname.includes("youtu.be")) {
+      return u.pathname.slice(1);
+    }
+    if (u.hostname.includes("youtube.com")) {
+      return u.searchParams.get("v");
+    }
+  } catch {}
+  return null;
+};
+
+const handleDestroyRoom = () => {
+  if (!roomId || !ownerToken) return;
+
+  // Only the owner gets the confirmation
+  const confirmDestroy = window.confirm(
+    "Destroy this room? All messages will be lost!"
+  );
+  if (!confirmDestroy) return;
+
+  // Emit destroy event to server
+  socketRef.current.emit("destroyRoom", { roomId, token: ownerToken });
+
+  // Owner also clears local state
+  setMessages([]);
+  setJoined(false);
+};
+
+
+
+  /* ================= SOCKET ================= */
+
+  useEffect(() => {
+    socketRef.current = io(process.env.REACT_APP_SOCKET_ENDPOINT);
+    return () => socketRef.current.disconnect();
+  }, []);
 
   useEffect(() => {
     if (!joined) return;
 
     socketRef.current.emit("joinRoom", { roomId, userName });
 
-    socketRef.current.on("newMessage", (msg) => {
-      if (msg.userName === "System") {
-        if (msg.text.includes("joined the room"))
-          msg.text = msg.userNameRef === userName ? "You joined the room" : `${msg.userNameRef} joined the room`;
-        if (msg.text.includes("left the room"))
-          msg.text = msg.userNameRef === userName ? "You left the room" : `${msg.userNameRef} left the room`;
-      }
 
-      setMessages(prev => [...prev, msg]);
-      if (msg.userName !== userName && msg.userName !== "System") audioRef.current.play().catch(() => {});
+    socketRef.current.on("newMessage", msg => {
+      setMessages(m => [...m, msg]);
+      if (msg.userName !== userName) audioRef.current.play().catch(()=>{});
     });
 
     socketRef.current.on("presence", ({ online }) => setOnlineCount(online.length));
-    socketRef.current.on("typing", (users) => setTypingUsers(users.filter(u => u !== userName)));
 
-    socketRef.current.on("receiveFileChunk", ({ chunk, chunkIndex, totalChunks, fileName, fileType, userName: senderName }) => {
-      if (!fileChunksRef.current[fileName]) fileChunksRef.current[fileName] = [];
-      fileChunksRef.current[fileName][chunkIndex] = chunk;
+    socketRef.current.on("typing", users =>
+      setTypingUsers(users.filter(u => u !== userName))
+    );
+  socketRef.current.on("roomDestroyed", () => {
+    alert("Room has been destroyed. Reloading...");
+    window.location.reload();
+  });
 
-      const receivedChunks = fileChunksRef.current[fileName].filter(Boolean).length;
-      if (receivedChunks === totalChunks) {
-        const blob = new Blob(fileChunksRef.current[fileName], { type: fileType || 'application/octet-stream' });
-        const url = URL.createObjectURL(blob);
-        setMessages(prev => [...prev, { userName: senderName, file: { name: fileName, url, type: fileType || 'application/octet-stream' }, ts: Date.now() }]);
-         if (senderName !== userName) {
-        audioRef.current.currentTime = 0;
-        audioRef.current.play().catch(() => {});
+   socketRef.current.on("receiveFileChunk", data => {
+  const {
+    fileId,
+    chunk,
+    chunkIndex,
+    totalChunks,
+    fileName,
+    fileType,
+    userName: senderName
+  } = data;
+
+  if (!fileChunksRef.current[fileId]) {
+    fileChunksRef.current[fileId] = [];
+  }
+
+  fileChunksRef.current[fileId][chunkIndex] = chunk;
+
+  if (fileChunksRef.current[fileId].filter(Boolean).length === totalChunks) {
+    const blob = new Blob(fileChunksRef.current[fileId], { type: fileType });
+    const url = URL.createObjectURL(blob);
+
+    setMessages(m => [
+      ...m,
+      {
+        userName: senderName,
+        file: { name: fileName, url, type: fileType },
+        ts: Date.now()
       }
-        delete fileChunksRef.current[fileName];
-      }
-    });
+    ]);
+     if (senderName !== userName) audioRef.current.play().catch(()=>{});
+    delete fileChunksRef.current[fileId];
+  }
+});
 
     socketRef.current.on("roomOwner", (token) => setOwnerToken(token));
-    socketRef.current.on("roomDestroyed", () => { alert("Room was destroyed!"); setJoined(false); setMessages([]); });
 
-    return () => {
-      socketRef.current.off("newMessage"); socketRef.current.off("typing"); socketRef.current.off("receiveFileChunk");
-      socketRef.current.off("roomOwner"); socketRef.current.off("roomDestroyed");
-    };
+    return () => socketRef.current.off();
   }, [joined, roomId, userName]);
 
-  const handleJoinRoom = () => {
-    if (!roomId || !userName) return setErrorMessage("Enter room and name");
-    if (!SECURITY_CODE.includes(securityCode)) return setErrorMessage("Invalid security code");
-    setJoined(true);
-    setErrorMessage("");
+  /* ================= FILE HANDLING ================= */
+
+ const uploadFile = file => {
+  const fileId = `${socketRef.current.id}-${Date.now()}-${file.name}`;
+  let chunkIndex = 0;
+  const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+  const reader = new FileReader();
+
+  reader.onload = e => {
+    socketRef.current.emit("sendFileChunk", {
+      roomId,
+      fileId,
+      chunk: e.target.result,
+      chunkIndex,
+      totalChunks,
+      fileName: file.name,
+      fileType: file.type,
+      userName
+    });
+
+    chunkIndex++;
+    if (chunkIndex < totalChunks) read();
   };
 
-  const handleSendMessage = () => {
+  const read = () => {
+    const start = chunkIndex * CHUNK_SIZE;
+    reader.readAsArrayBuffer(file.slice(start, start + CHUNK_SIZE));
+  };
+
+  read();
+};
+
+
+  /* ================= PASTE SUPPORT ================= */
+
+  useEffect(() => {
+    const onPaste = e => {
+      const item = [...e.clipboardData.items].find(i => i.kind === "file");
+      if (item) {
+        const file = item.getAsFile();
+        setPendingFile(file);
+        setPreviewUrl(URL.createObjectURL(file));
+      }
+    };
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  }, []);
+
+  /* ================= SEND ================= */
+
+  const handleSend = () => {
+    if (pendingFile) {
+      uploadFile(pendingFile);
+      setPendingFile(null);
+      setPreviewUrl(null);
+      return;
+    }
     if (!message.trim()) return;
-    socketRef.current.emit("sendMessage", { text: message, userName, ts: Date.now() });
+    socketRef.current.emit("sendMessage", { text:message, userName, ts:Date.now() });
     setMessage("");
   };
 
-  const handleFileUpload = (e) => {
-    const file = e.target.files[0]; if (!file) return;
-    const totalChunks = Math.ceil(file.size / CHUNK_SIZE); let chunkIndex = 0; const reader = new FileReader();
-    const loadNext = () => { const start = chunkIndex * CHUNK_SIZE; const end = Math.min(file.size, start + CHUNK_SIZE); reader.readAsArrayBuffer(file.slice(start, end)); };
-    reader.onload = (ev) => {
-      socketRef.current.emit("sendFileChunk", { roomId, chunk: ev.target.result, chunkIndex, totalChunks, fileName: file.name, fileType: file.type, userName });
-      chunkIndex++; if (chunkIndex < totalChunks) loadNext();
-    };
-    loadNext();
-  };
+  const handleTyping = (value) => { socketRef.current.emit("typing", value.length > 0); clearTimeout(typingTimeout.current); typingTimeout.current = setTimeout(() => socketRef.current.emit("typing", false), 1000); };
 
-  const handleDestroyRoom = () => {
-    if (!roomId || !ownerToken) return;
-    if (window.confirm("Destroy this room? All messages will be lost!")) {
-      socketRef.current.emit("destroyRoom", { roomId, token: ownerToken });
-      setMessages([]);
-      setJoined(false);
-    }
-  };
+  /* ================= UI ================= */
 
-  if (!joined) return (
-    <ChatContainer>
-      <JoinRoomContainer>
-        <h2>Join Room</h2>
-        <GlowingInput placeholder="Room" value={roomId} onChange={(e) => setRoomId(e.target.value)} />
-        <GlowingInput placeholder="Name" value={userName} onChange={(e) => setUserName(e.target.value)} />
-        <GlowingInput placeholder="Security Code" value={securityCode} onChange={(e) => setSecurityCode(e.target.value)} />
-        {errorMessage && <p style={{ color: "red" }}>{errorMessage}</p>}
-        <JoinButton onClick={handleJoinRoom}>Join</JoinButton>
-      </JoinRoomContainer>
+if (!joined) {
+  return (
+    <ChatContainer style={{ justifyContent: "center", alignItems: "center" }}>
+      <JoinContainer>
+        <h2 style={{ color: "#fff", textAlign: "center" }}>Join Room</h2>
+
+        <JoinInput
+          placeholder="Room"
+          value={roomId}
+          onChange={e => setRoomId(e.target.value)}
+        />
+
+        <JoinInput
+          placeholder="Name"
+          value={userName}
+          onChange={e => setUserName(e.target.value)}
+        />
+
+        <JoinInput
+          placeholder="Security Code"
+          value={securityCode}
+          onChange={e => setSecurityCode(e.target.value)}
+        />
+
+        <JoinButton
+          onClick={() => {
+            if (SECURITY_CODE.includes(securityCode)) setJoined(true);
+          }}
+        >
+          Join
+        </JoinButton>
+      </JoinContainer>
     </ChatContainer>
   );
+}
+
 
   return (
     <ChatContainer>
       <Header>
-        <Avatar src={image} />
+        <Avatar src={image}/>
         <span>{roomId} ({onlineCount} online)</span>
         <RoomActions>
-          <ActionButton><FaVideo /></ActionButton>
-          <ActionButton><FaPhoneAlt /></ActionButton>
-          <ActionButton><CiStreamOn /></ActionButton>
-           {ownerToken && (
-            <ActionButton onClick={handleDestroyRoom} style={{ color: "red" }}>
-              ✖
-            </ActionButton>
-          )}
+          {/* <ActionButton><FaVideo/></ActionButton>
+          <ActionButton><FaPhoneAlt/></ActionButton>
+          <ActionLink to="/live-stream">
+  <CiStreamOn />
+</ActionLink> */}
+
+          {ownerToken && ( <ActionButton onClick={handleDestroyRoom} style={{ color: "red" }}> ✖ </ActionButton> )}
         </RoomActions>
       </Header>
 
-   <MessageContainer>
-  {messages.map((msg, idx) => (
-    <MessageBubble
-      key={idx}
-      isSender={msg.userName === userName}
-      isSystem={msg.userName === "System"}
-      isFile={!!msg.file}
-      style={{ marginBottom: "15px", fontSize: msg.userName === "System" ? "0.85rem" : "0.9rem" }}
-    >
-      {/* SYSTEM MESSAGE */}
-      {msg.userName === "System" && (
-        <div
-          style={{
-            color: "#00bfa5",
-            fontStyle: "italic",
-            textAlign: "center",
-            fontSize: "0.85rem",
-            marginBottom: "5px",
-          }}
-        >
-          {msg.text}
-        </div>
-      )}
+      <MessageContainer>
+        {messages.map((m,i)=>{
+            const isSystem =
+            m.type === "system";
+            const systemType = isSystem ? m.action : null;
 
-      {/* FILE MESSAGE */}
-      {msg.file && (
-        <FileCard style={{ marginBottom: "5px" }}>
-          {msg.file.type.startsWith("image/") && (
-            <img alt={msg.file.name} src={msg.file.url} style={{ width: "100%", borderRadius: 10 }} />
-          )}
-          {msg.file.type.startsWith("video/") && (
-            <video src={msg.file.url} controls style={{ width: "100%", borderRadius: 10 }} />
-          )}
-          {msg.file.type.startsWith("audio/") && (
-            <audio
-  src={msg.file.url}
-  controls
-  style={{
-    height: "40px",
-    borderRadius: "8px",
-    backgroundColor: "#222",
-  }}
-/>
-          )}
-          {msg.file.type === "application/pdf" && (
-            <iframe title={msg.file.name} src={msg.file.url} style={{ width: "100%", height: 250, borderRadius: 10 }} />
-          )}
-          {!msg.file.type.startsWith("image/") &&
-           !msg.file.type.startsWith("video/") &&
-           !msg.file.type.startsWith("audio/") &&
-           msg.file.type !== "application/pdf" && (
-            <a href={msg.file.url} download={msg.file.name} style={{ color: "#00bfa5", fontSize: "0.9rem" }}>
-              📎 {msg.file.name}
-            </a>
-          )}
-        </FileCard>
-      )}
+            if (isSystem && m.userName === userName) return null;
 
-      {/* TEXT MESSAGE */}
-{!msg.file && msg.userName !== "System" && (
-  <div style={{ marginBottom: "5px", fontSize: "0.9rem" }}>
-    {msg.userName !== userName && (
-      <strong
-        style={{
-          fontSize: "0.85rem",
-          color: getUsernameColor(msg.userName),
-          fontWeight: "bold",
-        }}
-      >
-        {msg.userName}
-      </strong>
-    )}
-    <div>
-      {msg.text.split(urlRegex).map((part, i) =>
-        urlRegex.test(part) ? (
-          <a
-            key={i}
-            href={part}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ fontSize: "0.9rem", color: "#fff" }}
-          >
-            {part}
-          </a>
-        ) : (
-          part
-        )
-      )}
-    </div>
-  </div>
+          return (
+          <MessageBubble key={i} isSender={m.userName===userName} isSystem={isSystem}  systemType={systemType} isFile={!!m.file}>
+            {m.userName!==userName && !isSystem && (
+              <Username color={getColor(m.userName)}>{m.userName}</Username>
+            )}
+
+            {isSystem && (
+  <span>
+    {m.userName} {systemType === "join" ? "joined" : "left"} the room
+  </span>
+)}
+
+           {!isSystem && m.text && m.text.split(urlRegex).map((part, j) => {
+  if (!part.startsWith("http")) return part;
+
+  const ytId = extractYoutubeId(part);
+
+  if (ytId) {
+    return (
+        <iframe
+          src={`https://www.youtube.com/embed/${ytId}`}
+          style={{border:'0px', padding:0, margin:0, width:'100%', height:'200px', borderRadius:'8px'}}
+          title="YouTube video"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen
+        />
+    );
+  }
+
+  return (
+    <a key={j} href={part} target="_blank" rel="noreferrer">
+      {part}
+    </a>
+  );
+})}
+
+
+            {m.file && (
+              <FileCard onClick={()=>setFullscreen(m.file)}>
+                {m.file.type === "application/pdf" && ( <iframe title={m.file.name} src={m.file.url} style={{ width: "100%", height: 250, borderRadius: 10 }} /> )}
+                {m.file.type.startsWith("image") && <img alt={m.file.name} src={m.file.url} style={{width:"100%"}} />}
+                {m.file.type.startsWith("video") && <video src={m.file.url} controls style={{width:"100%"}} />}
+                {m.file.type.startsWith("audio") && <audio src={m.file.url} controls />}
+                {m.gif && (
+  <img
+    src={m.gif}
+    alt="GIF"
+    style={{ maxWidth: "200px", borderRadius: 10 }}
+    onClick={() => setFullscreen({ url: m.gif, type: "image" })}
+  />
+)}
+
+                {!m.file.type.startsWith("image/") && !m.file.type.startsWith("video/") && !m.file.type.startsWith("audio/") && m.file.type !== "application/pdf" && ( <a href={m.file.url} download={m.file.name} style={{ color: "#00bfa5", fontSize: "0.9rem" }}> 📎 {m.file.name} </a> )}
+              </FileCard>
+            )}
+
+            <Timestamp>{new Date(m.ts).toLocaleTimeString()}</Timestamp>
+          </MessageBubble>
+          );
+        })}
+        {typingUsers.length>0 && <TypingIndicator>{typingUsers.join(", ")} typing...</TypingIndicator>}
+      </MessageContainer>
+
+      {showGifPicker && (
+  <GifPickerOverlay onClick={() => {
+    setShowGifPicker(false);
+      setGifQuery("");     
+      setGifs([]);          
+      setGifOffset(0);     
+      setHasMoreGifs(true);
+  }}>
+    <GifPickerModal onClick={e => e.stopPropagation()}>
+     <GifPickerHeader>
+  <GifSearchInput
+    placeholder="Search GIFs..."
+    value={gifQuery}
+    onChange={e => setGifQuery(e.target.value)}
+    onKeyDown={e => e.key === "Enter" && fetchGifs(gifQuery)}
+  />
+  <SearchGifButton onClick={() => fetchGifs(gifQuery)}><FaSearch /></SearchGifButton>
+  <CloseGifPickerButton onClick={() => {
+    setShowGifPicker(false);
+    setGifQuery("");      
+    setGifs([]);          // clear GIF results
+    setGifOffset(0);      // reset offset
+    setHasMoreGifs(true);
+  }}><AiOutlineClose /></CloseGifPickerButton>
+</GifPickerHeader>
+
+
+ <GifGrid ref={gifGridRef}>
+  {gifs.map(gif => (
+    <GifCard key={gif.id}>
+      <GifItem src={gif.images.fixed_height.url} alt={gif.title} loading="lazy" />
+      <CardOverlay>
+        <OverlayButton onClick={async () => {
+          try {
+            const res = await fetch(gif.images.fixed_height.url);
+            const blob = await res.blob();
+            const file = new File([blob], `GIF-${Date.now()}.gif`, { type: "image/gif" });
+            uploadFile(file);
+          } catch (err) {
+            console.error("Failed to send GIF:", err);
+          }
+        }}>
+          <FaPaperPlane style={{ size: 'sm'}}/>
+        </OverlayButton>
+      </CardOverlay>
+    </GifCard>
+  ))}
+</GifGrid>
+
+    </GifPickerModal>
+  </GifPickerOverlay>
+)}
+
+     {pendingFile && (
+  <PreviewOverlay onClick={() => setPendingFile(null)}>
+    <PreviewModal onClick={e => e.stopPropagation()}>
+      {/* <h3 style={{ color: "#fff", margin: 0 , textAlign: 'center'}}>Send file?</h3> */}
+
+      <PreviewContent>
+        {pendingFile.type.startsWith("image") && (
+          <img alt={pendingFile.name} src={previewUrl} />
+        )}
+
+        {pendingFile.type.startsWith("video") && (
+          <video src={previewUrl} controls />
+        )}
+
+        {pendingFile.type.startsWith("audio") && (
+          <audio src={previewUrl} controls />
+        )}
+      </PreviewContent>
+
+      <PreviewActions>
+        <CancelBtn onClick={() => {
+          setPendingFile(null);
+          setPreviewUrl(null);
+          if (fileInputRef.current) fileInputRef.current.value = "";
+        }}>
+         <AiOutlineClose />
+        </CancelBtn>
+
+        <SendBtn onClick={() => {
+  handleSend();        
+  setPendingFile(null); 
+  setPreviewUrl(null);
+  if (fileInputRef.current) fileInputRef.current.value = "";
+}}>
+  <FaPaperPlane />
+</SendBtn>
+
+      </PreviewActions>
+    </PreviewModal>
+  </PreviewOverlay>
 )}
 
 
-      <Timestamp style={{ fontSize: "0.7rem" }}>{new Date(msg.ts).toLocaleTimeString()}</Timestamp>
-    </MessageBubble>
-  ))}
-
-  {typingUsers.length > 0 && <TypingIndicator style={{ fontSize: "0.8rem" }}>{typingUsers.join(", ")} typing...</TypingIndicator>}
-</MessageContainer>
-
-
       <MessageInputContainer>
-        <FileUploadLabel htmlFor="file-input"><FaFileUpload /></FileUploadLabel>
-        <FileInput id="file-input" type="file" onChange={handleFileUpload} />
-        <MessageInput placeholder="Type a message..." value={message} onChange={(e) => { setMessage(e.target.value); handleTyping(e.target.value); }} onKeyDown={(e) => e.key==="Enter" && handleSendMessage()} />
-        <SendButton onClick={handleSendMessage}><FaPaperPlane /></SendButton>
-      </MessageInputContainer>
+  <FileUploadLabel htmlFor="file-input">
+    
+    <FaFileUpload />
+  </FileUploadLabel>
+
+ <FileInput
+  ref={fileInputRef}
+  id="file-input"
+  type="file"
+  onChange={(e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setPendingFile(null);
+    setPreviewUrl(null);
+
+    setPendingFile(file);
+    setPreviewUrl(URL.createObjectURL(file));
+  }}
+/>
+
+
+  <MessageInput
+    placeholder="Type a message..."
+    value={message}
+    onChange={(e) => {
+      setMessage(e.target.value);
+      handleTyping?.(e.target.value);
+    }}
+    onKeyDown={(e) => e.key === "Enter" && handleSend?.()}
+  />
+   <FileUploadLabel onClick={() => { setShowGifPicker(true); fetchGifs(); }}>
+    <HiGif /> 
+  </FileUploadLabel>
+
+  <SendButton onClick={handleSend}>
+    <FaPaperPlane />
+  </SendButton>
+</MessageInputContainer>
+
+      {fullscreen && (
+        <div onClick={()=>setFullscreen(null)} style={{
+          position:"fixed", inset:0, background:"rgba(0,0,0,.9)",
+          display:"flex", justifyContent:"center", alignItems:"center"
+        }}>
+          {fullscreen.type.startsWith("image") && <img alt={fullscreen.name} src={fullscreen.url} style={{maxWidth:"90%"}} />}
+          {fullscreen.type.startsWith("video") && <video src={fullscreen.url} controls autoPlay style={{maxWidth:"90%"}} />}
+        </div>
+      )}
     </ChatContainer>
   );
-};
-
-export default ChatRoom;
+}
