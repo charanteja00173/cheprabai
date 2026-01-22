@@ -8,6 +8,7 @@ import ChatRoom from './components/Chat';
 import styled from 'styled-components';
 import VideoCall from './components/VideoCall';
 import LiveStream from './components/LiveStream';
+import { ChakraProvider } from '@chakra-ui/react';
 
 // const ThemeToggle = styled.button`
 //   position: fixed;
@@ -50,6 +51,7 @@ const App = () => {
     <ThemeProvider theme={darkTheme}>
       <GlobalStyle />
       <AppContainer>
+        <ChakraProvider>
         {/* <ThemeToggle onClick={toggleTheme} aria-label="Toggle Theme" >
           {isDarkMode ? <FaSun /> : <FaMoon />}
         </ThemeToggle> */}
@@ -60,6 +62,7 @@ const App = () => {
             <Route path="/live-stream" element={<LiveStream />} />
           </Routes>
         </Router>
+        </ChakraProvider>
       </AppContainer>
     </ThemeProvider>
   );

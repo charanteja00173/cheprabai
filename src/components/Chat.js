@@ -10,6 +10,7 @@ import image from "../logo192.png";
 import notificationSound from "../assets/iphone-sms.mp3";
 // import { Link } from 'react-router-dom';
 import { AiOutlineClose } from "react-icons/ai";
+import { useToast } from "@chakra-ui/react";
 
 /* ================= CONFIG ================= */
 
@@ -445,6 +446,7 @@ export default function ChatRoom() {
   const audioRef = useRef(new Audio(notificationSound));
   const fileChunksRef = useRef({});
   const userColorsRef = useRef({});
+  const toast = useToast();
 
   const [joined, setJoined] = useState(false);
   const [roomId, setRoomId] = useState("");
@@ -707,13 +709,30 @@ if (!joined) {
           onChange={e => setSecurityCode(e.target.value)}
         />
 
-        <JoinButton
-          onClick={() => {
-            if (SECURITY_CODE.includes(securityCode)) setJoined(true);
-          }}
-        >
-          Join
-        </JoinButton>
+  <JoinButton
+  onClick={() => {
+    const code = securityCode.trim();
+
+    if (!SECURITY_CODE.includes(code)) {
+      toast({
+  title: "Invalid security code",
+  description: "Please check and try again",
+  status: "error",
+  duration: 3000,
+  isClosable: true,
+  position: "top",
+});
+      return;
+    }
+
+    setJoined(true);
+  }}
+>
+  Join
+</JoinButton>
+
+
+
       </JoinContainer>
     </ChatContainer>
   );
