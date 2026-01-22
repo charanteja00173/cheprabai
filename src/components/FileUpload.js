@@ -1,6 +1,6 @@
-import React from 'react';
-import { motion } from 'framer-motion';
-import styled from 'styled-components';
+import React from "react";
+import { motion } from "framer-motion";
+import styled from "styled-components";
 
 const UploadContainer = styled(motion.div)`
   display: flex;
@@ -16,7 +16,7 @@ const UploadContainer = styled(motion.div)`
 
 const FileUpload = () => {
   const handleFileChange = (e) => {
-   // console.log(e.target.files[0]);
+    // console.log(e.target.files[0]);
   };
 
   return (

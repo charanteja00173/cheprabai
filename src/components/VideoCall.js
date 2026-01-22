@@ -1,8 +1,13 @@
-import React, { useState } from 'react';
-import styled, { keyframes } from 'styled-components';
-import { FaMicrophone, FaMicrophoneSlash, FaVideo, FaPhoneAlt } from 'react-icons/fa';
-import { Link } from 'react-router-dom';
-import { CiStreamOn } from 'react-icons/ci';
+import React, { useState } from "react";
+import styled, { keyframes } from "styled-components";
+import {
+  FaMicrophone,
+  FaMicrophoneSlash,
+  FaVideo,
+  FaPhoneAlt,
+} from "react-icons/fa";
+import { Link } from "react-router-dom";
+import { CiStreamOn } from "react-icons/ci";
 
 const fadeIn = keyframes`
   from {
@@ -107,7 +112,9 @@ const ControlButton = styled.button`
   padding: 10px;
   cursor: pointer;
   font-size: 1.5rem;
-  transition: transform 0.2s, color 0.2s;
+  transition:
+    transform 0.2s,
+    color 0.2s;
 
   &:hover {
     transform: scale(1.1);
@@ -135,16 +142,16 @@ const Toast = styled.div`
 
 const VideoCall = ({
   user = { name: "Jack", img: "https://i.pravatar.cc/150?img=12" },
-  remoteUser = { name: "Rose", img: "https://i.pravatar.cc/150?img=1" }
+  remoteUser = { name: "Rose", img: "https://i.pravatar.cc/150?img=1" },
 }) => {
-  const [toastMessage, setToastMessage] = useState('');
+  const [toastMessage, setToastMessage] = useState("");
   const [mute, setMute] = useState(false);
   const [normalCall, setNormalCall] = useState(false);
   const [showingRemote, setShowingRemote] = useState(true);
 
   const handleButtonClick = (action) => {
     setToastMessage(action);
-    setTimeout(() => setToastMessage(''), 3000);
+    setTimeout(() => setToastMessage(""), 3000);
   };
 
   const toggleVideoView = () => {
@@ -155,32 +162,32 @@ const VideoCall = ({
     <VideoContainer>
       <Header>
         <HeaderLink
-          onClick={() => handleButtonClick('Live Stream!')}
-          to='/live-stream'
+          onClick={() => handleButtonClick("Live Stream!")}
+          to="/live-stream"
         >
-          <CiStreamOn size={20} style={{ marginRight: '5%' }} color="#ffcc00" />
+          <CiStreamOn size={20} style={{ marginRight: "5%" }} color="#ffcc00" />
           Live Stream
         </HeaderLink>
         <UserInfo>
           {normalCall ? (
             <>
-              <FaPhoneAlt style={{ marginRight: '10px' }} /> Normal Call
+              <FaPhoneAlt style={{ marginRight: "10px" }} /> Normal Call
             </>
           ) : (
             <>
-              <FaVideo style={{ marginRight: '10px' }} /> Video Call
+              <FaVideo style={{ marginRight: "10px" }} /> Video Call
             </>
           )}
         </UserInfo>
         <HeaderLink
-          onClick={() => handleButtonClick('Call Ended!')}
-          to='/'
-          style={{ color: '#ff4d4f' }}
+          onClick={() => handleButtonClick("Call Ended!")}
+          to="/"
+          style={{ color: "#ff4d4f" }}
         >
           End Call
         </HeaderLink>
       </Header>
-      <VideoWrapper style={{ height: '75%' }}>
+      <VideoWrapper style={{ height: "75%" }}>
         {showingRemote ? (
           <>
             <RemoteVideo autoPlay playsInline />
@@ -191,7 +198,15 @@ const VideoCall = ({
               </UserInfo>
             </VideoOverlay>
             <LocalVideo autoPlay playsInline />
-            <VideoOverlay style={{ justifyContent: 'flex-end', alignItems: 'flex-end', bottom: '75px', right: '50px' }} onClick={toggleVideoView}>
+            <VideoOverlay
+              style={{
+                justifyContent: "flex-end",
+                alignItems: "flex-end",
+                bottom: "75px",
+                right: "50px",
+              }}
+              onClick={toggleVideoView}
+            >
               <UserInfo>
                 <img src={user.img} alt={user.name} />
                 <span>{user.name}</span>
@@ -208,7 +223,15 @@ const VideoCall = ({
               </UserInfo>
             </VideoOverlay>
             <RemoteVideo autoPlay playsInline style={{ flex: 1 }} />
-            <VideoOverlay style={{ justifyContent: 'flex-end', alignItems: 'flex-end', bottom: '75px', right: '50px' }} onClick={toggleVideoView}>
+            <VideoOverlay
+              style={{
+                justifyContent: "flex-end",
+                alignItems: "flex-end",
+                bottom: "75px",
+                right: "50px",
+              }}
+              onClick={toggleVideoView}
+            >
               <UserInfo>
                 <img src={remoteUser.img} alt={remoteUser.name} />
                 <span>{remoteUser.name}</span>
@@ -218,20 +241,30 @@ const VideoCall = ({
         )}
       </VideoWrapper>
       <Controls>
-        <ControlButton title={mute ? "Unmute" : "Mute"} onClick={() => {
-          setMute(!mute);
-          handleButtonClick(mute ? 'Unmuted' : 'Muted');
-        }}>
+        <ControlButton
+          title={mute ? "Unmute" : "Mute"}
+          onClick={() => {
+            setMute(!mute);
+            handleButtonClick(mute ? "Unmuted" : "Muted");
+          }}
+        >
           {mute ? <FaMicrophoneSlash /> : <FaMicrophone />}
         </ControlButton>
-        <ControlButton title={normalCall ? "Video Call" : "Normal Call"} onClick={() => {
-          setNormalCall(!normalCall);
-          handleButtonClick(normalCall ? 'shifted to video call' : 'shifted to normal call');
-        }}>
+        <ControlButton
+          title={normalCall ? "Video Call" : "Normal Call"}
+          onClick={() => {
+            setNormalCall(!normalCall);
+            handleButtonClick(
+              normalCall ? "shifted to video call" : "shifted to normal call",
+            );
+          }}
+        >
           {normalCall ? <FaVideo /> : <FaPhoneAlt />}
         </ControlButton>
       </Controls>
-      {toastMessage && <Toast className={toastMessage ? 'show' : ''}>{toastMessage}</Toast>}
+      {toastMessage && (
+        <Toast className={toastMessage ? "show" : ""}>{toastMessage}</Toast>
+      )}
     </VideoContainer>
   );
 };

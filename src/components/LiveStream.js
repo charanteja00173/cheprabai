@@ -1,18 +1,18 @@
-import React, { useState } from 'react';
-import styled from 'styled-components';
-import { FaMicrophone, FaMicrophoneSlash, FaTrashAlt } from 'react-icons/fa';
-import { CiStreamOn } from 'react-icons/ci';
-import { Link } from 'react-router-dom';
+import React, { useState } from "react";
+import styled from "styled-components";
+import { FaMicrophone, FaMicrophoneSlash, FaTrashAlt } from "react-icons/fa";
+import { CiStreamOn } from "react-icons/ci";
+import { Link } from "react-router-dom";
 
 const colors = {
-  background: '#0b0c1f',  
-  header: '#1f1f2c',   
-  cardBackground: '#292b40',
-  cardHover: '#3b3f5c',  
-  participantName: 'rgba(255, 255, 255, 0.85)', 
-  controlButtonBackground: 'rgba(255, 255, 255, 0.2)', 
-  controlButtonHover: 'rgba(255, 255, 255, 0.3)', 
-  controlOverlay: 'rgba(0, 0, 0, 0.5)',
+  background: "#0b0c1f",
+  header: "#1f1f2c",
+  cardBackground: "#292b40",
+  cardHover: "#3b3f5c",
+  participantName: "rgba(255, 255, 255, 0.85)",
+  controlButtonBackground: "rgba(255, 255, 255, 0.2)",
+  controlButtonHover: "rgba(255, 255, 255, 0.3)",
+  controlOverlay: "rgba(0, 0, 0, 0.5)",
 };
 
 const StreamContainer = styled.div`
@@ -69,23 +69,23 @@ const VideoStream = styled.div`
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-start; 
+  justify-content: flex-start;
   color: #ccc;
   font-weight: bold;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
   position: relative;
-  overflow: hidden; 
+  overflow: hidden;
   transition: background 0.3s;
 
   &:hover {
-    background: ${colors.cardHover}; 
+    background: ${colors.cardHover};
   }
 `;
 
 const ParticipantImage = styled.img`
   width: 100%;
   height: 100%;
-  object-fit: cover; 
+  object-fit: cover;
   border-radius: 10px 10px 0 0;
 `;
 
@@ -109,12 +109,12 @@ const ControlsOverlay = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
-  opacity: 0; 
+  opacity: 0;
   transition: opacity 0.3s;
   background: ${colors.controlOverlay};
 
   ${VideoStream}:hover & {
-    opacity: 1; 
+    opacity: 1;
   }
 `;
 
@@ -157,27 +157,33 @@ const LiveStream = () => {
   };
 
   const removeParticipant = (id) => {
-    setParticipants((prev) => prev.filter((participant) => participant.id !== id));
+    setParticipants((prev) =>
+      prev.filter((participant) => participant.id !== id),
+    );
   };
 
   const toggleMute = (id) => {
     setParticipants((prev) =>
       prev.map((participant) =>
-        participant.id === id ? { ...participant, isMuted: !participant.isMuted } : participant
-      )
+        participant.id === id
+          ? { ...participant, isMuted: !participant.isMuted }
+          : participant,
+      ),
     );
   };
 
   return (
     <StreamContainer>
       <Header>
-        <HeaderLink to='/call'>
-          <span style={{ color: 'green', textTransform:'none' }}>Video Call</span>
+        <HeaderLink to="/call">
+          <span style={{ color: "green", textTransform: "none" }}>
+            Video Call
+          </span>
         </HeaderLink>
-        <span style={{ display: 'flex', alignItems: 'center' }}>
+        <span style={{ display: "flex", alignItems: "center" }}>
           <HeaderIcon size={24} /> Live Stream
         </span>
-        <HeaderLink to='/' style={{ color: '#ff4d4f' }}>
+        <HeaderLink to="/" style={{ color: "#ff4d4f" }}>
           End Stream
         </HeaderLink>
       </Header>
@@ -189,7 +195,7 @@ const LiveStream = () => {
             <ControlsOverlay>
               <ControlButton onClick={() => toggleMute(participant.id)}>
                 {participant.isMuted ? <FaMicrophoneSlash /> : <FaMicrophone />}
-                {participant.isMuted ? 'Unmute' : 'Mute'}
+                {participant.isMuted ? "Unmute" : "Mute"}
               </ControlButton>
               <ControlButton onClick={() => removeParticipant(participant.id)}>
                 <FaTrashAlt /> Delete

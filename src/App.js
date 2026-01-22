@@ -1,14 +1,14 @@
-import React from 'react';
-import { ThemeProvider } from 'styled-components';
-import { darkTheme } from './theme';
-import { GlobalStyle } from './globalStyles';
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import React from "react";
+import { ThemeProvider } from "styled-components";
+import { darkTheme } from "./theme";
+import { GlobalStyle } from "./globalStyles";
+import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 // import { FaSun, FaMoon } from 'react-icons/fa';
-import ChatRoom from './components/Chat';
-import styled from 'styled-components';
-import VideoCall from './components/VideoCall';
-import LiveStream from './components/LiveStream';
-import { ChakraProvider } from '@chakra-ui/react';
+import ChatRoom from "./components/Chat";
+import styled from "styled-components";
+import VideoCall from "./components/VideoCall";
+import LiveStream from "./components/LiveStream";
+import { ChakraProvider } from "@chakra-ui/react";
 
 // const ThemeToggle = styled.button`
 //   position: fixed;
@@ -52,16 +52,16 @@ const App = () => {
       <GlobalStyle />
       <AppContainer>
         <ChakraProvider>
-        {/* <ThemeToggle onClick={toggleTheme} aria-label="Toggle Theme" >
+          {/* <ThemeToggle onClick={toggleTheme} aria-label="Toggle Theme" >
           {isDarkMode ? <FaSun /> : <FaMoon />}
         </ThemeToggle> */}
-        <Router>
-          <Routes>
-            <Route path="/" element={<ChatRoom />} />
-            <Route path="/call" element={<VideoCall />} />
-            <Route path="/live-stream" element={<LiveStream />} />
-          </Routes>
-        </Router>
+          <Router>
+            <Routes>
+              <Route path="/" element={<ChatRoom />} />
+              <Route path="/call" element={<VideoCall />} />
+              <Route path="/live-stream" element={<LiveStream />} />
+            </Routes>
+          </Router>
         </ChakraProvider>
       </AppContainer>
     </ThemeProvider>
