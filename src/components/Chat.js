@@ -27,8 +27,16 @@ const urlRegex = /(https?:\/\/[^\s]+)/g;
 /* ================= STYLES ================= */
 
 const colorPalette = [
-  "#FF5722","#4CAF50","#2196F3","#9C27B0","#FFC107",
-  "#00BCD4","#E91E63","#8BC34A","#FF9800","#3F51B5"
+  "#FF5722",
+  "#4CAF50",
+  "#2196F3",
+  "#9C27B0",
+  "#FFC107",
+  "#00BCD4",
+  "#E91E63",
+  "#8BC34A",
+  "#FF9800",
+  "#3F51B5",
 ];
 
 const glow = keyframes`
@@ -38,34 +46,50 @@ const glow = keyframes`
 `;
 
 const ChatContainer = styled.div`
-  display:flex; flex-direction:column;
-  height:100vh; background:#121212;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: #121212;
 `;
 
 const Header = styled.div`
-  display:flex; align-items:center;
-  padding:10px 20px; background:#1f1f1f;
-  color:#fff; border-bottom:1px solid #333;
+  display: flex;
+  align-items: center;
+  padding: 10px 20px;
+  background: #1f1f1f;
+  color: #fff;
+  border-bottom: 1px solid #333;
 `;
 
 const Avatar = styled.img`
-  width:32px; height:32px;
-  border-radius:50%; margin-right:10px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  margin-right: 10px;
 `;
 
 const RoomActions = styled.div`
-  margin-left:auto; display:flex; gap:12px;
+  margin-left: auto;
+  display: flex;
+  gap: 12px;
 `;
 
 const ActionButton = styled.button`
-  background:none; border:none; color:#fff;
-  cursor:pointer; font-size:1.2rem;
+  background: none;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  font-size: 1.2rem;
 `;
 
 const MessageContainer = styled.div`
-  flex:1; padding:20px; overflow-y:auto;
-  display:flex; flex-direction:column; gap:12px;
-  postion:relative;
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  postion: relative;
 `;
 
 // const ActionLink = styled(Link)`
@@ -77,58 +101,43 @@ const MessageContainer = styled.div`
 // `;
 
 const MessageBubble = styled.div`
-   max-width: ${p =>
-    p.isSystem
-      ? "60%"
-      : p.isFile
-      ? "40%"
-      : "100%"};
-  padding: ${p => (p.isSystem ? "0" : p.isFile ? "6px" : "10px 14px")};
+  max-width: ${(p) => (p.isSystem ? "60%" : p.isFile ? "40%" : "100%")};
+  padding: ${(p) => (p.isSystem ? "0" : p.isFile ? "6px" : "10px 14px")};
 
   background: transparent;
 
-  border-radius: ${p => (p.isSystem ? "0" : "12px")};
+  border-radius: ${(p) => (p.isSystem ? "0" : "12px")};
 
-  align-self: ${p =>
-    p.isSystem
-      ? "center"
-      : p.isSender
-      ? "flex-end"
-      : "flex-start"};
+  align-self: ${(p) =>
+    p.isSystem ? "center" : p.isSender ? "flex-end" : "flex-start"};
 
-  
+  color: ${(p) =>
+    p.isSystem ? (p.systemType === "join" ? "#2ecc71" : "#e74c3c") : "#fff"};
 
-  color: ${p =>
-    p.isSystem
-      ? p.systemType === "join"
-        ? "#2ecc71"  
-        : "#e74c3c" 
-      : "#fff"};
-
-  font-size: ${p => (p.isSystem ? "13px" : "14px")};
-  font-style: ${p => (p.isSystem ? "italic" : "normal")};
-  opacity: ${p => (p.isSystem ? 0.9 : 1)};
+  font-size: ${(p) => (p.isSystem ? "13px" : "14px")};
+  font-style: ${(p) => (p.isSystem ? "italic" : "normal")};
+  opacity: ${(p) => (p.isSystem ? 0.9 : 1)};
   text-align: left;
 `;
 
-
 const Username = styled.div`
-  font-size:.75rem;
-  font-weight:bold;
-  color:${p => p.color};
-  margin-bottom:4px;
+  font-size: 0.75rem;
+  font-weight: bold;
+  color: ${(p) => p.color};
+  margin-bottom: 4px;
 `;
 
 const Timestamp = styled.div`
-  font-size:.65rem;
-  color:#aaa; text-align:right;
-  margin-top:4px;
+  font-size: 0.65rem;
+  color: #aaa;
+  text-align: right;
+  margin-top: 4px;
 `;
 
 const FileCard = styled.div`
-  background:#1c1c1c;
-  border-radius:10px;
-  padding:6px;
+  background: #1c1c1c;
+  border-radius: 10px;
+  padding: 6px;
 `;
 
 const TypingIndicator = styled.div`
@@ -142,7 +151,6 @@ const TypingIndicator = styled.div`
   border-radius: 12px;
   border: 1px solid #333;
 
-
   background: rgba(31, 31, 31, 0.95);
   backdrop-filter: blur(6px);
 
@@ -152,7 +160,7 @@ const TypingIndicator = styled.div`
   animation: ${glow} 1.5s infinite;
 
   z-index: 50;
-  box-shadow: 0 -4px 10px rgba(0,0,0,0.4);
+  box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.4);
 `;
 
 const JoinContainer = styled.div`
@@ -188,8 +196,8 @@ const JoinButton = styled.button`
 const PreviewOverlay = styled.div`
   position: fixed;
   inset: 0;
-   backdrop-filter: blur(4px);
-  background: rgba(0,0,0,0.8);
+  backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.8);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -211,7 +219,8 @@ const PreviewContent = styled.div`
   max-height: 70vh;
   overflow: auto;
 
-  img, video {
+  img,
+  video {
     max-width: 100%;
     border-radius: 10px;
   }
@@ -301,7 +310,7 @@ const GifPickerModal = styled(PreviewModal)`
   display: flex;
   flex-direction: column;
   gap: 12px;
-  box-shadow: 0 6px 24px rgba(0,0,0,0.5);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
 `;
 
 const GifPickerHeader = styled.div`
@@ -382,18 +391,20 @@ const GifItem = styled.img`
   width: 100%;
   height: 100%;
   object-fit: cover; /* fill the card, no gaps */
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition:
+    transform 0.2s,
+    box-shadow 0.2s;
 
   &:hover {
     transform: scale(1.05);
-    box-shadow: 0 6px 12px rgba(0,0,0,0.5);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.5);
   }
 `;
 
 const CardOverlay = styled.div`
   position: absolute;
   inset: 0;
-  background: rgba(0,0,0,0.25);
+  background: rgba(0, 0, 0, 0.25);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -696,356 +707,375 @@ export default function ChatRoom() {
 
   if (!joined) {
     return (
-      <ChatContainer style={{ justifyContent: "center", alignItems: "center" }}>
-        <JoinContainer>
-          <h2 style={{ color: "#fff", textAlign: "center" }}>Join Room</h2>
+      <>
+        <ToastContainer position="top-center" />
+        <ChatContainer
+          style={{ justifyContent: "center", alignItems: "center" }}
+        >
+          <JoinContainer>
+            <h2 style={{ color: "#fff", textAlign: "center" }}>Join Room</h2>
 
-          <JoinInput
-            placeholder="Room"
-            value={roomId}
-            onChange={(e) => setRoomId(e.target.value)}
-          />
+            <JoinInput
+              placeholder="Room"
+              value={roomId}
+              onChange={(e) => setRoomId(e.target.value)}
+            />
 
-          <JoinInput
-            placeholder="Name"
-            value={userName}
-            onChange={(e) => setUserName(e.target.value)}
-          />
+            <JoinInput
+              placeholder="Name"
+              value={userName}
+              onChange={(e) => setUserName(e.target.value)}
+            />
 
-          <JoinInput
-            placeholder="Security Code"
-            value={securityCode}
-            onChange={(e) => setSecurityCode(e.target.value)}
-          />
+            <JoinInput
+              placeholder="Security Code"
+              value={securityCode}
+              onChange={(e) => setSecurityCode(e.target.value)}
+            />
 
-          <JoinButton
-  onClick={() => {
-    const code = securityCode.trim();
+            <JoinButton
+              onClick={() => {
+                const code = securityCode.trim();
 
-    if (!SECURITY_CODE.includes(code)) {
-      toast.error("Invalid security code! Please check and try again.");
-      return;
-    }
+                if (!SECURITY_CODE.includes(code)) {
+                  toast.error(
+                    "Invalid security code! Please check and try again.",
+                  );
+                  return;
+                }
 
-    setJoined(true);
-  }}
->
-  Join
-</JoinButton>
-
-        </JoinContainer>
-      </ChatContainer>
+                setJoined(true);
+              }}
+            >
+              Join
+            </JoinButton>
+          </JoinContainer>
+        </ChatContainer>
+      </>
     );
   }
 
   return (
     <>
-    <ToastContainer position="top-center" />
-    <ChatContainer>
-      <Header>
-        <Avatar src={image} />
-        <span>
-          {roomId} ({onlineCount} online)
-        </span>
-        <RoomActions>
-          {/* <ActionButton><FaVideo/></ActionButton>
+      <ChatContainer>
+        <Header>
+          <Avatar src={image} />
+          <span>
+            {roomId} ({onlineCount} online)
+          </span>
+          <RoomActions>
+            {/* <ActionButton><FaVideo/></ActionButton>
           <ActionButton><FaPhoneAlt/></ActionButton>
           <ActionLink to="/live-stream">
   <CiStreamOn />
 </ActionLink> */}
 
-          {ownerToken && (
-            <ActionButton onClick={handleDestroyRoom} style={{ color: "red" }}>
-              {" "}
-              ✖{" "}
-            </ActionButton>
-          )}
-        </RoomActions>
-      </Header>
+            {ownerToken && (
+              <ActionButton
+                onClick={handleDestroyRoom}
+                style={{ color: "red" }}
+              >
+                {" "}
+                ✖{" "}
+              </ActionButton>
+            )}
+          </RoomActions>
+        </Header>
 
-      <MessageContainer>
-        {messages.map((m, i) => {
-          const isSystem = m.type === "system";
-          const systemType = isSystem ? m.action : null;
+        <MessageContainer>
+          {messages.map((m, i) => {
+            const isSystem = m.type === "system";
+            const systemType = isSystem ? m.action : null;
 
-          if (isSystem && m.userName === userName) return null;
+            if (isSystem && m.userName === userName) return null;
 
-          return (
-            <MessageBubble
-              key={i}
-              isSender={m.userName === userName}
-              isSystem={isSystem}
-              systemType={systemType}
-              isFile={!!m.file}
-            >
-              {m.userName !== userName && !isSystem && (
-                <Username color={getColor(m.userName)}>{m.userName}</Username>
-              )}
+            return (
+              <MessageBubble
+                key={i}
+                isSender={m.userName === userName}
+                isSystem={isSystem}
+                systemType={systemType}
+                isFile={!!m.file}
+              >
+                {m.userName !== userName && !isSystem && (
+                  <Username color={getColor(m.userName)}>{m.userName}</Username>
+                )}
 
-              {isSystem && (
-                <span>
-                  {m.userName} {systemType === "join" ? "joined" : "left"} the
-                  room
-                </span>
-              )}
+                {isSystem && (
+                  <span>
+                    {m.userName} {systemType === "join" ? "joined" : "left"} the
+                    room
+                  </span>
+                )}
 
-              {!isSystem &&
-                m.text &&
-                m.text.split(urlRegex).map((part, j) => {
-                  if (!part.startsWith("http")) return part;
+                {!isSystem &&
+                  m.text &&
+                  m.text.split(urlRegex).map((part, j) => {
+                    if (!part.startsWith("http")) return part;
 
-                  const ytId = extractYoutubeId(part);
+                    const ytId = extractYoutubeId(part);
 
-                  if (ytId) {
+                    if (ytId) {
+                      return (
+                        <iframe
+                          src={`https://www.youtube.com/embed/${ytId}`}
+                          style={{
+                            border: "0px",
+                            padding: 0,
+                            margin: 0,
+                            width: "100%",
+                            height: "200px",
+                            borderRadius: "8px",
+                          }}
+                          title="YouTube video"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                        />
+                      );
+                    }
+
                     return (
-                      <iframe
-                        src={`https://www.youtube.com/embed/${ytId}`}
-                        style={{
-                          border: "0px",
-                          padding: 0,
-                          margin: 0,
-                          width: "100%",
-                          height: "200px",
-                          borderRadius: "8px",
-                        }}
-                        title="YouTube video"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
-                      />
-                    );
-                  }
-
-                  return (
-                    <a key={j} href={part} target="_blank" rel="noreferrer">
-                      {part}
-                    </a>
-                  );
-                })}
-
-              {m.file && (
-                <FileCard onClick={() => setFullscreen(m.file)}>
-                  {m.file.type === "application/pdf" && (
-                    <iframe
-                      title={m.file.name}
-                      src={m.file.url}
-                      style={{ width: "100%", height: 250, borderRadius: 10 }}
-                    />
-                  )}
-                  {m.file.type.startsWith("image") && (
-                    <img
-                      alt={m.file.name}
-                      src={m.file.url}
-                      style={{ width: "100%" }}
-                    />
-                  )}
-                  {m.file.type.startsWith("video") && (
-                    <video
-                      src={m.file.url}
-                      controls
-                      style={{ width: "100%" }}
-                    />
-                  )}
-                  {m.file.type.startsWith("audio") && (
-                    <audio src={m.file.url} controls />
-                  )}
-                  {m.gif && (
-                    <img
-                      src={m.gif}
-                      alt="GIF"
-                      style={{ maxWidth: "200px", borderRadius: 10 }}
-                      onClick={() =>
-                        setFullscreen({ url: m.gif, type: "image" })
-                      }
-                    />
-                  )}
-
-                  {!m.file.type.startsWith("image/") &&
-                    !m.file.type.startsWith("video/") &&
-                    !m.file.type.startsWith("audio/") &&
-                    m.file.type !== "application/pdf" && (
-                      <a
-                        href={m.file.url}
-                        download={m.file.name}
-                        style={{ color: "#00bfa5", fontSize: "0.9rem" }}
-                      >
-                        {" "}
-                        📎 {m.file.name}{" "}
+                      <a key={j} href={part} target="_blank" rel="noreferrer">
+                        {part}
                       </a>
+                    );
+                  })}
+
+                {m.file && (
+                  <FileCard onClick={() => setFullscreen(m.file)}>
+                    {m.file.type === "application/pdf" && (
+                      <iframe
+                        title={m.file.name}
+                        src={m.file.url}
+                        style={{ width: "100%", height: 250, borderRadius: 10 }}
+                      />
                     )}
-                </FileCard>
-              )}
+                    {m.file.type.startsWith("image") && (
+                      <img
+                        alt={m.file.name}
+                        src={m.file.url}
+                        style={{ width: "100%" }}
+                      />
+                    )}
+                    {m.file.type.startsWith("video") && (
+                      <video
+                        src={m.file.url}
+                        controls
+                        style={{ width: "100%" }}
+                      />
+                    )}
+                    {m.file.type.startsWith("audio") && (
+                      <audio src={m.file.url} controls />
+                    )}
+                    {m.gif && (
+                      <img
+                        src={m.gif}
+                        alt="GIF"
+                        style={{ maxWidth: "200px", borderRadius: 10 }}
+                        onClick={() =>
+                          setFullscreen({ url: m.gif, type: "image" })
+                        }
+                      />
+                    )}
 
-              <Timestamp>{new Date(m.ts).toLocaleTimeString()}</Timestamp>
-            </MessageBubble>
-          );
-        })}
-        {typingUsers.length > 0 && (
-  <TypingIndicator>
-    {typingUsers.join(", ")} typing…
-  </TypingIndicator>
-)}
+                    {!m.file.type.startsWith("image/") &&
+                      !m.file.type.startsWith("video/") &&
+                      !m.file.type.startsWith("audio/") &&
+                      m.file.type !== "application/pdf" && (
+                        <a
+                          href={m.file.url}
+                          download={m.file.name}
+                          style={{ color: "#00bfa5", fontSize: "0.9rem" }}
+                        >
+                          {" "}
+                          📎 {m.file.name}{" "}
+                        </a>
+                      )}
+                  </FileCard>
+                )}
 
-      </MessageContainer>
-
-           {showGifPicker && (
-  <GifPickerOverlay onClick={() => setShowGifPicker(false)}>
-    <GifPickerModal onClick={e => e.stopPropagation()}>
-     <GifPickerHeader>
-  <GifSearchInput
-    placeholder="Search GIFs..."
-    value={gifQuery}
-    onChange={e => setGifQuery(e.target.value)}
-    onKeyDown={e => e.key === "Enter" && fetchGifs(gifQuery)}
-  />
-  <SearchGifButton onClick={() => fetchGifs(gifQuery)}><FaSearch /></SearchGifButton>
-  <CloseGifPickerButton onClick={() => setShowGifPicker(false)}><AiOutlineClose /></CloseGifPickerButton>
-</GifPickerHeader>
-
-
- <GifGrid ref={gifGridRef}>
-  {gifs.map(gif => (
-    <GifCard key={gif.id}>
-      <GifItem src={gif.images.fixed_height.url} alt={gif.title} loading="lazy" />
-      <CardOverlay>
-        <OverlayButton onClick={async () => {
-          try {
-            const res = await fetch(gif.images.fixed_height.url);
-            const blob = await res.blob();
-            const file = new File([blob], `GIF-${Date.now()}.gif`, { type: "image/gif" });
-            uploadFile(file);
-          } catch (err) {
-            console.error("Failed to send GIF:", err);
-          }
-        }}>
-          <FaPaperPlane style={{ size: 'sm'}}/>
-        </OverlayButton>
-      </CardOverlay>
-    </GifCard>
-  ))}
-</GifGrid>
-
-    </GifPickerModal>
-  </GifPickerOverlay>
-)}
-
-      {pendingFile && (
-        <PreviewOverlay onClick={() => setPendingFile(null)}>
-          <PreviewModal onClick={(e) => e.stopPropagation()}>
-            {/* <h3 style={{ color: "#fff", margin: 0 , textAlign: 'center'}}>Send file?</h3> */}
-
-            <PreviewContent>
-              {pendingFile.type.startsWith("image") && (
-                <img alt={pendingFile.name} src={previewUrl} />
-              )}
-
-              {pendingFile.type.startsWith("video") && (
-                <video src={previewUrl} controls />
-              )}
-
-              {pendingFile.type.startsWith("audio") && (
-                <audio src={previewUrl} controls />
-              )}
-            </PreviewContent>
-
-            <PreviewActions>
-              <CancelBtn
-                onClick={() => {
-                  setPendingFile(null);
-                  setPreviewUrl(null);
-                  if (fileInputRef.current) fileInputRef.current.value = "";
-                }}
-              >
-                <AiOutlineClose />
-              </CancelBtn>
-
-              <SendBtn
-                onClick={() => {
-                  handleSend();
-                  setPendingFile(null);
-                  setPreviewUrl(null);
-                  if (fileInputRef.current) fileInputRef.current.value = "";
-                }}
-              >
-                <FaPaperPlane />
-              </SendBtn>
-            </PreviewActions>
-          </PreviewModal>
-        </PreviewOverlay>
-      )}
-
-      <MessageInputContainer>
-        <FileUploadLabel htmlFor="file-input">
-          <FaFileUpload />
-        </FileUploadLabel>
-
-        <FileInput
-          ref={fileInputRef}
-          id="file-input"
-          type="file"
-          onChange={(e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-            setPendingFile(null);
-            setPreviewUrl(null);
-
-            setPendingFile(file);
-            setPreviewUrl(URL.createObjectURL(file));
-          }}
-        />
-
-        <MessageInput
-          placeholder="Type a message..."
-          value={message}
-          onChange={(e) => {
-            setMessage(e.target.value);
-            handleTyping?.(e.target.value);
-          }}
-          onKeyDown={(e) => e.key === "Enter" && handleSend?.()}
-        />
-        <FileUploadLabel
-          onClick={() => {
-            setShowGifPicker(true);
-            fetchGifs();
-          }}
-        >
-          <HiGif />
-        </FileUploadLabel>
-
-        <SendButton onClick={handleSend}>
-          <FaPaperPlane />
-        </SendButton>
-      </MessageInputContainer>
-
-      {fullscreen && (
-        <div
-          onClick={() => setFullscreen(null)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,.9)",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-          }}
-        >
-          {fullscreen.type.startsWith("image") && (
-            <img
-              alt={fullscreen.name}
-              src={fullscreen.url}
-              style={{ maxWidth: "90%" }}
-            />
+                <Timestamp>{new Date(m.ts).toLocaleTimeString()}</Timestamp>
+              </MessageBubble>
+            );
+          })}
+          {typingUsers.length > 0 && (
+            <TypingIndicator>{typingUsers.join(", ")} typing…</TypingIndicator>
           )}
-          {fullscreen.type.startsWith("video") && (
-            <video
-              src={fullscreen.url}
-              controls
-              autoPlay
-              style={{ maxWidth: "90%" }}
-            />
-          )}
-        </div>
-      )}
-    </ChatContainer>
+        </MessageContainer>
+
+        {showGifPicker && (
+          <GifPickerOverlay onClick={() => setShowGifPicker(false)}>
+            <GifPickerModal onClick={(e) => e.stopPropagation()}>
+              <GifPickerHeader>
+                <GifSearchInput
+                  placeholder="Search GIFs..."
+                  value={gifQuery}
+                  onChange={(e) => setGifQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && fetchGifs(gifQuery)}
+                />
+                <SearchGifButton onClick={() => fetchGifs(gifQuery)}>
+                  <FaSearch />
+                </SearchGifButton>
+                <CloseGifPickerButton onClick={() => setShowGifPicker(false)}>
+                  <AiOutlineClose />
+                </CloseGifPickerButton>
+              </GifPickerHeader>
+
+              <GifGrid ref={gifGridRef}>
+                {gifs.map((gif) => (
+                  <GifCard key={gif.id}>
+                    <GifItem
+                      src={gif.images.fixed_height.url}
+                      alt={gif.title}
+                      loading="lazy"
+                    />
+                    <CardOverlay>
+                      <OverlayButton
+                        onClick={async () => {
+                          try {
+                            const res = await fetch(
+                              gif.images.fixed_height.url,
+                            );
+                            const blob = await res.blob();
+                            const file = new File(
+                              [blob],
+                              `GIF-${Date.now()}.gif`,
+                              { type: "image/gif" },
+                            );
+                            uploadFile(file);
+                          } catch (err) {
+                            console.error("Failed to send GIF:", err);
+                          }
+                        }}
+                      >
+                        <FaPaperPlane style={{ size: "sm" }} />
+                      </OverlayButton>
+                    </CardOverlay>
+                  </GifCard>
+                ))}
+              </GifGrid>
+            </GifPickerModal>
+          </GifPickerOverlay>
+        )}
+
+        {pendingFile && (
+          <PreviewOverlay onClick={() => setPendingFile(null)}>
+            <PreviewModal onClick={(e) => e.stopPropagation()}>
+              {/* <h3 style={{ color: "#fff", margin: 0 , textAlign: 'center'}}>Send file?</h3> */}
+
+              <PreviewContent>
+                {pendingFile.type.startsWith("image") && (
+                  <img alt={pendingFile.name} src={previewUrl} />
+                )}
+
+                {pendingFile.type.startsWith("video") && (
+                  <video src={previewUrl} controls />
+                )}
+
+                {pendingFile.type.startsWith("audio") && (
+                  <audio src={previewUrl} controls />
+                )}
+              </PreviewContent>
+
+              <PreviewActions>
+                <CancelBtn
+                  onClick={() => {
+                    setPendingFile(null);
+                    setPreviewUrl(null);
+                    if (fileInputRef.current) fileInputRef.current.value = "";
+                  }}
+                >
+                  <AiOutlineClose />
+                </CancelBtn>
+
+                <SendBtn
+                  onClick={() => {
+                    handleSend();
+                    setPendingFile(null);
+                    setPreviewUrl(null);
+                    if (fileInputRef.current) fileInputRef.current.value = "";
+                  }}
+                >
+                  <FaPaperPlane />
+                </SendBtn>
+              </PreviewActions>
+            </PreviewModal>
+          </PreviewOverlay>
+        )}
+
+        <MessageInputContainer>
+          <FileUploadLabel htmlFor="file-input">
+            <FaFileUpload />
+          </FileUploadLabel>
+
+          <FileInput
+            ref={fileInputRef}
+            id="file-input"
+            type="file"
+            onChange={(e) => {
+              const file = e.target.files[0];
+              if (!file) return;
+              setPendingFile(null);
+              setPreviewUrl(null);
+
+              setPendingFile(file);
+              setPreviewUrl(URL.createObjectURL(file));
+            }}
+          />
+
+          <MessageInput
+            placeholder="Type a message..."
+            value={message}
+            onChange={(e) => {
+              setMessage(e.target.value);
+              handleTyping?.(e.target.value);
+            }}
+            onKeyDown={(e) => e.key === "Enter" && handleSend?.()}
+          />
+          <FileUploadLabel
+            onClick={() => {
+              setShowGifPicker(true);
+              fetchGifs();
+            }}
+          >
+            <HiGif />
+          </FileUploadLabel>
+
+          <SendButton onClick={handleSend}>
+            <FaPaperPlane />
+          </SendButton>
+        </MessageInputContainer>
+
+        {fullscreen && (
+          <div
+            onClick={() => setFullscreen(null)}
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(0,0,0,.9)",
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+          >
+            {fullscreen.type.startsWith("image") && (
+              <img
+                alt={fullscreen.name}
+                src={fullscreen.url}
+                style={{ maxWidth: "90%" }}
+              />
+            )}
+            {fullscreen.type.startsWith("video") && (
+              <video
+                src={fullscreen.url}
+                controls
+                autoPlay
+                style={{ maxWidth: "90%" }}
+              />
+            )}
+          </div>
+        )}
+      </ChatContainer>
     </>
   );
 }
