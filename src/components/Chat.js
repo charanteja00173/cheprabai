@@ -299,19 +299,47 @@ const SendButton = styled.button`
 const GifPickerOverlay = styled(PreviewOverlay)`
   background: rgba(0, 0, 0, 0.9);
   backdrop-filter: blur(5px);
+  z-index: 10000;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  /* Mobile spacing + safe area */
+  padding: max(12px, env(safe-area-inset-top))
+           max(12px, env(safe-area-inset-right))
+           max(12px, env(safe-area-inset-bottom))
+           max(12px, env(safe-area-inset-left));
+
+  @media (min-width: 768px) {
+    padding: 0;
+  }
 `;
 
 const GifPickerModal = styled(PreviewModal)`
+  width: 100%;
   max-width: 650px;
-  max-height: 80%;
+  max-height: 85vh;
+
   padding: 16px;
   background: #1f1f1f;
   border-radius: 16px;
+
   display: flex;
   flex-direction: column;
   gap: 12px;
+
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
+
+  overflow: hidden;
+
+  /* Mobile gap */
+  @media (max-width: 600px) {
+    max-width: 100%;
+    border-radius: 14px;
+  }
 `;
+
 
 const GifPickerHeader = styled.div`
   display: flex;
