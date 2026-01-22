@@ -57,9 +57,15 @@ const ActionButton = styled.button`
 `;
 
 const MessageContainer = styled.div`
-  flex:1; padding:20px; overflow-y:auto;
-  display:flex; flex-direction:column; gap:12px;
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  position: relative; /* IMPORTANT */
 `;
+
 
 // const ActionLink = styled(Link)`
 //   background:none; border:none; color:#fff;
@@ -125,9 +131,27 @@ const FileCard = styled.div`
 `;
 
 const TypingIndicator = styled.div`
-  font-size:.8rem; color:#aaa;
-  animation:${glow} 1.5s infinite;
+  position: sticky;
+  bottom: 0;
+
+  align-self: flex-start;
+  margin-top: auto;
+
+  padding: 6px 12px;
+  border-radius: 12px;
+
+  background: rgba(31, 31, 31, 0.95);
+  backdrop-filter: blur(6px);
+
+  font-size: 0.8rem;
+  color: #aaa;
+
+  animation: ${glow} 1.5s infinite;
+
+  z-index: 50;
+  box-shadow: 0 -4px 10px rgba(0,0,0,0.4);
 `;
+
 
 const JoinContainer = styled.div`
   display: flex;
@@ -780,7 +804,11 @@ if (!joined) {
           </MessageBubble>
           );
         })}
-        {typingUsers.length>0 && <TypingIndicator>{typingUsers.join(", ")} typing...</TypingIndicator>}
+        {typingUsers.length > 0 && (
+  <TypingIndicator>
+    {typingUsers.join(", ")} typing…
+  </TypingIndicator>
+)}
       </MessageContainer>
 
       {showGifPicker && (
