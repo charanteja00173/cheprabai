@@ -13,7 +13,9 @@ import image from "../logo192.png";
 import notificationSound from "../assets/iphone-sms.mp3";
 // import { Link } from 'react-router-dom';
 import { AiOutlineClose } from "react-icons/ai";
-import { useToast } from "@chakra-ui/react";
+
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 /* ================= CONFIG ================= */
 
@@ -453,8 +455,6 @@ export default function ChatRoom() {
   const [hasMoreGifs, setHasMoreGifs] = useState(true);
   const GIF_LIMIT = 30;
 
-  const toast = useToast();
-
   const fetchGifs = async (query = "", offset = 0) => {
     const API_KEY = process.env.REACT_APP_GIPHY_API_KEY;
     const url = query
@@ -719,31 +719,28 @@ export default function ChatRoom() {
           />
 
           <JoinButton
-            onClick={() => {
-              const code = securityCode.trim();
-              if (!SECURITY_CODE.includes(code)) {
-                toast({
-                  title: "Invalid security code",
-                  description: "Please check and try again",
-                  status: "error",
-                  duration: 3000,
-                  isClosable: true,
-                  position: "top",
-                });
-                return;
-              }
-              setJoined(true);
-            }}
-          >
-            {" "}
-            Join{" "}
-          </JoinButton>
+  onClick={() => {
+    const code = securityCode.trim();
+
+    if (!SECURITY_CODE.includes(code)) {
+      toast.error("Invalid security code! Please check and try again.");
+      return;
+    }
+
+    setJoined(true);
+  }}
+>
+  Join
+</JoinButton>
+
         </JoinContainer>
       </ChatContainer>
     );
   }
 
   return (
+    <>
+    <ToastContainer position="top-center" />
     <ChatContainer>
       <Header>
         <Avatar src={image} />
@@ -1049,5 +1046,6 @@ export default function ChatRoom() {
         </div>
       )}
     </ChatContainer>
+    </>
   );
 }
