@@ -25,16 +25,8 @@ const urlRegex = /(https?:\/\/[^\s]+)/g;
 /* ================= STYLES ================= */
 
 const colorPalette = [
-  "#FF5722",
-  "#4CAF50",
-  "#2196F3",
-  "#9C27B0",
-  "#FFC107",
-  "#00BCD4",
-  "#E91E63",
-  "#8BC34A",
-  "#FF9800",
-  "#3F51B5",
+  "#FF5722","#4CAF50","#2196F3","#9C27B0","#FFC107",
+  "#00BCD4","#E91E63","#8BC34A","#FF9800","#3F51B5"
 ];
 
 const glow = keyframes`
@@ -44,61 +36,34 @@ const glow = keyframes`
 `;
 
 const ChatContainer = styled.div`
-  display: flex;
-  flex-direction: column;
-
-  /* Fix mobile blank space issue */
-  min-height: 100dvh;
-  height: 100dvh;
-
-  background: #121212;
-  overflow: hidden;
+  display:flex; flex-direction:column;
+  height:100vh; background:#121212;
 `;
 
 const Header = styled.div`
-  display: flex;
-  align-items: center;
-  padding: 10px 20px;
-  background: #1f1f1f;
-  color: #fff;
-  border-bottom: 1px solid #333;
+  display:flex; align-items:center;
+  padding:10px 20px; background:#1f1f1f;
+  color:#fff; border-bottom:1px solid #333;
 `;
 
 const Avatar = styled.img`
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  margin-right: 10px;
+  width:32px; height:32px;
+  border-radius:50%; margin-right:10px;
 `;
 
 const RoomActions = styled.div`
-  margin-left: auto;
-  display: flex;
-  gap: 12px;
+  margin-left:auto; display:flex; gap:12px;
 `;
 
 const ActionButton = styled.button`
-  background: none;
-  border: none;
-  color: #fff;
-  cursor: pointer;
-  font-size: 1.2rem;
+  background:none; border:none; color:#fff;
+  cursor:pointer; font-size:1.2rem;
 `;
 
 const MessageContainer = styled.div`
-  flex: 1 1 auto;
-  min-height: 0; /* VERY important for mobile */
-
-  padding: 20px;
-  overflow-y: auto;
-
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-
-  position: relative;
-
-  -webkit-overflow-scrolling: touch;
+  flex:1; padding:20px; overflow-y:auto;
+  display:flex; flex-direction:column; gap:12px;
+  postion:relative;
 `;
 
 // const ActionLink = styled(Link)`
@@ -110,54 +75,71 @@ const MessageContainer = styled.div`
 // `;
 
 const MessageBubble = styled.div`
-  max-width: ${(p) => (p.isSystem ? "60%" : p.isFile ? "40%" : "100%")};
-  padding: ${(p) => (p.isSystem ? "0" : p.isFile ? "6px" : "10px 14px")};
+   max-width: ${p =>
+    p.isSystem
+      ? "60%"
+      : p.isFile
+      ? "40%"
+      : "100%"};
+  padding: ${p => (p.isSystem ? "0" : p.isFile ? "6px" : "10px 14px")};
 
   background: transparent;
 
-  border-radius: ${(p) => (p.isSystem ? "0" : "12px")};
+  border-radius: ${p => (p.isSystem ? "0" : "12px")};
 
-  align-self: ${(p) =>
-    p.isSystem ? "center" : p.isSender ? "flex-end" : "flex-start"};
+  align-self: ${p =>
+    p.isSystem
+      ? "center"
+      : p.isSender
+      ? "flex-end"
+      : "flex-start"};
 
-  color: ${(p) =>
-    p.isSystem ? (p.systemType === "join" ? "#2ecc71" : "#e74c3c") : "#fff"};
+  
 
-  font-size: ${(p) => (p.isSystem ? "13px" : "14px")};
-  font-style: ${(p) => (p.isSystem ? "italic" : "normal")};
-  opacity: ${(p) => (p.isSystem ? 0.9 : 1)};
+  color: ${p =>
+    p.isSystem
+      ? p.systemType === "join"
+        ? "#2ecc71"  
+        : "#e74c3c" 
+      : "#fff"};
+
+  font-size: ${p => (p.isSystem ? "13px" : "14px")};
+  font-style: ${p => (p.isSystem ? "italic" : "normal")};
+  opacity: ${p => (p.isSystem ? 0.9 : 1)};
   text-align: left;
 `;
 
+
 const Username = styled.div`
-  font-size: 0.75rem;
-  font-weight: bold;
-  color: ${(p) => p.color};
-  margin-bottom: 4px;
+  font-size:.75rem;
+  font-weight:bold;
+  color:${p => p.color};
+  margin-bottom:4px;
 `;
 
 const Timestamp = styled.div`
-  font-size: 0.65rem;
-  color: #aaa;
-  text-align: right;
-  margin-top: 4px;
+  font-size:.65rem;
+  color:#aaa; text-align:right;
+  margin-top:4px;
 `;
 
 const FileCard = styled.div`
-  background: #1c1c1c;
-  border-radius: 10px;
-  padding: 6px;
+  background:#1c1c1c;
+  border-radius:10px;
+  padding:6px;
 `;
 
 const TypingIndicator = styled.div`
   position: sticky;
-  bottom: 70px;
+  bottom: 10px;
 
   align-self: flex-start;
   margin-top: auto;
 
   padding: 6px 12px;
   border-radius: 12px;
+  border: 1px solid #333;
+
 
   background: rgba(31, 31, 31, 0.95);
   backdrop-filter: blur(6px);
@@ -168,7 +150,7 @@ const TypingIndicator = styled.div`
   animation: ${glow} 1.5s infinite;
 
   z-index: 50;
-  box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 -4px 10px rgba(0,0,0,0.4);
 `;
 
 const JoinContainer = styled.div`
@@ -204,8 +186,8 @@ const JoinButton = styled.button`
 const PreviewOverlay = styled.div`
   position: fixed;
   inset: 0;
-  backdrop-filter: blur(4px);
-  background: rgba(0, 0, 0, 0.8);
+   backdrop-filter: blur(4px);
+  background: rgba(0,0,0,0.8);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -227,8 +209,7 @@ const PreviewContent = styled.div`
   max-height: 70vh;
   overflow: auto;
 
-  img,
-  video {
+  img, video {
     max-width: 100%;
     border-radius: 10px;
   }
@@ -302,44 +283,23 @@ const SendButton = styled.button`
   align-items: center;
   justify-content: center;
 `;
-
 /* ================= GIF PICKER IMPROVED ================= */
 
 const GifPickerOverlay = styled(PreviewOverlay)`
-  position: fixed;
-  inset: 0;
-  height: 100dvh;
-  width: 100vw;
-
   background: rgba(0, 0, 0, 0.9);
   backdrop-filter: blur(5px);
-
-  z-index: 10000;
 `;
 
 const GifPickerModal = styled(PreviewModal)`
-  width: 90%;
-  max-width: 640px; /* desktop cap */
-  max-height: 80vh;
-  position: relative;
-
+  max-width: 650px;
+  max-height: 80%;
   padding: 16px;
   background: #1f1f1f;
   border-radius: 16px;
-
   display: flex;
   flex-direction: column;
   gap: 12px;
-
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
-
-  @media (min-width: 768px) {
-    width: 60%;
-  }
-
-  @media (min-width: 1024px) {
-    width: 45%;
-  }
+  box-shadow: 0 6px 24px rgba(0,0,0,0.5);
 `;
 
 const GifPickerHeader = styled.div`
@@ -351,7 +311,7 @@ const GifPickerHeader = styled.div`
 
 const GifSearchInput = styled.input`
   flex: 1;
-  padding: 12px;
+  padding: 12px 16px;
   border-radius: 25px;
   border: 1px solid #333;
   background: #121212;
@@ -381,46 +341,18 @@ const SearchGifButton = styled.button`
 `;
 
 const CloseGifPickerButton = styled.button`
-  position: absolute;
-
-  top: calc(env(safe-area-inset-top, 0px) + 10px);
-  right: calc(env(safe-area-inset-right, 0px) + 10px);
-
   background: #ff4d4d;
   border: none;
   color: #fff;
-
-  border-radius: 50%;
-
-  width: 40px;
-  height: 40px;
-
-  font-size: 18px;
-
+  border-radius: 25px;
+  padding: 8px 12px;
+  font-weight: bold;
   cursor: pointer;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  z-index: 10;
-
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
-
+  flex-shrink: 0;
   transition: all 0.2s ease;
-
-  &:active {
-    transform: scale(0.9);
-  }
 
   &:hover {
     background: #ff6666;
-  }
-  &::after {
-    content: "";
-    position: absolute;
-    inset: -6px;
-    pointer-events: none;
   }
 `;
 
@@ -448,20 +380,18 @@ const GifItem = styled.img`
   width: 100%;
   height: 100%;
   object-fit: cover; /* fill the card, no gaps */
-  transition:
-    transform 0.2s,
-    box-shadow 0.2s;
+  transition: transform 0.2s, box-shadow 0.2s;
 
   &:hover {
     transform: scale(1.05);
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 6px 12px rgba(0,0,0,0.5);
   }
 `;
 
 const CardOverlay = styled.div`
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.25);
+  background: rgba(0,0,0,0.25);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -952,83 +882,54 @@ export default function ChatRoom() {
             </MessageBubble>
           );
         })}
-        <div>
-          {typingUsers.length > 0 && (
-            <TypingIndicator>{typingUsers.join(", ")} typing…</TypingIndicator>
-          )}
-        </div>
+        {typingUsers.length > 0 && (
+  <TypingIndicator>
+    {typingUsers.join(", ")} typing…
+  </TypingIndicator>
+)}
+
       </MessageContainer>
 
-      {showGifPicker && (
-        <GifPickerOverlay
-          onClick={() => {
-            setShowGifPicker(false);
-            setGifQuery("");
-            setGifs([]);
-            setGifOffset(0);
-            setHasMoreGifs(true);
-          }}
-        >
-          <GifPickerModal onClick={(e) => e.stopPropagation()}>
-            <CloseGifPickerButton
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowGifPicker(false);
-                setGifQuery("");
-                setGifs([]);
-                setGifOffset(0);
-                setHasMoreGifs(true);
-              }}
-            >
-              <AiOutlineClose />
-            </CloseGifPickerButton>
+           {showGifPicker && (
+  <GifPickerOverlay onClick={() => setShowGifPicker(false)}>
+    <GifPickerModal onClick={e => e.stopPropagation()}>
+     <GifPickerHeader>
+  <GifSearchInput
+    placeholder="Search GIFs..."
+    value={gifQuery}
+    onChange={e => setGifQuery(e.target.value)}
+    onKeyDown={e => e.key === "Enter" && fetchGifs(gifQuery)}
+  />
+  <SearchGifButton onClick={() => fetchGifs(gifQuery)}><FaSearch /></SearchGifButton>
+  <CloseGifPickerButton onClick={() => setShowGifPicker(false)}><AiOutlineClose /></CloseGifPickerButton>
+</GifPickerHeader>
 
-            <GifPickerHeader>
-              <GifSearchInput
-                placeholder="Search GIFs..."
-                value={gifQuery}
-                onChange={(e) => setGifQuery(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && fetchGifs(gifQuery)}
-              />
-              <SearchGifButton onClick={() => fetchGifs(gifQuery)}>
-                <FaSearch />
-              </SearchGifButton>
-            </GifPickerHeader>
 
-            <GifGrid ref={gifGridRef}>
-              {gifs.map((gif) => (
-                <GifCard key={gif.id}>
-                  <GifItem
-                    src={gif.images.fixed_height.url}
-                    alt={gif.title}
-                    loading="lazy"
-                  />
-                  <CardOverlay>
-                    <OverlayButton
-                      onClick={async () => {
-                        try {
-                          const res = await fetch(gif.images.fixed_height.url);
-                          const blob = await res.blob();
-                          const file = new File(
-                            [blob],
-                            `GIF-${Date.now()}.gif`,
-                            { type: "image/gif" },
-                          );
-                          uploadFile(file);
-                        } catch (err) {
-                          console.error("Failed to send GIF:", err);
-                        }
-                      }}
-                    >
-                      <FaPaperPlane style={{ size: "sm" }} />
-                    </OverlayButton>
-                  </CardOverlay>
-                </GifCard>
-              ))}
-            </GifGrid>
-          </GifPickerModal>
-        </GifPickerOverlay>
-      )}
+ <GifGrid ref={gifGridRef}>
+  {gifs.map(gif => (
+    <GifCard key={gif.id}>
+      <GifItem src={gif.images.fixed_height.url} alt={gif.title} loading="lazy" />
+      <CardOverlay>
+        <OverlayButton onClick={async () => {
+          try {
+            const res = await fetch(gif.images.fixed_height.url);
+            const blob = await res.blob();
+            const file = new File([blob], `GIF-${Date.now()}.gif`, { type: "image/gif" });
+            uploadFile(file);
+          } catch (err) {
+            console.error("Failed to send GIF:", err);
+          }
+        }}>
+          <FaPaperPlane style={{ size: 'sm'}}/>
+        </OverlayButton>
+      </CardOverlay>
+    </GifCard>
+  ))}
+</GifGrid>
+
+    </GifPickerModal>
+  </GifPickerOverlay>
+)}
 
       {pendingFile && (
         <PreviewOverlay onClick={() => setPendingFile(null)}>
