@@ -379,21 +379,21 @@ const SearchGifButton = styled.button`
   }
 `;
 
-const CloseGifPickerButton = styled.button`
-  background: #ff4d4d;
-  border: none;
-  color: #fff;
-  border-radius: 25px;
-  padding: 8px 12px;
-  font-weight: bold;
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: all 0.2s ease;
+// const CloseGifPickerButton = styled.button`
+//   background: #ff4d4d;
+//   border: none;
+//   color: #fff;
+//   border-radius: 25px;
+//   padding: 8px 12px;
+//   font-weight: bold;
+//   cursor: pointer;
+//   flex-shrink: 0;
+//   transition: all 0.2s ease;
 
-  &:hover {
-    background: #ff6666;
-  }
-`;
+//   &:hover {
+//     background: #ff6666;
+//   }
+// `;
 
 const GifGrid = styled.div`
   display: grid;
@@ -944,9 +944,9 @@ export default function ChatRoom() {
                 <SearchGifButton onClick={() => fetchGifs(gifQuery)}>
                   <FaSearch />
                 </SearchGifButton>
-                <CloseGifPickerButton onClick={() => setShowGifPicker(false)}>
+                {/* <CloseGifPickerButton onClick={() => setShowGifPicker(false)}>
                   <AiOutlineClose />
-                </CloseGifPickerButton>
+                </CloseGifPickerButton> */}
               </GifPickerHeader>
 
               <GifGrid ref={gifGridRef}>
