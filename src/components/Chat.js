@@ -46,8 +46,13 @@ const glow = keyframes`
 const ChatContainer = styled.div`
   display: flex;
   flex-direction: column;
-  height: 100vh;
+
+  /* Fix mobile blank space issue */
+  min-height: 100dvh;
+  height: 100dvh;
+
   background: #121212;
+  overflow: hidden;
 `;
 
 const Header = styled.div`
@@ -81,13 +86,19 @@ const ActionButton = styled.button`
 `;
 
 const MessageContainer = styled.div`
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 0; /* VERY important for mobile */
+
   padding: 20px;
   overflow-y: auto;
+
   display: flex;
   flex-direction: column;
   gap: 12px;
+
   position: relative;
+
+  -webkit-overflow-scrolling: touch;
 `;
 
 // const ActionLink = styled(Link)`
@@ -140,7 +151,7 @@ const FileCard = styled.div`
 
 const TypingIndicator = styled.div`
   position: sticky;
-  bottom: 0;
+  bottom: 70px;
 
   align-self: flex-start;
   margin-top: auto;
@@ -295,14 +306,22 @@ const SendButton = styled.button`
 /* ================= GIF PICKER IMPROVED ================= */
 
 const GifPickerOverlay = styled(PreviewOverlay)`
+  position: fixed;
+  inset: 0;
+  height: 100dvh;
+  width: 100vw;
+
   background: rgba(0, 0, 0, 0.9);
   backdrop-filter: blur(5px);
+
+  z-index: 10000;
 `;
 
 const GifPickerModal = styled(PreviewModal)`
   width: 90%;
   max-width: 640px; /* desktop cap */
   max-height: 80vh;
+  position: relative;
 
   padding: 16px;
   background: #1f1f1f;
@@ -362,19 +381,46 @@ const SearchGifButton = styled.button`
 `;
 
 const CloseGifPickerButton = styled.button`
+  position: absolute;
+
+  top: calc(env(safe-area-inset-top, 0px) + 10px);
+  right: calc(env(safe-area-inset-right, 0px) + 10px);
+
   background: #ff4d4d;
   border: none;
   color: #fff;
+
   border-radius: 50%;
-  width: 28px;
-  height: 28px;
-  font-weight: bold;
+
+  width: 40px;
+  height: 40px;
+
+  font-size: 18px;
+
   cursor: pointer;
-  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  z-index: 10;
+
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+
   transition: all 0.2s ease;
+
+  &:active {
+    transform: scale(0.9);
+  }
 
   &:hover {
     background: #ff6666;
+  }
+  &::after {
+    content: "";
+    position: absolute;
+    inset: -6px;
+    pointer-events: none;
   }
 `;
 
@@ -497,6 +543,18 @@ export default function ChatRoom() {
   };
 
   const gifGridRef = useRef(null);
+
+  useEffect(() => {
+    if (showGifPicker) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "auto";
+    }
+
+    return () => {
+      document.body.style.overflow = "auto";
+    };
+  }, [showGifPicker]);
 
   useEffect(() => {
     const grid = gifGridRef.current;
@@ -912,6 +970,19 @@ export default function ChatRoom() {
           }}
         >
           <GifPickerModal onClick={(e) => e.stopPropagation()}>
+            <CloseGifPickerButton
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowGifPicker(false);
+                setGifQuery("");
+                setGifs([]);
+                setGifOffset(0);
+                setHasMoreGifs(true);
+              }}
+            >
+              <AiOutlineClose />
+            </CloseGifPickerButton>
+
             <GifPickerHeader>
               <GifSearchInput
                 placeholder="Search GIFs..."
@@ -922,17 +993,6 @@ export default function ChatRoom() {
               <SearchGifButton onClick={() => fetchGifs(gifQuery)}>
                 <FaSearch />
               </SearchGifButton>
-              <CloseGifPickerButton
-                onClick={() => {
-                  setShowGifPicker(false);
-                  setGifQuery("");
-                  setGifs([]); // clear GIF results
-                  setGifOffset(0); // reset offset
-                  setHasMoreGifs(true);
-                }}
-              >
-                <AiOutlineClose />
-              </CloseGifPickerButton>
             </GifPickerHeader>
 
             <GifGrid ref={gifGridRef}>
