@@ -519,6 +519,8 @@ export default function ChatRoom() {
   const [gifs, setGifs] = useState([]);
   const [gifOffset, setGifOffset] = useState(0); // track offset
   const [hasMoreGifs, setHasMoreGifs] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showSearch, setShowSearch] = useState(false);
   const GIF_LIMIT = 30;
 
   const fetchGifs = async (query = "", offset = 0) => {
@@ -997,9 +999,23 @@ export default function ChatRoom() {
               <FaPenNib />
             </ActionButton>
 
-            <ActionButton onClick={() => setFullscreen({ type: "search" })} title="Search Messages">
+            <ActionButton onClick={() => { setShowSearch(!showSearch); if (showSearch) setSearchQuery(""); }} title="Search Messages">
               <FaSearch />
             </ActionButton>
+
+            {showSearch && (
+              <div style={{ position: "absolute", top: "70px", right: "20px", zIndex: 100, background: "rgba(20, 20, 20, 0.9)", padding: "10px", borderRadius: "12px", border: "1px solid rgba(255,255,255,0.1)", backdropFilter: "blur(10px)", display: "flex", gap: "10px", alignItems: "center" }}>
+                <FaSearch style={{ opacity: 0.5 }} />
+                <input 
+                  autoFocus
+                  placeholder="Filter messages..." 
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  style={{ background: "none", border: "none", color: "white", outline: "none", width: "150px" }}
+                />
+                <button onClick={() => { setShowSearch(false); setSearchQuery(""); }} style={{ background: "none", border: "none", color: "white", cursor: "pointer", opacity: 0.5 }}>✕</button>
+              </div>
+            )}
 
             {ownerToken && (
               <ActionButton
@@ -1014,7 +1030,11 @@ export default function ChatRoom() {
         </Header>
 
         <MessageContainer>
-          {messages.map((m, i) => {
+          {messages.filter(m => {
+            if (!searchQuery) return true;
+            if (m.type === "system") return false;
+            return m.text?.toLowerCase().includes(searchQuery.toLowerCase());
+          }).map((m, i) => {
             const isSystem = m.type === "system";
             const systemType = isSystem ? m.action : null;
 
