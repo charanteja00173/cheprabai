@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import styled from "styled-components";
-import { FaMicrophone, FaPhoneSlash, FaPause, FaSync, FaTv, FaDesktop, FaFolderOpen, FaRecordVinyl, FaThumbtack } from "react-icons/fa";
+import { FaMicrophone, FaVideo, FaPhoneSlash, FaPause, FaSync, FaTv, FaDesktop, FaFolderOpen, FaRecordVinyl, FaThumbtack } from "react-icons/fa";
 import { Peer } from "peerjs";
 import { toast } from "react-toastify";
 

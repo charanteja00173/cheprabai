@@ -141,30 +141,6 @@ export default function AppMain() {
 
     return () => socket.removeAllListeners();
   }, [handleOffer, handleAnswer, handleIce, createPeer]);
-      pc.onnegotiationneeded = async () => {
-        try {
-          const offer = await pc.createOffer();
-          await pc.setLocalDescription(offer);
-          socket.emit("webrtc-offer", { to: id, offer: pc.localDescription });
-        } catch (err) {
-          console.error("Negotiation error", err);
-        }
-      };
-    }
-
-    peersRef.current[id] = pc;
-  };
-
-  const removePeer = (id) => {
-    if(peersRef.current[id]) peersRef.current[id].close();
-    delete peersRef.current[id];
-    setPeers(p => {
-      const copy = {...p};
-      delete copy[id];
-      return copy;
-    });
-  };
-
   /* ================= CONTROLS ================= */
   const toggleMute = () => {
     const track = streamRef.current?.getAudioTracks()[0];

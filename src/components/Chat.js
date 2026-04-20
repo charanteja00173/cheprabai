@@ -14,8 +14,7 @@ import LiveMeeting from "./LiveMeeting";
 import { FaVideo, FaPlay } from "react-icons/fa";
 import image from "../logo192.png";
 import notificationSound from "../assets/iphone-sms.mp3";
-// import { Link } from 'react-router-dom';
-
+import { AiOutlineClose } from "react-icons/ai";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
@@ -683,7 +682,7 @@ export default function ChatRoom() {
     });
 
     socketRef.current.on("presence", ({ online, count }) => {
-      setOnlineCount(count || online.length);
+
       setOnlineUsers(online);
     });
 
