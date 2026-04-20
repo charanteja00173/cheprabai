@@ -650,8 +650,7 @@ export default function ChatRoom() {
     setMessages([]);
     setJoined(false);
   };
-
-  /* ================= SOCKET ================= */
+/* ================= SOCKET ================= */
 
   useEffect(() => {
     socketRef.current = io(process.env.REACT_APP_SOCKET_ENDPOINT || "http://localhost:4000");
@@ -895,6 +894,7 @@ export default function ChatRoom() {
     socketRef.current.emit("sendMessage", {
       payload,
       userName,
+      roomId,
       ts: Date.now(),
     });
     
@@ -902,10 +902,10 @@ export default function ChatRoom() {
   };
 
   const handleTyping = (value) => {
-    socketRef.current.emit("typing", value.length > 0);
+    socketRef.current.emit("typing", { isTyping: value.length > 0, roomId });
     clearTimeout(typingTimeout.current);
     typingTimeout.current = setTimeout(
-      () => socketRef.current.emit("typing", false),
+      () => socketRef.current.emit("typing", { isTyping: false, roomId }),
       1000,
     );
   };
