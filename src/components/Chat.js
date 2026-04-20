@@ -11,11 +11,10 @@ import {
 import { HiGif } from "react-icons/hi2";
 import Whiteboard from "./Whiteboard";
 import LiveMeeting from "./LiveMeeting";
-import { FaVideo, FaTv, FaHeadset, FaPlay } from "react-icons/fa";
+import { FaVideo, FaPlay } from "react-icons/fa";
 import image from "../logo192.png";
 import notificationSound from "../assets/iphone-sms.mp3";
 // import { Link } from 'react-router-dom';
-import { AiOutlineClose } from "react-icons/ai";
 
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -504,7 +503,6 @@ export default function ChatRoom() {
   const typingTimeout = useRef(null);
   const fileInputRef = useRef(null);
   const [ownerToken, setOwnerToken] = useState("");
-  const [onlineCount, setOnlineCount] = useState(0);
   const [uploadProgress, setUploadProgress] = useState({}); // fileId -> %
   const [onlineUsers, setOnlineUsers] = useState([]);
   const isEncrypted = !!cryptoKeyRef.current;

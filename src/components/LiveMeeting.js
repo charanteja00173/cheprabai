@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import styled from "styled-components";
-import { FaMicrophone, FaMicrophoneSlash, FaVideo, FaVideoSlash, FaPhoneSlash, FaPlay, FaPause, FaSync, FaTv, FaDesktop, FaFolderOpen, FaRecordVinyl, FaThumbtack } from "react-icons/fa";
+import { FaMicrophone, FaPhoneSlash, FaPause, FaSync, FaTv, FaDesktop, FaFolderOpen, FaRecordVinyl, FaThumbtack } from "react-icons/fa";
 import { Peer } from "peerjs";
 import { toast } from "react-toastify";
 
@@ -160,7 +160,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const [isVideoOff, setIsVideoOff] = useState(false);
   const [watchUrl, setWatchUrl] = useState("");
   const [activeMedia, setActiveMedia] = useState(null);
-  const [speakingPeers, setSpeakingPeers] = useState({});
+  const [speakingPeers] = useState({});
   const [isSyncing, setIsSyncing] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [reactions, setReactions] = useState([]);
@@ -247,7 +247,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       socket.off("user-connected-call"); socket.off("user-disconnected-call");
       socket.off("syncMedia"); socket.off("reaction");
     };
-  }, [roomId, socket, userName, isAdmin]);
+  }, [roomId, socket, userName, isAdmin, localStream]);
 
   useEffect(() => {
     if (!mediaRef.current || !activeMedia || isRemoteUpdate.current) return;
@@ -407,7 +407,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
           ) : activeMedia ? (
             <div key={activeMedia.url} style={{ width: "100%", height: "100%" }}>
                {activeMedia.url?.includes("youtu") ? (
-                  <iframe src={`https://www.youtube.com/embed/${activeMedia.url.includes("youtu.be") ? activeMedia.url.split("/").pop() : activeMedia.url.split("v=")[1]?.split("&")[0]}`} style={{ width: "100%", height: "100%", border: "none" }} allowFullScreen />
+                  <iframe title="YouTube Video" src={`https://www.youtube.com/embed/${activeMedia.url.includes("youtu.be") ? activeMedia.url.split("/").pop() : activeMedia.url.split("v=")[1]?.split("&")[0]}`} style={{ width: "100%", height: "100%", border: "none" }} allowFullScreen />
                ) : (
                  <video ref={mediaRef} src={activeMedia.url} style={{ width: "100%", height: "100%" }} onPlay={() => handleMediaAction("play")} onPause={() => handleMediaAction("pause")} />
                )}

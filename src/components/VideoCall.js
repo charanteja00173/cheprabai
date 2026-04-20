@@ -1,5 +1,5 @@
 // File: src/App.js
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import styled from "styled-components";
 import { io } from "socket.io-client";
 import {
@@ -50,42 +50,73 @@ export default function AppMain() {
   const [muted, setMuted] = useState(false);
   const [videoOff, setVideoOff] = useState(false);
 
-    const handleOffer = async ({ from, offer, name: userName }) => {
+    const handleOffer = useCallback(async ({ from, offer, name: userName }) => {
     if(!peersRef.current[from]) createPeer(from, userName, false);
     const pc = peersRef.current[from];
     await pc.setRemoteDescription(new RTCSessionDescription(offer));
     const answer = await pc.createAnswer();
     await pc.setLocalDescription(answer);
     socket.emit("webrtc-answer", { to: from, answer: pc.localDescription });
-  };
+  }, []);
 
-  const handleAnswer = async ({ from, answer }) => {
+  const handleAnswer = useCallback(async ({ from, answer }) => {
     const pc = peersRef.current[from];
     if(!pc) return;
     await pc.setRemoteDescription(new RTCSessionDescription(answer));
-  };
+  }, []);
 
-  const handleIce = async ({ from, candidate }) => {
+  const handleIce = useCallback(async ({ from, candidate }) => {
     if(!peersRef.current[from]) return;
     await peersRef.current[from].addIceCandidate(new RTCIceCandidate(candidate));
-  };
+  }, []);
 
   /* ================= LOCAL VIDEO ================= */
   useEffect(() => {
     if (localRef.current && streamRef.current) localRef.current.srcObject = streamRef.current;
-  }, [joined]);
+  }, []);
 
-  /* ================= JOIN ROOM ================= */
-  const joinRoom = async () => {
-    if (!name || !room) return;
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video:true, audio:true });
-      streamRef.current = stream;
-      setJoined(true);
-      socket.emit("joinRoom", { roomId: room, userName: name });
-    } catch {
-      alert("Allow Camera & Microphone access");
+  /* ================= WEBRTC ================= */
+  const createPeer = useCallback((id, userName, initiator) => {
+    if (peersRef.current[id]) return;
+
+    const pc = new RTCPeerConnection({ iceServers:[{ urls:"stun:stun.l.google.com:19302" }] });
+
+    // add local tracks
+    if (streamRef.current) {
+        streamRef.current.getTracks().forEach(t => pc.addTrack(t, streamRef.current));
     }
+
+    pc.ontrack = e => {
+      setPeers(p => {
+        const existingStream = p[id]?.stream || new MediaStream();
+        e.streams[0].getTracks().forEach(track => {
+          if (!existingStream.getTracks().find(t => t.id === track.id)) {
+            existingStream.addTrack(track);
+          }
+        });
+        return { ...p, [id]: { stream: existingStream, name: userName } };
+      });
+    };
+
+    pc.onicecandidate = e => {
+      if(e.candidate) socket.emit("webrtc-ice",{ to:id, candidate:e.candidate });
+    };
+
+    if (initiator) {
+      pc.createOffer().then(offer => {
+        pc.setLocalDescription(offer);
+        socket.emit("webrtc-offer", { to: id, offer, name });
+      });
+    }
+    peersRef.current[id] = pc;
+  }, [name]);
+
+  const removePeer = (id) => {
+    if (peersRef.current[id]) {
+      peersRef.current[id].close();
+      delete peersRef.current[id];
+    }
+    setPeers(p => { const n = { ...p }; delete n[id]; return n; });
   };
 
   /* ================= SOCKET ================= */
@@ -109,35 +140,7 @@ export default function AppMain() {
     socket.on("user-left", ({ id }) => removePeer(id));
 
     return () => socket.removeAllListeners();
-  }, [handleOffer, handleAnswer, handleIce]);
-
-  /* ================= WEBRTC ================= */
-  const createPeer = (id, userName, initiator) => {
-    if (peersRef.current[id]) return;
-
-    const pc = new RTCPeerConnection({ iceServers:[{ urls:"stun:stun.l.google.com:19302" }] });
-
-    // add local tracks
-    streamRef.current.getTracks().forEach(t => pc.addTrack(t, streamRef.current));
-
-    pc.ontrack = e => {
-      setPeers(p => {
-        const existingStream = p[id]?.stream || new MediaStream();
-        e.streams[0].getTracks().forEach(track => {
-          if (!existingStream.getTracks().find(t => t.id === track.id)) {
-            existingStream.addTrack(track);
-          }
-        });
-        return { ...p, [id]: { stream: existingStream, name: userName } };
-      });
-    };
-
-
-    pc.onicecandidate = e => {
-      if(e.candidate) socket.emit("webrtc-ice",{ to:id, candidate:e.candidate });
-    };
-
-    if (initiator) {
+  }, [handleOffer, handleAnswer, handleIce, createPeer]);
       pc.onnegotiationneeded = async () => {
         try {
           const offer = await pc.createOffer();
