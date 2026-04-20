@@ -228,11 +228,11 @@ export default function Whiteboard({ socket, roomId, onClose, isAdmin }) {
   const lastEmit = useRef(0);
   const handleChange = useCallback(
     (app) => {
-      if (isSyncing.current || isInteracting.current) return;
+      if (isSyncing.current) return;
       
-      // Throttle emissions to ~30fps to prevent network flooding
+      // Throttle to 60fps for "Completely Realtime" feel
       const now = Date.now();
-      if (now - lastEmit.current < 33) return;
+      if (now - lastEmit.current < 16) return;
       lastEmit.current = now;
 
       try {

@@ -23,7 +23,7 @@ import { generateKeyFromSecret, encryptMessage, decryptMessage, encryptBinary, d
 /* ================= CONFIG ================= */
 
 const SECURITY_CODE = process.env.REACT_APP_SECURITY_CODES.split(",");
-const CHUNK_SIZE = 1024 * 1024 * 5;
+const CHUNK_SIZE = 1024 * 128; // 128KB chunks for high-speed streaming relay
 
 const urlRegex = /(https?:\/\/[^\s]+)/g;
 
@@ -479,6 +479,58 @@ const OverlayButton = styled.button`
   }
 `;
 
+const shimmer = keyframes`
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+`;
+
+const ProgressOverlay = styled.div`
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  background: rgba(10, 10, 10, 0.85);
+  backdrop-filter: blur(8px);
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+`;
+
+const ProgressTrack = styled.div`
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  overflow: hidden;
+  position: relative;
+`;
+
+const ProgressFill = styled.div`
+  height: 100%;
+  width: ${props => props.percent}%;
+  background: linear-gradient(90deg, #00bfa5, #00e5ff, #00bfa5);
+  background-size: 200% 100%;
+  animation: ${shimmer} 2s infinite linear;
+  border-radius: 10px;
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 0 15px rgba(0, 191, 165, 0.5);
+`;
+
+const ProgressText = styled.div`
+  margin-top: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: white;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`;
+
 /* ================= COMPONENT ================= */
 
 export default function ChatRoom() {
@@ -499,10 +551,11 @@ export default function ChatRoom() {
   const [pendingFile, setPendingFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [fullscreen, setFullscreen] = useState(null);
+  const [uploadProgress, setUploadProgress] = useState({});
+  const [receivingFiles, setReceivingFiles] = useState({});
   const typingTimeout = useRef(null);
   const fileInputRef = useRef(null);
   const [ownerToken, setOwnerToken] = useState("");
-  const [uploadProgress, setUploadProgress] = useState({}); // fileId -> %
   const [onlineUsers, setOnlineUsers] = useState([]);
   const isEncrypted = !!cryptoKeyRef.current;
 
@@ -650,7 +703,7 @@ export default function ChatRoom() {
   /* ================= SOCKET ================= */
 
   useEffect(() => {
-    socketRef.current = io(process.env.REACT_APP_SOCKET_ENDPOINT);
+    socketRef.current = io(process.env.REACT_APP_SOCKET_ENDPOINT || "http://localhost:4000");
     return () => socketRef.current.disconnect();
   }, []);
 
@@ -708,7 +761,23 @@ export default function ChatRoom() {
 
       if (!fileChunksRef.current[fileId]) {
         fileChunksRef.current[fileId] = [];
+        // First chunk - initialize receiver UI
+        setMessages(m => [
+            ...m,
+            {
+              id: `loading-${fileId}`,
+              userName: senderName,
+              file: { name: fileName, loading: true },
+              ts: Date.now(),
+            }
+        ]);
       }
+
+      const percent = Math.round(((chunkIndex + 1) / totalChunks) * 100);
+      setReceivingFiles(prev => ({
+          ...prev,
+          [fileId]: { name: fileName, percent, senderName }
+      }));
 
       try {
         let decryptedChunk = chunk;
@@ -736,20 +805,40 @@ export default function ChatRoom() {
         const blob = new Blob(fileChunksRef.current[fileId], { type: safeType });
         const url = URL.createObjectURL(blob);
 
-        setMessages((m) => [
-          ...m,
-          {
-            userName: senderName,
-            file: { name: fileName, url, type: fileType },
-            ts: Date.now(),
-          },
-        ]);
+        setMessages((m) => {
+           const updated = m.filter(msg => msg.id !== `loading-${fileId}`);
+           return [
+            ...updated,
+            {
+                userName: senderName,
+                file: { name: fileName, url, type: fileType },
+                ts: Date.now(),
+            },
+           ];
+        });
+
         if (senderName !== userName) audioRef.current.play().catch(() => {});
         delete fileChunksRef.current[fileId];
+        setReceivingFiles(prev => {
+            const next = { ...prev };
+            delete next[fileId];
+            return next;
+        });
       }
     });
 
     socketRef.current.on("roomOwner", (token) => setOwnerToken(token));
+
+    socketRef.current.on("connect", () => {
+      console.log("Connected to server:", socketRef.current.id);
+      if (joined && roomId && userName) {
+        socketRef.current.emit("joinRoom", { roomId, userName });
+      }
+    });
+
+    socketRef.current.on("disconnect", () => {
+      console.log("Disconnected from server");
+    });
 
     // Latency Tracking (Ping-Pong)
     const pingInterval = setInterval(() => {
@@ -766,6 +855,17 @@ export default function ChatRoom() {
       clearInterval(pingInterval);
     };
   }, [joined, roomId, userName]);
+
+  useEffect(() => {
+    if (!joined) return;
+    const handleBeforeUnload = (e) => {
+      e.preventDefault();
+      e.returnValue = "Are you sure you want to leave the room? Your current session and chat history will be lost.";
+      return e.returnValue;
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [joined]);
 
   /* ================= FILE HANDLING ================= */
 
@@ -1110,18 +1210,24 @@ export default function ChatRoom() {
 
                 {m.file && (
                   <div style={{ position: "relative" }}>
-                    {uploadProgress[m.fileId] && (
-                      <div style={{ position: "absolute", inset: 0, zIndex: 10, background: "rgba(0,0,0,0.5)", borderRadius: 12, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-                        <div style={{ width: "60%", height: 4, background: "rgba(255,255,255,0.2)", borderRadius: 2 }}>
-                          <div style={{ width: `${uploadProgress[m.fileId]}%`, height: "100%", background: "#00bfa5", borderRadius: 2, transition: "width 0.3s" }} />
+                    {m.file.loading ? (
+                      <div style={{ 
+                        width: "100%", padding: "20px", background: "rgba(30, 30, 30, 0.8)", borderRadius: "12px", border: "1px solid rgba(255, 255, 255, 0.1)",
+                        display: "flex", flexDirection: "column", gap: "10px"
+                      }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <span style={{ fontSize: "0.85rem", fontWeight: "600", color: "#fff", opacity: 0.8 }}>Receiving: {m.file.name}</span>
+                          <span style={{ fontSize: "0.75rem", color: "#00bfa5" }}>{receivingFiles[m.id.replace('loading-', '')]?.percent || 0}%</span>
                         </div>
-                        <div style={{ fontSize: "0.7rem", marginTop: 8, color: "white" }}>Sending {uploadProgress[m.fileId]}%</div>
+                        <ProgressTrack>
+                           <ProgressFill percent={receivingFiles[m.id.replace('loading-', '')]?.percent || 0} />
+                        </ProgressTrack>
                       </div>
-                    )}
+                    ) : (
                     <FileCard onClick={() => setFullscreen(m.file)}>
-                      {m.file.type.startsWith("image") ? (
+                      {m.file.type && m.file.type.startsWith("image") ? (
                         <img alt={m.file.name} src={m.file.url} style={{ width: "100%", borderRadius: 8 }} />
-                      ) : m.file.type.startsWith("video") ? (
+                      ) : m.file.type && m.file.type.startsWith("video") ? (
                         <div style={{ position: "relative" }}>
                           <video src={m.file.url} style={{ width: "100%", borderRadius: 8 }} />
                           <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.3)" }}>
@@ -1149,6 +1255,7 @@ export default function ChatRoom() {
                         </div>
                       )}
                     </FileCard>
+                    )}
                   </div>
                 )}
 
@@ -1210,11 +1317,11 @@ export default function ChatRoom() {
               {/* <h3 style={{ color: "#fff", margin: 0 , textAlign: 'center'}}>Send file?</h3> */}
 
               <PreviewContent style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minWidth: "300px", minHeight: "150px" }}>
-                {pendingFile.type.startsWith("image") ? (
+                {pendingFile.type && pendingFile.type.startsWith("image") ? (
                   <img alt={pendingFile.name} src={previewUrl} />
-                ) : pendingFile.type.startsWith("video") ? (
+                ) : pendingFile.type && pendingFile.type.startsWith("video") ? (
                   <video src={previewUrl} controls />
-                ) : pendingFile.type.startsWith("audio") ? (
+                ) : pendingFile.type && pendingFile.type.startsWith("audio") ? (
                   <audio src={previewUrl} controls />
                 ) : (
                   <div style={{ textAlign: "center", padding: "20px" }}>
