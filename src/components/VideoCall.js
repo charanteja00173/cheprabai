@@ -50,7 +50,43 @@ export default function AppMain() {
   const [muted, setMuted] = useState(false);
   const [videoOff, setVideoOff] = useState(false);
 
-    const handleOffer = useCallback(async ({ from, offer, name: userName }) => {
+  /* ================= WEBRTC ================= */
+  const createPeer = useCallback((id, userName, initiator) => {
+    if (peersRef.current[id]) return;
+
+    const pc = new RTCPeerConnection({ iceServers:[{ urls:"stun:stun.l.google.com:19302" }] });
+
+    // add local tracks
+    if (streamRef.current) {
+        streamRef.current.getTracks().forEach(t => pc.addTrack(t, streamRef.current));
+    }
+
+    pc.ontrack = e => {
+      setPeers(p => {
+        const existingStream = p[id]?.stream || new MediaStream();
+        e.streams[0].getTracks().forEach(track => {
+          if (!existingStream.getTracks().find(t => t.id === track.id)) {
+            existingStream.addTrack(track);
+          }
+        });
+        return { ...p, [id]: { stream: existingStream, name: userName } };
+      });
+    };
+
+    pc.onicecandidate = e => {
+      if(e.candidate) socket.emit("webrtc-ice",{ to:id, candidate:e.candidate });
+    };
+
+    if (initiator) {
+      pc.createOffer().then(offer => {
+        pc.setLocalDescription(offer);
+        socket.emit("webrtc-offer", { to: id, offer, name });
+      });
+    }
+    peersRef.current[id] = pc;
+  }, [name]);
+
+  const handleOffer = useCallback(async ({ from, offer, name: userName }) => {
     if(!peersRef.current[from]) createPeer(from, userName, false);
     const pc = peersRef.current[from];
     await pc.setRemoteDescription(new RTCSessionDescription(offer));
@@ -87,42 +123,6 @@ export default function AppMain() {
       alert("Allow Camera & Microphone access");
     }
   };
-
-  /* ================= WEBRTC ================= */
-  const createPeer = useCallback((id, userName, initiator) => {
-    if (peersRef.current[id]) return;
-
-    const pc = new RTCPeerConnection({ iceServers:[{ urls:"stun:stun.l.google.com:19302" }] });
-
-    // add local tracks
-    if (streamRef.current) {
-        streamRef.current.getTracks().forEach(t => pc.addTrack(t, streamRef.current));
-    }
-
-    pc.ontrack = e => {
-      setPeers(p => {
-        const existingStream = p[id]?.stream || new MediaStream();
-        e.streams[0].getTracks().forEach(track => {
-          if (!existingStream.getTracks().find(t => t.id === track.id)) {
-            existingStream.addTrack(track);
-          }
-        });
-        return { ...p, [id]: { stream: existingStream, name: userName } };
-      });
-    };
-
-    pc.onicecandidate = e => {
-      if(e.candidate) socket.emit("webrtc-ice",{ to:id, candidate:e.candidate });
-    };
-
-    if (initiator) {
-      pc.createOffer().then(offer => {
-        pc.setLocalDescription(offer);
-        socket.emit("webrtc-offer", { to: id, offer, name });
-      });
-    }
-    peersRef.current[id] = pc;
-  }, [name]);
 
   const removePeer = (id) => {
     if (peersRef.current[id]) {
