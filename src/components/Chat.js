@@ -833,7 +833,7 @@ export default function ChatRoom() {
       const encrypted = await encryptBinary(cryptoKeyRef.current, e.target.result);
       const isFinished = chunkIndex + 1 === totalChunks;
 
-      setUploadProgress(prev => ({ ...prev, [fileId]: Math.round(((chunkIndex + 1) / totalChunks) * 100) }));
+
 
       socketRef.current.emit("sendFileChunk", {
         roomId,
@@ -850,7 +850,7 @@ export default function ChatRoom() {
 
       if (isFinished) {
         setTimeout(() => {
-          setUploadProgress(prev => { const n = { ...prev }; delete n[fileId]; return n; });
+
         }, 1000);
       } else {
         chunkIndex++;
@@ -1173,9 +1173,15 @@ export default function ChatRoom() {
                           <span style={{ fontSize: "0.85rem", fontWeight: "600", color: "#fff", opacity: 0.8 }}>Receiving: {m.file.name}</span>
                           <span style={{ fontSize: "0.75rem", color: "#00bfa5" }}>{receivingFiles[m.id.replace('loading-', '')]?.percent || 0}%</span>
                         </div>
-                        <ProgressTrack>
-                           <ProgressFill percent={receivingFiles[m.id.replace('loading-', '')]?.percent || 0} />
-                        </ProgressTrack>
+                        <div style={{ width: "100%", height: "6px", background: "rgba(255, 255, 255, 0.1)", borderRadius: "10px", overflow: "hidden" }}>
+                           <div style={{ 
+                             height: "100%", 
+                             width: `${receivingFiles[m.id.replace('loading-', '')]?.percent || 0}%`, 
+                             background: "linear-gradient(90deg, #00bfa5, #00e5ff, #00bfa5)",
+                             borderRadius: "10px",
+                             transition: "width 0.4s ease"
+                           }} />
+                        </div>
                       </div>
                     ) : (
                     <FileCard onClick={() => setFullscreen(m.file)}>
