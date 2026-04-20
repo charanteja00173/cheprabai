@@ -1,272 +1,254 @@
-import React, { useState } from "react";
-import styled, { keyframes } from "styled-components";
+// File: src/App.js
+import React, { useEffect, useRef, useState } from "react";
+import styled from "styled-components";
+import { io } from "socket.io-client";
 import {
   FaMicrophone,
   FaMicrophoneSlash,
   FaVideo,
-  FaPhoneAlt,
+  FaVideoSlash,
+  FaPaperPlane,
+  FaUsers,
+  FaPhoneSlash,
 } from "react-icons/fa";
-import { Link } from "react-router-dom";
-import { CiStreamOn } from "react-icons/ci";
 
-const fadeIn = keyframes`
-  from {
-    opacity: 0;
-    transform: translateY(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-`;
+/* ================= SOCKET ================= */
+const socket = io(process.env.REACT_APP_SOCKET_ENDPOINT || "http://localhost:4000");
 
-const VideoContainer = styled.div`
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  background: #000;
-`;
+/* ================= STYLES ================= */
+const App = styled.div`height:100vh; background:#020617; color:white; display:flex;`;
+const Lobby = styled.div`margin:auto; padding:30px; border-radius:12px; width:350px; text-align:center; background:#020617;`;
+const Input = styled.input`width:100%; padding:12px; margin:10px 0; border-radius:8px; border:none;`;
+const Button = styled.button`width:100%; padding:12px; background:#38bdf8; border:none; border-radius:8px; cursor:pointer;`;
+const Layout = styled.div`flex:1; display:grid; grid-template-columns:220px 1fr 280px;`;
+const Panel = styled.div`border-right:1px solid #111; display:flex; flex-direction:column;`;
+const Stage = styled.div`flex:1; display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:12px; padding:12px;`;
+const VideoCard = styled.div`background:black; border-radius:12px; overflow:hidden; position:relative;`;
+const Video = styled.video`width:100%; height:100%; object-fit:cover;`;
+const NameTag = styled.div`position:absolute; bottom:8px; left:8px; color:#38bdf8; font-weight:bold; text-shadow:1px 1px 4px black;`;
+const Footer = styled.div`height:80px; display:flex; justify-content:center; align-items:center; gap:14px; border-top:1px solid #111;`;
+const Btn = styled.button`width:48px; height:48px; border-radius:50%; border:none; background:${({danger})=>danger?"#ef4444":"#38bdf8"}; cursor:pointer;`;
+const ChatList = styled.div`flex:1; padding:10px; overflow-y:auto;`;
+const ChatBox = styled.div`height:60px; display:flex; gap:8px; padding:8px;`;
+const ChatInput = styled.input`flex:1; border-radius:6px; border:none; padding:8px;`;
 
-const Header = styled.div`
-  padding: 15px;
-  background: rgba(0, 0, 0, 0.8);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  color: white;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-`;
+/* ================= APP ================= */
+export default function AppMain() {
+  const localRef = useRef(null);
+  const streamRef = useRef(null);
+  const peersRef = useRef({}); // { socketId: RTCPeerConnection }
 
-const HeaderLink = styled(Link)`
-  color: white;
-  text-decoration: none; /* Remove underline */
-  display: flex;
-  align-items: center;
+  const [joined, setJoined] = useState(false);
+  const [name, setName] = useState("");
+  const [room, setRoom] = useState("");
 
-  &:hover {
-    text-decoration: none; /* Ensure no underline on hover */
-  }
-`;
+  const [users, setUsers] = useState([]); // online users
+  const [peers, setPeers] = useState({}); // { socketId: { stream, name } }
+  const [messages, setMessages] = useState([]);
+  const [text, setText] = useState("");
 
-const UserInfo = styled.div`
-  display: flex;
-  align-items: center;
+  const [muted, setMuted] = useState(false);
+  const [videoOff, setVideoOff] = useState(false);
 
-  & > img {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    margin-right: 10px;
-    border: 2px solid rgba(255, 255, 255, 0.5);
-  }
-`;
-
-const VideoWrapper = styled.div`
-  display: flex;
-  flex: 1;
-  position: relative;
-`;
-
-const RemoteVideo = styled.video`
-  flex: 1;
-  background: black;
-  border-radius: 10px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-`;
-
-const LocalVideo = styled.video`
-  position: absolute;
-  width: 150px;
-  height: 150px;
-  bottom: 20px;
-  right: 20px;
-  border-radius: 10px;
-  border: 2px solid white;
-`;
-
-const VideoOverlay = styled.div`
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  color: white;
-  cursor: pointer;
-`;
-
-const Controls = styled.div`
-  display: flex;
-  justify-content: center;
-  padding: 15px;
-  background: rgba(0, 0, 0, 0.8);
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-`;
-
-const ControlButton = styled.button`
-  background: none;
-  color: white;
-  border: none;
-  padding: 10px;
-  cursor: pointer;
-  font-size: 1.5rem;
-  transition:
-    transform 0.2s,
-    color 0.2s;
-
-  &:hover {
-    transform: scale(1.1);
-    color: #34b7f1;
-  }
-`;
-
-const Toast = styled.div`
-  position: fixed;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(0, 0, 0, 0.7);
-  color: white;
-  padding: 10px 20px;
-  border-radius: 5px;
-  animation: ${fadeIn} 0.5s ease-out forwards;
-  opacity: 0;
-  transition: opacity 0.5s ease-out;
-
-  &.show {
-    opacity: 1;
-  }
-`;
-
-const VideoCall = ({
-  user = { name: "Jack", img: "https://i.pravatar.cc/150?img=12" },
-  remoteUser = { name: "Rose", img: "https://i.pravatar.cc/150?img=1" },
-}) => {
-  const [toastMessage, setToastMessage] = useState("");
-  const [mute, setMute] = useState(false);
-  const [normalCall, setNormalCall] = useState(false);
-  const [showingRemote, setShowingRemote] = useState(true);
-
-  const handleButtonClick = (action) => {
-    setToastMessage(action);
-    setTimeout(() => setToastMessage(""), 3000);
+    const handleOffer = async ({ from, offer, name: userName }) => {
+    if(!peersRef.current[from]) createPeer(from, userName, false);
+    const pc = peersRef.current[from];
+    await pc.setRemoteDescription(new RTCSessionDescription(offer));
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    socket.emit("webrtc-answer", { to: from, answer: pc.localDescription });
   };
 
-  const toggleVideoView = () => {
-    setShowingRemote(!showingRemote);
+  const handleAnswer = async ({ from, answer }) => {
+    const pc = peersRef.current[from];
+    if(!pc) return;
+    await pc.setRemoteDescription(new RTCSessionDescription(answer));
   };
+
+  const handleIce = async ({ from, candidate }) => {
+    if(!peersRef.current[from]) return;
+    await peersRef.current[from].addIceCandidate(new RTCIceCandidate(candidate));
+  };
+
+  /* ================= LOCAL VIDEO ================= */
+  useEffect(() => {
+    if (localRef.current && streamRef.current) localRef.current.srcObject = streamRef.current;
+  }, [joined]);
+
+  /* ================= JOIN ROOM ================= */
+  const joinRoom = async () => {
+    if (!name || !room) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video:true, audio:true });
+      streamRef.current = stream;
+      setJoined(true);
+      socket.emit("joinRoom", { roomId: room, userName: name });
+    } catch {
+      alert("Allow Camera & Microphone access");
+    }
+  };
+
+  /* ================= SOCKET ================= */
+  useEffect(() => {
+    socket.on("presence", ({ online }) => {
+      setUsers(online);
+      // create peers for all existing users except self
+      online.forEach(u => {
+        if(u.id !== socket.id && !peersRef.current[u.id]){
+          createPeer(u.id, u.name, true); // initiator true for new peer
+        }
+      });
+    });
+
+    socket.on("newMessage", (msg)=>setMessages(m => [...m, msg]));
+
+    socket.on("webrtc-offer", handleOffer);
+    socket.on("webrtc-answer", handleAnswer);
+    socket.on("webrtc-ice", handleIce);
+
+    socket.on("user-left", ({ id }) => removePeer(id));
+
+    return () => socket.removeAllListeners();
+  }, [handleOffer, handleAnswer, handleIce]);
+
+  /* ================= WEBRTC ================= */
+  const createPeer = (id, userName, initiator) => {
+    if (peersRef.current[id]) return;
+
+    const pc = new RTCPeerConnection({ iceServers:[{ urls:"stun:stun.l.google.com:19302" }] });
+
+    // add local tracks
+    streamRef.current.getTracks().forEach(t => pc.addTrack(t, streamRef.current));
+
+    pc.ontrack = e => {
+      setPeers(p => {
+        const existingStream = p[id]?.stream || new MediaStream();
+        e.streams[0].getTracks().forEach(track => {
+          if (!existingStream.getTracks().find(t => t.id === track.id)) {
+            existingStream.addTrack(track);
+          }
+        });
+        return { ...p, [id]: { stream: existingStream, name: userName } };
+      });
+    };
+
+
+    pc.onicecandidate = e => {
+      if(e.candidate) socket.emit("webrtc-ice",{ to:id, candidate:e.candidate });
+    };
+
+    if (initiator) {
+      pc.onnegotiationneeded = async () => {
+        try {
+          const offer = await pc.createOffer();
+          await pc.setLocalDescription(offer);
+          socket.emit("webrtc-offer", { to: id, offer: pc.localDescription });
+        } catch (err) {
+          console.error("Negotiation error", err);
+        }
+      };
+    }
+
+    peersRef.current[id] = pc;
+  };
+
+  const removePeer = (id) => {
+    if(peersRef.current[id]) peersRef.current[id].close();
+    delete peersRef.current[id];
+    setPeers(p => {
+      const copy = {...p};
+      delete copy[id];
+      return copy;
+    });
+  };
+
+  /* ================= CONTROLS ================= */
+  const toggleMute = () => {
+    const track = streamRef.current?.getAudioTracks()[0];
+    if(track) track.enabled = muted;
+    setMuted(!muted);
+  };
+
+  const toggleVideo = () => {
+    const track = streamRef.current?.getVideoTracks()[0];
+    if(track) track.enabled = videoOff;
+    setVideoOff(!videoOff);
+  };
+
+  /* ================= CHAT ================= */
+  const sendMessage = () => {
+    if(!text.trim()) return;
+    socket.emit("sendMessage",{ text, userName:name, ts:Date.now() });
+    setText("");
+  };
+
+  useEffect(() => {
+  Object.entries(peers).forEach(([id, { stream }]) => {
+    const videoEl = document.getElementById("video-" + id);
+    if (videoEl) videoEl.srcObject = stream;
+  });
+}, [peers]);
+
+
+  /* ================= UI ================= */
+  if(!joined) return (
+    <App>
+      <Lobby>
+        <h2>Join Meeting</h2>
+        <Input placeholder="Name" value={name} onChange={e=>setName(e.target.value)}/>
+        <Input placeholder="Room" value={room} onChange={e=>setRoom(e.target.value)}/>
+        <Button onClick={joinRoom}>Join</Button>
+      </Lobby>
+    </App>
+  );
 
   return (
-    <VideoContainer>
-      <Header>
-        <HeaderLink
-          onClick={() => handleButtonClick("Live Stream!")}
-          to="/live-stream"
-        >
-          <CiStreamOn size={20} style={{ marginRight: "5%" }} color="#ffcc00" />
-          Live Stream
-        </HeaderLink>
-        <UserInfo>
-          {normalCall ? (
-            <>
-              <FaPhoneAlt style={{ marginRight: "10px" }} /> Normal Call
-            </>
-          ) : (
-            <>
-              <FaVideo style={{ marginRight: "10px" }} /> Video Call
-            </>
-          )}
-        </UserInfo>
-        <HeaderLink
-          onClick={() => handleButtonClick("Call Ended!")}
-          to="/"
-          style={{ color: "#ff4d4f" }}
-        >
-          End Call
-        </HeaderLink>
-      </Header>
-      <VideoWrapper style={{ height: "75%" }}>
-        {showingRemote ? (
-          <>
-            <RemoteVideo autoPlay playsInline />
-            <VideoOverlay onClick={toggleVideoView}>
-              <UserInfo>
-                <img src={remoteUser.img} alt={remoteUser.name} />
-                <span>{remoteUser.name}</span>
-              </UserInfo>
-            </VideoOverlay>
-            <LocalVideo autoPlay playsInline />
-            <VideoOverlay
-              style={{
-                justifyContent: "flex-end",
-                alignItems: "flex-end",
-                bottom: "75px",
-                right: "50px",
-              }}
-              onClick={toggleVideoView}
-            >
-              <UserInfo>
-                <img src={user.img} alt={user.name} />
-                <span>{user.name}</span>
-              </UserInfo>
-            </VideoOverlay>
-          </>
-        ) : (
-          <>
-            <LocalVideo autoPlay playsInline />
-            <VideoOverlay onClick={toggleVideoView}>
-              <UserInfo>
-                <img src={user.img} alt={user.name} />
-                <span>{user.name}</span>
-              </UserInfo>
-            </VideoOverlay>
-            <RemoteVideo autoPlay playsInline style={{ flex: 1 }} />
-            <VideoOverlay
-              style={{
-                justifyContent: "flex-end",
-                alignItems: "flex-end",
-                bottom: "75px",
-                right: "50px",
-              }}
-              onClick={toggleVideoView}
-            >
-              <UserInfo>
-                <img src={remoteUser.img} alt={remoteUser.name} />
-                <span>{remoteUser.name}</span>
-              </UserInfo>
-            </VideoOverlay>
-          </>
-        )}
-      </VideoWrapper>
-      <Controls>
-        <ControlButton
-          title={mute ? "Unmute" : "Mute"}
-          onClick={() => {
-            setMute(!mute);
-            handleButtonClick(mute ? "Unmuted" : "Muted");
-          }}
-        >
-          {mute ? <FaMicrophoneSlash /> : <FaMicrophone />}
-        </ControlButton>
-        <ControlButton
-          title={normalCall ? "Video Call" : "Normal Call"}
-          onClick={() => {
-            setNormalCall(!normalCall);
-            handleButtonClick(
-              normalCall ? "shifted to video call" : "shifted to normal call",
-            );
-          }}
-        >
-          {normalCall ? <FaVideo /> : <FaPhoneAlt />}
-        </ControlButton>
-      </Controls>
-      {toastMessage && (
-        <Toast className={toastMessage ? "show" : ""}>{toastMessage}</Toast>
-      )}
-    </VideoContainer>
-  );
-};
+    <App>
+      <Layout>
+        {/* USERS */}
+        <Panel>
+          <h4 style={{padding:10}}><FaUsers/> Users</h4>
+          <ChatList>
+            <div>🟢 You ({name})</div>
+            {users.map(u => u.id!==socket.id && <div key={u.id}>🟢 {u.name}</div>)}
+          </ChatList>
+        </Panel>
 
-export default VideoCall;
+        {/* VIDEO */}
+        <Panel style={{borderRight:"none"}}>
+          <Stage>
+            <VideoCard>
+              <Video ref={localRef} autoPlay muted playsInline/>
+              <NameTag>{name} (You)</NameTag>
+            </VideoCard>
+
+            {Object.entries(peers).map(([id,{stream,name}])=>(
+              <VideoCard key={id}>
+                <Video id={"video-" + id} autoPlay playsInline />
+                <NameTag>{name}</NameTag>
+              </VideoCard>
+            ))}
+          </Stage>
+
+          <Footer>
+            <Btn onClick={toggleMute}>{muted?<FaMicrophoneSlash/>:<FaMicrophone/>}</Btn>
+            <Btn onClick={toggleVideo}>{videoOff?<FaVideoSlash/>:<FaVideo/>}</Btn>
+            <Btn danger onClick={()=>window.location.reload()}><FaPhoneSlash/></Btn>
+          </Footer>
+        </Panel>
+
+        {/* CHAT */}
+        <Panel>
+          <h4 style={{padding:10}}>Chat</h4>
+          <ChatList>
+            {messages.map((m,i)=><div key={i}><b>{m.userName}:</b> {m.text}</div>)}
+          </ChatList>
+          <ChatBox>
+            <ChatInput value={text} onChange={e=>setText(e.target.value)} onKeyDown={e=>e.key==="Enter" && sendMessage()}/>
+            <Btn onClick={sendMessage}><FaPaperPlane/></Btn>
+          </ChatBox>
+        </Panel>
+      </Layout>
+    </App>
+  );
+}

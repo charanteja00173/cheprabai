@@ -3,12 +3,15 @@ import { io } from "socket.io-client";
 import styled, { keyframes } from "styled-components";
 import {
   FaPaperPlane,
-  // FaVideo, FaPhoneAlt,
+  FaPenNib,
   FaFileUpload,
+  FaFile,
   FaSearch,
 } from "react-icons/fa";
 import { HiGif } from "react-icons/hi2";
-// import { CiStreamOn } from "react-icons/ci";
+import Whiteboard from "./Whiteboard";
+import LiveMeeting from "./LiveMeeting";
+import { FaVideo, FaTv, FaHeadset, FaPlay } from "react-icons/fa";
 import image from "../logo192.png";
 import notificationSound from "../assets/iphone-sms.mp3";
 // import { Link } from 'react-router-dom';
@@ -16,6 +19,8 @@ import { AiOutlineClose } from "react-icons/ai";
 
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+
+import { generateKeyFromSecret, encryptMessage, decryptMessage, encryptBinary, decryptBinary } from "../utils/crypto";
 
 /* ================= CONFIG ================= */
 
@@ -40,9 +45,23 @@ const colorPalette = [
 ];
 
 const glow = keyframes`
-  0% { opacity: .3 }
-  50% { opacity: 1 }
-  100% { opacity: .3 }
+  0% { opacity: .4; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.1); }
+  100% { opacity: .4; transform: scale(1); }
+`;
+
+const LiveBadge = styled.div`
+  background: #ff4757;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: bold;
+  animation: ${glow} 1.5s infinite;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: 12px;
 `;
 
 const ChatContainer = styled.div`
@@ -469,6 +488,7 @@ export default function ChatRoom() {
   const audioRef = useRef(new Audio(notificationSound));
   const fileChunksRef = useRef({});
   const userColorsRef = useRef({});
+  const cryptoKeyRef = useRef(null);
 
   const [joined, setJoined] = useState(false);
   const [roomId, setRoomId] = useState("");
@@ -485,8 +505,15 @@ export default function ChatRoom() {
   const fileInputRef = useRef(null);
   const [ownerToken, setOwnerToken] = useState("");
   const [onlineCount, setOnlineCount] = useState(0);
+  const [uploadProgress, setUploadProgress] = useState({}); // fileId -> %
+  const [onlineUsers, setOnlineUsers] = useState([]);
+  const isEncrypted = !!cryptoKeyRef.current;
 
   const [showGifPicker, setShowGifPicker] = useState(false);
+  const [showWhiteboard, setShowWhiteboard] = useState(false);
+  const [showMeeting, setShowMeeting] = useState(false);
+  const [showRoomInfo, setShowRoomInfo] = useState(false);
+  const [latency, setLatency] = useState(0);
   const [gifQuery, setGifQuery] = useState("");
 
   const [gifs, setGifs] = useState([]);
@@ -555,15 +582,51 @@ export default function ChatRoom() {
     return userColorsRef.current[name];
   };
 
-  const extractYoutubeId = (url) => {
+  const getEmbedData = (url) => {
     try {
       const u = new URL(url);
-      if (u.hostname.includes("youtu.be")) {
-        return u.pathname.slice(1);
-      }
+      
+      // YouTube
+      if (u.hostname.includes("youtu.be")) return { type: "youtube", src: `https://www.youtube.com/embed/${u.pathname.slice(1)}` };
       if (u.hostname.includes("youtube.com")) {
-        return u.searchParams.get("v");
+        if (u.pathname.startsWith("/shorts/")) return { type: "youtube", src: `https://www.youtube.com/embed/${u.pathname.split("/")[2]}` };
+        if (u.pathname.startsWith("/live/")) return { type: "youtube", src: `https://www.youtube.com/embed/${u.pathname.split("/")[2]}` };
+        if (u.searchParams.get("v")) return { type: "youtube", src: `https://www.youtube.com/embed/${u.searchParams.get("v")}` };
       }
+
+      // Spotify
+      if (u.hostname.includes("spotify.com")) {
+        const parts = u.pathname.split("/").filter(Boolean);
+        if (parts.length >= 2) {
+          return { type: "spotify", src: `https://open.spotify.com/embed/${parts[0]}/${parts[1]}` };
+        }
+      }
+
+      // TikTok
+      if (u.hostname.includes("tiktok.com")) {
+        const videoId = u.pathname.split("/video/")[1];
+        if (videoId) return { type: "tiktok", src: `https://www.tiktok.com/embed/v2/${videoId.split("?")[0]}` };
+      }
+
+      // Instagram
+      if (u.hostname.includes("instagram.com")) {
+        const pIndex = u.pathname.split("/").indexOf("p");
+        const reelIndex = u.pathname.split("/").indexOf("reel");
+        const idIndex = pIndex > -1 ? pIndex + 1 : (reelIndex > -1 ? reelIndex + 1 : -1);
+        if (idIndex !== -1) {
+          const id = u.pathname.split("/")[idIndex];
+          return { type: "instagram", src: `https://www.instagram.com/p/${id}/embed` };
+        }
+      }
+
+      // Twitter / X
+      if (u.hostname.includes("twitter.com") || u.hostname.includes("x.com")) {
+        const tweetId = u.pathname.split("/status/")[1];
+        if (tweetId) {
+           return { type: "twitter", src: `https://twitframe.com/show?url=${encodeURIComponent(`https://twitter.com/i/status/${tweetId.split("?")[0]}`)}` };
+        }
+      }
+      
     } catch {}
     return null;
   };
@@ -597,14 +660,32 @@ export default function ChatRoom() {
 
     socketRef.current.emit("joinRoom", { roomId, userName });
 
-    socketRef.current.on("newMessage", (msg) => {
-      setMessages((m) => [...m, msg]);
+    socketRef.current.on("newMessage", async (msg) => {
+      let finalMsg = { ...msg };
+      if (msg.type !== "system" && msg.payload) {
+        try {
+          const decryptedText = await decryptMessage(cryptoKeyRef.current, msg.payload);
+          try {
+            const parsed = JSON.parse(decryptedText);
+            finalMsg.text = parsed.text || "";
+            finalMsg.gif = parsed.gif || "";
+          } catch (e) {
+            finalMsg.text = decryptedText;
+          }
+        } catch (err) {
+          finalMsg.text = "🔒 [Encrypted Message]";
+        }
+      } else if (!msg.type && msg.text) {
+          // Fallback for unencrypted historical messages if any
+      }
+      setMessages((m) => [...m, finalMsg]);
       if (msg.userName !== userName) audioRef.current.play().catch(() => {});
     });
 
-    socketRef.current.on("presence", ({ online }) =>
-      setOnlineCount(online.length),
-    );
+    socketRef.current.on("presence", ({ online, count }) => {
+      setOnlineCount(count || online.length);
+      setOnlineUsers(online);
+    });
 
     socketRef.current.on("typing", (users) =>
       setTypingUsers(users.filter((u) => u !== userName)),
@@ -614,10 +695,11 @@ export default function ChatRoom() {
       window.location.reload();
     });
 
-    socketRef.current.on("receiveFileChunk", (data) => {
+    socketRef.current.on("receiveFileChunk", async (data) => {
       const {
         fileId,
         chunk,
+        iv,
         chunkIndex,
         totalChunks,
         fileName,
@@ -629,14 +711,30 @@ export default function ChatRoom() {
         fileChunksRef.current[fileId] = [];
       }
 
-      fileChunksRef.current[fileId][chunkIndex] = chunk;
+      try {
+        let decryptedChunk = chunk;
+        if (iv && chunk) {
+          decryptedChunk = await decryptBinary(cryptoKeyRef.current, { iv, data: chunk });
+        }
+        fileChunksRef.current[fileId][chunkIndex] = decryptedChunk;
+      } catch (err) {
+        console.error("Failed to decrypt file chunk");
+      }
 
       if (
         fileChunksRef.current[fileId].filter(Boolean).length === totalChunks
       ) {
-        const blob = new Blob(fileChunksRef.current[fileId], {
-          type: fileType,
-        });
+        let safeType = "application/octet-stream";
+        if (
+          fileType.startsWith("image/") ||
+          fileType.startsWith("video/") ||
+          fileType.startsWith("audio/") ||
+          fileType === "application/pdf"
+        ) {
+          safeType = fileType;
+        }
+
+        const blob = new Blob(fileChunksRef.current[fileId], { type: safeType });
         const url = URL.createObjectURL(blob);
 
         setMessages((m) => [
@@ -654,7 +752,20 @@ export default function ChatRoom() {
 
     socketRef.current.on("roomOwner", (token) => setOwnerToken(token));
 
-    return () => socketRef.current.off();
+    // Latency Tracking (Ping-Pong)
+    const pingInterval = setInterval(() => {
+      if (socketRef.current && socketRef.current.connected) {
+        const start = Date.now();
+        socketRef.current.emit("ping", () => {
+          setLatency(Date.now() - start);
+        });
+      }
+    }, 5000);
+
+    return () => {
+      socketRef.current.off();
+      clearInterval(pingInterval);
+    };
   }, [joined, roomId, userName]);
 
   /* ================= FILE HANDLING ================= */
@@ -665,20 +776,33 @@ export default function ChatRoom() {
     const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
     const reader = new FileReader();
 
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
+      const encrypted = await encryptBinary(cryptoKeyRef.current, e.target.result);
+      const isFinished = chunkIndex + 1 === totalChunks;
+
+      setUploadProgress(prev => ({ ...prev, [fileId]: Math.round(((chunkIndex + 1) / totalChunks) * 100) }));
+
       socketRef.current.emit("sendFileChunk", {
         roomId,
         fileId,
-        chunk: e.target.result,
+        chunk: encrypted.data,
+        iv: encrypted.iv,
         chunkIndex,
         totalChunks,
+        finished: isFinished,
         fileName: file.name,
         fileType: file.type,
         userName,
       });
 
-      chunkIndex++;
-      if (chunkIndex < totalChunks) read();
+      if (isFinished) {
+        setTimeout(() => {
+          setUploadProgress(prev => { const n = { ...prev }; delete n[fileId]; return n; });
+        }, 1000);
+      } else {
+        chunkIndex++;
+        read();
+      }
     };
 
     const read = () => {
@@ -706,20 +830,25 @@ export default function ChatRoom() {
 
   /* ================= SEND ================= */
 
-  const handleSend = () => {
+  const handleSend = async (customData = null) => {
     if (pendingFile) {
       uploadFile(pendingFile);
       setPendingFile(null);
       setPreviewUrl(null);
       return;
     }
-    if (!message.trim()) return;
+    if (!customData && !message.trim()) return;
+    
+    const dataToEncrypt = customData || { text: message };
+    const payload = await encryptMessage(cryptoKeyRef.current, JSON.stringify(dataToEncrypt));
+    
     socketRef.current.emit("sendMessage", {
-      text: message,
+      payload,
       userName,
       ts: Date.now(),
     });
-    setMessage("");
+    
+    if (!customData) setMessage("");
   };
 
   const handleTyping = (value) => {
@@ -762,7 +891,7 @@ export default function ChatRoom() {
             />
 
             <JoinButton
-              onClick={() => {
+              onClick={async () => {
                 const code = securityCode.trim();
 
                 if (!SECURITY_CODE.includes(code)) {
@@ -771,8 +900,13 @@ export default function ChatRoom() {
                   );
                   return;
                 }
-
-                setJoined(true);
+                
+                try {
+                  cryptoKeyRef.current = await generateKeyFromSecret(code);
+                  setJoined(true);
+                } catch (err) {
+                  toast.error("Failed to generate encryption key.");
+                }
               }}
             >
               Join
@@ -787,16 +921,85 @@ export default function ChatRoom() {
     <>
       <ChatContainer>
         <Header>
-          <Avatar src={image} />
-          <span>
-            {roomId} ({onlineCount} online)
-          </span>
+          <Avatar src={image} alt="Logo" />
+          <div 
+            style={{ display: "flex", flexDirection: "column", cursor: "pointer", position: "relative" }}
+            onClick={() => setShowRoomInfo(!showRoomInfo)}
+          >
+            <div style={{ fontWeight: "bold", fontSize: "1.1rem", display: "flex", alignItems: "center", gap: 5 }}>
+              {roomId} 
+              <span style={{ fontSize: "0.6rem", opacity: 0.5 }}>▼</span>
+            </div>
+            <div style={{ fontSize: "0.8rem", color: "#aaa" }}>
+              {onlineUsers.length} online • {isEncrypted ? "🔒 E2EE" : "⚠️ Plain"}
+            </div>
+
+            {showRoomInfo && (
+              <div style={{
+                position: "absolute",
+                top: "120%",
+                left: 0,
+                width: 250,
+                background: "rgba(31, 31, 31, 0.95)",
+                backdropFilter: "blur(20px)",
+                border: "1px solid rgba(255, 255, 255, 0.1)",
+                borderRadius: 12,
+                padding: 15,
+                zIndex: 1000,
+                boxShadow: "0 10px 30px rgba(0,0,0,0.5)"
+              }}>
+                <h4 style={{ margin: "0 0 10px 0", fontSize: "0.9rem", color: "#888" }}>Room Insights</h4>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem" }}>
+                    <span>Active Session</span>
+                    <span style={{ color: (showWhiteboard || showMeeting) ? "#ff4757" : "#4CAF50" }}>
+                      {(showWhiteboard || showMeeting) ? "● Collaborative" : "● Idle"}
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem" }}>
+                    <span>Network Latency</span>
+                    <span style={{ color: latency < 100 ? "#4CAF50" : "#FFC107" }}>
+                      {latency}ms
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem" }}>
+                    <span>Security</span>
+                    <span style={{ color: "#2196F3" }}>AES-256 GCM</span>
+                  </div>
+                  <div style={{ borderTop: "1px solid rgba(255, 255, 255, 0.1)", paddingTop: 10 }}>
+                    <div style={{ fontSize: "0.8rem", color: "#666", marginBottom: 5 }}>Participants</div>
+                    <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                      {onlineUsers.map(u => (
+                        <div key={u.id} style={{ background: "rgba(255,255,255,0.05)", padding: "2px 8px", borderRadius: 20, fontSize: "0.7rem" }}>
+                          {u.name}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
           <RoomActions>
-            {/* <ActionButton><FaVideo/></ActionButton>
-          <ActionButton><FaPhoneAlt/></ActionButton>
-          <ActionLink to="/live-stream">
-  <CiStreamOn />
-</ActionLink> */}
+            {(showWhiteboard || showMeeting) && (
+              <LiveBadge>
+                <div style={{ width: 6, height: 6, background: "white", borderRadius: "50%" }} />
+                LIVE
+              </LiveBadge>
+            )}
+
+            <ActionButton onClick={() => setShowMeeting(true)} title="Start Video Call">
+              <FaVideo />
+            </ActionButton>
+            
+            <ActionButton onClick={() => setShowWhiteboard(true)} title="Open Whiteboard">
+              <FaPenNib />
+            </ActionButton>
+
+            <ActionButton onClick={() => setFullscreen({ type: "search" })} title="Search Messages">
+              <FaSearch />
+            </ActionButton>
 
             {ownerToken && (
               <ActionButton
@@ -841,21 +1044,29 @@ export default function ChatRoom() {
                   m.text.split(urlRegex).map((part, j) => {
                     if (!part.startsWith("http")) return part;
 
-                    const ytId = extractYoutubeId(part);
+                    const embed = getEmbedData(part);
 
-                    if (ytId) {
+                    if (embed) {
+                      let height = "250px";
+                      if (embed.type === "spotify") height = "152px";
+                      if (embed.type === "tiktok") height = "500px";
+                      if (embed.type === "instagram") height = "450px";
+                      if (embed.type === "twitter") height = "350px";
+
                       return (
                         <iframe
-                          src={`https://www.youtube.com/embed/${ytId}`}
+                          key={j}
+                          src={embed.src}
                           style={{
                             border: "0px",
                             padding: 0,
-                            margin: 0,
+                            margin: "8px 0",
                             width: "100%",
-                            height: "200px",
-                            borderRadius: "8px",
+                            height: height,
+                            borderRadius: "12px",
+                            background: embed.type === "twitter" ? "#fff" : "transparent"
                           }}
-                          title="YouTube video"
+                          title={`${embed.type} embed`}
                           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                           allowFullScreen
                         />
@@ -869,57 +1080,59 @@ export default function ChatRoom() {
                     );
                   })}
 
-                {m.file && (
-                  <FileCard onClick={() => setFullscreen(m.file)}>
-                    {m.file.type === "application/pdf" && (
-                      <iframe
-                        title={m.file.name}
-                        src={m.file.url}
-                        style={{ width: "100%", height: 250, borderRadius: 10 }}
-                      />
-                    )}
-                    {m.file.type.startsWith("image") && (
-                      <img
-                        alt={m.file.name}
-                        src={m.file.url}
-                        style={{ width: "100%" }}
-                      />
-                    )}
-                    {m.file.type.startsWith("video") && (
-                      <video
-                        src={m.file.url}
-                        controls
-                        style={{ width: "100%" }}
-                      />
-                    )}
-                    {m.file.type.startsWith("audio") && (
-                      <audio src={m.file.url} controls />
-                    )}
-                    {m.gif && (
-                      <img
-                        src={m.gif}
-                        alt="GIF"
-                        style={{ maxWidth: "200px", borderRadius: 10 }}
-                        onClick={() =>
-                          setFullscreen({ url: m.gif, type: "image" })
-                        }
-                      />
-                    )}
+                {m.gif && (
+                  <img
+                    src={m.gif}
+                    alt="GIF"
+                    style={{ maxWidth: "200px", borderRadius: 10, marginTop: "8px" }}
+                    onClick={() =>
+                      setFullscreen({ url: m.gif, type: "image" })
+                    }
+                  />
+                )}
 
-                    {!m.file.type.startsWith("image/") &&
-                      !m.file.type.startsWith("video/") &&
-                      !m.file.type.startsWith("audio/") &&
-                      m.file.type !== "application/pdf" && (
-                        <a
-                          href={m.file.url}
-                          download={m.file.name}
-                          style={{ color: "#00bfa5", fontSize: "0.9rem" }}
-                        >
-                          {" "}
-                          📎 {m.file.name}{" "}
-                        </a>
+                {m.file && (
+                  <div style={{ position: "relative" }}>
+                    {uploadProgress[m.fileId] && (
+                      <div style={{ position: "absolute", inset: 0, zIndex: 10, background: "rgba(0,0,0,0.5)", borderRadius: 12, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+                        <div style={{ width: "60%", height: 4, background: "rgba(255,255,255,0.2)", borderRadius: 2 }}>
+                          <div style={{ width: `${uploadProgress[m.fileId]}%`, height: "100%", background: "#00bfa5", borderRadius: 2, transition: "width 0.3s" }} />
+                        </div>
+                        <div style={{ fontSize: "0.7rem", marginTop: 8, color: "white" }}>Sending {uploadProgress[m.fileId]}%</div>
+                      </div>
+                    )}
+                    <FileCard onClick={() => setFullscreen(m.file)}>
+                      {m.file.type.startsWith("image") ? (
+                        <img alt={m.file.name} src={m.file.url} style={{ width: "100%", borderRadius: 8 }} />
+                      ) : m.file.type.startsWith("video") ? (
+                        <div style={{ position: "relative" }}>
+                          <video src={m.file.url} style={{ width: "100%", borderRadius: 8 }} />
+                          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.3)" }}>
+                            <FaPlay style={{ color: "white", fontSize: "2rem" }} />
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ 
+                          display: "flex", alignItems: "center", gap: "16px", padding: "16px", 
+                          background: "rgba(0, 191, 165, 0.08)", borderRadius: "12px", border: "1px solid rgba(0, 191, 165, 0.3)" 
+                        }}>
+                          <div style={{ fontSize: "2.5rem" }}>
+                             {m.file.name.match(/\.(xlsx|xls|csv)$/i) ? "📊" : 
+                              m.file.name.match(/\.(docx|doc)$/i) ? "📝" :
+                              m.file.name.match(/\.(zip|rar|7z)$/i) ? "🗜️" : "📎"}
+                          </div>
+                          <div style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
+                            <span style={{ fontWeight: "600", fontSize: "1rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                              {m.file.name}
+                            </span>
+                            <span style={{ fontSize: "0.85rem", color: "#00bfa5", marginTop: "4px" }}>
+                              {m.userName === userName ? "View Shared File" : "Click to preview & download"}
+                            </span>
+                          </div>
+                        </div>
                       )}
-                  </FileCard>
+                    </FileCard>
+                  </div>
                 )}
 
                 <Timestamp>{new Date(m.ts).toLocaleTimeString()}</Timestamp>
@@ -959,21 +1172,9 @@ export default function ChatRoom() {
                     />
                     <CardOverlay>
                       <OverlayButton
-                        onClick={async () => {
-                          try {
-                            const res = await fetch(
-                              gif.images.fixed_height.url,
-                            );
-                            const blob = await res.blob();
-                            const file = new File(
-                              [blob],
-                              `GIF-${Date.now()}.gif`,
-                              { type: "image/gif" },
-                            );
-                            uploadFile(file);
-                          } catch (err) {
-                            console.error("Failed to send GIF:", err);
-                          }
+                        onClick={() => {
+                          handleSend({ text: "", gif: gif.images.fixed_height.url });
+                          setShowGifPicker(false);
                         }}
                       >
                         <FaPaperPlane style={{ size: "sm" }} />
@@ -991,17 +1192,23 @@ export default function ChatRoom() {
             <PreviewModal onClick={(e) => e.stopPropagation()}>
               {/* <h3 style={{ color: "#fff", margin: 0 , textAlign: 'center'}}>Send file?</h3> */}
 
-              <PreviewContent>
-                {pendingFile.type.startsWith("image") && (
+              <PreviewContent style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minWidth: "300px", minHeight: "150px" }}>
+                {pendingFile.type.startsWith("image") ? (
                   <img alt={pendingFile.name} src={previewUrl} />
-                )}
-
-                {pendingFile.type.startsWith("video") && (
+                ) : pendingFile.type.startsWith("video") ? (
                   <video src={previewUrl} controls />
-                )}
-
-                {pendingFile.type.startsWith("audio") && (
+                ) : pendingFile.type.startsWith("audio") ? (
                   <audio src={previewUrl} controls />
+                ) : (
+                  <div style={{ textAlign: "center", padding: "20px" }}>
+                    <FaFile size={60} style={{ color: "#00bfa5", marginBottom: "15px" }} />
+                    <div style={{ color: "white", fontSize: "1.1rem", fontWeight: "600", wordBreak: "break-all" }}>
+                      {pendingFile.name}
+                    </div>
+                    <div style={{ color: "#888", fontSize: "0.85rem", marginTop: "8px" }}>
+                      {(pendingFile.size / 1024 / 1024).toFixed(2)} MB • Ready to send
+                    </div>
+                  </div>
                 )}
               </PreviewContent>
 
@@ -1098,12 +1305,54 @@ export default function ChatRoom() {
                 src={fullscreen.url}
                 controls
                 autoPlay
-                style={{ maxWidth: "90%" }}
+                style={{ maxWidth: "90%", maxHeight: "90%" }}
               />
+            )}
+            {!fullscreen.type.startsWith("image") && !fullscreen.type.startsWith("video") && (
+              <div style={{ textAlign: "center", color: "white", padding: 20 }}>
+                <FaFile size={100} style={{ marginBottom: 20, opacity: 0.3 }} />
+                <h2 style={{ marginBottom: 10 }}>{fullscreen.name}</h2>
+                <p style={{ opacity: 0.6, marginBottom: 20 }}>This file type cannot be previewed in the browser.</p>
+                <a 
+                  href={fullscreen.url} 
+                  download={fullscreen.name} 
+                  style={{ 
+                    background: "#2196F3", 
+                    color: "white", 
+                    padding: "12px 24px", 
+                    borderRadius: "12px", 
+                    textDecoration: "none",
+                    fontWeight: "bold",
+                    display: "inline-block"
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  Download File
+                </a>
+              </div>
             )}
           </div>
         )}
       </ChatContainer>
+
+      <div style={{ display: showWhiteboard ? "block" : "none" }}>
+        <Whiteboard
+          socket={socketRef.current}
+          roomId={roomId}
+          isAdmin={!!ownerToken}
+          onClose={() => setShowWhiteboard(false)}
+        />
+      </div>
+
+      {showMeeting && (
+        <LiveMeeting 
+          socket={socketRef.current}
+          roomId={roomId}
+          userName={userName}
+          isAdmin={!!ownerToken}
+          onClose={() => setShowMeeting(false)}
+        />
+      )}
     </>
   );
 }

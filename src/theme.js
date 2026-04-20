@@ -1,22 +1,22 @@
-// theme.js - Futuristic Dark and Neon Themes
+// theme.js - Enterprise Grade Themes
 export const darkTheme = {
-  background: '#0b0c10', // Dark background
-  primaryColor: '#1f2833', // Primary panel color
-  primaryHoverColor: '#66fcf1', // Neon cyan
-  secondaryColor: '#c5c6c7', // Light grey text
-  chatBackground: '#1f2833', // Chat background
-  messageBackground: '#0b0c10', // Message container
-  borderColor: '#45a29e', // Borders with slight neon effect
-  timestampColor: '#66fcf1', // Cyan timestamp for messages
+  background: '#1a1d21', // Enterprise dark mode background (Slack-like)
+  primaryColor: '#2b2d31', // Panels and cards
+  primaryHoverColor: '#5865f2', // Professional brand accent
+  secondaryColor: '#dbdee1', // Readable light grey text
+  chatBackground: '#313338', // Chat area
+  messageBackground: '#2b2d31', // Message bubbles
+  borderColor: '#1e1f22', // Subtle borders
+  timestampColor: '#949ba4', // Muted timestamps
 };
 
 export const lightTheme = {
-  background: '#f5f5f5',
-  primaryColor: '#3d3d3d',
-  primaryHoverColor: '#007bff',
-  secondaryColor: '#2c3e50',
-  chatBackground: '#f8f8f8',
-  messageBackground: '#ffffff',
-  borderColor: '#ccc',
-  timestampColor: '#555',
+  background: '#f8f9fa',
+  primaryColor: '#ffffff',
+  primaryHoverColor: '#0f62fe', // IBM Carbon blue
+  secondaryColor: '#161616',
+  chatBackground: '#ffffff',
+  messageBackground: '#f4f4f4',
+  borderColor: '#e0e0e0',
+  timestampColor: '#525252',
 };

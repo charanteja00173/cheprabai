@@ -58,8 +58,8 @@ export async function encryptBinary(key, buffer) {
   );
 
   return {
-    iv: Array.from(iv),
-    data: Array.from(new Uint8Array(encrypted))
+    iv: iv.buffer,
+    data: encrypted
   };
 }
 
@@ -67,7 +67,7 @@ export async function decryptBinary(key, payload) {
   return crypto.subtle.decrypt(
     { name: "AES-GCM", iv: new Uint8Array(payload.iv) },
     key,
-    new Uint8Array(payload.data)
+    payload.data
   );
 }
 
