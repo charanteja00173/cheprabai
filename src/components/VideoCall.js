@@ -75,6 +75,19 @@ export default function AppMain() {
     if (localRef.current && streamRef.current) localRef.current.srcObject = streamRef.current;
   }, []);
 
+  /* ================= JOIN ROOM ================= */
+  const joinRoom = async () => {
+    if (!name || !room) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video:true, audio:true });
+      streamRef.current = stream;
+      setJoined(true);
+      socket.emit("joinRoom", { roomId: room, userName: name });
+    } catch {
+      alert("Allow Camera & Microphone access");
+    }
+  };
+
   /* ================= WEBRTC ================= */
   const createPeer = useCallback((id, userName, initiator) => {
     if (peersRef.current[id]) return;
