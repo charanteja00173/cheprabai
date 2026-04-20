@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import styled from "styled-components";
-import { FaMicrophone, FaVideo, FaPhoneSlash, FaPause, FaSync, FaDesktop, FaFolderOpen, FaRecordVinyl, FaThumbtack, FaThLarge, FaCompress, FaExpand } from "react-icons/fa";
+import { FaMicrophone, FaVideo, FaPhoneSlash, FaSync, FaDesktop, FaFolderOpen, FaRecordVinyl, FaThumbtack, FaThLarge, FaCompress, FaExpand } from "react-icons/fa";
 import { Peer } from "peerjs";
 import { toast } from "react-toastify";
 
@@ -223,17 +223,7 @@ const CircleButton = styled.button`
   &:hover { transform: translateY(-2px); background: ${props => props.active ? "#ff6b81" : "rgba(255, 255, 255, 0.12)"}; }
 `;
 
-const WatchInput = styled.input`
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
-  padding: 10px 15px;
-  color: white;
-  width: 250px;
-  outline: none;
-  font-size: 0.9rem;
-  &:focus { border-color: #2196F3; }
-`;
+
 
 const PrivacyGuard = styled.div`
   position: absolute;
@@ -286,7 +276,6 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const [remoteStreams, setRemoteStreams] = useState({});
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
-  const [watchUrl, setWatchUrl] = useState("");
   const [activeMedia, setActiveMedia] = useState(null);
   const [speakingPeers, setSpeakingPeers] = useState({});
   const [isSyncing, setIsSyncing] = useState(false);
@@ -508,12 +497,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       return () => clearInterval(interval);
   }, [isAdmin, activeMedia, socket]);
 
-  const handleStartWatch = () => {
-    if (!watchUrl) return;
-    const data = { url: watchUrl, playing: true, time: 0, type: "url" };
-    setActiveMedia(data);
-    socket.emit("syncMedia", data);
-  };
+
 
   const handleLocalFile = (e) => {
     const file = e.target.files[0];

@@ -57,7 +57,7 @@ export default function AppMain() {
     const answer = await pc.createAnswer();
     await pc.setLocalDescription(answer);
     socket.emit("webrtc-answer", { to: from, answer: pc.localDescription });
-  }, []);
+  }, [createPeer]);
 
   const handleAnswer = useCallback(async ({ from, answer }) => {
     const pc = peersRef.current[from];

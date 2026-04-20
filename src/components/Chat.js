@@ -484,52 +484,7 @@ const shimmer = keyframes`
   100% { background-position: 200% 0; }
 `;
 
-const ProgressOverlay = styled.div`
-  position: absolute;
-  inset: 0;
-  z-index: 20;
-  background: rgba(10, 10, 10, 0.85);
-  backdrop-filter: blur(8px);
-  border-radius: 16px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-`;
 
-const ProgressTrack = styled.div`
-  width: 100%;
-  height: 6px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
-  overflow: hidden;
-  position: relative;
-`;
-
-const ProgressFill = styled.div`
-  height: 100%;
-  width: ${props => props.percent}%;
-  background: linear-gradient(90deg, #00bfa5, #00e5ff, #00bfa5);
-  background-size: 200% 100%;
-  animation: ${shimmer} 2s infinite linear;
-  border-radius: 10px;
-  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 0 15px rgba(0, 191, 165, 0.5);
-`;
-
-const ProgressText = styled.div`
-  margin-top: 12px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: white;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-`;
 
 /* ================= COMPONENT ================= */
 
@@ -551,7 +506,6 @@ export default function ChatRoom() {
   const [pendingFile, setPendingFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [fullscreen, setFullscreen] = useState(null);
-  const [uploadProgress, setUploadProgress] = useState({});
   const [receivingFiles, setReceivingFiles] = useState({});
   const typingTimeout = useRef(null);
   const fileInputRef = useRef(null);
