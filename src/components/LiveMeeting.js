@@ -602,22 +602,90 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     }
   };
 
-  const toggleRecording = () => {
-    if (!isAdmin) return;
-    if (isRecording) { recorderRef.current.stop(); setIsRecording(false); }
-    else {
-        const stream = mediaRef.current?.captureStream() || localStream;
-        const rec = new MediaRecorder(stream);
+  const toggleRecording = async () => {
+    if (isRecording) {
+        if (recorderRef.current && recorderRef.current.state !== 'inactive') {
+            recorderRef.current.stop();
+        }
+        setIsRecording(false);
+        return;
+    }
+
+    try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+            toast.error("Screen recording is not supported on your browser (e.g., older mobile Safari).");
+            return;
+        }
+
+        // Capture screen with system audio
+        const displayStream = await navigator.mediaDevices.getDisplayMedia({
+            video: { cursor: "always" },
+            audio: true
+        });
+
+        const tracks = [...displayStream.getVideoTracks()];
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const destination = audioContext.createMediaStreamDestination();
+
+        // Mix screen audio
+        if (displayStream.getAudioTracks().length > 0) {
+            const displayAudioSource = audioContext.createMediaStreamSource(new MediaStream(displayStream.getAudioTracks()));
+            displayAudioSource.connect(destination);
+        }
+
+        // Mix local microphone audio
+        if (localStream && localStream.getAudioTracks().length > 0) {
+            const micAudioSource = audioContext.createMediaStreamSource(new MediaStream(localStream.getAudioTracks()));
+            micAudioSource.connect(destination);
+        }
+
+        const mixedStream = new MediaStream([
+            ...tracks,
+            ...destination.stream.getTracks()
+        ]);
+
+        let options = {};
+        if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')) {
+            options = { mimeType: 'video/webm;codecs=vp9,opus' };
+        } else if (MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')) {
+            options = { mimeType: 'video/webm;codecs=vp8,opus' };
+        } else if (MediaRecorder.isTypeSupported('video/webm')) {
+            options = { mimeType: 'video/webm' };
+        } else if (MediaRecorder.isTypeSupported('video/mp4')) {
+            options = { mimeType: 'video/mp4' };
+        }
+
+        const rec = new MediaRecorder(mixedStream, options);
         recordedChunks.current = [];
-        rec.ondataavailable = (e) => recordedChunks.current.push(e.data);
+        rec.ondataavailable = (e) => {
+            if (e.data && e.data.size > 0) recordedChunks.current.push(e.data);
+        };
         rec.onstop = () => {
-            const blob = new Blob(recordedChunks.current, { type: "video/webm" });
+            const ext = options.mimeType && options.mimeType.includes('mp4') ? 'mp4' : 'webm';
+            const blob = new Blob(recordedChunks.current, { type: options.mimeType || "video/webm" });
             const url = URL.createObjectURL(blob);
             const a = document.createElement("a");
-            a.href = url; a.download = `Recording_${Date.now()}.webm`; a.click();
+            a.href = url; a.download = `Meeting_Recording_${Date.now()}.${ext}`; a.click();
+
+            // Clean up
+            displayStream.getTracks().forEach(track => track.stop());
+            if (audioContext.state !== 'closed') audioContext.close();
+            setIsRecording(false);
         };
-        rec.start(); recorderRef.current = rec; setIsRecording(true);
-        toast.info("⏺ Recording Started");
+
+        // Stop recording when user clicks "Stop Sharing" on browser banner
+        displayStream.getVideoTracks()[0].onended = () => {
+            if (recorderRef.current && recorderRef.current.state !== 'inactive') {
+                recorderRef.current.stop();
+            }
+        };
+
+        rec.start(1000);
+        recorderRef.current = rec;
+        setIsRecording(true);
+        toast.info("⏺ Recording Started. Your screen is being captured.");
+    } catch (err) {
+        toast.error("Recording canceled or unsupported.");
     }
   };
 
@@ -652,9 +720,9 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
             <FaThLarge />
           </CircleButton>
           <div style={{ width: 1, height: 16, background: "rgba(255,255,255,0.1)", margin: "0 4px" }} />
-          <ControlBtn $active={true} onClick={onClose} title="Leave Meeting">
+          <CircleButton $active={true} onClick={onClose} title="Leave Meeting">
             <FaPhoneSlash />
-          </ControlBtn>
+          </CircleButton>
         </div>
       </MeetingHeader>
 
@@ -739,19 +807,17 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         <CircleButton $active={isVideoOff} onClick={() => { if (localStream) { localStream.getVideoTracks()[0].enabled = isVideoOff; setIsVideoOff(!isVideoOff); } }} title={isVideoOff ? "Turn Camera On" : "Turn Camera Off"}><FaVideo /></CircleButton>
         <CircleButton onClick={startScreenShare} title="Share Your Screen with Others"><FaDesktop /></CircleButton>
         
-        {isAdmin && (
-            <div style={{ display: "flex", gap: "10px", alignItems: "center", borderLeft: "1px solid rgba(255,255,255,0.1)", paddingLeft: "10px", marginLeft: "5px" }}>
-                <label><CircleButton as="span" title="Broadcast a Video File from your computer"><FaFolderOpen /><input type="file" hidden accept="video/*" onChange={handleLocalFile} /></CircleButton></label>
-                <CircleButton 
-                    $active={isRecording} 
-                    onClick={toggleRecording} 
-                    title={isRecording ? "Stop and Save Recording" : "Start Recording this Session"}
-                    style={{ background: isRecording ? "#ff4757" : "transparent", borderColor: isRecording ? "#ff4757" : "rgba(255,71,87,0.3)" }}
-                >
-                    <FaRecordVinyl color={isRecording ? "white" : "#ff4757"} />
-                </CircleButton>
-            </div>
-        )}
+        <div style={{ display: "flex", gap: "10px", alignItems: "center", borderLeft: "1px solid rgba(255,255,255,0.1)", paddingLeft: "10px", marginLeft: "5px" }}>
+            <label><CircleButton as="span" title="Broadcast a Video File from your computer"><FaFolderOpen /><input type="file" hidden accept="video/*" onChange={handleLocalFile} /></CircleButton></label>
+            <CircleButton 
+                $active={isRecording} 
+                onClick={toggleRecording} 
+                title={isRecording ? "Stop and Save Recording" : "Start Recording this Session"}
+                style={{ background: isRecording ? "#ff4757" : "transparent", borderColor: isRecording ? "#ff4757" : "rgba(255,71,87,0.3)" }}
+            >
+                <FaRecordVinyl color={isRecording ? "white" : "#ff4757"} />
+            </CircleButton>
+        </div>
         <div style={{ width: 1, height: 24, background: "rgba(255,255,255,0.1)", margin: "0 5px", flexShrink: 0 }} />
         {["❤️", "👏", "😂"].map(e => <CircleButton key={e} onClick={() => sendReaction(e)} title={`Send ${e} reaction`} style={{ background: "transparent", border: "none" }}>{e}</CircleButton>)}
       </ControlBar>
