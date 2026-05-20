@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { io } from "socket.io-client";
+import axios from "axios";
 import styled, { keyframes } from "styled-components";
 import {
   FaPaperPlane,
@@ -18,8 +19,7 @@ import { AiOutlineClose } from "react-icons/ai";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-import { generateKeyFromSecret, generateRandomSenderKey, exportKey, importKey, encryptMessage, decryptMessage, encryptBinary, decryptBinary } from "../utils/crypto";
-import { signalService } from "../utils/signalService";
+// E2EE Removed
 import ThemeSwitcher from "./ThemeSwitcher";
 
 /* ================= CONFIG ================= */
@@ -282,6 +282,11 @@ const MessageInputContainer = styled.div`
   background: var(--chakra-colors-surface);
   border-top: 1px solid var(--chakra-colors-border);
   gap: 10px; /* consistent spacing between elements */
+  
+  @media (max-width: 600px) {
+    padding: 8px 10px;
+    gap: 6px;
+  }
 `;
 
 const MessageInput = styled.input`
@@ -295,6 +300,11 @@ const MessageInput = styled.input`
 
   ::placeholder {
     color: var(--chakra-colors-textSecondary);
+  }
+
+  @media (max-width: 600px) {
+    padding: 10px 12px;
+    font-size: 0.9rem;
   }
 `;
 
@@ -496,10 +506,7 @@ const OverlayButton = styled.button`
 export default function ChatRoom() {
   const socketRef = useRef(null);
   const audioRef = useRef(new Audio(notificationSound));
-  const fileChunksRef = useRef({});
-  const userColorsRef = useRef({});
-  const mySenderKeyRef = useRef(null);
-  const senderKeysRef = useRef({});
+  // Keys removed
 
   const [joined, setJoined] = useState(false);
   const [roomId, setRoomId] = useState("");
@@ -517,7 +524,6 @@ export default function ChatRoom() {
   const fileInputRef = useRef(null);
   const [ownerToken, setOwnerToken] = useState("");
   const [onlineUsers, setOnlineUsers] = useState([]);
-  const isEncrypted = !!mySenderKeyRef.current;
 
   const [showGifPicker, setShowGifPicker] = useState(false);
   const [showWhiteboard, setShowWhiteboard] = useState(false);
@@ -671,70 +677,14 @@ export default function ChatRoom() {
 
     socketRef.current.emit("joinRoom", { roomId, userName });
 
-    socketRef.current.on("all-users", async (users) => {
-      // New joiner: establish pairwise sessions with all existing users and send sender key
-      for (const u of users) {
-        if (u.id === socketRef.current.id) continue;
-        socketRef.current.emit("get-prekey", { targetSocketId: u.id }, async (bundle) => {
-          if (bundle && !bundle.error) {
-            await signalService.establishSession(u.id, bundle);
-            const exportedKey = await exportKey(mySenderKeyRef.current);
-            const ciphertext = await signalService.encryptMessage(u.id, exportedKey);
-            socketRef.current.emit("send-sender-key", { toSocketId: u.id, encryptedSenderKey: ciphertext });
-          }
-        });
-      }
+    socketRef.current.on("chatHistory", (history) => {
+      const formatted = history.map(msg => ({ ...msg, ...msg.payload }));
+      setMessages(formatted);
     });
 
-    socketRef.current.on("user-joined", async (u) => {
-      // Existing user: do NOT proactively establish a session.
-      // Wait for the new user to send their sender key via deliver-sender-key.
-      // The session will be created when we decrypt their PreKeyWhisperMessage.
-      console.log("User joined, waiting for their sender key:", u.id);
-    });
-
-    socketRef.current.on("deliver-sender-key", async ({ fromSocketId, encryptedSenderKey }) => {
-      try {
-        const exportedKey = await signalService.decryptMessage(fromSocketId, encryptedSenderKey);
-        const aesKey = await importKey(exportedKey);
-        senderKeysRef.current[fromSocketId] = aesKey;
-        console.log("Securely received Sender Key from", fromSocketId);
-
-        // If we haven't sent our sender key to this user yet, respond now
-        // The session is now established from decrypting their PreKeyWhisperMessage
-        if (!senderKeysRef.current[`_sent_${fromSocketId}`]) {
-          senderKeysRef.current[`_sent_${fromSocketId}`] = true;
-          const myExportedKey = await exportKey(mySenderKeyRef.current);
-          const ciphertext = await signalService.encryptMessage(fromSocketId, myExportedKey);
-          socketRef.current.emit("send-sender-key", { toSocketId: fromSocketId, encryptedSenderKey: ciphertext });
-        }
-      } catch (err) {
-        console.error("Failed to decrypt incoming sender key", err);
-      }
-    });
-
-    socketRef.current.on("newMessage", async (msg) => {
-      let finalMsg = { ...msg };
-      if (msg.type !== "system" && msg.payload) {
-        try {
-          let keyToUse = senderKeysRef.current[msg.senderSocketId];
-          if (msg.senderSocketId === socketRef.current.id) {
-             keyToUse = mySenderKeyRef.current;
-          }
-          if (!keyToUse) throw new Error("No sender key found");
-          const decryptedText = await decryptMessage(keyToUse, msg.payload);
-          try {
-            const parsed = JSON.parse(decryptedText);
-            finalMsg.text = parsed.text || "";
-            finalMsg.gif = parsed.gif || "";
-          } catch (e) {
-            finalMsg.text = decryptedText;
-          }
-        } catch (err) {
-          finalMsg.text = "🔒 [Encrypted Message]";
-        }
-      }
-      setMessages((m) => [...m, finalMsg]);
+    socketRef.current.on("newMessage", (msg) => {
+      const formattedMsg = { ...msg, ...msg.payload };
+      setMessages((m) => [...m, formattedMsg]);
       if (msg.userName !== userName) audioRef.current.play().catch(() => {});
     });
 
@@ -751,91 +701,7 @@ export default function ChatRoom() {
       window.location.reload();
     });
 
-    socketRef.current.on("receiveFileChunk", async (data) => {
-      const {
-        fileId,
-        chunk,
-        iv,
-        chunkIndex,
-        totalChunks,
-        fileName,
-        fileType,
-        userName: senderName,
-      } = data;
 
-      if (!fileChunksRef.current[fileId]) {
-        fileChunksRef.current[fileId] = [];
-        // First chunk - initialize receiver UI
-        setMessages(m => [
-            ...m,
-            {
-              id: `loading-${fileId}`,
-              userName: senderName,
-              file: { name: fileName, loading: true },
-              ts: Date.now(),
-            }
-        ]);
-      }
-
-      const percent = Math.round(((chunkIndex + 1) / totalChunks) * 100);
-      setReceivingFiles(prev => ({
-          ...prev,
-          [fileId]: { name: fileName, percent, senderName }
-      }));
-
-      try {
-        let decryptedChunk = chunk;
-        if (iv && chunk) {
-          let keyToUse = senderKeysRef.current[data.senderSocketId];
-          if (data.senderSocketId === socketRef.current.id) {
-             keyToUse = mySenderKeyRef.current;
-          }
-          if (keyToUse) {
-            decryptedChunk = await decryptBinary(keyToUse, { iv, data: chunk });
-          }
-        }
-        fileChunksRef.current[fileId][chunkIndex] = decryptedChunk;
-      } catch (err) {
-        console.error("Failed to decrypt file chunk", err);
-      }
-
-      if (
-        fileChunksRef.current[fileId].filter(Boolean).length === totalChunks
-      ) {
-        let safeType = "application/octet-stream";
-        if (
-          fileType.startsWith("image/") ||
-          fileType.startsWith("video/") ||
-          fileType.startsWith("audio/") ||
-          fileType === "application/pdf"
-        ) {
-          safeType = fileType;
-        }
-
-        const blob = new Blob(fileChunksRef.current[fileId], { type: safeType });
-        const url = URL.createObjectURL(blob);
-
-        setMessages((m) => {
-           const updated = m.filter(msg => msg.id !== `loading-${fileId}`);
-           return [
-            ...updated,
-            {
-                userName: senderName,
-                file: { name: fileName, url, type: fileType },
-                ts: Date.now(),
-            },
-           ];
-        });
-
-        if (senderName !== userName) audioRef.current.play().catch(() => {});
-        delete fileChunksRef.current[fileId];
-        setReceivingFiles(prev => {
-            const next = { ...prev };
-            delete next[fileId];
-            return next;
-        });
-      }
-    });
 
     socketRef.current.on("roomOwner", (token) => setOwnerToken(token));
 
@@ -879,47 +745,28 @@ export default function ChatRoom() {
 
   /* ================= FILE HANDLING ================= */
 
-  const uploadFile = (file) => {
-    const fileId = `${socketRef.current.id}-${Date.now()}-${file.name}`;
-    let chunkIndex = 0;
-    const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
-    const reader = new FileReader();
-
-    reader.onload = async (e) => {
-      const encrypted = await encryptBinary(mySenderKeyRef.current, e.target.result);
-      const isFinished = chunkIndex + 1 === totalChunks;
-
-
-
-      socketRef.current.emit("sendFileChunk", {
-        roomId,
-        fileId,
-        chunk: encrypted.data,
-        iv: encrypted.iv,
-        chunkIndex,
-        totalChunks,
-        finished: isFinished,
-        fileName: file.name,
-        fileType: file.type,
-        userName,
+  const uploadFile = async (file) => {
+    try {
+      const tempId = `uploading-${Date.now()}`;
+      setMessages(m => [...m, { id: tempId, userName, file: { name: file.name, loading: true }, ts: Date.now() }]);
+      
+      const formData = new FormData();
+      formData.append("file", file);
+      const backendUrl = process.env.REACT_APP_SOCKET_ENDPOINT || "http://localhost:4000";
+      
+      const res = await axios.post(`${backendUrl}/api/upload`, formData, {
+        headers: { "Content-Type": "multipart/form-data" }
       });
-
-      if (isFinished) {
-        setTimeout(() => {
-
-        }, 1000);
-      } else {
-        chunkIndex++;
-        read();
-      }
-    };
-
-    const read = () => {
-      const start = chunkIndex * CHUNK_SIZE;
-      reader.readAsArrayBuffer(file.slice(start, start + CHUNK_SIZE));
-    };
-
-    read();
+      
+      setMessages(m => m.filter(msg => msg.id !== tempId));
+      
+      const fileData = { url: res.data.secure_url, name: file.name, type: file.type || res.data.format };
+      handleSend({ file: fileData });
+    } catch (err) {
+      console.error("Upload failed", err);
+      toast.error("File upload failed!");
+      setMessages(m => m.filter(msg => !msg.id?.startsWith("uploading-")));
+    }
   };
 
   /* ================= PASTE SUPPORT ================= */
@@ -948,8 +795,7 @@ export default function ChatRoom() {
     }
     if (!customData && !message.trim()) return;
     
-    const dataToEncrypt = customData || { text: message };
-    const payload = await encryptMessage(mySenderKeyRef.current, JSON.stringify(dataToEncrypt));
+    const payload = customData || { text: message };
     
     socketRef.current.emit("sendMessage", {
       payload,
@@ -1011,18 +857,7 @@ export default function ChatRoom() {
                   return;
                 }
                 
-                try {
-                  // Generate our WebCrypto Sender Key for encrypting large payloads
-                  mySenderKeyRef.current = await generateRandomSenderKey();
-                  
-                  // Initialize Signal Identity & PreKeys for secure E2E key exchange
-                  const preKeys = await signalService.initialize(socketRef.current.id);
-                  socketRef.current.emit("publish-prekeys", preKeys);
-                  
                   setJoined(true);
-                } catch (err) {
-                  toast.error("Failed to generate encryption key.");
-                }
               }}
             >
               Join
@@ -1047,7 +882,7 @@ export default function ChatRoom() {
               <span style={{ fontSize: "0.6rem", opacity: 0.5 }}>▼</span>
             </div>
             <div style={{ fontSize: "0.8rem", color: "#aaa" }}>
-              {onlineUsers.length} online • {isEncrypted ? "🔒 E2EE" : "⚠️ Plain"}
+              {onlineUsers.length} online
             </div>
 
             {showRoomInfo && (

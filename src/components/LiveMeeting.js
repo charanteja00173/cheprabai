@@ -187,7 +187,7 @@ const ControlBar = styled.div`
     bottom: 20px;
     padding: 8px 15px;
     gap: 12px;
-    width: auto;
+    width: 92%;
     max-width: 92%;
     overflow-x: auto;
     justify-content: flex-start;
@@ -195,6 +195,7 @@ const ControlBar = styled.div`
     &::-webkit-scrollbar { display: none; }
     -ms-overflow-style: none;
     scrollbar-width: none;
+    white-space: nowrap;
   }
 `;
 
@@ -536,6 +537,11 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
   const startScreenShare = async () => {
     try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+            toast.error("Screen sharing is not supported on this device or browser.");
+            return;
+        }
+
         const screenStream = await navigator.mediaDevices.getDisplayMedia({ 
             video: { 
                 cursor: "always",
