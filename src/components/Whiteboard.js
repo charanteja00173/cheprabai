@@ -163,7 +163,7 @@ export default function Whiteboard({ socket, roomId, onClose, isAdmin }) {
       // Create empty state structures required by TLDraw to fully clear the board
       const emptyState = { shapes: {}, bindings: {}, assets: {} };
       appRef.current.replacePageContent(emptyState.shapes, emptyState.bindings, emptyState.assets);
-      
+
       // Emit the exact same empty state to instantly clear all connected clients
       socket.emit("excalidrawUpdate", { roomId, elements: emptyState });
     }
@@ -172,10 +172,10 @@ export default function Whiteboard({ socket, roomId, onClose, isAdmin }) {
   const handleMount = useCallback(
     (app) => {
       appRef.current = app;
-      
+
       socket.on("excalidrawUpdate", (state) => {
         if (!appRef.current || isInteracting.current || isSyncing.current) return;
-        
+
         try {
           isSyncing.current = true;
           const { elements } = state;
@@ -187,7 +187,6 @@ export default function Whiteboard({ socket, roomId, onClose, isAdmin }) {
             );
           }
         } catch (e) {
-          console.error("Sync failed", e);
         } finally {
           setTimeout(() => { isSyncing.current = false; }, 50);
         }
@@ -199,10 +198,10 @@ export default function Whiteboard({ socket, roomId, onClose, isAdmin }) {
   useEffect(() => {
     const handleGlobalPointerUp = () => { isInteracting.current = false; };
     window.addEventListener("pointerup", handleGlobalPointerUp);
-    
+
     socket.on("excalidrawUpdate", (elements) => {
       if (!appRef.current || isInteracting.current || isSyncing.current) return;
-      
+
       try {
         isSyncing.current = true;
         if (elements && elements.shapes) {
@@ -213,7 +212,6 @@ export default function Whiteboard({ socket, roomId, onClose, isAdmin }) {
           );
         }
       } catch (e) {
-        console.error("Sync failed", e);
       } finally {
         setTimeout(() => { isSyncing.current = false; }, 100);
       }
@@ -229,7 +227,7 @@ export default function Whiteboard({ socket, roomId, onClose, isAdmin }) {
   const handleChange = useCallback(
     (app) => {
       if (isSyncing.current) return;
-      
+
       // Throttle to 60fps for "Completely Realtime" feel
       const now = Date.now();
       if (now - lastEmit.current < 16) return;
@@ -263,7 +261,6 @@ export default function Whiteboard({ socket, roomId, onClose, isAdmin }) {
           }))
         });
       } catch (e) {
-        console.error("Sync failed", e);
       }
     },
     [socket, roomId]
@@ -290,16 +287,16 @@ export default function Whiteboard({ socket, roomId, onClose, isAdmin }) {
             </HeaderActions>
           </ModalHeader>
         )}
-        
+
         {/* If in fullscreen, float the controls directly over the canvas in a centered dock */}
         {isFullScreen && (
-          <div style={{ 
-            position: "absolute", 
-            top: 16, 
-            left: "50%", 
-            transform: "translateX(-50%)", 
-            zIndex: 10000, 
-            display: "flex", 
+          <div style={{
+            position: "absolute",
+            top: 16,
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 10000,
+            display: "flex",
             gap: "10px",
             background: "rgba(20, 20, 20, 0.8)",
             padding: "8px 12px",
@@ -322,13 +319,13 @@ export default function Whiteboard({ socket, roomId, onClose, isAdmin }) {
           </div>
         )}
 
-        <CanvasWrapper 
+        <CanvasWrapper
           isFullScreen={isFullScreen}
           onPointerDown={() => { isInteracting.current = true; }}
           onPointerUp={() => { isInteracting.current = false; }}
           onPointerLeave={() => { isInteracting.current = false; }}
         >
-          <Tldraw 
+          <Tldraw
             onMount={handleMount}
             onChange={handleChange}
             darkMode={true}

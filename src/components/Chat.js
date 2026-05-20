@@ -544,7 +544,6 @@ export default function ChatRoom() {
       if (offset === 0) setGifs(data.data);
       else setGifs((prev) => [...prev, ...data.data]); // append
     } catch (err) {
-      console.error("Error fetching GIFs:", err);
     }
   };
 
@@ -698,14 +697,12 @@ export default function ChatRoom() {
     socketRef.current.on("roomOwner", (token) => setOwnerToken(token));
 
     socketRef.current.on("connect", () => {
-      console.log("Connected to server:", socketRef.current.id);
       if (joined && roomId && userName) {
         socketRef.current.emit("joinRoom", { roomId, userName });
       }
     });
 
     socketRef.current.on("disconnect", () => {
-      console.log("Disconnected from server");
     });
 
     // Latency Tracking (Ping-Pong)
@@ -755,7 +752,6 @@ export default function ChatRoom() {
       const fileData = { url: res.data.secure_url, name: file.name, type: file.type || res.data.format };
       handleSend({ file: fileData });
     } catch (err) {
-      console.error("Upload failed", err);
       toast.error("File upload failed!");
       setMessages(m => m.filter(msg => !msg.id?.startsWith("uploading-")));
     }

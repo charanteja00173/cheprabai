@@ -406,7 +406,6 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
         socket.emit("getMediaState", roomId);
       } catch (err) {
-        console.error("Media init failed", err);
       }
     };
 
@@ -471,7 +470,6 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                 v.pause();
             }
         } catch (e) {
-            console.error("Sync Playback Error:", e);
         }
     };
 
@@ -571,7 +569,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                     const params = sender.getParameters();
                     if (!params.encodings) params.encodings = [{}];
                     params.encodings[0].maxBitrate = 2500000; 
-                    sender.setParameters(params).catch(e => console.warn("Bitrate cap error", e));
+                    sender.setParameters(params).catch(e => {});
                 }
             }
         });
@@ -584,7 +582,6 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
             stopScreenShare();
         };
     } catch (err) {
-        console.error("Screen share failed", err);
         toast.error("Failed to start screen share");
     }
   };
@@ -602,7 +599,6 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
             if (sender) sender.replaceTrack(videoTrack);
         });
     } catch (err) {
-        console.error("Failed to revert to camera", err);
     }
   };
 
