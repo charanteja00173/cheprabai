@@ -5,7 +5,6 @@ export const GlobalStyle = createGlobalStyle`
   body {
     margin: 0;
     padding: 0;
-    font-family: 'Roboto', sans-serif;
     background: var(--chakra-colors-bg);
     color: var(--chakra-colors-textPrimary);
     transition: background 0.3s ease, color 0.3s ease;
@@ -18,9 +17,5 @@ export const GlobalStyle = createGlobalStyle`
   ::-webkit-scrollbar-thumb {
     background: var(--chakra-colors-brandPrimary);
     border-radius: 10px;
-  }
-
-  input, button {
-    font-family: 'Roboto', sans-serif;
   }
 `;
