@@ -20,7 +20,6 @@ const App = () => {
   return (
     <ThemeManagerProvider>
       <GlobalStyle />
-      <ThemeSwitcher />
       <Router>
         <Routes>
           <Route path="/" element={<ChatRoom />} />

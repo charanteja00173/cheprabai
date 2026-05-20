@@ -20,6 +20,7 @@ import "react-toastify/dist/ReactToastify.css";
 
 import { generateKeyFromSecret, generateRandomSenderKey, exportKey, importKey, encryptMessage, decryptMessage, encryptBinary, decryptBinary } from "../utils/crypto";
 import { signalService } from "../utils/signalService";
+import ThemeSwitcher from "./ThemeSwitcher";
 
 /* ================= CONFIG ================= */
 
@@ -1093,6 +1094,7 @@ export default function ChatRoom() {
           </div>
 
           <RoomActions>
+            <ThemeSwitcher />
             {(showWhiteboard || showMeeting) && (
               <LiveBadge>
                 <div style={{ width: 6, height: 6, background: "white", borderRadius: "50%" }} />
@@ -1113,7 +1115,7 @@ export default function ChatRoom() {
             </ActionButton>
 
             {showSearch && (
-              <div style={{ position: "absolute", top: "70px", right: "20px", zIndex: 100, background: "var(--chakra-colors-glassBg)", padding: "10px", borderRadius: "12px", border: "1px solid var(--chakra-colors-border)", backdropFilter: "blur(10px)", display: "flex", gap: "10px", alignItems: "center" }}>
+              <div style={{ position: "absolute", top: "50px", right: "80px", zIndex: 100, background: "var(--chakra-colors-glassBg)", padding: "10px", borderRadius: "12px", border: "1px solid var(--chakra-colors-border)", backdropFilter: "blur(10px)", display: "flex", gap: "10px", alignItems: "center" }}>
                 <FaSearch style={{ opacity: 0.5 }} />
                 <input 
                   autoFocus
