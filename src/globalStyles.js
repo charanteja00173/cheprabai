@@ -6,8 +6,8 @@ export const GlobalStyle = createGlobalStyle`
     margin: 0;
     padding: 0;
     font-family: 'Roboto', sans-serif;
-    background: ${({ theme }) => theme.background};
-    color: ${({ theme }) => theme.secondaryColor};
+    background: var(--chakra-colors-bg);
+    color: var(--chakra-colors-textPrimary);
     transition: background 0.3s ease, color 0.3s ease;
   }
 
@@ -16,7 +16,7 @@ export const GlobalStyle = createGlobalStyle`
   }
 
   ::-webkit-scrollbar-thumb {
-    background: ${({ theme }) => theme.primaryColor};
+    background: var(--chakra-colors-brandPrimary);
     border-radius: 10px;
   }
 
