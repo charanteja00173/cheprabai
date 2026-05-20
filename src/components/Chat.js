@@ -60,6 +60,8 @@ const LiveBadge = styled.div`
   display: flex;
   align-items: center;
   gap: 4px;
+`;
+
 const AppContainer = styled.div`
   display: flex;
   height: 100vh;
