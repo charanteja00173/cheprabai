@@ -19,7 +19,7 @@ export default function VideoCall() {
   const [text, setText] = useState("");
   const [muted, setMuted] = useState(false);
   const [videoOff, setVideoOff] = useState(false);
-  const [isE2EE, setIsE2EE] = useState(false);
+  const isE2EE = false;
 
   /* ================= SIGNAL E2EE ================= */
   const sendEncryptedSignal = useCallback(async (event, payload, targetId) => {
