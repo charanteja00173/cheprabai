@@ -30,7 +30,7 @@ const LiveStream = () => {
   };
 
   return (
-    <Flex h="100%" w="100%" direction="column" bg="var(--chakra-colors-bg)">
+    <Flex h="100vh" w="100vw" direction="column" bg="var(--chakra-colors-bg)">
       {/* Header */}
       <Flex p={4} bg="var(--chakra-colors-surface)" borderBottom="1px solid var(--chakra-colors-border)" justify="space-between" align="center">
         <Flex align="center" gap={3}>

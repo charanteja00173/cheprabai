@@ -60,13 +60,10 @@ const LiveBadge = styled.div`
   display: flex;
   align-items: center;
   gap: 4px;
-  margin-right: 12px;
-`;
-
 const AppContainer = styled.div`
   display: flex;
-  height: 100%;
-  width: 100%;
+  height: 100vh;
+  width: 100vw;
   background: var(--chakra-colors-bg);
 `;
 

@@ -218,7 +218,7 @@ export default function VideoCall() {
   }
 
   return (
-    <Flex h="100%" w="100%" direction={{ base: "column", md: "row" }} bg="var(--chakra-colors-bg)">
+    <Flex h="100vh" w="100vw" direction={{ base: "column", md: "row" }} bg="var(--chakra-colors-bg)">
       {/* Video Stage */}
       <Flex flex={1} direction="column" p={4}>
         <Flex justifyContent="space-between" alignItems="center" mb={4} p={3} bg="var(--chakra-colors-surface)" borderRadius="xl" border="1px solid var(--chakra-colors-border)">
