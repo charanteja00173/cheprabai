@@ -1,26 +1,29 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, Suspense, useCallback } from "react";
 import { io } from "socket.io-client";
 import axios from "axios";
-import styled, { keyframes } from "styled-components";
+import styled, { keyframes, css } from "styled-components";
 import {
   FaPaperPlane,
   FaPenNib,
   FaFileUpload,
   FaFile,
   FaSearch,
+  FaMicrophone,
+  FaStop,
+  FaDownload,
 } from "react-icons/fa";
 import { HiGif } from "react-icons/hi2";
-import Whiteboard from "./Whiteboard";
-import LiveMeeting from "./LiveMeeting";
 import { FaVideo, FaPlay } from "react-icons/fa";
 import image from "../logo192.png";
 import notificationSound from "../assets/iphone-sms.mp3";
 import { AiOutlineClose } from "react-icons/ai";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-
-// E2EE Removed
 import ThemeSwitcher from "./ThemeSwitcher";
+
+// Lazy-load heavy components
+const Whiteboard = React.lazy(() => import("./Whiteboard"));
+const LiveMeeting = React.lazy(() => import("./LiveMeeting"));
 
 const SECURITY_CODE = process.env.REACT_APP_SECURITY_CODES.split(",");
 
@@ -511,7 +514,6 @@ export default function ChatRoom() {
   const [pendingFile, setPendingFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [fullscreen, setFullscreen] = useState(null);
-  // Receiving files removed
   const typingTimeout = useRef(null);
   const fileInputRef = useRef(null);
   const [ownerToken, setOwnerToken] = useState("");
@@ -525,11 +527,27 @@ export default function ChatRoom() {
   const [gifQuery, setGifQuery] = useState("");
 
   const [gifs, setGifs] = useState([]);
-  const [gifOffset, setGifOffset] = useState(0); // track offset
+  const [gifOffset, setGifOffset] = useState(0);
   const [hasMoreGifs, setHasMoreGifs] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearch, setShowSearch] = useState(false);
   const GIF_LIMIT = 30;
+
+  // ── Ephemeral Messages ──
+  const [ephemeralMode, setEphemeralMode] = useState(false);
+  const EPHEMERAL_DURATION = 15; // seconds before message self-destructs
+
+  // ── Voice Notes ──
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+  const recordingTimerRef = useRef(null);
+
+  // ── Chat Pagination ──
+  const [hasMoreMessages, setHasMoreMessages] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const messagesContainerRef = useRef(null);
 
   const fetchGifs = async (query = "", offset = 0) => {
     const API_KEY = process.env.REACT_APP_GIPHY_API_KEY;
@@ -663,6 +681,20 @@ export default function ChatRoom() {
     return () => socketRef.current.disconnect();
   }, []);
 
+  // ── Ephemeral message auto-delete timer ──
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setMessages(prev => {
+        const now = Date.now();
+        return prev.filter(m => {
+          if (!m.ephemeral) return true;
+          return now - m.ts < EPHEMERAL_DURATION * 1000;
+        });
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   useEffect(() => {
     if (!joined) return;
 
@@ -673,6 +705,15 @@ export default function ChatRoom() {
       setMessages(formatted);
     });
 
+    socketRef.current.on("hasMoreMessages", () => setHasMoreMessages(true));
+
+    socketRef.current.on("olderMessages", ({ messages: older, hasMore }) => {
+      const formatted = older.map(msg => ({ ...msg, ...msg.payload }));
+      setMessages(prev => [...formatted, ...prev]);
+      setHasMoreMessages(hasMore);
+      setLoadingMore(false);
+    });
+
     socketRef.current.on("newMessage", (msg) => {
       const formattedMsg = { ...msg, ...msg.payload };
       setMessages((m) => [...m, formattedMsg]);
@@ -680,7 +721,6 @@ export default function ChatRoom() {
     });
 
     socketRef.current.on("presence", ({ online, count }) => {
-
       setOnlineUsers(online);
     });
 
@@ -692,8 +732,6 @@ export default function ChatRoom() {
       window.location.reload();
     });
 
-
-
     socketRef.current.on("roomOwner", (token) => setOwnerToken(token));
 
     socketRef.current.on("connect", () => {
@@ -702,8 +740,7 @@ export default function ChatRoom() {
       }
     });
 
-    socketRef.current.on("disconnect", () => {
-    });
+    socketRef.current.on("disconnect", () => {});
 
     // Latency Tracking (Ping-Pong)
     const pingInterval = setInterval(() => {
@@ -790,6 +827,7 @@ export default function ChatRoom() {
       userName,
       roomId,
       ts: Date.now(),
+      ephemeral: ephemeralMode, // ephemeral flag
     });
     
     if (!customData) setMessage("");
@@ -802,6 +840,68 @@ export default function ChatRoom() {
       () => socketRef.current.emit("typing", { isTyping: false, roomId }),
       1000,
     );
+  };
+
+  /* ================= LOAD MORE MESSAGES ================= */
+  const loadMoreMessages = useCallback(() => {
+    if (loadingMore || !hasMoreMessages) return;
+    setLoadingMore(true);
+    socketRef.current.emit("loadMoreMessages", { offset: messages.length });
+  }, [loadingMore, hasMoreMessages, messages.length]);
+
+  /* ================= VOICE NOTES ================= */
+  const startVoiceRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream, { mimeType: MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm' });
+      audioChunksRef.current = [];
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+      mediaRecorder.onstop = async () => {
+        stream.getTracks().forEach(t => t.stop());
+        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const file = new File([blob], `voice_${Date.now()}.webm`, { type: 'audio/webm' });
+        await uploadFile(file);
+        clearInterval(recordingTimerRef.current);
+        setRecordingTime(0);
+      };
+      mediaRecorder.start(250);
+      mediaRecorderRef.current = mediaRecorder;
+      setIsRecording(true);
+      setRecordingTime(0);
+      recordingTimerRef.current = setInterval(() => setRecordingTime(t => t + 1), 1000);
+    } catch (err) {
+      toast.error("Microphone access denied");
+    }
+  };
+
+  const stopVoiceRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
+    setIsRecording(false);
+  };
+
+  /* ================= EXPORT CHAT ================= */
+  const exportChat = () => {
+    const textContent = messages
+      .filter(m => m.type !== 'system')
+      .map(m => {
+        const time = new Date(m.ts).toLocaleString();
+        if (m.file) return `[${time}] ${m.userName}: [File: ${m.file.name}]`;
+        if (m.gif) return `[${time}] ${m.userName}: [GIF]`;
+        return `[${time}] ${m.userName}: ${m.text || ''}`;
+      })
+      .join('\n');
+    const blob = new Blob([`Chat Export — Room: ${roomId}\nExported: ${new Date().toLocaleString()}\n${'─'.repeat(50)}\n\n${textContent}`], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `chat_${roomId}_${Date.now()}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success('Chat exported!');
   };
 
   /* ================= UI ================= */
@@ -915,6 +1015,20 @@ export default function ChatRoom() {
                       ))}
                     </div>
                   </div>
+                  <div style={{ borderTop: "1px solid rgba(255, 255, 255, 0.1)", paddingTop: 10, marginTop: 10 }}>
+                    <button
+                      onClick={exportChat}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 8,
+                        width: "100%", padding: "8px 12px", borderRadius: 10,
+                        background: "rgba(33, 150, 243, 0.1)", border: "1px solid rgba(33, 150, 243, 0.3)",
+                        color: "#2196F3", cursor: "pointer", fontSize: "0.8rem", fontWeight: 600,
+                        transition: "all 0.2s"
+                      }}
+                    >
+                      <FaDownload /> Export Chat History
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
@@ -967,7 +1081,22 @@ export default function ChatRoom() {
           </RoomActions>
         </Header>
 
-        <MessageContainer>
+        <MessageContainer ref={messagesContainerRef}>
+          {hasMoreMessages && (
+            <div style={{ textAlign: "center", padding: "8px 0" }}>
+              <button
+                onClick={loadMoreMessages}
+                disabled={loadingMore}
+                style={{
+                  background: "var(--chakra-colors-surfaceHover)", border: "1px solid var(--chakra-colors-border)",
+                  color: "var(--chakra-colors-textSecondary)", padding: "6px 16px", borderRadius: 20,
+                  cursor: loadingMore ? "wait" : "pointer", fontSize: "0.8rem", transition: "all 0.2s"
+                }}
+              >
+                {loadingMore ? "Loading…" : "↑ Load older messages"}
+              </button>
+            </div>
+          )}
           {messages.filter(m => {
             if (!searchQuery) return true;
             if (m.type === "system") return false;
@@ -1106,7 +1235,28 @@ export default function ChatRoom() {
                   </div>
                 )}
 
-                <Timestamp>{new Date(m.ts).toLocaleTimeString()}</Timestamp>
+                {/* Voice note inline player */}
+                {m.file && m.file.type && m.file.type.startsWith("audio") && (
+                  <div style={{ marginTop: 6 }}>
+                    <audio
+                      src={m.file.url}
+                      controls
+                      style={{ width: "100%", maxWidth: 280, height: 36, borderRadius: 20 }}
+                    />
+                  </div>
+                )}
+
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <Timestamp>{new Date(m.ts).toLocaleTimeString()}</Timestamp>
+                  {m.ephemeral && (
+                    <span style={{
+                      fontSize: "0.6rem", color: "#ff6b6b", fontWeight: 600,
+                      display: "flex", alignItems: "center", gap: 3
+                    }}>
+                      💨 {Math.max(0, EPHEMERAL_DURATION - Math.floor((Date.now() - m.ts) / 1000))}s
+                    </span>
+                  )}
+                </div>
               </MessageBubble>
             );
           })}
@@ -1210,6 +1360,22 @@ export default function ChatRoom() {
         )}
 
         <MessageInputContainer>
+          {/* Ephemeral toggle */}
+          <button
+            onClick={() => { setEphemeralMode(!ephemeralMode); toast.info(ephemeralMode ? 'Ephemeral mode OFF' : 'Ephemeral mode ON — messages vanish in 15s'); }}
+            title={ephemeralMode ? "Ephemeral ON (messages vanish in 15s)" : "Ephemeral OFF"}
+            style={{
+              background: ephemeralMode ? "rgba(255, 107, 107, 0.15)" : "transparent",
+              border: ephemeralMode ? "1px solid rgba(255, 107, 107, 0.4)" : "1px solid var(--chakra-colors-border)",
+              color: ephemeralMode ? "#ff6b6b" : "var(--chakra-colors-textSecondary)",
+              borderRadius: 20, padding: "6px 8px", cursor: "pointer",
+              fontSize: "0.9rem", display: "flex", alignItems: "center",
+              transition: "all 0.2s", flexShrink: 0
+            }}
+          >
+            💨
+          </button>
+
           <FileUploadLabel htmlFor="file-input">
             <FaFileUpload />
           </FileUploadLabel>
@@ -1229,14 +1395,51 @@ export default function ChatRoom() {
             }}
           />
 
+          {/* Voice recording button */}
+          {isRecording ? (
+            <button
+              onClick={stopVoiceRecording}
+              style={{
+                background: "#ff4757", border: "none", color: "white",
+                borderRadius: "50%", width: 36, height: 36, cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                animation: "pulse 1.5s infinite", flexShrink: 0
+              }}
+              title="Stop recording"
+            >
+              <FaStop size={14} />
+            </button>
+          ) : (
+            <button
+              onClick={startVoiceRecording}
+              style={{
+                background: "transparent", border: "1px solid var(--chakra-colors-border)",
+                color: "var(--chakra-colors-textSecondary)",
+                borderRadius: "50%", width: 36, height: 36, cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                transition: "all 0.2s", flexShrink: 0
+              }}
+              title="Record voice note"
+            >
+              <FaMicrophone size={14} />
+            </button>
+          )}
+
+          {isRecording && (
+            <span style={{ fontSize: "0.75rem", color: "#ff4757", fontWeight: 600, minWidth: 30, flexShrink: 0 }}>
+              {Math.floor(recordingTime / 60)}:{String(recordingTime % 60).padStart(2, '0')}
+            </span>
+          )}
+
           <MessageInput
-            placeholder="Type a message..."
+            placeholder={ephemeralMode ? "💨 Ephemeral message..." : "Type a message..."}
             value={message}
             onChange={(e) => {
               setMessage(e.target.value);
               handleTyping?.(e.target.value);
             }}
             onKeyDown={(e) => e.key === "Enter" && handleSend?.()}
+            style={ephemeralMode ? { borderColor: "rgba(255, 107, 107, 0.3)" } : {}}
           />
           <FileUploadLabel
             onClick={() => {
@@ -1251,6 +1454,8 @@ export default function ChatRoom() {
             <FaPaperPlane />
           </SendButton>
         </MessageInputContainer>
+
+        <style>{`@keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(255, 71, 87, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0); } }`}</style>
 
         {fullscreen && (
           <div
@@ -1306,23 +1511,27 @@ export default function ChatRoom() {
         )}
       </ChatContainer>
 
-      <div style={{ display: showWhiteboard ? "block" : "none" }}>
-        <Whiteboard
-          socket={socketRef.current}
-          roomId={roomId}
-          isAdmin={!!ownerToken}
-          onClose={() => setShowWhiteboard(false)}
-        />
-      </div>
+      {showWhiteboard && (
+        <Suspense fallback={<div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.8)', zIndex: 9999, color: '#fff' }}>Loading Whiteboard…</div>}>
+          <Whiteboard
+            socket={socketRef.current}
+            roomId={roomId}
+            isAdmin={!!ownerToken}
+            onClose={() => setShowWhiteboard(false)}
+          />
+        </Suspense>
+      )}
 
       {showMeeting && (
-        <LiveMeeting 
-          socket={socketRef.current}
-          roomId={roomId}
-          userName={userName}
-          isAdmin={!!ownerToken}
-          onClose={() => setShowMeeting(false)}
-        />
+        <Suspense fallback={<div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.8)', zIndex: 9999, color: '#fff' }}>Loading Meeting…</div>}>
+          <LiveMeeting 
+            socket={socketRef.current}
+            roomId={roomId}
+            userName={userName}
+            isAdmin={!!ownerToken}
+            onClose={() => setShowMeeting(false)}
+          />
+        </Suspense>
       )}
     </>
   );
