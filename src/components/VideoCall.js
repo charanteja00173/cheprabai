@@ -1,8 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
-import { Box, Flex, Grid, Input, Button, Text, VStack, HStack, IconButton, Tooltip, Avatar } from "@chakra-ui/react";
+import { Box, Flex, Grid, Input, Button, Text, VStack, HStack, IconButton, Tooltip } from "@chakra-ui/react";
 import { io } from "socket.io-client";
 import { Mic, MicOff, Video, VideoOff, PhoneOff, Send, Users, ShieldCheck, AlertTriangle } from "lucide-react";
-import { signalService } from "../utils/signalService";
 
 const socket = io(process.env.REACT_APP_SOCKET_ENDPOINT || "http://localhost:4000");
 
@@ -23,43 +22,12 @@ export default function VideoCall() {
   const [isE2EE, setIsE2EE] = useState(false);
 
   /* ================= SIGNAL E2EE ================= */
-  const ensureSession = useCallback(async (id) => {
-    return new Promise((resolve) => {
-      socket.emit("get-prekey", { targetSocketId: id }, async (bundle) => {
-        if (bundle && !bundle.error) {
-          try {
-            await signalService.establishSession(id, bundle);
-          } catch (e) {
-            console.error("Signal session error", e);
-          }
-        }
-        resolve();
-      });
-    });
+  const sendEncryptedSignal = useCallback(async (event, payload, targetId) => {
+    socket.emit(event, { to: targetId, from: socket.id, ...payload });
   }, []);
 
-  const sendEncryptedSignal = useCallback(async (event, payload, targetId) => {
-    try {
-      await ensureSession(targetId);
-      const plaintext = JSON.stringify(payload);
-      const ciphertext = await signalService.encryptMessage(targetId, plaintext);
-      socket.emit(event, { to: targetId, from: socket.id, ...payload, [`encrypted${Object.keys(payload)[0]}`]: ciphertext });
-    } catch (e) {
-      console.error("Failed to send encrypted signal", e);
-      // Fallback to plain if E2EE fails
-      socket.emit(event, { to: targetId, from: socket.id, ...payload });
-    }
-  }, [ensureSession]);
-
   const decryptSignal = useCallback(async (fromId, ciphertext, fallbackPlaintext) => {
-    if (!ciphertext) return fallbackPlaintext;
-    try {
-      const decrypted = await signalService.decryptMessage(fromId, ciphertext);
-      return JSON.parse(decrypted);
-    } catch (e) {
-      console.error("Failed to decrypt signal", e);
-      return fallbackPlaintext;
-    }
+    return fallbackPlaintext;
   }, []);
 
   /* ================= WEBRTC ================= */
@@ -134,11 +102,6 @@ export default function VideoCall() {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
       streamRef.current = stream;
       
-      // Initialize Signal Identity for Video E2EE
-      const preKeys = await signalService.initialize(socket.id);
-      socket.emit("publish-prekeys", preKeys);
-      setIsE2EE(true);
-
       setJoined(true);
       socket.emit("joinRoom", { roomId: room, userName: name });
     } catch {

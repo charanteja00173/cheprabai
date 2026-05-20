@@ -22,10 +22,7 @@ import "react-toastify/dist/ReactToastify.css";
 // E2EE Removed
 import ThemeSwitcher from "./ThemeSwitcher";
 
-/* ================= CONFIG ================= */
-
 const SECURITY_CODE = process.env.REACT_APP_SECURITY_CODES.split(",");
-const CHUNK_SIZE = 1024 * 128; // 128KB chunks for high-speed streaming relay
 
 const urlRegex = /(https?:\/\/[^\s]+)/g;
 
@@ -63,12 +60,7 @@ const LiveBadge = styled.div`
   gap: 4px;
 `;
 
-const AppContainer = styled.div`
-  display: flex;
-  height: 100vh;
-  width: 100vw;
-  background: var(--chakra-colors-bg);
-`;
+
 
 const ChatContainer = styled.div`
   display: flex;
@@ -506,7 +498,7 @@ const OverlayButton = styled.button`
 export default function ChatRoom() {
   const socketRef = useRef(null);
   const audioRef = useRef(new Audio(notificationSound));
-  // Keys removed
+  const userColorsRef = useRef({});
 
   const [joined, setJoined] = useState(false);
   const [roomId, setRoomId] = useState("");
@@ -519,7 +511,7 @@ export default function ChatRoom() {
   const [pendingFile, setPendingFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [fullscreen, setFullscreen] = useState(null);
-  const [receivingFiles, setReceivingFiles] = useState({});
+  // Receiving files removed
   const typingTimeout = useRef(null);
   const fileInputRef = useRef(null);
   const [ownerToken, setOwnerToken] = useState("");
@@ -1069,16 +1061,16 @@ export default function ChatRoom() {
                         display: "flex", flexDirection: "column", gap: "10px"
                       }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                          <span style={{ fontSize: "0.85rem", fontWeight: "600", color: "var(--chakra-colors-textPrimary)", opacity: 0.8 }}>Receiving: {m.file.name}</span>
-                          <span style={{ fontSize: "0.75rem", color: "var(--chakra-colors-brandPrimary)" }}>{receivingFiles[m.id.replace('loading-', '')]?.percent || 0}%</span>
+                          <span style={{ fontSize: "0.85rem", fontWeight: "600", color: "var(--chakra-colors-textPrimary)", opacity: 0.8 }}>Uploading: {m.file.name}</span>
+                          <span style={{ fontSize: "0.75rem", color: "var(--chakra-colors-brandPrimary)" }}>...</span>
                         </div>
                         <div style={{ width: "100%", height: "6px", background: "rgba(255, 255, 255, 0.1)", borderRadius: "10px", overflow: "hidden" }}>
                            <div style={{ 
                              height: "100%", 
-                             width: `${receivingFiles[m.id.replace('loading-', '')]?.percent || 0}%`, 
+                             width: `100%`, 
                              background: "linear-gradient(90deg, var(--chakra-colors-brandPrimary), #00e5ff, var(--chakra-colors-brandPrimary))",
                              borderRadius: "10px",
-                             transition: "width 0.4s ease"
+                             animation: "pulse 1.5s infinite"
                            }} />
                         </div>
                       </div>

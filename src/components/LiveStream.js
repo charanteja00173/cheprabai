@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Box, Flex, Grid, Text, Button, IconButton, Image, Tooltip, VStack } from "@chakra-ui/react";
+import { Box, Flex, Grid, Text, Button, IconButton, Image, Tooltip } from "@chakra-ui/react";
 import { Radio, Mic, MicOff, Trash2, Plus, LogOut } from "lucide-react";
 import { motion } from "framer-motion";
 
