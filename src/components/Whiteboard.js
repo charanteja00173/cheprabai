@@ -17,7 +17,7 @@ const Overlay = styled.div`
 
   @media (max-width: 768px) {
     padding: 0;
-    background: #121212;
+    background: var(--chakra-colors-bg);
     backdrop-filter: none;
   }
 `;
@@ -55,7 +55,7 @@ const CanvasWrapper = styled.div`
   border-radius: ${(props) => (props.isFullScreen ? "0" : "clamp(8px, 1.5vw, 12px)")};
   overflow: hidden;
   border: ${(props) => (props.isFullScreen ? "none" : "1px solid rgba(255, 255, 255, 0.08)")};
-  background: #121212;
+  background: var(--chakra-colors-bg);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   flex: 1;
   box-sizing: border-box;
@@ -81,7 +81,7 @@ const ModalHeader = styled.div`
 
 const HeaderTitle = styled.h2`
   margin: 0;
-  color: #fff;
+  color: var(--chakra-colors-textPrimary);
   font-size: clamp(1rem, 2vw, 1.25rem);
   font-weight: 700;
   display: flex;
@@ -123,7 +123,7 @@ const IconButton = styled.button`
     left: 50%;
     transform: translateX(-50%) translateY(-5px);
     background: rgba(20, 20, 20, 0.95);
-    color: #fff;
+    color: var(--chakra-colors-textPrimary);
     padding: 6px 12px;
     border-radius: 6px;
     font-size: 0.75rem;
@@ -146,7 +146,7 @@ const IconButton = styled.button`
 
   &:hover {
     background: ${(props) => (props.danger ? "#ff4757" : "rgba(255, 255, 255, 0.1)")};
-    color: #fff;
+    color: var(--chakra-colors-textPrimary);
     transform: translateY(-2px);
   }
 `;

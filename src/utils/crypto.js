@@ -1,6 +1,34 @@
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
+export async function generateRandomSenderKey() {
+  return await crypto.subtle.generateKey(
+    { name: "AES-GCM", length: 256 },
+    true, // extractable
+    ["encrypt", "decrypt"]
+  );
+}
+
+export async function exportKey(key) {
+  const exported = await crypto.subtle.exportKey("raw", key);
+  return btoa(String.fromCharCode(...new Uint8Array(exported)));
+}
+
+export async function importKey(base64Str) {
+  const binaryString = atob(base64Str);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return await crypto.subtle.importKey(
+    "raw",
+    bytes,
+    "AES-GCM",
+    true,
+    ["encrypt", "decrypt"]
+  );
+}
+
 export async function generateKeyFromSecret(secret) {
   const baseKey = await crypto.subtle.importKey(
     "raw",

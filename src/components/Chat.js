@@ -18,7 +18,8 @@ import { AiOutlineClose } from "react-icons/ai";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-import { generateKeyFromSecret, encryptMessage, decryptMessage, encryptBinary, decryptBinary } from "../utils/crypto";
+import { generateKeyFromSecret, generateRandomSenderKey, exportKey, importKey, encryptMessage, decryptMessage, encryptBinary, decryptBinary } from "../utils/crypto";
+import { signalService } from "../utils/signalService";
 
 /* ================= CONFIG ================= */
 
@@ -62,20 +63,27 @@ const LiveBadge = styled.div`
   margin-right: 12px;
 `;
 
+const AppContainer = styled.div`
+  display: flex;
+  height: 100%;
+  width: 100%;
+  background: var(--chakra-colors-bg);
+`;
+
 const ChatContainer = styled.div`
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background: #121212;
+  background: var(--chakra-colors-bg);
 `;
 
 const Header = styled.div`
   display: flex;
   align-items: center;
   padding: 10px 20px;
-  background: #1f1f1f;
-  color: #fff;
-  border-bottom: 1px solid #333;
+  background: var(--chakra-colors-surface);
+  color: var(--chakra-colors-textPrimary);
+  border-bottom: 1px solid var(--chakra-colors-border);
 `;
 
 const Avatar = styled.img`
@@ -94,7 +102,7 @@ const RoomActions = styled.div`
 const ActionButton = styled.button`
   background: none;
   border: none;
-  color: #fff;
+  color: var(--chakra-colors-textPrimary);
   cursor: pointer;
   font-size: 1.2rem;
 `;
@@ -110,7 +118,7 @@ const MessageContainer = styled.div`
 `;
 
 // const ActionLink = styled(Link)`
-//   background:none; border:none; color:#fff;
+//   background:none; border:none; color: var(--chakra-colors-textPrimary);
 //   cursor:pointer; font-size:1.2rem;
 //   display: flex;
 //   align-items: center;
@@ -146,13 +154,13 @@ const Username = styled.div`
 
 const Timestamp = styled.div`
   font-size: 0.65rem;
-  color: #aaa;
+  color: var(--chakra-colors-textSecondary);
   text-align: right;
   margin-top: 4px;
 `;
 
 const FileCard = styled.div`
-  background: #1c1c1c;
+  background: var(--chakra-colors-cardBg);
   border-radius: 10px;
   padding: 6px;
 `;
@@ -166,13 +174,13 @@ const TypingIndicator = styled.div`
 
   padding: 6px 12px;
   border-radius: 12px;
-  border: 1px solid #333;
+  border: 1px solid var(--chakra-colors-border);
 
-  background: rgba(31, 31, 31, 0.95);
+  background: var(--chakra-colors-glassBg);
   backdrop-filter: blur(6px);
 
   font-size: 0.8rem;
-  color: #aaa;
+  color: var(--chakra-colors-textSecondary);
 
   animation: ${glow} 1.5s infinite;
 
@@ -190,13 +198,13 @@ const JoinContainer = styled.div`
 const JoinInput = styled.input`
   padding: 12px 16px;
   border-radius: 25px;
-  border: 1px solid #333;
-  background: #1e1e1e;
-  color: #fff;
+  border: 1px solid var(--chakra-colors-border);
+  background: var(--chakra-colors-surfaceHover);
+  color: var(--chakra-colors-textPrimary);
   outline: none;
 
   ::placeholder {
-    color: #aaa;
+    color: var(--chakra-colors-textSecondary);
   }
 `;
 
@@ -204,7 +212,7 @@ const JoinButton = styled.button`
   padding: 12px;
   border-radius: 25px;
   border: none;
-  background: #00bfa5;
+  background: var(--chakra-colors-brandPrimary);
   color: #000;
   font-weight: bold;
   cursor: pointer;
@@ -222,7 +230,7 @@ const PreviewOverlay = styled.div`
 `;
 
 const PreviewModal = styled.div`
-  background: #1f1f1f;
+  background: var(--chakra-colors-surface);
   border-radius: 14px;
   max-width: 90%;
   max-height: 90%;
@@ -259,11 +267,11 @@ const PreviewButton = styled.button`
 
 const CancelBtn = styled(PreviewButton)`
   background: #444;
-  color: #fff;
+  color: var(--chakra-colors-textPrimary);
 `;
 
 const SendBtn = styled(PreviewButton)`
-  background: #00bfa5;
+  background: var(--chakra-colors-brandPrimary);
   color: #000;
 `;
 
@@ -271,8 +279,8 @@ const MessageInputContainer = styled.div`
   display: flex;
   align-items: center;
   padding: 10px 20px;
-  background: #1f1f1f;
-  border-top: 1px solid #333;
+  background: var(--chakra-colors-surface);
+  border-top: 1px solid var(--chakra-colors-border);
   gap: 10px; /* consistent spacing between elements */
 `;
 
@@ -280,13 +288,13 @@ const MessageInput = styled.input`
   flex: 1;
   padding: 12px 15px;
   border-radius: 20px;
-  border: 1px solid #333;
-  background: #121212;
-  color: #fff;
+  border: 1px solid var(--chakra-colors-border);
+  background: var(--chakra-colors-bg);
+  color: var(--chakra-colors-textPrimary);
   outline: none;
 
   ::placeholder {
-    color: #aaa;
+    color: var(--chakra-colors-textSecondary);
   }
 `;
 
@@ -297,14 +305,14 @@ const FileInput = styled.input`
 const FileUploadLabel = styled.label`
   font-size: 1.3rem;
   cursor: pointer;
-  color: #fff;
+  color: var(--chakra-colors-textPrimary);
 `;
 
 const SendButton = styled.button`
   padding: 10px;
   border-radius: 50%;
   border: none;
-  background: #00bfa5;
+  background: var(--chakra-colors-brandPrimary);
   color: #000;
   cursor: pointer;
   display: flex;
@@ -339,7 +347,7 @@ const GifPickerModal = styled(PreviewModal)`
   max-height: 85vh;
 
   padding: 16px;
-  background: #1f1f1f;
+  background: var(--chakra-colors-surface);
   border-radius: 16px;
 
   display: flex;
@@ -369,20 +377,20 @@ const GifSearchInput = styled.input`
   flex: 1;
   padding: 12px 16px;
   border-radius: 25px;
-  border: 1px solid #333;
-  background: #121212;
-  color: #fff;
+  border: 1px solid var(--chakra-colors-border);
+  background: var(--chakra-colors-bg);
+  color: var(--chakra-colors-textPrimary);
   font-size: 0.95rem;
   outline: none;
   box-sizing: border-box;
 
   ::placeholder {
-    color: #aaa;
+    color: var(--chakra-colors-textSecondary);
   }
 `;
 
 const SearchGifButton = styled.button`
-  background: #00bfa5;
+  background: var(--chakra-colors-brandPrimary);
   border: none;
   color: #000;
   border-radius: 25px;
@@ -392,14 +400,14 @@ const SearchGifButton = styled.button`
   transition: all 0.2s ease;
 
   &:hover {
-    background: #00d8b0;
+    background: var(--chakra-colors-brandHover);
   }
 `;
 
 // const CloseGifPickerButton = styled.button`
 //   background: #ff4d4d;
 //   border: none;
-//   color: #fff;
+//   color: var(--chakra-colors-textPrimary);
 //   border-radius: 25px;
 //   padding: 8px 12px;
 //   font-weight: bold;
@@ -462,7 +470,7 @@ const CardOverlay = styled.div`
 `;
 
 const OverlayButton = styled.button`
-  background: #00bfa5;
+  background: var(--chakra-colors-brandPrimary);
   color: #000;
   border: none;
   padding: 6px 12px;
@@ -474,7 +482,7 @@ const OverlayButton = styled.button`
   transition: all 0.2s;
 
   &:hover {
-    background: #00d8b0;
+    background: var(--chakra-colors-brandHover);
     opacity: 1;
   }
 `;
@@ -490,7 +498,8 @@ export default function ChatRoom() {
   const audioRef = useRef(new Audio(notificationSound));
   const fileChunksRef = useRef({});
   const userColorsRef = useRef({});
-  const cryptoKeyRef = useRef(null);
+  const mySenderKeyRef = useRef(null);
+  const senderKeysRef = useRef({});
 
   const [joined, setJoined] = useState(false);
   const [roomId, setRoomId] = useState("");
@@ -508,7 +517,7 @@ export default function ChatRoom() {
   const fileInputRef = useRef(null);
   const [ownerToken, setOwnerToken] = useState("");
   const [onlineUsers, setOnlineUsers] = useState([]);
-  const isEncrypted = !!cryptoKeyRef.current;
+  const isEncrypted = !!mySenderKeyRef.current;
 
   const [showGifPicker, setShowGifPicker] = useState(false);
   const [showWhiteboard, setShowWhiteboard] = useState(false);
@@ -662,11 +671,54 @@ export default function ChatRoom() {
 
     socketRef.current.emit("joinRoom", { roomId, userName });
 
+    socketRef.current.on("all-users", async (users) => {
+      // Setup pairwise connections with existing users and securely transmit sender key
+      for (const u of users) {
+        if (u.id === socketRef.current.id) continue;
+        socketRef.current.emit("get-prekey", { targetSocketId: u.id }, async (bundle) => {
+          if (bundle && !bundle.error) {
+            await signalService.establishSession(u.id, bundle);
+            const exportedKey = await exportKey(mySenderKeyRef.current);
+            const ciphertext = await signalService.encryptMessage(u.id, exportedKey);
+            socketRef.current.emit("send-sender-key", { toSocketId: u.id, encryptedSenderKey: ciphertext });
+          }
+        });
+      }
+    });
+
+    socketRef.current.on("user-joined", async (u) => {
+      // New user joined, establish pairwise and send my sender key
+      socketRef.current.emit("get-prekey", { targetSocketId: u.id }, async (bundle) => {
+        if (bundle && !bundle.error) {
+          await signalService.establishSession(u.id, bundle);
+          const exportedKey = await exportKey(mySenderKeyRef.current);
+          const ciphertext = await signalService.encryptMessage(u.id, exportedKey);
+          socketRef.current.emit("send-sender-key", { toSocketId: u.id, encryptedSenderKey: ciphertext });
+        }
+      });
+    });
+
+    socketRef.current.on("deliver-sender-key", async ({ fromSocketId, encryptedSenderKey }) => {
+      try {
+        const exportedKey = await signalService.decryptMessage(fromSocketId, encryptedSenderKey);
+        const aesKey = await importKey(exportedKey);
+        senderKeysRef.current[fromSocketId] = aesKey;
+        console.log("Securely received Sender Key from", fromSocketId);
+      } catch (err) {
+        console.error("Failed to decrypt incoming sender key", err);
+      }
+    });
+
     socketRef.current.on("newMessage", async (msg) => {
       let finalMsg = { ...msg };
       if (msg.type !== "system" && msg.payload) {
         try {
-          const decryptedText = await decryptMessage(cryptoKeyRef.current, msg.payload);
+          let keyToUse = senderKeysRef.current[msg.senderSocketId];
+          if (msg.senderSocketId === socketRef.current.id) {
+             keyToUse = mySenderKeyRef.current;
+          }
+          if (!keyToUse) throw new Error("No sender key found");
+          const decryptedText = await decryptMessage(keyToUse, msg.payload);
           try {
             const parsed = JSON.parse(decryptedText);
             finalMsg.text = parsed.text || "";
@@ -677,8 +729,6 @@ export default function ChatRoom() {
         } catch (err) {
           finalMsg.text = "🔒 [Encrypted Message]";
         }
-      } else if (!msg.type && msg.text) {
-          // Fallback for unencrypted historical messages if any
       }
       setMessages((m) => [...m, finalMsg]);
       if (msg.userName !== userName) audioRef.current.play().catch(() => {});
@@ -732,11 +782,17 @@ export default function ChatRoom() {
       try {
         let decryptedChunk = chunk;
         if (iv && chunk) {
-          decryptedChunk = await decryptBinary(cryptoKeyRef.current, { iv, data: chunk });
+          let keyToUse = senderKeysRef.current[data.senderSocketId];
+          if (data.senderSocketId === socketRef.current.id) {
+             keyToUse = mySenderKeyRef.current;
+          }
+          if (keyToUse) {
+            decryptedChunk = await decryptBinary(keyToUse, { iv, data: chunk });
+          }
         }
         fileChunksRef.current[fileId][chunkIndex] = decryptedChunk;
       } catch (err) {
-        console.error("Failed to decrypt file chunk");
+        console.error("Failed to decrypt file chunk", err);
       }
 
       if (
@@ -826,7 +882,7 @@ export default function ChatRoom() {
     const reader = new FileReader();
 
     reader.onload = async (e) => {
-      const encrypted = await encryptBinary(cryptoKeyRef.current, e.target.result);
+      const encrypted = await encryptBinary(mySenderKeyRef.current, e.target.result);
       const isFinished = chunkIndex + 1 === totalChunks;
 
 
@@ -889,7 +945,7 @@ export default function ChatRoom() {
     if (!customData && !message.trim()) return;
     
     const dataToEncrypt = customData || { text: message };
-    const payload = await encryptMessage(cryptoKeyRef.current, JSON.stringify(dataToEncrypt));
+    const payload = await encryptMessage(mySenderKeyRef.current, JSON.stringify(dataToEncrypt));
     
     socketRef.current.emit("sendMessage", {
       payload,
@@ -920,7 +976,7 @@ export default function ChatRoom() {
           style={{ justifyContent: "center", alignItems: "center" }}
         >
           <JoinContainer>
-            <h2 style={{ color: "#fff", textAlign: "center" }}>Join Room</h2>
+            <h2 style={{ color: "var(--chakra-colors-textPrimary)", textAlign: "center" }}>Join Room</h2>
 
             <JoinInput
               placeholder="Room"
@@ -952,7 +1008,13 @@ export default function ChatRoom() {
                 }
                 
                 try {
-                  cryptoKeyRef.current = await generateKeyFromSecret(code);
+                  // Generate our WebCrypto Sender Key for encrypting large payloads
+                  mySenderKeyRef.current = await generateRandomSenderKey();
+                  
+                  // Initialize Signal Identity & PreKeys for secure E2E key exchange
+                  const preKeys = await signalService.initialize(socketRef.current.id);
+                  socketRef.current.emit("publish-prekeys", preKeys);
+                  
                   setJoined(true);
                 } catch (err) {
                   toast.error("Failed to generate encryption key.");
@@ -990,7 +1052,7 @@ export default function ChatRoom() {
                 top: "120%",
                 left: 0,
                 width: 250,
-                background: "rgba(31, 31, 31, 0.95)",
+                background: "var(--chakra-colors-glassBg)",
                 backdropFilter: "blur(20px)",
                 border: "1px solid rgba(255, 255, 255, 0.1)",
                 borderRadius: 12,
@@ -1020,7 +1082,7 @@ export default function ChatRoom() {
                     <div style={{ fontSize: "0.8rem", color: "#666", marginBottom: 5 }}>Participants</div>
                     <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
                       {onlineUsers.map(u => (
-                        <div key={u.id} style={{ background: "rgba(255,255,255,0.05)", padding: "2px 8px", borderRadius: 20, fontSize: "0.7rem" }}>
+                        <div key={u.id} style={{ background: "var(--chakra-colors-surfaceHover)", padding: "2px 8px", borderRadius: 20, fontSize: "0.7rem" }}>
                           {u.name}
                         </div>
                       ))}
@@ -1052,16 +1114,16 @@ export default function ChatRoom() {
             </ActionButton>
 
             {showSearch && (
-              <div style={{ position: "absolute", top: "70px", right: "20px", zIndex: 100, background: "rgba(20, 20, 20, 0.9)", padding: "10px", borderRadius: "12px", border: "1px solid rgba(255,255,255,0.1)", backdropFilter: "blur(10px)", display: "flex", gap: "10px", alignItems: "center" }}>
+              <div style={{ position: "absolute", top: "70px", right: "20px", zIndex: 100, background: "var(--chakra-colors-glassBg)", padding: "10px", borderRadius: "12px", border: "1px solid var(--chakra-colors-border)", backdropFilter: "blur(10px)", display: "flex", gap: "10px", alignItems: "center" }}>
                 <FaSearch style={{ opacity: 0.5 }} />
                 <input 
                   autoFocus
                   placeholder="Filter messages..." 
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  style={{ background: "none", border: "none", color: "white", outline: "none", width: "150px" }}
+                  style={{ background: "none", border: "none", color: "var(--chakra-colors-textPrimary)", outline: "none", width: "150px" }}
                 />
-                <button onClick={() => { setShowSearch(false); setSearchQuery(""); }} style={{ background: "none", border: "none", color: "white", cursor: "pointer", opacity: 0.5 }}>✕</button>
+                <button onClick={() => { setShowSearch(false); setSearchQuery(""); }} style={{ background: "none", border: "none", color: "var(--chakra-colors-textPrimary)", cursor: "pointer", opacity: 0.5 }}>✕</button>
               </div>
             )}
 
@@ -1163,18 +1225,18 @@ export default function ChatRoom() {
                   <div style={{ position: "relative" }}>
                     {m.file.loading ? (
                       <div style={{ 
-                        width: "100%", padding: "20px", background: "rgba(30, 30, 30, 0.8)", borderRadius: "12px", border: "1px solid rgba(255, 255, 255, 0.1)",
+                        width: "100%", padding: "20px", background: "var(--chakra-colors-glassBg)", borderRadius: "12px", border: "1px solid rgba(255, 255, 255, 0.1)",
                         display: "flex", flexDirection: "column", gap: "10px"
                       }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                          <span style={{ fontSize: "0.85rem", fontWeight: "600", color: "#fff", opacity: 0.8 }}>Receiving: {m.file.name}</span>
-                          <span style={{ fontSize: "0.75rem", color: "#00bfa5" }}>{receivingFiles[m.id.replace('loading-', '')]?.percent || 0}%</span>
+                          <span style={{ fontSize: "0.85rem", fontWeight: "600", color: "var(--chakra-colors-textPrimary)", opacity: 0.8 }}>Receiving: {m.file.name}</span>
+                          <span style={{ fontSize: "0.75rem", color: "var(--chakra-colors-brandPrimary)" }}>{receivingFiles[m.id.replace('loading-', '')]?.percent || 0}%</span>
                         </div>
                         <div style={{ width: "100%", height: "6px", background: "rgba(255, 255, 255, 0.1)", borderRadius: "10px", overflow: "hidden" }}>
                            <div style={{ 
                              height: "100%", 
                              width: `${receivingFiles[m.id.replace('loading-', '')]?.percent || 0}%`, 
-                             background: "linear-gradient(90deg, #00bfa5, #00e5ff, #00bfa5)",
+                             background: "linear-gradient(90deg, var(--chakra-colors-brandPrimary), #00e5ff, var(--chakra-colors-brandPrimary))",
                              borderRadius: "10px",
                              transition: "width 0.4s ease"
                            }} />
@@ -1188,7 +1250,7 @@ export default function ChatRoom() {
                         <div style={{ position: "relative" }}>
                           <video src={m.file.url} style={{ width: "100%", borderRadius: 8 }} />
                           <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.3)" }}>
-                            <FaPlay style={{ color: "white", fontSize: "2rem" }} />
+                            <FaPlay style={{ color: "var(--chakra-colors-textPrimary)", fontSize: "2rem" }} />
                           </div>
                         </div>
                       ) : (
@@ -1205,7 +1267,7 @@ export default function ChatRoom() {
                             <span style={{ fontWeight: "600", fontSize: "1rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                               {m.file.name}
                             </span>
-                            <span style={{ fontSize: "0.85rem", color: "#00bfa5", marginTop: "4px" }}>
+                            <span style={{ fontSize: "0.85rem", color: "var(--chakra-colors-brandPrimary)", marginTop: "4px" }}>
                               {m.userName === userName ? "View Shared File" : "Click to preview & download"}
                             </span>
                           </div>
@@ -1271,7 +1333,7 @@ export default function ChatRoom() {
         {pendingFile && (
           <PreviewOverlay onClick={() => setPendingFile(null)}>
             <PreviewModal onClick={(e) => e.stopPropagation()}>
-              {/* <h3 style={{ color: "#fff", margin: 0 , textAlign: 'center'}}>Send file?</h3> */}
+              {/* <h3 style={{ color: "var(--chakra-colors-textPrimary)", margin: 0 , textAlign: 'center'}}>Send file?</h3> */}
 
               <PreviewContent style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minWidth: "300px", minHeight: "150px" }}>
                 {pendingFile.type && pendingFile.type.startsWith("image") ? (
@@ -1282,8 +1344,8 @@ export default function ChatRoom() {
                   <audio src={previewUrl} controls />
                 ) : (
                   <div style={{ textAlign: "center", padding: "20px" }}>
-                    <FaFile size={60} style={{ color: "#00bfa5", marginBottom: "15px" }} />
-                    <div style={{ color: "white", fontSize: "1.1rem", fontWeight: "600", wordBreak: "break-all" }}>
+                    <FaFile size={60} style={{ color: "var(--chakra-colors-brandPrimary)", marginBottom: "15px" }} />
+                    <div style={{ color: "var(--chakra-colors-textPrimary)", fontSize: "1.1rem", fontWeight: "600", wordBreak: "break-all" }}>
                       {pendingFile.name}
                     </div>
                     <div style={{ color: "#888", fontSize: "0.85rem", marginTop: "8px" }}>
@@ -1390,7 +1452,7 @@ export default function ChatRoom() {
               />
             )}
             {!fullscreen.type.startsWith("image") && !fullscreen.type.startsWith("video") && (
-              <div style={{ textAlign: "center", color: "white", padding: 20 }}>
+              <div style={{ textAlign: "center", color: "var(--chakra-colors-textPrimary)", padding: 20 }}>
                 <FaFile size={100} style={{ marginBottom: 20, opacity: 0.3 }} />
                 <h2 style={{ marginBottom: 10 }}>{fullscreen.name}</h2>
                 <p style={{ opacity: 0.6, marginBottom: 20 }}>This file type cannot be previewed in the browser.</p>
@@ -1399,7 +1461,7 @@ export default function ChatRoom() {
                   download={fullscreen.name} 
                   style={{ 
                     background: "#2196F3", 
-                    color: "white", 
+                    color: "var(--chakra-colors-textPrimary)", 
                     padding: "12px 24px", 
                     borderRadius: "12px", 
                     textDecoration: "none",

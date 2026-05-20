@@ -96,7 +96,7 @@ const VideoTile = styled.div`
   overflow: hidden;
   position: relative;
   aspect-ratio: 16/9;
-  border: 1px solid ${props => props.isTalking ? "#00bfa5" : "rgba(255,255,255,0.1)"};
+  border: 1px solid ${props => props.isTalking ? "var(--chakra-colors-brandPrimary)" : "rgba(255,255,255,0.1)"};
   box-shadow: ${props => props.isTalking ? "0 0 15px rgba(0, 191, 165, 0.4)" : "none"};
   transition: all 0.3s ease;
   cursor: pointer;
@@ -126,7 +126,7 @@ const PinOverlay = styled.div`
 `;
 
 const PinButton = styled.div`
-  background: #00bfa5;
+  background: var(--chakra-colors-brandPrimary);
   color: white;
   padding: 8px 12px;
   border-radius: 20px;
@@ -179,7 +179,7 @@ const ControlBar = styled.div`
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
   &:hover {
-    background: rgba(30, 30, 30, 0.8);
+    background: var(--chakra-colors-glassBg);
     bottom: 35px;
   }
 
@@ -663,7 +663,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       <ContentLayout isAdmin={isAdmin}>
         <MainStage style={{ flex: showGrid ? 3 : 10 }}>
           {!isAdmin && <PrivacyGuard show={!isFocused}><h3>Privacy Guard Active</h3><p>Screenshots and captures are restricted.</p></PrivacyGuard>}
-          <div style={{ position: "absolute", top: 10, left: 10, zIndex: 60, fontSize: "0.6rem", opacity: 0.3, color: "white" }}>
+          <div style={{ position: "absolute", top: 10, left: 10, zIndex: 60, fontSize: "0.6rem", opacity: 0.3, color: "var(--chakra-colors-textPrimary)" }}>
               ID: {myPeerId || "Connecting..."}
           </div>
           <Watermark x={watermarkPos.x} y={watermarkPos.y}>{userName} | {new Date().toLocaleTimeString()} | CONFIDENTIAL</Watermark>
@@ -677,7 +677,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                  <video autoPlay playsInline ref={el => { if (el) el.srcObject = focusedPeerId === "local" ? localStream : remoteStreams[focusedPeerId]?.stream; }} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
                  <div style={{ position: "absolute", top: 20, left: 20, background: "rgba(0,0,0,0.6)", padding: "5px 15px", borderRadius: 20, display: "flex", alignItems: "center", gap: 10 }}>
                     <span>Pinned: {focusedPeerId === "local" ? "You" : remoteStreams[focusedPeerId]?.name}</span>
-                    <button onClick={() => setFocusedPeerId(null)} style={{ background: "none", border: "none", color: "white", cursor: "pointer" }}>✕</button>
+                    <button onClick={() => setFocusedPeerId(null)} style={{ background: "none", border: "none", color: "var(--chakra-colors-textPrimary)", cursor: "pointer" }}>✕</button>
                  </div>
               </div>
           ) : activeMedia ? (
@@ -713,7 +713,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                 {userName} (You) {focusedPeerId === "local" && "(Sharing)"}
                 <FaThumbtack 
                     size={14} 
-                    style={{ cursor: 'pointer', color: focusedPeerId === "local" ? "#00bfa5" : "inherit" }} 
+                    style={{ cursor: 'pointer', color: focusedPeerId === "local" ? "var(--chakra-colors-brandPrimary)" : "inherit" }} 
                 />
             </NameTag>
           </VideoTile>
@@ -727,7 +727,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                 {info.name} 
                 <FaThumbtack 
                     size={14} 
-                    style={{ cursor: 'pointer', color: focusedPeerId === id ? "#00bfa5" : "inherit" }} 
+                    style={{ cursor: 'pointer', color: focusedPeerId === id ? "var(--chakra-colors-brandPrimary)" : "inherit" }} 
                 />
               </NameTag>
             </VideoTile>
