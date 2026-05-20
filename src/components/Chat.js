@@ -1247,7 +1247,7 @@ export default function ChatRoom() {
             <HiGif />
           </FileUploadLabel>
 
-          <SendButton onClick={handleSend}>
+          <SendButton onClick={() => handleSend()}>
             <FaPaperPlane />
           </SendButton>
         </MessageInputContainer>
