@@ -32,18 +32,18 @@ class SignalService {
 
     async initialize(userId) {
         this.address = new SignalProtocolAddress(userId, 1);
-        
+
         // Generate Identity
         this.registrationId = KeyHelper.generateRegistrationId();
         this.identityKeyPair = await KeyHelper.generateIdentityKeyPair();
-        
+
         await this.store.put('registrationId', this.registrationId);
         await this.store.put('identityKey', this.identityKeyPair);
-        
+
         // Generate PreKeys
         const preKey = await KeyHelper.generatePreKey(this.registrationId);
         await this.store.storePreKey(preKey.keyId, preKey.keyPair);
-        
+
         const signedPreKey = await KeyHelper.generateSignedPreKey(this.identityKeyPair, this.registrationId);
         await this.store.storeSignedPreKey(signedPreKey.keyId, signedPreKey.keyPair);
 
@@ -65,7 +65,7 @@ class SignalService {
     async establishSession(remoteUserId, preKeyBundle) {
         const remoteAddress = new SignalProtocolAddress(remoteUserId, 1);
         const builder = new SessionBuilder(this.store, remoteAddress);
-        
+
         await builder.processPreKey({
             registrationId: preKeyBundle.registrationId,
             identityKey: base64ToBuffer(preKeyBundle.identityKey),
@@ -84,21 +84,21 @@ class SignalService {
     async encryptMessage(remoteUserId, message) {
         const remoteAddress = new SignalProtocolAddress(remoteUserId, 1);
         const cipher = new SessionCipher(this.store, remoteAddress);
-        const buffer = new TextEncoder().encode(message);
-        return await cipher.encrypt(buffer);
+        const encoded = new TextEncoder().encode(message);
+        return await cipher.encrypt(encoded.buffer);
     }
 
     async decryptMessage(remoteUserId, ciphertext) {
         const remoteAddress = new SignalProtocolAddress(remoteUserId, 1);
         const cipher = new SessionCipher(this.store, remoteAddress);
-        
+
         let plaintextBuffer;
         if (ciphertext.type === 3) {
             plaintextBuffer = await cipher.decryptPreKeyWhisperMessage(ciphertext.body, "binary");
         } else {
             plaintextBuffer = await cipher.decryptWhisperMessage(ciphertext.body, "binary");
         }
-        
+
         return new TextDecoder().decode(new Uint8Array(plaintextBuffer));
     }
 }
