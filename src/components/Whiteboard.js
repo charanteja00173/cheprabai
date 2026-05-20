@@ -12,7 +12,7 @@ const Overlay = styled.div`
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: ${(props) => (props.isFullScreen ? "0" : "40px")};
+  padding: ${(props) => (props.$isFullScreen ? "0" : "40px")};
   box-sizing: border-box;
 
   @media (max-width: 768px) {
@@ -24,14 +24,14 @@ const Overlay = styled.div`
 
 const WhiteboardContainer = styled.div`
   position: relative;
-  width: ${(props) => (props.isFullScreen ? "100%" : "90%")};
-  max-width: ${(props) => (props.isFullScreen ? "100%" : "1600px")};
-  height: ${(props) => (props.isFullScreen ? "100dvh" : "85dvh")};
-  background: #1a1a1a;
-  border-radius: ${(props) => (props.isFullScreen ? "0" : "clamp(12px, 2vw, 16px)")};
-  box-shadow: ${(props) => (props.isFullScreen ? "none" : "0 25px 50px -12px rgba(0, 0, 0, 0.7)")};
-  border: ${(props) => (props.isFullScreen ? "none" : "1px solid rgba(255, 255, 255, 0.1)")};
-  padding: ${(props) => (props.isFullScreen ? "0" : "clamp(16px, 3vw, 24px)")};
+  width: ${(props) => (props.$isFullScreen ? "100%" : "90%")};
+  max-width: ${(props) => (props.$isFullScreen ? "100%" : "1600px")};
+  height: ${(props) => (props.$isFullScreen ? "100dvh" : "85dvh")};
+  background: var(--chakra-colors-surface);
+  border-radius: ${(props) => (props.$isFullScreen ? "0" : "clamp(12px, 2vw, 16px)")};
+  box-shadow: ${(props) => (props.$isFullScreen ? "none" : "0 25px 50px -12px rgba(0, 0, 0, 0.7)")};
+  border: ${(props) => (props.$isFullScreen ? "none" : "1px solid rgba(255, 255, 255, 0.1)")};
+  padding: ${(props) => (props.$isFullScreen ? "0" : "clamp(16px, 3vw, 24px)")};
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -52,9 +52,9 @@ const CanvasWrapper = styled.div`
   width: 100%;
   min-height: 0;
   position: relative;
-  border-radius: ${(props) => (props.isFullScreen ? "0" : "clamp(8px, 1.5vw, 12px)")};
+  border-radius: ${(props) => (props.$isFullScreen ? "0" : "clamp(8px, 1.5vw, 12px)")};
   overflow: hidden;
-  border: ${(props) => (props.isFullScreen ? "none" : "1px solid rgba(255, 255, 255, 0.08)")};
+  border: ${(props) => (props.$isFullScreen ? "none" : "1px solid rgba(255, 255, 255, 0.08)")};
   background: var(--chakra-colors-bg);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   flex: 1;
@@ -102,9 +102,9 @@ const HeaderActions = styled.div`
 `;
 
 const IconButton = styled.button`
-  background: ${(props) => (props.danger ? "rgba(255, 71, 87, 0.1)" : "rgba(255, 255, 255, 0.08)")};
-  color: ${(props) => (props.danger ? "#ff4757" : "#fff")};
-  border: 1px solid ${(props) => (props.danger ? "rgba(255, 71, 87, 0.25)" : "rgba(255, 255, 255, 0.15)")};
+  background: ${(props) => (props.$danger ? "rgba(255, 71, 87, 0.1)" : "rgba(255, 255, 255, 0.08)")};
+  color: ${(props) => (props.$danger ? "#ff4757" : "#fff")};
+  border: 1px solid ${(props) => (props.$danger ? "rgba(255, 71, 87, 0.25)" : "rgba(255, 255, 255, 0.15)")};
   width: clamp(36px, 4vw, 44px);
   height: clamp(36px, 4vw, 44px);
   border-radius: clamp(8px, 1.5vw, 12px);
@@ -145,7 +145,7 @@ const IconButton = styled.button`
   }
 
   &:hover {
-    background: ${(props) => (props.danger ? "#ff4757" : "rgba(255, 255, 255, 0.1)")};
+    background: ${(props) => (props.$danger ? "#ff4757" : "rgba(255, 255, 255, 0.1)")};
     color: var(--chakra-colors-textPrimary);
     transform: translateY(-2px);
   }
@@ -267,8 +267,8 @@ export default function Whiteboard({ socket, roomId, onClose, isAdmin }) {
   );
 
   return (
-    <Overlay isFullScreen={isFullScreen} onClick={onClose}>
-      <WhiteboardContainer isFullScreen={isFullScreen} onClick={(e) => e.stopPropagation()}>
+    <Overlay $isFullScreen={isFullScreen} onClick={onClose}>
+      <WhiteboardContainer $isFullScreen={isFullScreen} onClick={(e) => e.stopPropagation()}>
         {!isFullScreen && (
           <ModalHeader>
             <HeaderTitle>🎨 <span className="hide-mobile">Collaborative</span> Whiteboard</HeaderTitle>
@@ -281,7 +281,7 @@ export default function Whiteboard({ socket, roomId, onClose, isAdmin }) {
               <IconButton onClick={() => setIsFullScreen(true)} title="Expand to Fullscreen">
                 <FaExpand />
               </IconButton>
-              <IconButton danger onClick={onClose} title="Close Whiteboard">
+              <IconButton $danger onClick={onClose} title="Close Whiteboard">
                 <FaTimes />
               </IconButton>
             </HeaderActions>
@@ -313,7 +313,7 @@ export default function Whiteboard({ socket, roomId, onClose, isAdmin }) {
             <IconButton onClick={() => setIsFullScreen(false)} title="Exit Fullscreen">
               <FaCompress />
             </IconButton>
-            <IconButton danger onClick={onClose} title="Close Whiteboard">
+            <IconButton $danger onClick={onClose} title="Close Whiteboard">
               <FaTimes />
             </IconButton>
           </div>
