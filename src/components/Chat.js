@@ -672,7 +672,7 @@ export default function ChatRoom() {
     socketRef.current.emit("joinRoom", { roomId, userName });
 
     socketRef.current.on("all-users", async (users) => {
-      // Setup pairwise connections with existing users and securely transmit sender key
+      // New joiner: establish pairwise sessions with all existing users and send sender key
       for (const u of users) {
         if (u.id === socketRef.current.id) continue;
         socketRef.current.emit("get-prekey", { targetSocketId: u.id }, async (bundle) => {
@@ -687,15 +687,10 @@ export default function ChatRoom() {
     });
 
     socketRef.current.on("user-joined", async (u) => {
-      // New user joined, establish pairwise and send my sender key
-      socketRef.current.emit("get-prekey", { targetSocketId: u.id }, async (bundle) => {
-        if (bundle && !bundle.error) {
-          await signalService.establishSession(u.id, bundle);
-          const exportedKey = await exportKey(mySenderKeyRef.current);
-          const ciphertext = await signalService.encryptMessage(u.id, exportedKey);
-          socketRef.current.emit("send-sender-key", { toSocketId: u.id, encryptedSenderKey: ciphertext });
-        }
-      });
+      // Existing user: do NOT proactively establish a session.
+      // Wait for the new user to send their sender key via deliver-sender-key.
+      // The session will be created when we decrypt their PreKeyWhisperMessage.
+      console.log("User joined, waiting for their sender key:", u.id);
     });
 
     socketRef.current.on("deliver-sender-key", async ({ fromSocketId, encryptedSenderKey }) => {
@@ -704,6 +699,15 @@ export default function ChatRoom() {
         const aesKey = await importKey(exportedKey);
         senderKeysRef.current[fromSocketId] = aesKey;
         console.log("Securely received Sender Key from", fromSocketId);
+
+        // If we haven't sent our sender key to this user yet, respond now
+        // The session is now established from decrypting their PreKeyWhisperMessage
+        if (!senderKeysRef.current[`_sent_${fromSocketId}`]) {
+          senderKeysRef.current[`_sent_${fromSocketId}`] = true;
+          const myExportedKey = await exportKey(mySenderKeyRef.current);
+          const ciphertext = await signalService.encryptMessage(fromSocketId, myExportedKey);
+          socketRef.current.emit("send-sender-key", { toSocketId: fromSocketId, encryptedSenderKey: ciphertext });
+        }
       } catch (err) {
         console.error("Failed to decrypt incoming sender key", err);
       }
