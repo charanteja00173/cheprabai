@@ -20,7 +20,7 @@ import { AiOutlineClose } from "react-icons/ai";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import ThemeSwitcher from "./ThemeSwitcher";
-
+import { ShieldCheck } from "lucide-react";
 // Lazy-load heavy components
 const Whiteboard = React.lazy(() => import("./Whiteboard"));
 const LiveMeeting = React.lazy(() => import("./LiveMeeting"));
@@ -124,20 +124,20 @@ const MessageBubble = styled.div`
   max-width: ${(p) => (p.isSystem ? "80%" : "85%")};
   padding: ${(p) => (p.isSystem ? "6px 12px" : p.isFile ? "8px" : "12px 18px")};
 
-  background: ${(p) => 
-    p.isSystem ? "transparent" : 
-    p.isSender ? "var(--chakra-colors-brandPrimary)" : 
-    "var(--chakra-colors-surfaceHover)"};
+  background: ${(p) =>
+    p.isSystem ? "transparent" :
+      p.isSender ? "var(--chakra-colors-brandPrimary)" :
+        "var(--chakra-colors-surfaceHover)"};
 
   border: ${(p) =>
-    p.isSystem ? "none" : 
-    p.isSender ? "none" : 
-    "1px solid var(--chakra-colors-border)"};
+    p.isSystem ? "none" :
+      p.isSender ? "none" :
+        "1px solid var(--chakra-colors-border)"};
 
-  border-radius: ${(p) => 
-    p.isSystem ? "12px" : 
-    p.isSender ? "20px 20px 4px 20px" : 
-    "20px 20px 20px 4px"};
+  border-radius: ${(p) =>
+    p.isSystem ? "12px" :
+      p.isSender ? "20px 20px 4px 20px" :
+        "20px 20px 20px 4px"};
 
   box-shadow: ${(p) => p.isSystem ? "none" : "0 4px 15px rgba(0,0,0,0.1)"};
 
@@ -145,9 +145,9 @@ const MessageBubble = styled.div`
     p.isSystem ? "center" : p.isSender ? "flex-end" : "flex-start"};
 
   color: ${(p) =>
-    p.isSystem ? (p.systemType === "join" ? "#2ecc71" : "#e74c3c") : 
-    p.isSender ? "#fff" : 
-    "var(--chakra-colors-textPrimary)"};
+    p.isSystem ? (p.systemType === "join" ? "#2ecc71" : "#e74c3c") :
+      p.isSender ? "#fff" :
+        "var(--chakra-colors-textPrimary)"};
 
   font-size: ${(p) => (p.isSystem ? "13px" : "14.5px")};
   font-style: ${(p) => (p.isSystem ? "italic" : "normal")};
@@ -644,7 +644,7 @@ export default function ChatRoom() {
     if (!userColorsRef.current[name]) {
       userColorsRef.current[name] =
         colorPalette[
-          Object.keys(userColorsRef.current).length % colorPalette.length
+        Object.keys(userColorsRef.current).length % colorPalette.length
         ];
     }
     return userColorsRef.current[name];
@@ -653,7 +653,7 @@ export default function ChatRoom() {
   const getEmbedData = (url) => {
     try {
       const u = new URL(url);
-      
+
       // YouTube
       if (u.hostname.includes("youtu.be")) return { type: "youtube", src: `https://www.youtube.com/embed/${u.pathname.slice(1)}` };
       if (u.hostname.includes("youtube.com")) {
@@ -691,11 +691,11 @@ export default function ChatRoom() {
       if (u.hostname.includes("twitter.com") || u.hostname.includes("x.com")) {
         const tweetId = u.pathname.split("/status/")[1];
         if (tweetId) {
-           return { type: "twitter", src: `https://twitframe.com/show?url=${encodeURIComponent(`https://twitter.com/i/status/${tweetId.split("?")[0]}`)}` };
+          return { type: "twitter", src: `https://twitframe.com/show?url=${encodeURIComponent(`https://twitter.com/i/status/${tweetId.split("?")[0]}`)}` };
         }
       }
-      
-    } catch {}
+
+    } catch { }
     return null;
   };
 
@@ -715,7 +715,7 @@ export default function ChatRoom() {
     setMessages([]);
     setJoined(false);
   };
-/* ================= SOCKET ================= */
+  /* ================= SOCKET ================= */
 
   useEffect(() => {
     socketRef.current = io(process.env.REACT_APP_SOCKET_ENDPOINT || "http://localhost:4000");
@@ -758,7 +758,7 @@ export default function ChatRoom() {
     socketRef.current.on("newMessage", (msg) => {
       const formattedMsg = { ...msg, ...msg.payload };
       setMessages((m) => [...m, formattedMsg]);
-      if (msg.userName !== userName) audioRef.current.play().catch(() => {});
+      if (msg.userName !== userName) audioRef.current.play().catch(() => { });
     });
 
     socketRef.current.on("presence", ({ online, count }) => {
@@ -781,7 +781,7 @@ export default function ChatRoom() {
       }
     });
 
-    socketRef.current.on("disconnect", () => {});
+    socketRef.current.on("disconnect", () => { });
 
     // Latency Tracking (Ping-Pong)
     const pingInterval = setInterval(() => {
@@ -816,17 +816,17 @@ export default function ChatRoom() {
     try {
       const tempId = `uploading-${Date.now()}`;
       setMessages(m => [...m, { id: tempId, userName, file: { name: file.name, loading: true }, ts: Date.now() }]);
-      
+
       const formData = new FormData();
       formData.append("file", file);
       const backendUrl = process.env.REACT_APP_SOCKET_ENDPOINT || "http://localhost:4000";
-      
+
       const res = await axios.post(`${backendUrl}/api/upload`, formData, {
         headers: { "Content-Type": "multipart/form-data" }
       });
-      
+
       setMessages(m => m.filter(msg => msg.id !== tempId));
-      
+
       const fileData = { url: res.data.secure_url, name: file.name, type: file.type || res.data.format };
       handleSend({ file: fileData });
     } catch (err) {
@@ -860,9 +860,9 @@ export default function ChatRoom() {
       return;
     }
     if (!customData && !message.trim()) return;
-    
+
     const payload = customData || { text: message };
-    
+
     socketRef.current.emit("sendMessage", {
       payload,
       userName,
@@ -870,7 +870,7 @@ export default function ChatRoom() {
       ts: Date.now(),
       ephemeral: ephemeralMode, // ephemeral flag
     });
-    
+
     if (!customData) setMessage("");
   };
 
@@ -1002,7 +1002,7 @@ export default function ChatRoom() {
                   );
                   return;
                 }
-                
+
                 setJoined(true);
               }}
             >
@@ -1019,12 +1019,12 @@ export default function ChatRoom() {
       <ChatContainer>
         <Header>
           <Avatar src={image} alt="Logo" />
-          <div 
+          <div
             style={{ display: "flex", flexDirection: "column", cursor: "pointer", position: "relative" }}
             onClick={() => setShowRoomInfo(!showRoomInfo)}
           >
             <div style={{ fontWeight: "bold", fontSize: "1.1rem", display: "flex", alignItems: "center", gap: 5 }}>
-              {roomId} 
+              {roomId}
               <span style={{ fontSize: "0.6rem", opacity: 0.5 }}>▼</span>
             </div>
             <div style={{ fontSize: "0.8rem", color: "#aaa" }}>
@@ -1104,7 +1104,7 @@ export default function ChatRoom() {
             <ActionButton onClick={() => setShowMeeting(true)} title="Start Video Call">
               <FaVideo />
             </ActionButton>
-            
+
             <ActionButton onClick={() => setShowWhiteboard(true)} title="Open Whiteboard">
               <FaPenNib />
             </ActionButton>
@@ -1116,9 +1116,9 @@ export default function ChatRoom() {
             {showSearch && (
               <div style={{ position: "absolute", top: "50px", right: "80px", zIndex: 100, background: "var(--chakra-colors-glassBg)", padding: "10px", borderRadius: "12px", border: "1px solid var(--chakra-colors-border)", backdropFilter: "blur(10px)", display: "flex", gap: "10px", alignItems: "center" }}>
                 <FaSearch style={{ opacity: 0.5 }} />
-                <input 
+                <input
                   autoFocus
-                  placeholder="Filter messages..." 
+                  placeholder="Filter messages..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   style={{ background: "none", border: "none", color: "var(--chakra-colors-textPrimary)", outline: "none", width: "150px" }}
@@ -1239,7 +1239,7 @@ export default function ChatRoom() {
                 {m.file && (
                   <div style={{ position: "relative" }}>
                     {m.file.loading ? (
-                      <div style={{ 
+                      <div style={{
                         width: "100%", padding: "20px", background: "var(--chakra-colors-glassBg)", borderRadius: "12px", border: "1px solid rgba(255, 255, 255, 0.1)",
                         display: "flex", flexDirection: "column", gap: "10px"
                       }}>
@@ -1248,47 +1248,47 @@ export default function ChatRoom() {
                           <span style={{ fontSize: "0.75rem", color: "var(--chakra-colors-brandPrimary)" }}>...</span>
                         </div>
                         <div style={{ width: "100%", height: "6px", background: "rgba(255, 255, 255, 0.1)", borderRadius: "10px", overflow: "hidden" }}>
-                           <div style={{ 
-                             height: "100%", 
-                             width: `100%`, 
-                             background: "linear-gradient(90deg, var(--chakra-colors-brandPrimary), #00e5ff, var(--chakra-colors-brandPrimary))",
-                             borderRadius: "10px",
-                             animation: "pulse 1.5s infinite"
-                           }} />
+                          <div style={{
+                            height: "100%",
+                            width: `100%`,
+                            background: "linear-gradient(90deg, var(--chakra-colors-brandPrimary), #00e5ff, var(--chakra-colors-brandPrimary))",
+                            borderRadius: "10px",
+                            animation: "pulse 1.5s infinite"
+                          }} />
                         </div>
                       </div>
                     ) : (
-                    <FileCard onClick={() => setFullscreen(m.file)}>
-                      {m.file.type && m.file.type.startsWith("image") ? (
-                        <img alt={m.file.name} src={m.file.url} style={{ width: "100%", borderRadius: 8 }} />
-                      ) : m.file.type && m.file.type.startsWith("video") ? (
-                        <div style={{ position: "relative" }}>
-                          <video src={m.file.url} style={{ width: "100%", borderRadius: 8 }} />
-                          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.3)" }}>
-                            <FaPlay style={{ color: "var(--chakra-colors-textPrimary)", fontSize: "2rem" }} />
+                      <FileCard onClick={() => setFullscreen(m.file)}>
+                        {m.file.type && m.file.type.startsWith("image") ? (
+                          <img alt={m.file.name} src={m.file.url} style={{ width: "100%", borderRadius: 8 }} />
+                        ) : m.file.type && m.file.type.startsWith("video") ? (
+                          <div style={{ position: "relative" }}>
+                            <video src={m.file.url} style={{ width: "100%", borderRadius: 8 }} />
+                            <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.3)" }}>
+                              <FaPlay style={{ color: "var(--chakra-colors-textPrimary)", fontSize: "2rem" }} />
+                            </div>
                           </div>
-                        </div>
-                      ) : (
-                        <div style={{ 
-                          display: "flex", alignItems: "center", gap: "16px", padding: "16px", 
-                          background: "rgba(0, 191, 165, 0.08)", borderRadius: "12px", border: "1px solid rgba(0, 191, 165, 0.3)" 
-                        }}>
-                          <div style={{ fontSize: "2.5rem" }}>
-                             {m.file.name.match(/\.(xlsx|xls|csv)$/i) ? "📊" : 
-                              m.file.name.match(/\.(docx|doc)$/i) ? "📝" :
-                              m.file.name.match(/\.(zip|rar|7z)$/i) ? "🗜️" : "📎"}
+                        ) : (
+                          <div style={{
+                            display: "flex", alignItems: "center", gap: "16px", padding: "16px",
+                            background: "rgba(0, 191, 165, 0.08)", borderRadius: "12px", border: "1px solid rgba(0, 191, 165, 0.3)"
+                          }}>
+                            <div style={{ fontSize: "2.5rem" }}>
+                              {m.file.name.match(/\.(xlsx|xls|csv)$/i) ? "📊" :
+                                m.file.name.match(/\.(docx|doc)$/i) ? "📝" :
+                                  m.file.name.match(/\.(zip|rar|7z)$/i) ? "🗜️" : "📎"}
+                            </div>
+                            <div style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
+                              <span style={{ fontWeight: "600", fontSize: "1rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                {m.file.name}
+                              </span>
+                              <span style={{ fontSize: "0.85rem", color: "var(--chakra-colors-brandPrimary)", marginTop: "4px" }}>
+                                {m.userName === userName ? "View Shared File" : "Click to preview & download"}
+                              </span>
+                            </div>
                           </div>
-                          <div style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
-                            <span style={{ fontWeight: "600", fontSize: "1rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                              {m.file.name}
-                            </span>
-                            <span style={{ fontSize: "0.85rem", color: "var(--chakra-colors-brandPrimary)", marginTop: "4px" }}>
-                              {m.userName === userName ? "View Shared File" : "Click to preview & download"}
-                            </span>
-                          </div>
-                        </div>
-                      )}
-                    </FileCard>
+                        )}
+                      </FileCard>
                     )}
                   </div>
                 )}
@@ -1547,14 +1547,14 @@ export default function ChatRoom() {
                 <FaFile size={100} style={{ marginBottom: 20, opacity: 0.3 }} />
                 <h2 style={{ marginBottom: 10 }}>{fullscreen.name}</h2>
                 <p style={{ opacity: 0.6, marginBottom: 20 }}>This file type cannot be previewed in the browser.</p>
-                <a 
-                  href={fullscreen.url} 
-                  download={fullscreen.name} 
-                  style={{ 
-                    background: "#2196F3", 
-                    color: "var(--chakra-colors-textPrimary)", 
-                    padding: "12px 24px", 
-                    borderRadius: "12px", 
+                <a
+                  href={fullscreen.url}
+                  download={fullscreen.name}
+                  style={{
+                    background: "#2196F3",
+                    color: "var(--chakra-colors-textPrimary)",
+                    padding: "12px 24px",
+                    borderRadius: "12px",
                     textDecoration: "none",
                     fontWeight: "bold",
                     display: "inline-block"
@@ -1582,7 +1582,7 @@ export default function ChatRoom() {
 
       {showMeeting && (
         <Suspense fallback={<div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.8)', zIndex: 9999, color: '#fff' }}>Loading Meeting…</div>}>
-          <LiveMeeting 
+          <LiveMeeting
             socket={socketRef.current}
             roomId={roomId}
             userName={userName}
