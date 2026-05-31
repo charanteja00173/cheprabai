@@ -30,7 +30,7 @@ const LiveStream = () => {
   };
 
   return (
-    <Flex h="100vh" w="100vw" direction="column" bg="var(--chakra-colors-bg)">
+    <Flex h="100%" w="100%" direction="column" bg="var(--chakra-colors-bg)">
       {/* Header */}
       <Flex p={4} bg="var(--chakra-colors-surface)" borderBottom="1px solid var(--chakra-colors-border)" justify="space-between" align="center">
         <Flex align="center" gap={3}>
@@ -55,34 +55,36 @@ const LiveStream = () => {
           {participants.map((participant) => (
             <MotionBox
               key={participant.id}
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.3 }}
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              transition={{ duration: 0.4, type: "spring" }}
               position="relative"
-              borderRadius="xl"
+              borderRadius="2xl"
               overflow="hidden"
               bg="var(--chakra-colors-cardBg)"
               border="1px solid var(--chakra-colors-border)"
-              boxShadow="lg"
+              boxShadow="var(--chakra-colors-cardShadow)"
               role="group"
+              _hover={{ transform: "translateY(-4px)", boxShadow: "var(--chakra-colors-cardShadowHover)", borderColor: "var(--chakra-colors-brandPrimary)" }}
             >
-              <Image src={participant.img} alt={participant.name} w="100%" h="200px" objectFit="cover" />
-              <Box p={4} bg="var(--chakra-colors-surface)">
-                <Text fontWeight="bold" textAlign="center">{participant.name}</Text>
+              <Image src={participant.img} alt={participant.name} w="100%" h="220px" objectFit="cover" transition="transform 0.5s" _groupHover={{ transform: "scale(1.05)" }} />
+              <Box p={4} bg="var(--chakra-colors-surface)" position="relative" zIndex={2}>
+                <Text fontWeight="bold" textAlign="center" fontSize="md">{participant.name}</Text>
               </Box>
 
               {/* Hover Controls */}
               <Flex
                 position="absolute"
                 top={0} left={0} right={0} bottom={0}
-                bg="rgba(0,0,0,0.6)"
-                backdropFilter="blur(4px)"
+                bg="rgba(0,0,0,0.5)"
+                backdropFilter="blur(3px)"
                 justify="center"
                 align="center"
                 gap={4}
                 opacity={0}
-                transition="opacity 0.3s"
+                transition="all 0.3s"
                 _groupHover={{ opacity: 1 }}
+                zIndex={3}
               >
                 <Tooltip label={participant.isMuted ? "Unmute" : "Mute"}>
                   <IconButton

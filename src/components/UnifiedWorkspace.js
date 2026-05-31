@@ -58,8 +58,10 @@ const UnifiedWorkspace = () => {
       <MotionBox
         w={{ base: isSidebarOpen ? "250px" : "0px", md: "80px" }}
         h="100%"
-        bg="var(--chakra-colors-surface)"
+        bg="var(--chakra-colors-glassBg)"
+        backdropFilter="blur(20px)"
         borderRight="1px solid var(--chakra-colors-border)"
+        boxShadow="var(--chakra-colors-cardShadow)"
         display="flex"
         flexDirection="column"
         alignItems="center"
@@ -113,8 +115,8 @@ const UnifiedWorkspace = () => {
         
         {/* Theme Switcher at bottom for Desktop */}
         {!isMobile && (
-          <Box mt="auto">
-            <ThemeSwitcher position="relative" top={0} right={0} />
+          <Box mt="auto" mb={4}>
+            <ThemeSwitcher />
           </Box>
         )}
       </MotionBox>

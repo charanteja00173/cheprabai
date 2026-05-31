@@ -3,6 +3,7 @@ import { ThemeManagerProvider } from "./context/ThemeContext";
 import { GlobalStyle } from "./globalStyles";
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import ChatRoom from "./components/Chat";
+import UnifiedWorkspace from "./components/UnifiedWorkspace";
 
 // Lazy-load heavy route components to reduce initial bundle size
 const VideoCall = React.lazy(() => import("./components/VideoCall"));
@@ -35,9 +36,11 @@ const App = () => {
       <Router>
         <Suspense fallback={<LazyFallback />}>
           <Routes>
-            <Route path="/" element={<ChatRoom />} />
-            <Route path="/call" element={<VideoCall />} />
-            <Route path="/live-stream" element={<LiveStream />} />
+            <Route element={<UnifiedWorkspace />}>
+              <Route path="/" element={<ChatRoom />} />
+              <Route path="/call" element={<VideoCall />} />
+              <Route path="/live-stream" element={<LiveStream />} />
+            </Route>
           </Routes>
         </Suspense>
       </Router>

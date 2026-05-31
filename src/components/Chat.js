@@ -121,23 +121,40 @@ const MessageContainer = styled.div`
 // `;
 
 const MessageBubble = styled.div`
-  max-width: ${(p) => (p.isSystem ? "60%" : p.isFile ? "40%" : "100%")};
-  padding: ${(p) => (p.isSystem ? "0" : p.isFile ? "6px" : "10px 14px")};
+  max-width: ${(p) => (p.isSystem ? "80%" : "85%")};
+  padding: ${(p) => (p.isSystem ? "6px 12px" : p.isFile ? "8px" : "12px 18px")};
 
-  background: transparent;
+  background: ${(p) => 
+    p.isSystem ? "transparent" : 
+    p.isSender ? "var(--chakra-colors-brandPrimary)" : 
+    "var(--chakra-colors-surfaceHover)"};
 
-  border-radius: ${(p) => (p.isSystem ? "0" : "12px")};
+  border: ${(p) =>
+    p.isSystem ? "none" : 
+    p.isSender ? "none" : 
+    "1px solid var(--chakra-colors-border)"};
+
+  border-radius: ${(p) => 
+    p.isSystem ? "12px" : 
+    p.isSender ? "20px 20px 4px 20px" : 
+    "20px 20px 20px 4px"};
+
+  box-shadow: ${(p) => p.isSystem ? "none" : "0 4px 15px rgba(0,0,0,0.1)"};
 
   align-self: ${(p) =>
     p.isSystem ? "center" : p.isSender ? "flex-end" : "flex-start"};
 
   color: ${(p) =>
-    p.isSystem ? (p.systemType === "join" ? "#2ecc71" : "#e74c3c") : "#fff"};
+    p.isSystem ? (p.systemType === "join" ? "#2ecc71" : "#e74c3c") : 
+    p.isSender ? "#fff" : 
+    "var(--chakra-colors-textPrimary)"};
 
-  font-size: ${(p) => (p.isSystem ? "13px" : "14px")};
+  font-size: ${(p) => (p.isSystem ? "13px" : "14.5px")};
   font-style: ${(p) => (p.isSystem ? "italic" : "normal")};
   opacity: ${(p) => (p.isSystem ? 0.9 : 1)};
   text-align: left;
+  position: relative;
+  word-wrap: break-word;
 `;
 
 const Username = styled.div`
@@ -186,17 +203,32 @@ const TypingIndicator = styled.div`
 const JoinContainer = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  width: 320px;
+  gap: 16px;
+  width: 100%;
+  max-width: 400px;
+  background: var(--chakra-colors-glassBg);
+  backdrop-filter: blur(24px);
+  padding: 40px;
+  border-radius: 24px;
+  border: 1px solid var(--chakra-colors-border);
+  box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+  margin: 0 20px;
 `;
 
 const JoinInput = styled.input`
-  padding: 12px 16px;
-  border-radius: 25px;
+  padding: 14px 20px;
+  border-radius: 12px;
   border: 1px solid var(--chakra-colors-border);
   background: var(--chakra-colors-surfaceHover);
   color: var(--chakra-colors-textPrimary);
   outline: none;
+  font-size: 1rem;
+  transition: all 0.2s;
+
+  &:focus {
+    border-color: var(--chakra-colors-brandPrimary);
+    box-shadow: 0 0 0 1px var(--chakra-colors-brandPrimary);
+  }
 
   ::placeholder {
     color: var(--chakra-colors-textSecondary);
@@ -204,13 +236,22 @@ const JoinInput = styled.input`
 `;
 
 const JoinButton = styled.button`
-  padding: 12px;
-  border-radius: 25px;
+  padding: 14px;
+  border-radius: 12px;
   border: none;
   background: var(--chakra-colors-brandPrimary);
-  color: #000;
+  color: #fff;
+  font-size: 1.1rem;
   font-weight: bold;
   cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 10px;
+
+  &:hover {
+    background: var(--chakra-colors-brandHover);
+    transform: translateY(-2px);
+    box-shadow: var(--chakra-colors-glowShadow);
+  }
 `;
 
 const PreviewOverlay = styled.div`
@@ -914,24 +955,41 @@ export default function ChatRoom() {
           style={{ justifyContent: "center", alignItems: "center" }}
         >
           <JoinContainer>
-            <h2 style={{ color: "var(--chakra-colors-textPrimary)", textAlign: "center" }}>Join Room</h2>
+            <div style={{ textAlign: "center", marginBottom: "10px" }}>
+              <div style={{ display: "inline-flex", background: "rgba(0,191,165,0.1)", padding: "16px", borderRadius: "50%", marginBottom: "16px" }}>
+                <ShieldCheck size={40} color="var(--chakra-colors-brandPrimary)" />
+              </div>
+              <h2 style={{ color: "var(--chakra-colors-textPrimary)", margin: 0, fontSize: "1.8rem", letterSpacing: "-0.5px" }}>Secure Session</h2>
+              <p style={{ color: "var(--chakra-colors-textSecondary)", fontSize: "0.95rem", marginTop: "8px" }}>Enter details to join the encrypted room</p>
+            </div>
 
             <JoinInput
-              placeholder="Room"
+              placeholder="Room ID"
               value={roomId}
               onChange={(e) => setRoomId(e.target.value)}
             />
 
             <JoinInput
-              placeholder="Name"
+              placeholder="Your Name"
               value={userName}
               onChange={(e) => setUserName(e.target.value)}
             />
 
             <JoinInput
+              type="password"
               placeholder="Security Code"
               value={securityCode}
               onChange={(e) => setSecurityCode(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  const code = securityCode.trim();
+                  if (!SECURITY_CODE.includes(code)) {
+                    toast.error("Invalid security code! Please check and try again.");
+                    return;
+                  }
+                  setJoined(true);
+                }
+              }}
             />
 
             <JoinButton
@@ -945,10 +1003,10 @@ export default function ChatRoom() {
                   return;
                 }
                 
-                  setJoined(true);
+                setJoined(true);
               }}
             >
-              Join
+              Join Secure Room
             </JoinButton>
           </JoinContainer>
         </ChatContainer>

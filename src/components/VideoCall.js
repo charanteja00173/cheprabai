@@ -164,14 +164,17 @@ export default function VideoCall() {
   /* ================= UI ================= */
   if (!joined) {
     return (
-      <Flex h="100%" w="100%" alignItems="center" justifyContent="center">
-        <Box p={8} bg="var(--chakra-colors-surface)" borderRadius="xl" border="1px solid var(--chakra-colors-border)" w="400px" textAlign="center" boxShadow="xl">
-          <ShieldCheck size={48} color="var(--chakra-colors-brandPrimary)" style={{ margin: "0 auto", marginBottom: "1rem" }} />
-          <Text fontSize="2xl" fontWeight="bold" mb={6}>Secure Video Call</Text>
+      <Flex h="100%" w="100%" alignItems="center" justifyContent="center" px={4}>
+        <Box p={10} bg="var(--chakra-colors-glassBg)" backdropFilter="blur(24px)" borderRadius="3xl" border="1px solid var(--chakra-colors-border)" w={{ base: "100%", md: "400px" }} textAlign="center" boxShadow="0 25px 50px rgba(0,0,0,0.5)">
+          <Box display="inline-flex" bg="rgba(0,191,165,0.1)" p={4} borderRadius="full" mb={4}>
+            <ShieldCheck size={40} color="var(--chakra-colors-brandPrimary)" />
+          </Box>
+          <Text fontSize="2xl" fontWeight="bold" letterSpacing="-0.5px" mb={2}>Secure Video Call</Text>
+          <Text color="var(--chakra-colors-textSecondary)" fontSize="sm" mb={6}>Join an encrypted peer-to-peer room</Text>
           <VStack spacing={4}>
-            <Input placeholder="Your Name" value={name} onChange={e => setName(e.target.value)} bg="var(--chakra-colors-bg)" border="none" />
-            <Input placeholder="Meeting ID" value={room} onChange={e => setRoom(e.target.value)} bg="var(--chakra-colors-bg)" border="none" />
-            <Button w="100%" bg="var(--chakra-colors-brandPrimary)" color="white" _hover={{ bg: "var(--chakra-colors-brandHover)" }} onClick={joinRoom}>
+            <Input placeholder="Your Name" value={name} onChange={e => setName(e.target.value)} size="lg" borderRadius="xl" />
+            <Input placeholder="Meeting ID" value={room} onChange={e => setRoom(e.target.value)} size="lg" borderRadius="xl" />
+            <Button w="100%" size="lg" borderRadius="xl" bg="var(--chakra-colors-brandPrimary)" color="white" _hover={{ bg: "var(--chakra-colors-brandHover)", transform: "translateY(-2px)", boxShadow: "0 4px 15px rgba(0,0,0,0.2)" }} onClick={joinRoom} mt={2}>
               Join Secure Meeting
             </Button>
           </VStack>
@@ -181,7 +184,7 @@ export default function VideoCall() {
   }
 
   return (
-    <Flex h="100vh" w="100vw" direction={{ base: "column", md: "row" }} bg="var(--chakra-colors-bg)">
+    <Flex h="100%" w="100%" direction={{ base: "column", md: "row" }} bg="var(--chakra-colors-bg)">
       {/* Video Stage */}
       <Flex flex={1} direction="column" p={4}>
         <Flex justifyContent="space-between" alignItems="center" mb={4} p={3} bg="var(--chakra-colors-surface)" borderRadius="xl" border="1px solid var(--chakra-colors-border)">
