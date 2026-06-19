@@ -30,7 +30,8 @@ const UnifiedWorkspace = () => {
           top={0}
           left={0}
           w="100%"
-          h="60px"
+          h="calc(60px + env(safe-area-inset-top, 0px))"
+          pt="env(safe-area-inset-top, 0px)"
           bg="var(--chakra-colors-glassBg)"
           backdropFilter="blur(10px)"
           borderBottom="1px solid var(--chakra-colors-border)"
@@ -54,6 +55,18 @@ const UnifiedWorkspace = () => {
         </Flex>
       )}
 
+      {/* Sidebar Backdrop Overlay */}
+      {isMobile && isSidebarOpen && (
+        <Box
+          position="fixed"
+          inset={0}
+          bg="rgba(0, 0, 0, 0.4)"
+          backdropFilter="blur(2px)"
+          zIndex={9}
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar Navigation */}
       <MotionBox
         w={{ base: isSidebarOpen ? "250px" : "0px", md: "80px" }}
@@ -65,7 +78,7 @@ const UnifiedWorkspace = () => {
         display="flex"
         flexDirection="column"
         alignItems="center"
-        py={isMobile ? "80px" : 6}
+        py={isMobile ? "calc(80px + env(safe-area-inset-top, 0px))" : 6}
         position={{ base: "absolute", md: "relative" }}
         zIndex={10}
         overflow="hidden"
@@ -122,7 +135,7 @@ const UnifiedWorkspace = () => {
       </MotionBox>
 
       {/* Main Content Area */}
-      <Box flex={1} position="relative" pt={isMobile ? "60px" : 0} overflow="hidden">
+      <Box flex={1} position="relative" pt={isMobile ? "calc(60px + env(safe-area-inset-top, 0px))" : 0} overflow="hidden">
         <Outlet />
       </Box>
     </Flex>

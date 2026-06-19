@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, Suspense, useCallback } from "react";
 import { io } from "socket.io-client";
 import axios from "axios";
-import styled, { keyframes, css } from "styled-components";
+import styled, { keyframes } from "styled-components";
 import {
   FaPaperPlane,
   FaPenNib,
@@ -70,28 +70,33 @@ const ChatContainer = styled.div`
   flex-direction: column;
   height: 100vh;
   background: var(--chakra-colors-bg);
+  box-sizing: border-box;
 `;
 
 const Header = styled.div`
   display: flex;
   align-items: center;
-  padding: 10px 20px;
+  padding: clamp(8px, 2vw, 20px);
+  min-height: 56px;
   background: var(--chakra-colors-surface);
   color: var(--chakra-colors-textPrimary);
   border-bottom: 1px solid var(--chakra-colors-border);
+  box-sizing: border-box;
 `;
 
 const Avatar = styled.img`
-  width: 32px;
-  height: 32px;
+  width: clamp(28px, 4vw, 32px);
+  height: clamp(28px, 4vw, 32px);
   border-radius: 50%;
-  margin-right: 10px;
+  margin-right: clamp(6px, 1.5vw, 10px);
 `;
 
 const RoomActions = styled.div`
   margin-left: auto;
   display: flex;
-  gap: 12px;
+  align-items: center;
+  gap: clamp(8px, 2vw, 12px);
+  flex-wrap: nowrap;
 `;
 
 const ActionButton = styled.button`
@@ -100,28 +105,31 @@ const ActionButton = styled.button`
   color: var(--chakra-colors-textPrimary);
   cursor: pointer;
   font-size: 1.2rem;
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: transform 0.2s;
+
+  &:hover {
+    transform: scale(1.05);
+  }
 `;
 
 const MessageContainer = styled.div`
   flex: 1;
-  padding: 20px;
+  padding: clamp(10px, 3vw, 20px);
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  postion: relative;
+  position: relative;
 `;
 
-// const ActionLink = styled(Link)`
-//   background:none; border:none; color: var(--chakra-colors-textPrimary);
-//   cursor:pointer; font-size:1.2rem;
-//   display: flex;
-//   align-items: center;
-//   justify-content: center;
-// `;
-
 const MessageBubble = styled.div`
-  max-width: ${(p) => (p.isSystem ? "80%" : "85%")};
+  max-width: ${(p) => (p.isSystem ? "80%" : "clamp(70%, 85vw, 85%)")};
   padding: ${(p) => (p.isSystem ? "6px 12px" : p.isFile ? "8px" : "12px 18px")};
 
   background: ${(p) =>
@@ -149,7 +157,7 @@ const MessageBubble = styled.div`
       p.isSender ? "#fff" :
         "var(--chakra-colors-textPrimary)"};
 
-  font-size: ${(p) => (p.isSystem ? "13px" : "14.5px")};
+  font-size: ${(p) => (p.isSystem ? "0.8rem" : "clamp(0.9rem, 0.25vw + 0.85rem, 1rem)")};
   font-style: ${(p) => (p.isSystem ? "italic" : "normal")};
   opacity: ${(p) => (p.isSystem ? 0.9 : 1)};
   text-align: left;
@@ -175,6 +183,8 @@ const FileCard = styled.div`
   background: var(--chakra-colors-cardBg);
   border-radius: 10px;
   padding: 6px;
+  width: 100%;
+  box-sizing: border-box;
 `;
 
 const TypingIndicator = styled.div`
@@ -205,14 +215,15 @@ const JoinContainer = styled.div`
   flex-direction: column;
   gap: 16px;
   width: 100%;
-  max-width: 400px;
+  max-width: min(400px, calc(100vw - 40px));
   background: var(--chakra-colors-glassBg);
   backdrop-filter: blur(24px);
-  padding: 40px;
+  padding: clamp(24px, 5vw, 40px);
   border-radius: 24px;
   border: 1px solid var(--chakra-colors-border);
   box-shadow: 0 25px 50px rgba(0,0,0,0.5);
   margin: 0 20px;
+  box-sizing: border-box;
 `;
 
 const JoinInput = styled.input`
@@ -222,7 +233,7 @@ const JoinInput = styled.input`
   background: var(--chakra-colors-surfaceHover);
   color: var(--chakra-colors-textPrimary);
   outline: none;
-  font-size: 1rem;
+  font-size: max(16px, 1rem);
   transition: all 0.2s;
 
   &:focus {
@@ -246,6 +257,7 @@ const JoinButton = styled.button`
   cursor: pointer;
   transition: all 0.2s;
   margin-top: 10px;
+  min-height: 48px;
 
   &:hover {
     background: var(--chakra-colors-brandHover);
@@ -263,26 +275,35 @@ const PreviewOverlay = styled.div`
   justify-content: center;
   align-items: center;
   z-index: 9999;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 `;
 
 const PreviewModal = styled.div`
   background: var(--chakra-colors-surface);
-  border-radius: 14px;
-  max-width: 90%;
-  max-height: 90%;
-  padding: 12px;
+  border-radius: 16px;
+  width: min(90%, 500px);
+  max-height: 85vh;
+  padding: clamp(16px, 4vw, 24px);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+
+  @media (max-width: 600px) {
+    width: 95%;
+    max-height: calc(100vh - var(--safe-top) - var(--safe-bottom) - 24px);
+  }
 `;
 
 const PreviewContent = styled.div`
-  max-height: 70vh;
-  overflow: auto;
+  max-height: 60vh;
+  overflow-y: auto;
 
   img,
   video {
     max-width: 100%;
+    max-height: 50vh;
+    object-fit: contain;
     border-radius: 10px;
   }
 `;
@@ -299,6 +320,11 @@ const PreviewButton = styled.button`
   border: none;
   cursor: pointer;
   font-weight: bold;
+  min-height: 44px;
+  min-width: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 `;
 
 const CancelBtn = styled(PreviewButton)`
@@ -317,10 +343,12 @@ const MessageInputContainer = styled.div`
   padding: 10px 20px;
   background: var(--chakra-colors-surface);
   border-top: 1px solid var(--chakra-colors-border);
-  gap: 10px; /* consistent spacing between elements */
+  gap: 10px;
+  padding-bottom: calc(10px + var(--safe-bottom));
   
   @media (max-width: 600px) {
     padding: 8px 10px;
+    padding-bottom: calc(8px + var(--safe-bottom));
     gap: 6px;
   }
 `;
@@ -333,6 +361,7 @@ const MessageInput = styled.input`
   background: var(--chakra-colors-bg);
   color: var(--chakra-colors-textPrimary);
   outline: none;
+  font-size: max(16px, 0.95rem);
 
   ::placeholder {
     color: var(--chakra-colors-textSecondary);
@@ -340,7 +369,6 @@ const MessageInput = styled.input`
 
   @media (max-width: 600px) {
     padding: 10px 12px;
-    font-size: 0.9rem;
   }
 `;
 
@@ -352,10 +380,17 @@ const FileUploadLabel = styled.label`
   font-size: 1.3rem;
   cursor: pointer;
   color: var(--chakra-colors-textPrimary);
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 `;
 
 const SendButton = styled.button`
-  padding: 10px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   border: none;
   background: var(--chakra-colors-brandPrimary);
@@ -364,6 +399,12 @@ const SendButton = styled.button`
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.2s;
+
+  &:hover {
+    background: var(--chakra-colors-brandHover);
+  }
 `;
 /* ================= GIF PICKER IMPROVED ================= */
 
@@ -376,7 +417,6 @@ const GifPickerOverlay = styled(PreviewOverlay)`
   align-items: center;
   justify-content: center;
 
-  /* Mobile spacing + safe area */
   padding: max(12px, env(safe-area-inset-top))
            max(12px, env(safe-area-inset-right))
            max(12px, env(safe-area-inset-bottom))
@@ -390,7 +430,7 @@ const GifPickerOverlay = styled(PreviewOverlay)`
 const GifPickerModal = styled(PreviewModal)`
   width: 100%;
   max-width: 650px;
-  max-height: 85vh;
+  max-height: min(85vh, calc(100vh - var(--safe-top) - var(--safe-bottom) - 30px));
 
   padding: 16px;
   background: var(--chakra-colors-surface);
@@ -404,13 +444,11 @@ const GifPickerModal = styled(PreviewModal)`
 
   overflow: hidden;
 
-  /* Mobile gap */
   @media (max-width: 600px) {
-    max-width: 100%;
-    border-radius: 14px;
+    width: 95%;
+    max-height: calc(100vh - var(--safe-top) - var(--safe-bottom) - 20px);
   }
 `;
-
 
 const GifPickerHeader = styled.div`
   display: flex;
@@ -426,7 +464,7 @@ const GifSearchInput = styled.input`
   border: 1px solid var(--chakra-colors-border);
   background: var(--chakra-colors-bg);
   color: var(--chakra-colors-textPrimary);
-  font-size: 0.95rem;
+  font-size: max(16px, 0.95rem);
   outline: none;
   box-sizing: border-box;
 
@@ -444,34 +482,23 @@ const SearchGifButton = styled.button`
   font-weight: bold;
   cursor: pointer;
   transition: all 0.2s ease;
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 
   &:hover {
     background: var(--chakra-colors-brandHover);
   }
 `;
 
-// const CloseGifPickerButton = styled.button`
-//   background: #ff4d4d;
-//   border: none;
-//   color: var(--chakra-colors-textPrimary);
-//   border-radius: 25px;
-//   padding: 8px 12px;
-//   font-weight: bold;
-//   cursor: pointer;
-//   flex-shrink: 0;
-//   transition: all 0.2s ease;
-
-//   &:hover {
-//     background: #ff6666;
-//   }
-// `;
-
 const GifGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 4px; /* very small gap so no visible white space */
+  grid-template-columns: repeat(auto-fill, minmax(min(120px, 30vw), 1fr));
+  gap: 4px;
   overflow-y: auto;
-  max-height: 65vh;
+  max-height: 60vh;
   justify-items: center;
   scroll-behavior: smooth;
 `;
@@ -483,13 +510,13 @@ const GifCard = styled.div`
   overflow: hidden;
   cursor: pointer;
   background: #000;
-  aspect-ratio: 1 / 1; /* square cards for uniform layout */
+  aspect-ratio: 1 / 1;
 `;
 
 const GifItem = styled.img`
   width: 100%;
   height: 100%;
-  object-fit: cover; /* fill the card, no gaps */
+  object-fit: cover;
   transition:
     transform 0.2s,
     box-shadow 0.2s;
@@ -530,6 +557,62 @@ const OverlayButton = styled.button`
   &:hover {
     background: var(--chakra-colors-brandHover);
     opacity: 1;
+  }
+`;
+
+const SearchPopup = styled.div`
+  position: absolute;
+  top: 56px;
+  right: 20px;
+  z-index: 100;
+  background: var(--chakra-colors-glassBg);
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid var(--chakra-colors-border);
+  backdrop-filter: blur(10px);
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+
+  @media (max-width: 600px) {
+    right: 10px;
+    left: 10px;
+    width: auto;
+  }
+`;
+
+const SearchInput = styled.input`
+  background: none;
+  border: none;
+  color: var(--chakra-colors-textPrimary);
+  outline: none;
+  width: 150px;
+  font-size: max(16px, 0.9rem);
+
+  @media (max-width: 600px) {
+    flex: 1;
+    width: auto;
+  }
+`;
+
+const RoomInfoDropdown = styled.div`
+  position: absolute;
+  top: 120%;
+  left: 0;
+  width: 250px;
+  background: var(--chakra-colors-glassBg);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--chakra-colors-border);
+  border-radius: 12px;
+  padding: 15px;
+  z-index: 1000;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  box-sizing: border-box;
+
+  @media (max-width: 480px) {
+    width: calc(100vw - 32px);
+    left: -10px;
   }
 `;
 
@@ -956,11 +1039,11 @@ export default function ChatRoom() {
         >
           <JoinContainer>
             <div style={{ textAlign: "center", marginBottom: "10px" }}>
-              <div style={{ display: "inline-flex", background: "rgba(0,191,165,0.1)", padding: "16px", borderRadius: "50%", marginBottom: "16px" }}>
-                <ShieldCheck size={40} color="var(--chakra-colors-brandPrimary)" />
+              <div style={{ display: "inline-flex", background: "rgba(0,191,165,0.1)", padding: "clamp(12px, 3vw, 16px)", borderRadius: "50%", marginBottom: "16px" }}>
+                <ShieldCheck size={36} color="var(--chakra-colors-brandPrimary)" />
               </div>
-              <h2 style={{ color: "var(--chakra-colors-textPrimary)", margin: 0, fontSize: "1.8rem", letterSpacing: "-0.5px" }}>Secure Session</h2>
-              <p style={{ color: "var(--chakra-colors-textSecondary)", fontSize: "0.95rem", marginTop: "8px" }}>Enter details to join the encrypted room</p>
+              <h2 style={{ color: "var(--chakra-colors-textPrimary)", margin: 0, fontSize: "clamp(1.4rem, 4vw, 1.8rem)", letterSpacing: "-0.5px" }}>Secure Session</h2>
+              <p style={{ color: "var(--chakra-colors-textSecondary)", fontSize: "clamp(0.85rem, 2vw, 0.95rem)", marginTop: "8px" }}>Enter details to join the encrypted room</p>
             </div>
 
             <JoinInput
@@ -1020,31 +1103,19 @@ export default function ChatRoom() {
         <Header>
           <Avatar src={image} alt="Logo" />
           <div
-            style={{ display: "flex", flexDirection: "column", cursor: "pointer", position: "relative" }}
+            style={{ display: "flex", flexDirection: "column", cursor: "pointer", position: "relative", minWidth: 0 }}
             onClick={() => setShowRoomInfo(!showRoomInfo)}
           >
-            <div style={{ fontWeight: "bold", fontSize: "1.1rem", display: "flex", alignItems: "center", gap: 5 }}>
-              {roomId}
-              <span style={{ fontSize: "0.6rem", opacity: 0.5 }}>▼</span>
+            <div style={{ fontWeight: "bold", fontSize: "clamp(0.95rem, 3vw, 1.1rem)", display: "flex", alignItems: "center", gap: 5, minWidth: 0 }}>
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "clamp(100px, 30vw, 300px)" }}>{roomId}</span>
+              <span style={{ fontSize: "0.6rem", opacity: 0.5, flexShrink: 0 }}>▼</span>
             </div>
-            <div style={{ fontSize: "0.8rem", color: "#aaa" }}>
+            <div style={{ fontSize: "clamp(0.7rem, 2vw, 0.8rem)", color: "#aaa" }}>
               {onlineUsers.length} online
             </div>
 
             {showRoomInfo && (
-              <div style={{
-                position: "absolute",
-                top: "120%",
-                left: 0,
-                width: 250,
-                background: "var(--chakra-colors-glassBg)",
-                backdropFilter: "blur(20px)",
-                border: "1px solid rgba(255, 255, 255, 0.1)",
-                borderRadius: 12,
-                padding: 15,
-                zIndex: 1000,
-                boxShadow: "0 10px 30px rgba(0,0,0,0.5)"
-              }}>
+              <RoomInfoDropdown onClick={(e) => e.stopPropagation()}>
                 <h4 style={{ margin: "0 0 10px 0", fontSize: "0.9rem", color: "#888" }}>Room Insights</h4>
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem" }}>
@@ -1088,7 +1159,7 @@ export default function ChatRoom() {
                     </button>
                   </div>
                 </div>
-              </div>
+              </RoomInfoDropdown>
             )}
           </div>
 
@@ -1114,17 +1185,16 @@ export default function ChatRoom() {
             </ActionButton>
 
             {showSearch && (
-              <div style={{ position: "absolute", top: "50px", right: "80px", zIndex: 100, background: "var(--chakra-colors-glassBg)", padding: "10px", borderRadius: "12px", border: "1px solid var(--chakra-colors-border)", backdropFilter: "blur(10px)", display: "flex", gap: "10px", alignItems: "center" }}>
+              <SearchPopup onClick={(e) => e.stopPropagation()}>
                 <FaSearch style={{ opacity: 0.5 }} />
-                <input
+                <SearchInput
                   autoFocus
                   placeholder="Filter messages..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  style={{ background: "none", border: "none", color: "var(--chakra-colors-textPrimary)", outline: "none", width: "150px" }}
                 />
                 <button onClick={() => { setShowSearch(false); setSearchQuery(""); }} style={{ background: "none", border: "none", color: "var(--chakra-colors-textPrimary)", cursor: "pointer", opacity: 0.5 }}>✕</button>
-              </div>
+              </SearchPopup>
             )}
 
             {ownerToken && (
@@ -1192,29 +1262,46 @@ export default function ChatRoom() {
                     const embed = getEmbedData(part);
 
                     if (embed) {
-                      let height = "250px";
-                      if (embed.type === "spotify") height = "152px";
-                      if (embed.type === "tiktok") height = "500px";
-                      if (embed.type === "instagram") height = "450px";
-                      if (embed.type === "twitter") height = "350px";
+                      let aspectRatio = "16 / 9";
+                      let width = "100%";
+                      let maxHeight = "none";
+                      
+                      if (embed.type === "spotify") {
+                        aspectRatio = "auto";
+                        maxHeight = "152px";
+                      } else if (embed.type === "tiktok") {
+                        aspectRatio = "9 / 16";
+                        maxHeight = "500px";
+                        width = "min(100%, 320px)";
+                      } else if (embed.type === "instagram") {
+                        aspectRatio = "1 / 1";
+                        maxHeight = "450px";
+                        width = "min(100%, 400px)";
+                      } else if (embed.type === "twitter") {
+                        aspectRatio = "auto";
+                        maxHeight = "350px";
+                      }
 
                       return (
-                        <iframe
-                          key={j}
-                          src={embed.src}
-                          style={{
-                            border: "0px",
-                            padding: 0,
-                            margin: "8px 0",
-                            width: "100%",
-                            height: height,
-                            borderRadius: "12px",
-                            background: embed.type === "twitter" ? "#fff" : "transparent"
-                          }}
-                          title={`${embed.type} embed`}
-                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                          allowFullScreen
-                        />
+                        <div style={{ display: "flex", justifyContent: "center", width: "100%" }} key={j}>
+                          <iframe
+                            src={embed.src}
+                            style={{
+                              border: "0px",
+                              padding: 0,
+                              margin: "8px 0",
+                              width: width,
+                              height: "auto",
+                              aspectRatio: aspectRatio,
+                              maxHeight: maxHeight,
+                              borderRadius: "12px",
+                              background: embed.type === "twitter" ? "#fff" : "transparent"
+                            }}
+                            title={`${embed.type} embed`}
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                          />
+                        </div>
                       );
                     }
 
@@ -1229,7 +1316,7 @@ export default function ChatRoom() {
                   <img
                     src={m.gif}
                     alt="GIF"
-                    style={{ maxWidth: "200px", borderRadius: 10, marginTop: "8px" }}
+                    style={{ maxWidth: "clamp(150px, 50vw, 200px)", borderRadius: 10, marginTop: "8px", cursor: "pointer" }}
                     onClick={() =>
                       setFullscreen({ url: m.gif, type: "image" })
                     }
@@ -1270,19 +1357,20 @@ export default function ChatRoom() {
                           </div>
                         ) : (
                           <div style={{
-                            display: "flex", alignItems: "center", gap: "16px", padding: "16px",
-                            background: "rgba(0, 191, 165, 0.08)", borderRadius: "12px", border: "1px solid rgba(0, 191, 165, 0.3)"
+                            display: "flex", alignItems: "center", gap: "clamp(8px, 3vw, 16px)", padding: "clamp(10px, 3vw, 16px)",
+                            background: "rgba(0, 191, 165, 0.08)", borderRadius: "12px", border: "1px solid rgba(0, 191, 165, 0.3)",
+                            minWidth: 0
                           }}>
-                            <div style={{ fontSize: "2.5rem" }}>
+                            <div style={{ fontSize: "clamp(1.8rem, 5vw, 2.5rem)", flexShrink: 0 }}>
                               {m.file.name.match(/\.(xlsx|xls|csv)$/i) ? "📊" :
                                 m.file.name.match(/\.(docx|doc)$/i) ? "📝" :
                                   m.file.name.match(/\.(zip|rar|7z)$/i) ? "🗜️" : "📎"}
                             </div>
-                            <div style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
-                              <span style={{ fontWeight: "600", fontSize: "1rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                            <div style={{ display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
+                              <span style={{ fontWeight: "600", fontSize: "clamp(0.85rem, 2vw, 1rem)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                                 {m.file.name}
                               </span>
-                              <span style={{ fontSize: "0.85rem", color: "var(--chakra-colors-brandPrimary)", marginTop: "4px" }}>
+                              <span style={{ fontSize: "clamp(0.75rem, 1.8vw, 0.85rem)", color: "var(--chakra-colors-brandPrimary)", marginTop: "4px" }}>
                                 {m.userName === userName ? "View Shared File" : "Click to preview & download"}
                               </span>
                             </div>
@@ -1299,7 +1387,7 @@ export default function ChatRoom() {
                     <audio
                       src={m.file.url}
                       controls
-                      style={{ width: "100%", maxWidth: 280, height: 36, borderRadius: 20 }}
+                      style={{ width: "100%", maxWidth: "min(280px, 100%)", height: 36, borderRadius: 20 }}
                     />
                   </div>
                 )}
@@ -1371,20 +1459,20 @@ export default function ChatRoom() {
             <PreviewModal onClick={(e) => e.stopPropagation()}>
               {/* <h3 style={{ color: "var(--chakra-colors-textPrimary)", margin: 0 , textAlign: 'center'}}>Send file?</h3> */}
 
-              <PreviewContent style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minWidth: "300px", minHeight: "150px" }}>
+              <PreviewContent style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "150px", width: "100%" }}>
                 {pendingFile.type && pendingFile.type.startsWith("image") ? (
-                  <img alt={pendingFile.name} src={previewUrl} />
+                  <img alt={pendingFile.name} src={previewUrl} style={{ maxWidth: "100%", maxHeight: "50vh", objectFit: "contain" }} />
                 ) : pendingFile.type && pendingFile.type.startsWith("video") ? (
-                  <video src={previewUrl} controls />
+                  <video src={previewUrl} controls style={{ maxWidth: "100%", maxHeight: "50vh" }} />
                 ) : pendingFile.type && pendingFile.type.startsWith("audio") ? (
-                  <audio src={previewUrl} controls />
+                  <audio src={previewUrl} controls style={{ width: "100%", maxWidth: "320px" }} />
                 ) : (
-                  <div style={{ textAlign: "center", padding: "20px" }}>
-                    <FaFile size={60} style={{ color: "var(--chakra-colors-brandPrimary)", marginBottom: "15px" }} />
-                    <div style={{ color: "var(--chakra-colors-textPrimary)", fontSize: "1.1rem", fontWeight: "600", wordBreak: "break-all" }}>
+                  <div style={{ textAlign: "center", padding: "20px", width: "100%", boxSizing: "border-box" }}>
+                    <FaFile size={50} style={{ color: "var(--chakra-colors-brandPrimary)", marginBottom: "15px" }} />
+                    <div style={{ color: "var(--chakra-colors-textPrimary)", fontSize: "1rem", fontWeight: "600", wordBreak: "break-all" }}>
                       {pendingFile.name}
                     </div>
-                    <div style={{ color: "#888", fontSize: "0.85rem", marginTop: "8px" }}>
+                    <div style={{ color: "#888", fontSize: "0.8rem", marginTop: "8px" }}>
                       {(pendingFile.size / 1024 / 1024).toFixed(2)} MB • Ready to send
                     </div>
                   </div>
@@ -1531,7 +1619,7 @@ export default function ChatRoom() {
               <img
                 alt={fullscreen.name}
                 src={fullscreen.url}
-                style={{ maxWidth: "90%" }}
+                style={{ maxWidth: "95%", maxHeight: "85vh", objectFit: "contain" }}
               />
             )}
             {fullscreen.type.startsWith("video") && (
@@ -1539,7 +1627,7 @@ export default function ChatRoom() {
                 src={fullscreen.url}
                 controls
                 autoPlay
-                style={{ maxWidth: "90%", maxHeight: "90%" }}
+                style={{ maxWidth: "95%", maxHeight: "85vh", objectFit: "contain" }}
               />
             )}
             {!fullscreen.type.startsWith("image") && !fullscreen.type.startsWith("video") && (

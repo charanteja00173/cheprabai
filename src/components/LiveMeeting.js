@@ -103,7 +103,7 @@ const VideoTile = styled.div`
   flex-shrink: 0;
 
   @media (max-width: 1024px) {
-    width: 160px;
+    width: clamp(120px, 35vw, 160px);
   }
 
   &:hover .pin-overlay {
@@ -186,11 +186,11 @@ const ControlBar = styled.div`
   @media (max-width: 768px) {
     bottom: 20px;
     padding: 8px 15px;
-    gap: 12px;
+    gap: clamp(6px, 1.5vw, 12px);
     width: 92%;
     max-width: 92%;
     overflow-x: auto;
-    justify-content: flex-start;
+    justify-content: safe center;
     border-radius: 20px;
     &::-webkit-scrollbar { display: none; }
     -ms-overflow-style: none;
@@ -215,9 +215,9 @@ const CircleButton = styled.button`
   flex-shrink: 0;
 
   @media (max-width: 768px) {
-    width: 40px;
-    height: 40px;
-    font-size: 0.9rem;
+    width: 44px;
+    height: 44px;
+    font-size: 0.95rem;
     border-radius: 10px;
   }
 

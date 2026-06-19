@@ -30,18 +30,24 @@ const Overlay = styled.div`
   justify-content: center;
   align-items: center;
   z-index: 10000;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 `;
 
 const Modal = styled.div`
   background: var(--chakra-colors-surface);
   border: 1px solid var(--chakra-colors-border);
   border-radius: 16px;
-  padding: 24px;
+  padding: clamp(16px, 5vw, 24px);
   width: 90%;
   max-width: 420px;
-  max-height: 80vh;
+  max-height: 85vh;
   overflow-y: auto;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  box-sizing: border-box;
+
+  @media (max-width: 400px) {
+    width: 95%;
+  }
 `;
 
 const ModalHeader = styled.div`
@@ -67,6 +73,9 @@ const CloseButton = styled.button`
   display: flex;
   align-items: center;
   transition: color 0.2s;
+  min-width: 44px;
+  min-height: 44px;
+  justify-content: center;
 
   &:hover {
     color: var(--chakra-colors-textPrimary);
@@ -87,6 +96,10 @@ const OptionGrid = styled.div`
   grid-template-columns: repeat(2, 1fr);
   gap: 8px;
   margin-bottom: 20px;
+
+  @media (max-width: 400px) {
+    grid-template-columns: 1fr;
+  }
 `;
 
 const ThemeOption = styled.button`
@@ -94,6 +107,7 @@ const ThemeOption = styled.button`
   align-items: center;
   gap: 10px;
   padding: 10px 12px;
+  min-height: 44px;
   border-radius: 10px;
   border: 2px solid ${(p) => (p.$active ? "var(--chakra-colors-brandPrimary)" : "var(--chakra-colors-border)")};
   background: ${(p) => (p.$active ? "var(--chakra-colors-surfaceHover)" : "transparent")};
@@ -102,6 +116,10 @@ const ThemeOption = styled.button`
   transition: all 0.2s;
   font-size: 0.85rem;
   font-weight: ${(p) => (p.$active ? "600" : "400")};
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+  box-sizing: border-box;
 
   &:hover {
     background: var(--chakra-colors-surfaceHover);
@@ -119,6 +137,7 @@ const ColorDot = styled.div`
 
 const FontOption = styled.button`
   padding: 10px 12px;
+  min-height: 44px;
   border-radius: 10px;
   border: 2px solid ${(p) => (p.$active ? "var(--chakra-colors-brandPrimary)" : "var(--chakra-colors-border)")};
   background: ${(p) => (p.$active ? "var(--chakra-colors-surfaceHover)" : "transparent")};
@@ -129,6 +148,10 @@ const FontOption = styled.button`
   font-family: ${(p) => p.$font};
   font-weight: ${(p) => (p.$active ? "600" : "400")};
   text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+  box-sizing: border-box;
 
   &:hover {
     background: var(--chakra-colors-surfaceHover);
