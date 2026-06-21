@@ -32,26 +32,28 @@ const LiveStream = () => {
   return (
     <Flex h="100%" w="100%" direction="column" bg="var(--chakra-colors-bg)">
       {/* Header */}
-      <Flex p={4} bg="var(--chakra-colors-surface)" borderBottom="1px solid var(--chakra-colors-border)" justify="space-between" align="center">
-        <Flex align="center" gap={3}>
+      <Flex p={{ base: 2, md: 4 }} bg="var(--chakra-colors-surface)" borderBottom="1px solid var(--chakra-colors-border)" justify="space-between" align="center" gap={2}>
+        <Flex align="center" gap={2}>
           <Box p={2} bg="red.500" borderRadius="full" animation="pulse 2s infinite">
-            <Radio color="white" size={20} />
+            <Radio color="white" size={16} />
           </Box>
-          <Text fontSize="xl" fontWeight="bold">Live Broadcast</Text>
+          <Text fontSize={{ base: "md", md: "xl" }} fontWeight="bold">Live Broadcast</Text>
         </Flex>
-        <Flex gap={3}>
-          <Button leftIcon={<Plus size={16} />} bg="var(--chakra-colors-brandPrimary)" color="white" _hover={{ bg: "var(--chakra-colors-brandHover)" }} onClick={addParticipant}>
-            Add Streamer
+        <Flex gap={2}>
+          <Button size={{ base: "sm", md: "md" }} leftIcon={<Plus size={14} />} bg="var(--chakra-colors-brandPrimary)" color="white" _hover={{ bg: "var(--chakra-colors-brandHover)" }} onClick={addParticipant}>
+            <Text display={{ base: "none", sm: "block" }}>Add Streamer</Text>
+            <Text display={{ base: "block", sm: "none" }}>Add</Text>
           </Button>
-          <Button leftIcon={<LogOut size={16} />} variant="outline" colorScheme="red">
-            End Stream
+          <Button size={{ base: "sm", md: "md" }} leftIcon={<LogOut size={14} />} variant="outline" colorScheme="red">
+            <Text display={{ base: "none", sm: "block" }}>End Stream</Text>
+            <Text display={{ base: "block", sm: "none" }}>End</Text>
           </Button>
         </Flex>
       </Flex>
 
       {/* Grid */}
-      <Box p={6} flex={1} overflowY="auto">
-        <Grid templateColumns="repeat(auto-fill, minmax(280px, 1fr))" gap={6}>
+      <Box p={{ base: 3, md: 6 }} flex={1} overflowY="auto">
+        <Grid templateColumns="repeat(auto-fill, minmax(240px, 1fr))" gap={{ base: 4, md: 6 }}>
           {participants.map((participant) => (
             <MotionBox
               key={participant.id}

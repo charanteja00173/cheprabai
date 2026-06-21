@@ -68,7 +68,7 @@ const LiveBadge = styled.div`
 const ChatContainer = styled.div`
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100%;
   background: var(--chakra-colors-bg);
   box-sizing: border-box;
 `;
@@ -82,6 +82,11 @@ const Header = styled.div`
   color: var(--chakra-colors-textPrimary);
   border-bottom: 1px solid var(--chakra-colors-border);
   box-sizing: border-box;
+
+  @media (max-width: 480px) {
+    padding: 6px 10px;
+    min-height: 48px;
+  }
 `;
 
 const Avatar = styled.img`
@@ -115,6 +120,12 @@ const ActionButton = styled.button`
 
   &:hover {
     transform: scale(1.05);
+  }
+
+  @media (max-width: 480px) {
+    min-width: 34px;
+    min-height: 34px;
+    font-size: 1.05rem;
   }
 `;
 
@@ -163,6 +174,16 @@ const MessageBubble = styled.div`
   text-align: left;
   position: relative;
   word-wrap: break-word;
+
+  @media (max-width: 480px) {
+    max-width: ${(p) => (p.isSystem ? "90%" : "88%")};
+    padding: ${(p) => (p.isSystem ? "4px 10px" : p.isFile ? "6px" : "8px 12px")};
+    font-size: ${(p) => (p.isSystem ? "0.75rem" : "0.9rem")};
+    border-radius: ${(p) =>
+      p.isSystem ? "10px" :
+        p.isSender ? "14px 14px 4px 14px" :
+          "14px 14px 14px 4px"};
+  }
 `;
 
 const Username = styled.div`
@@ -224,6 +245,12 @@ const JoinContainer = styled.div`
   box-shadow: 0 25px 50px rgba(0,0,0,0.5);
   margin: 0 20px;
   box-sizing: border-box;
+
+  @media (max-width: 480px) {
+    padding: 16px;
+    gap: 12px;
+    border-radius: 20px;
+  }
 `;
 
 const JoinInput = styled.input`
@@ -244,6 +271,12 @@ const JoinInput = styled.input`
   ::placeholder {
     color: var(--chakra-colors-textSecondary);
   }
+
+  @media (max-width: 480px) {
+    padding: 10px 14px;
+    font-size: 0.95rem;
+    border-radius: 10px;
+  }
 `;
 
 const JoinButton = styled.button`
@@ -263,6 +296,14 @@ const JoinButton = styled.button`
     background: var(--chakra-colors-brandHover);
     transform: translateY(-2px);
     box-shadow: var(--chakra-colors-glowShadow);
+  }
+
+  @media (max-width: 480px) {
+    padding: 10px;
+    font-size: 0.95rem;
+    min-height: 40px;
+    border-radius: 10px;
+    margin-top: 6px;
   }
 `;
 
@@ -347,9 +388,29 @@ const MessageInputContainer = styled.div`
   padding-bottom: calc(10px + var(--safe-bottom));
   
   @media (max-width: 600px) {
-    padding: 8px 10px;
-    padding-bottom: calc(8px + var(--safe-bottom));
-    gap: 6px;
+    padding: 6px 8px;
+    padding-bottom: calc(6px + var(--safe-bottom));
+    gap: 4px;
+
+    /* Target nested timer text */
+    span {
+      font-size: 0.65rem !important;
+      min-width: 24px !important;
+    }
+
+    /* Target voice record button and timer controls */
+    button {
+      width: 32px !important;
+      height: 32px !important;
+      font-size: 0.8rem !important;
+    }
+
+    /* Target Ephemeral toggle button specifically */
+    button[title*="Ephemeral"] {
+      padding: 4px 6px !important;
+      font-size: 0.8rem !important;
+      border-radius: 12px !important;
+    }
   }
 `;
 
@@ -368,7 +429,9 @@ const MessageInput = styled.input`
   }
 
   @media (max-width: 600px) {
-    padding: 10px 12px;
+    padding: 8px 12px;
+    font-size: 0.9rem;
+    border-radius: 16px;
   }
 `;
 
@@ -386,6 +449,12 @@ const FileUploadLabel = styled.label`
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+
+  @media (max-width: 480px) {
+    min-width: 32px;
+    min-height: 32px;
+    font-size: 1.15rem;
+  }
 `;
 
 const SendButton = styled.button`
@@ -404,6 +473,11 @@ const SendButton = styled.button`
 
   &:hover {
     background: var(--chakra-colors-brandHover);
+  }
+
+  @media (max-width: 480px) {
+    width: 32px;
+    height: 32px;
   }
 `;
 /* ================= GIF PICKER IMPROVED ================= */

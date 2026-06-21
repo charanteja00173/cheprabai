@@ -22,7 +22,7 @@ const MeetingOverlay = styled.div`
   @media (max-width: 768px) {
     inset: 0;
     border-radius: 0;
-    padding: 8px 12px;
+    padding: 6px 8px;
     background: #000;
   }
 `;
@@ -38,8 +38,10 @@ const MeetingHeader = styled.div`
   padding: 0 20px;
 
   @media (max-width: 768px) {
-    padding: 0 15px;
+    padding: 0 8px;
     gap: 10px;
+    height: 40px;
+    margin-bottom: 8px;
   }
 `;
 
@@ -184,14 +186,14 @@ const ControlBar = styled.div`
   }
 
   @media (max-width: 768px) {
-    bottom: 20px;
-    padding: 8px 15px;
-    gap: clamp(6px, 1.5vw, 12px);
-    width: 92%;
-    max-width: 92%;
+    bottom: 12px;
+    padding: 6px 12px;
+    gap: 8px;
+    width: 95%;
+    max-width: 95%;
     overflow-x: auto;
     justify-content: safe center;
-    border-radius: 20px;
+    border-radius: 16px;
     &::-webkit-scrollbar { display: none; }
     -ms-overflow-style: none;
     scrollbar-width: none;
@@ -215,10 +217,10 @@ const CircleButton = styled.button`
   flex-shrink: 0;
 
   @media (max-width: 768px) {
-    width: 44px;
-    height: 44px;
-    font-size: 0.95rem;
-    border-radius: 10px;
+    width: 36px;
+    height: 36px;
+    font-size: 0.9rem;
+    border-radius: 8px;
   }
 
   &:hover { transform: translateY(-2px); background: ${props => props.$active ? "#ff6b81" : "rgba(255, 255, 255, 0.12)"}; }

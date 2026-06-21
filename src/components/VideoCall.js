@@ -165,7 +165,7 @@ export default function VideoCall() {
   if (!joined) {
     return (
       <Flex h="100%" w="100%" alignItems="center" justifyContent="center" px={4}>
-        <Box p={10} bg="var(--chakra-colors-glassBg)" backdropFilter="blur(24px)" borderRadius="3xl" border="1px solid var(--chakra-colors-border)" w={{ base: "100%", md: "400px" }} textAlign="center" boxShadow="0 25px 50px rgba(0,0,0,0.5)">
+        <Box p={{ base: 6, md: 10 }} bg="var(--chakra-colors-glassBg)" backdropFilter="blur(24px)" borderRadius="3xl" border="1px solid var(--chakra-colors-border)" w={{ base: "100%", md: "400px" }} textAlign="center" boxShadow="0 25px 50px rgba(0,0,0,0.5)">
           <Box display="inline-flex" bg="rgba(0,191,165,0.1)" p={4} borderRadius="full" mb={4}>
             <ShieldCheck size={40} color="var(--chakra-colors-brandPrimary)" />
           </Box>
@@ -221,10 +221,10 @@ export default function VideoCall() {
         </Grid>
 
         {/* Controls */}
-        <Flex justify="center" align="center" gap={4} mt={4} p={4} bg="var(--chakra-colors-surface)" borderRadius="xl" border="1px solid var(--chakra-colors-border)">
-          <IconButton icon={muted ? <MicOff /> : <Mic />} isRound size="lg" bg={muted ? "red.500" : "var(--chakra-colors-surfaceHover)"} color="white" onClick={toggleMute} _hover={{ bg: muted ? "red.600" : "var(--chakra-colors-border)" }} />
-          <IconButton icon={videoOff ? <VideoOff /> : <Video />} isRound size="lg" bg={videoOff ? "red.500" : "var(--chakra-colors-surfaceHover)"} color="white" onClick={toggleVideo} _hover={{ bg: videoOff ? "red.600" : "var(--chakra-colors-border)" }} />
-          <IconButton icon={<PhoneOff />} isRound size="lg" bg="red.500" color="white" onClick={() => window.location.reload()} _hover={{ bg: "red.600" }} />
+        <Flex justify="center" align="center" gap={{ base: 3, md: 4 }} mt={4} p={{ base: 2, md: 4 }} bg="var(--chakra-colors-surface)" borderRadius="xl" border="1px solid var(--chakra-colors-border)">
+          <IconButton icon={muted ? <MicOff /> : <Mic />} isRound size={{ base: "md", md: "lg" }} bg={muted ? "red.500" : "var(--chakra-colors-surfaceHover)"} color="white" onClick={toggleMute} _hover={{ bg: muted ? "red.600" : "var(--chakra-colors-border)" }} aria-label={muted ? "Unmute" : "Mute"} />
+          <IconButton icon={videoOff ? <VideoOff /> : <Video />} isRound size={{ base: "md", md: "lg" }} bg={videoOff ? "red.500" : "var(--chakra-colors-surfaceHover)"} color="white" onClick={toggleVideo} _hover={{ bg: videoOff ? "red.600" : "var(--chakra-colors-border)" }} aria-label={videoOff ? "Turn Video On" : "Turn Video Off"} />
+          <IconButton icon={<PhoneOff />} isRound size={{ base: "md", md: "lg" }} bg="red.500" color="white" onClick={() => window.location.reload()} _hover={{ bg: "red.600" }} aria-label="End Call" />
         </Flex>
       </Flex>
 

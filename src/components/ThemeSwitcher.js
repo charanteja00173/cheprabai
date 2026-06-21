@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { createPortal } from "react-dom";
 import styled from "styled-components";
 import { FaCog, FaTimes } from "react-icons/fa";
 import { useThemeManager } from "../context/ThemeContext";
@@ -176,7 +177,7 @@ const ThemeSwitcher = () => {
         <FaCog />
       </SettingsButton>
 
-      {isOpen && (
+      {isOpen && createPortal(
         <Overlay onClick={() => setIsOpen(false)}>
           <Modal onClick={(e) => e.stopPropagation()}>
             <ModalHeader>
@@ -220,7 +221,8 @@ const ThemeSwitcher = () => {
               })}
             </OptionGrid>
           </Modal>
-        </Overlay>
+        </Overlay>,
+        document.body
       )}
     </>
   );

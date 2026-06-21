@@ -30,7 +30,7 @@ const UnifiedWorkspace = () => {
           top={0}
           left={0}
           w="100%"
-          h="calc(60px + env(safe-area-inset-top, 0px))"
+          h="calc(50px + env(safe-area-inset-top, 0px))"
           pt="env(safe-area-inset-top, 0px)"
           bg="var(--chakra-colors-glassBg)"
           backdropFilter="blur(10px)"
@@ -78,7 +78,7 @@ const UnifiedWorkspace = () => {
         display="flex"
         flexDirection="column"
         alignItems="center"
-        py={isMobile ? "calc(80px + env(safe-area-inset-top, 0px))" : 6}
+        py={isMobile ? "calc(66px + env(safe-area-inset-top, 0px))" : 6}
         position={{ base: "absolute", md: "relative" }}
         zIndex={10}
         overflow="hidden"
@@ -135,7 +135,7 @@ const UnifiedWorkspace = () => {
       </MotionBox>
 
       {/* Main Content Area */}
-      <Box flex={1} position="relative" pt={isMobile ? "calc(60px + env(safe-area-inset-top, 0px))" : 0} overflow="hidden">
+      <Box flex={1} position="relative" pt={isMobile ? "calc(50px + env(safe-area-inset-top, 0px))" : 0} overflow="hidden">
         <Outlet />
       </Box>
     </Flex>
