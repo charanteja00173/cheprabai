@@ -30,15 +30,17 @@ const UnifiedWorkspace = () => {
           top={0}
           left={0}
           w="100%"
-          h="calc(50px + env(safe-area-inset-top, 0px))"
+          h="calc(52px + env(safe-area-inset-top, 0px))"
           pt="env(safe-area-inset-top, 0px)"
-          bg="var(--chakra-colors-glassBg)"
-          backdropFilter="blur(10px)"
-          borderBottom="1px solid var(--chakra-colors-border)"
+          bg="rgba(10, 10, 14, 0.65)"
+          backdropFilter="blur(24px)"
+          WebkitBackdropFilter="blur(24px)"
+          borderBottom="1px solid rgba(255, 255, 255, 0.06)"
           alignItems="center"
           px={4}
           zIndex={20}
           justifyContent="space-between"
+          boxShadow="0 4px 20px rgba(0,0,0,0.3)"
         >
           <Flex alignItems="center" gap={2}>
             <IconButton
@@ -47,9 +49,13 @@ const UnifiedWorkspace = () => {
               color="var(--chakra-colors-textPrimary)"
               onClick={toggleSidebar}
               aria-label="Open Menu"
+              _hover={{ bg: "rgba(255,255,255,0.06)" }}
+              borderRadius="12px"
             />
-            <ShieldCheck color="var(--chakra-colors-brandPrimary)" />
-            <Text fontWeight="bold">ChepraBai</Text>
+            <Box color="var(--chakra-colors-brandPrimary)" filter="drop-shadow(0 0 6px var(--chakra-colors-brandGlow))">
+              <ShieldCheck size={22} />
+            </Box>
+            <Text fontWeight="800" fontSize="md" letterSpacing="-0.5px">ChepraBai</Text>
           </Flex>
           <ThemeSwitcher />
         </Flex>
@@ -60,8 +66,9 @@ const UnifiedWorkspace = () => {
         <Box
           position="fixed"
           inset={0}
-          bg="rgba(0, 0, 0, 0.4)"
-          backdropFilter="blur(2px)"
+          bg="rgba(0, 0, 0, 0.55)"
+          backdropFilter="blur(4px)"
+          WebkitBackdropFilter="blur(4px)"
           zIndex={9}
           onClick={() => setIsSidebarOpen(false)}
         />
@@ -69,54 +76,105 @@ const UnifiedWorkspace = () => {
 
       {/* Sidebar Navigation */}
       <MotionBox
-        w={{ base: isSidebarOpen ? "250px" : "0px", md: "80px" }}
+        w={{ base: isSidebarOpen ? "260px" : "0px", md: "86px" }}
         h="100%"
-        bg="var(--chakra-colors-glassBg)"
-        backdropFilter="blur(20px)"
-        borderRight="1px solid var(--chakra-colors-border)"
-        boxShadow="var(--chakra-colors-cardShadow)"
+        bg="rgba(10, 10, 14, 0.55)"
+        backdropFilter="blur(30px)"
+        WebkitBackdropFilter="blur(30px)"
+        borderRight="1px solid rgba(255, 255, 255, 0.06)"
+        boxShadow="4px 0 20px rgba(0,0,0,0.2)"
         display="flex"
         flexDirection="column"
         alignItems="center"
-        py={isMobile ? "calc(66px + env(safe-area-inset-top, 0px))" : 6}
-        position={{ base: "absolute", md: "relative" }}
+        py={isMobile ? "calc(68px + env(safe-area-inset-top, 0px))" : 8}
+        position={{ base: "fixed", md: "relative" }}
         zIndex={10}
         overflow="hidden"
         initial={false}
-        animate={{ width: isMobile ? (isSidebarOpen ? "250px" : "0px") : "80px" }}
+        animate={{ width: isMobile ? (isSidebarOpen ? "260px" : "0px") : "86px" }}
         transition={{ duration: 0.3, ease: "easeInOut" }}
       >
         {!isMobile && (
-          <Box mb={8} color="var(--chakra-colors-brandPrimary)">
-            <ShieldCheck size={32} />
+          <Box mb={10} position="relative" display="flex" alignItems="center" justifyContent="center">
+            {/* Pulsing radar rings for premium look */}
+            <Box
+              position="absolute"
+              w="48px"
+              h="48px"
+              borderRadius="full"
+              border="2px solid var(--chakra-colors-brandPrimary)"
+              opacity={0.35}
+              animation="radar-pulse 2s infinite"
+              pointerEvents="none"
+            />
+            <Box color="var(--chakra-colors-brandPrimary)" zIndex={1} filter="drop-shadow(0 0 8px var(--chakra-colors-brandGlow))">
+              <ShieldCheck size={32} />
+            </Box>
+            <style>{`
+              @keyframes radar-pulse {
+                0% { transform: scale(0.8); opacity: 0.8; }
+                100% { transform: scale(1.6); opacity: 0; }
+              }
+            `}</style>
           </Box>
         )}
 
-        <VStack spacing={6} w="100%">
+        <VStack spacing={5} w="100%" px={isMobile ? 3 : 0}>
           {NAV_ITEMS.map((item) => {
             const isActive = location.pathname === item.path;
             return (
               <Tooltip key={item.path} label={isMobile ? "" : item.label} placement="right" hasArrow>
                 <Flex
-                  w={isMobile ? "90%" : "50px"}
-                  h="50px"
-                  bg={isActive ? "var(--chakra-colors-brandPrimary)" : "transparent"}
-                  color={isActive ? "white" : "var(--chakra-colors-textSecondary)"}
-                  borderRadius="14px"
+                  position="relative"
+                  w={isMobile ? "100%" : "54px"}
+                  h="54px"
+                  borderRadius="16px"
                   alignItems="center"
                   justifyContent={isMobile ? "flex-start" : "center"}
                   px={isMobile ? 4 : 0}
                   cursor="pointer"
-                  transition="all 0.2s"
-                  _hover={{ bg: isActive ? "var(--chakra-colors-brandHover)" : "var(--chakra-colors-surfaceHover)" }}
                   onClick={() => {
                     navigate(item.path);
                     if (isMobile) setIsSidebarOpen(false);
                   }}
+                  color={isActive ? "white" : "var(--chakra-colors-textSecondary)"}
+                  transition="color 0.25s ease, transform 0.2s"
+                  _hover={{
+                    color: isActive ? "white" : "var(--chakra-colors-textPrimary)",
+                    transform: "scale(1.02)"
+                  }}
                 >
-                  {item.icon}
+                  {isActive && (
+                    <MotionBox
+                      layoutId="sidebarActiveBg"
+                      position="absolute"
+                      inset={0}
+                      bg="var(--chakra-colors-brandPrimary)"
+                      borderRadius="16px"
+                      boxShadow="0 4px 15px var(--chakra-colors-brandGlow)"
+                      zIndex={-1}
+                      transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                    />
+                  )}
+                  
+                  {/* Subtle active left dot indicator on desktop */}
+                  {isActive && !isMobile && (
+                    <Box
+                      position="absolute"
+                      left="-10px"
+                      w="4px"
+                      h="16px"
+                      bg="var(--chakra-colors-brandPrimary)"
+                      borderRadius="full"
+                    />
+                  )}
+
+                  <Box zIndex={1} display="flex" alignItems="center" justifyContent="center">
+                    {item.icon}
+                  </Box>
+                  
                   {isMobile && (
-                    <Text ml={4} fontWeight={isActive ? "bold" : "normal"}>
+                    <Text zIndex={1} ml={4} fontWeight={isActive ? "bold" : "medium"} color={isActive ? "white" : "var(--chakra-colors-textPrimary)"}>
                       {item.label}
                     </Text>
                   )}
@@ -128,14 +186,14 @@ const UnifiedWorkspace = () => {
         
         {/* Theme Switcher at bottom for Desktop */}
         {!isMobile && (
-          <Box mt="auto" mb={4}>
+          <Box mt="auto" mb={2}>
             <ThemeSwitcher />
           </Box>
         )}
       </MotionBox>
 
       {/* Main Content Area */}
-      <Box flex={1} position="relative" pt={isMobile ? "calc(50px + env(safe-area-inset-top, 0px))" : 0} overflow="hidden">
+      <Box flex={1} position="relative" pt={isMobile ? "calc(52px + env(safe-area-inset-top, 0px))" : 0} overflow="hidden">
         <Outlet />
       </Box>
     </Flex>

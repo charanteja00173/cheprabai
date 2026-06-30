@@ -50,6 +50,16 @@ const glow = keyframes`
   100% { opacity: .4; transform: scale(1); }
 `;
 
+const fadeIn = keyframes`
+  from { opacity: 0; }
+  to { opacity: 1; }
+`;
+
+const scaleUp = keyframes`
+  from { opacity: 0; transform: scale(0.95) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+`;
+
 const LiveBadge = styled.div`
   background: #ff4757;
   color: white;
@@ -76,89 +86,103 @@ const ChatContainer = styled.div`
 const Header = styled.div`
   display: flex;
   align-items: center;
-  padding: clamp(8px, 2vw, 20px);
-  min-height: 56px;
-  background: var(--chakra-colors-surface);
+  padding: clamp(10px, 2vw, 20px);
+  min-height: 64px;
+  background: rgba(10, 10, 10, 0.4);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   color: var(--chakra-colors-textPrimary);
-  border-bottom: 1px solid var(--chakra-colors-border);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   box-sizing: border-box;
+  z-index: 10;
 
   @media (max-width: 480px) {
-    padding: 6px 10px;
-    min-height: 48px;
+    padding: 8px 12px;
+    min-height: 52px;
   }
 `;
 
 const Avatar = styled.img`
-  width: clamp(28px, 4vw, 32px);
-  height: clamp(28px, 4vw, 32px);
+  width: clamp(32px, 4vw, 36px);
+  height: clamp(32px, 4vw, 36px);
   border-radius: 50%;
-  margin-right: clamp(6px, 1.5vw, 10px);
+  margin-right: clamp(8px, 1.5vw, 12px);
+  border: 1.5px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.25);
 `;
 
 const RoomActions = styled.div`
   margin-left: auto;
   display: flex;
   align-items: center;
-  gap: clamp(8px, 2vw, 12px);
+  gap: clamp(8px, 2vw, 14px);
   flex-wrap: nowrap;
 `;
 
 const ActionButton = styled.button`
-  background: none;
-  border: none;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.04);
   color: var(--chakra-colors-textPrimary);
   cursor: pointer;
-  font-size: 1.2rem;
-  min-width: 44px;
-  min-height: 44px;
+  font-size: 1.15rem;
+  min-width: 42px;
+  min-height: 42px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0;
-  transition: transform 0.2s;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 
   &:hover {
-    transform: scale(1.05);
+    background: var(--chakra-colors-surfaceHover);
+    border-color: var(--chakra-colors-brandPrimary);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
   }
 
   @media (max-width: 480px) {
     min-width: 34px;
     min-height: 34px;
-    font-size: 1.05rem;
+    font-size: 1rem;
+    border-radius: 8px;
   }
 `;
 
 const MessageContainer = styled.div`
   flex: 1;
-  padding: clamp(10px, 3vw, 20px);
+  padding: clamp(12px, 3vw, 24px);
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
   position: relative;
+  background: radial-gradient(circle at center, transparent 0%, rgba(0,0,0,0.15) 100%);
 `;
 
 const MessageBubble = styled.div`
-  max-width: ${(p) => (p.isSystem ? "80%" : "clamp(70%, 85vw, 85%)")};
-  padding: ${(p) => (p.isSystem ? "6px 12px" : p.isFile ? "8px" : "12px 18px")};
+  max-width: ${(p) => (p.isSystem ? "80%" : "clamp(70%, 80vw, 80%)")};
+  padding: ${(p) => (p.isSystem ? "6px 14px" : p.isFile ? "10px" : "12px 20px")};
 
   background: ${(p) =>
     p.isSystem ? "transparent" :
-      p.isSender ? "var(--chakra-colors-brandPrimary)" :
-        "var(--chakra-colors-surfaceHover)"};
+      p.isSender ? "linear-gradient(135deg, var(--chakra-colors-brandPrimary), var(--chakra-colors-brandSecondary))" :
+        "rgba(255, 255, 255, 0.03)"};
+  
+  backdrop-filter: ${(p) => (p.isSystem ? "none" : p.isSender ? "none" : "blur(16px)")};
+  -webkit-backdrop-filter: ${(p) => (p.isSystem ? "none" : p.isSender ? "none" : "blur(16px)")};
 
   border: ${(p) =>
     p.isSystem ? "none" :
-      p.isSender ? "none" :
-        "1px solid var(--chakra-colors-border)"};
+      p.isSender ? "1px solid rgba(255, 255, 255, 0.08)" :
+        "1px solid rgba(255, 255, 255, 0.06)"};
 
   border-radius: ${(p) =>
     p.isSystem ? "12px" :
-      p.isSender ? "20px 20px 4px 20px" :
-        "20px 20px 20px 4px"};
+      p.isSender ? "22px 22px 4px 22px" :
+        "22px 22px 22px 4px"};
 
-  box-shadow: ${(p) => p.isSystem ? "none" : "0 4px 15px rgba(0,0,0,0.1)"};
+  box-shadow: ${(p) => p.isSystem ? "none" : "0 8px 24px rgba(0,0,0,0.15)"};
 
   align-self: ${(p) =>
     p.isSystem ? "center" : p.isSender ? "flex-end" : "flex-start"};
@@ -168,21 +192,27 @@ const MessageBubble = styled.div`
       p.isSender ? "#fff" :
         "var(--chakra-colors-textPrimary)"};
 
-  font-size: ${(p) => (p.isSystem ? "0.8rem" : "clamp(0.9rem, 0.25vw + 0.85rem, 1rem)")};
+  font-size: ${(p) => (p.isSystem ? "0.8rem" : "clamp(0.92rem, 0.25vw + 0.88rem, 1.05rem)")};
   font-style: ${(p) => (p.isSystem ? "italic" : "normal")};
-  opacity: ${(p) => (p.isSystem ? 0.9 : 1)};
+  opacity: ${(p) => (p.isSystem ? 0.85 : 1)};
   text-align: left;
   position: relative;
   word-wrap: break-word;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+
+  &:hover {
+    transform: ${(p) => (p.isSystem ? "none" : "translateY(-1px)")};
+    box-shadow: ${(p) => p.isSystem ? "none" : "0 10px 30px rgba(0,0,0,0.25)"};
+  }
 
   @media (max-width: 480px) {
     max-width: ${(p) => (p.isSystem ? "90%" : "88%")};
-    padding: ${(p) => (p.isSystem ? "4px 10px" : p.isFile ? "6px" : "8px 12px")};
-    font-size: ${(p) => (p.isSystem ? "0.75rem" : "0.9rem")};
+    padding: ${(p) => (p.isSystem ? "4px 10px" : p.isFile ? "8px" : "10px 14px")};
+    font-size: ${(p) => (p.isSystem ? "0.75rem" : "0.92rem")};
     border-radius: ${(p) =>
       p.isSystem ? "10px" :
-        p.isSender ? "14px 14px 4px 14px" :
-          "14px 14px 14px 4px"};
+        p.isSender ? "16px 16px 4px 16px" :
+          "16px 16px 16px 4px"};
   }
 `;
 
@@ -201,11 +231,20 @@ const Timestamp = styled.div`
 `;
 
 const FileCard = styled.div`
-  background: var(--chakra-colors-cardBg);
-  border-radius: 10px;
-  padding: 6px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 14px;
+  padding: 8px;
   width: 100%;
   box-sizing: border-box;
+  cursor: pointer;
+  transition: all 0.25s ease;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: var(--chakra-colors-brandPrimary);
+    transform: translateY(-1px);
+  }
 `;
 
 const TypingIndicator = styled.div`
@@ -231,108 +270,209 @@ const TypingIndicator = styled.div`
   box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.4);
 `;
 
+const LandingWrapper = styled.div`
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  position: relative;
+  background: var(--chakra-colors-bg);
+  overflow: hidden;
+  box-sizing: border-box;
+
+  /* Digital grid pattern overlay */
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: 
+      linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+    background-size: 30px 30px;
+    background-position: center center;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  /* Animated glowing mesh gradients */
+  &::after {
+    content: "";
+    position: absolute;
+    width: clamp(200px, 40vw, 400px);
+    height: clamp(200px, 40vw, 400px);
+    background: radial-gradient(circle, var(--chakra-colors-brandPrimary) 0%, transparent 70%);
+    opacity: 0.16;
+    filter: blur(50px);
+    top: 15%;
+    left: 15%;
+    animation: floating-glow-1 14s infinite alternate ease-in-out;
+    pointer-events: none;
+    z-index: 0;
+  }
+`;
+
+const FloatingBlob = styled.div`
+  position: absolute;
+  width: clamp(250px, 45vw, 500px);
+  height: clamp(250px, 45vw, 500px);
+  background: radial-gradient(circle, var(--chakra-colors-brandSecondary) 0%, transparent 75%);
+  opacity: 0.1;
+  filter: blur(60px);
+  bottom: 10%;
+  right: 10%;
+  animation: floating-glow-2 18s infinite alternate ease-in-out;
+  pointer-events: none;
+  z-index: 0;
+`;
+
 const JoinContainer = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
   width: 100%;
-  max-width: min(400px, calc(100vw - 40px));
-  background: var(--chakra-colors-glassBg);
-  backdrop-filter: blur(24px);
+  max-width: min(420px, calc(100vw - 32px));
+  background: rgba(15, 15, 20, 0.55);
+  backdrop-filter: blur(36px);
+  -webkit-backdrop-filter: blur(36px);
   padding: clamp(24px, 5vw, 40px);
-  border-radius: 24px;
-  border: 1px solid var(--chakra-colors-border);
-  box-shadow: 0 25px 50px rgba(0,0,0,0.5);
-  margin: 0 20px;
+  border-radius: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 
+    0 4px 30px rgba(0, 0, 0, 0.4),
+    0 25px 60px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  margin: 0 16px;
   box-sizing: border-box;
+  z-index: 2;
+  position: relative;
 
   @media (max-width: 480px) {
-    padding: 16px;
-    gap: 12px;
-    border-radius: 20px;
+    padding: 20px;
+    gap: 14px;
+    border-radius: 24px;
   }
 `;
 
 const JoinInput = styled.input`
   padding: 14px 20px;
-  border-radius: 12px;
-  border: 1px solid var(--chakra-colors-border);
-  background: var(--chakra-colors-surfaceHover);
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
   color: var(--chakra-colors-textPrimary);
   outline: none;
-  font-size: max(16px, 1rem);
-  transition: all 0.2s;
+  font-size: 1rem;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+
+  &:hover {
+    border-color: rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.04);
+  }
 
   &:focus {
     border-color: var(--chakra-colors-brandPrimary);
-    box-shadow: 0 0 0 1px var(--chakra-colors-brandPrimary);
+    background: rgba(0, 0, 0, 0.4);
+    box-shadow: 
+      0 0 0 1px var(--chakra-colors-brandPrimary),
+      0 0 15px var(--chakra-colors-brandGlow);
   }
 
-  ::placeholder {
+  &::placeholder {
     color: var(--chakra-colors-textSecondary);
+    opacity: 0.6;
   }
 
   @media (max-width: 480px) {
-    padding: 10px 14px;
+    padding: 12px 16px;
     font-size: 0.95rem;
-    border-radius: 10px;
+    border-radius: 12px;
   }
 `;
 
 const JoinButton = styled.button`
   padding: 14px;
-  border-radius: 12px;
+  border-radius: 14px;
   border: none;
-  background: var(--chakra-colors-brandPrimary);
+  background: linear-gradient(135deg, var(--chakra-colors-brandPrimary), var(--chakra-colors-brandSecondary));
   color: #fff;
-  font-size: 1.1rem;
-  font-weight: bold;
+  font-size: 1.05rem;
+  font-weight: 700;
   cursor: pointer;
-  transition: all 0.2s;
-  margin-top: 10px;
-  min-height: 48px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  margin-top: 12px;
+  min-height: 52px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  position: relative;
+  overflow: hidden;
+
+  &::after {
+    content: "";
+    position: absolute;
+    top: 0; left: -100%; width: 100%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+    transition: 0.5s;
+  }
 
   &:hover {
-    background: var(--chakra-colors-brandHover);
     transform: translateY(-2px);
-    box-shadow: var(--chakra-colors-glowShadow);
+    box-shadow: 
+      0 8px 25px rgba(0, 0, 0, 0.4),
+      0 0 20px var(--chakra-colors-brandGlow);
+    &::after {
+      left: 100%;
+    }
+  }
+
+  &:active {
+    transform: translateY(0);
   }
 
   @media (max-width: 480px) {
-    padding: 10px;
+    padding: 12px;
     font-size: 0.95rem;
-    min-height: 40px;
-    border-radius: 10px;
-    margin-top: 6px;
+    min-height: 46px;
+    border-radius: 12px;
+    margin-top: 8px;
   }
 `;
 
 const PreviewOverlay = styled.div`
   position: fixed;
   inset: 0;
-  backdrop-filter: blur(4px);
-  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  background: rgba(8, 8, 12, 0.75);
   display: flex;
   justify-content: center;
   align-items: center;
   z-index: 9999;
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  animation: ${fadeIn} 0.25s ease-out;
 `;
 
 const PreviewModal = styled.div`
-  background: var(--chakra-colors-surface);
-  border-radius: 16px;
+  background: rgba(15, 15, 20, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  border-radius: 24px;
   width: min(90%, 500px);
   max-height: 85vh;
-  padding: clamp(16px, 4vw, 24px);
+  padding: clamp(20px, 4vw, 28px);
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+  gap: 20px;
+  box-shadow: 
+    0 10px 30px rgba(0, 0, 0, 0.3),
+    0 30px 60px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  animation: ${scaleUp} 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 
   @media (max-width: 600px) {
     width: 95%;
     max-height: calc(100vh - var(--safe-top) - var(--safe-bottom) - 24px);
+    padding: 16px;
   }
 `;
 
@@ -345,7 +485,9 @@ const PreviewContent = styled.div`
     max-width: 100%;
     max-height: 50vh;
     object-fit: contain;
-    border-radius: 10px;
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
   }
 `;
 
@@ -353,62 +495,88 @@ const PreviewActions = styled.div`
   display: flex;
   justify-content: flex-end;
   gap: 12px;
+  margin-top: 8px;
 `;
 
 const PreviewButton = styled.button`
-  padding: 8px 14px;
-  border-radius: 8px;
+  padding: 12px 24px;
+  border-radius: 14px;
   border: none;
   cursor: pointer;
-  font-weight: bold;
-  min-height: 44px;
-  min-width: 44px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  min-height: 48px;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
 `;
 
 const CancelBtn = styled(PreviewButton)`
-  background: #444;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   color: var(--chakra-colors-textPrimary);
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.15);
+  }
 `;
 
 const SendBtn = styled(PreviewButton)`
-  background: var(--chakra-colors-brandPrimary);
-  color: #000;
+  background: linear-gradient(135deg, var(--chakra-colors-brandPrimary), var(--chakra-colors-brandSecondary));
+  color: #fff;
+
+  &:hover {
+    box-shadow: 0 8px 20px var(--chakra-colors-brandGlow);
+  }
 `;
 
 const MessageInputContainer = styled.div`
   display: flex;
   align-items: center;
-  padding: 10px 20px;
-  background: var(--chakra-colors-surface);
-  border-top: 1px solid var(--chakra-colors-border);
-  gap: 10px;
-  padding-bottom: calc(10px + var(--safe-bottom));
+  padding: 14px 24px;
+  background: rgba(10, 10, 14, 0.5);
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  gap: 12px;
+  padding-bottom: calc(14px + var(--safe-bottom));
+  box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.15);
   
   @media (max-width: 600px) {
-    padding: 6px 8px;
-    padding-bottom: calc(6px + var(--safe-bottom));
-    gap: 4px;
+    padding: 10px 12px;
+    padding-bottom: calc(10px + var(--safe-bottom));
+    gap: 8px;
 
     /* Target nested timer text */
     span {
-      font-size: 0.65rem !important;
+      font-size: 0.72rem !important;
       min-width: 24px !important;
     }
 
     /* Target voice record button and timer controls */
     button {
-      width: 32px !important;
-      height: 32px !important;
-      font-size: 0.8rem !important;
+      width: 38px !important;
+      height: 38px !important;
+      font-size: 0.9rem !important;
+      border-radius: 10px !important;
     }
 
     /* Target Ephemeral toggle button specifically */
     button[title*="Ephemeral"] {
-      padding: 4px 6px !important;
-      font-size: 0.8rem !important;
+      padding: 6px 10px !important;
+      font-size: 0.82rem !important;
       border-radius: 12px !important;
     }
   }
@@ -416,22 +584,38 @@ const MessageInputContainer = styled.div`
 
 const MessageInput = styled.input`
   flex: 1;
-  padding: 12px 15px;
-  border-radius: 20px;
-  border: 1px solid var(--chakra-colors-border);
-  background: var(--chakra-colors-bg);
+  padding: 14px 20px;
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
   color: var(--chakra-colors-textPrimary);
   outline: none;
-  font-size: max(16px, 0.95rem);
+  font-size: max(16px, 0.98rem);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
 
-  ::placeholder {
+  &:hover {
+    border-color: rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  &:focus {
+    border-color: var(--chakra-colors-brandPrimary);
+    background: rgba(0, 0, 0, 0.35);
+    box-shadow: 
+      0 0 0 1px var(--chakra-colors-brandPrimary),
+      0 0 12px rgba(255, 63, 94, 0.15);
+  }
+
+  &::placeholder {
     color: var(--chakra-colors-textSecondary);
+    opacity: 0.6;
   }
 
   @media (max-width: 600px) {
-    padding: 8px 12px;
-    font-size: 0.9rem;
-    border-radius: 16px;
+    padding: 10px 14px;
+    font-size: 0.92rem;
+    border-radius: 18px;
   }
 `;
 
@@ -442,18 +626,30 @@ const FileInput = styled.input`
 const FileUploadLabel = styled.label`
   font-size: 1.3rem;
   cursor: pointer;
-  color: var(--chakra-colors-textPrimary);
+  color: var(--chakra-colors-textSecondary);
   min-width: 44px;
   min-height: 44px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.02);
+  transition: all 0.25s;
+
+  &:hover {
+    color: var(--chakra-colors-textPrimary);
+    background: var(--chakra-colors-surfaceHover);
+    border-color: var(--chakra-colors-brandPrimary);
+    transform: translateY(-2px);
+  }
 
   @media (max-width: 480px) {
-    min-width: 32px;
-    min-height: 32px;
-    font-size: 1.15rem;
+    min-width: 34px;
+    min-height: 34px;
+    font-size: 1.1rem;
+    border-radius: 8px;
   }
 `;
 
@@ -462,29 +658,36 @@ const SendButton = styled.button`
   height: 44px;
   border-radius: 50%;
   border: none;
-  background: var(--chakra-colors-brandPrimary);
-  color: #000;
+  background: linear-gradient(135deg, var(--chakra-colors-brandPrimary), var(--chakra-colors-brandSecondary));
+  color: #fff;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  transition: background 0.2s;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.25);
 
   &:hover {
-    background: var(--chakra-colors-brandHover);
+    transform: scale(1.05);
+    box-shadow: 0 6px 15px var(--chakra-colors-brandGlow);
+  }
+
+  &:active {
+    transform: scale(0.95);
   }
 
   @media (max-width: 480px) {
-    width: 32px;
-    height: 32px;
+    width: 34px;
+    height: 34px;
   }
 `;
 /* ================= GIF PICKER IMPROVED ================= */
 
 const GifPickerOverlay = styled(PreviewOverlay)`
-  background: rgba(0, 0, 0, 0.9);
-  backdrop-filter: blur(5px);
+  background: rgba(8, 8, 12, 0.8);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   z-index: 10000;
 
   display: flex;
@@ -506,64 +709,81 @@ const GifPickerModal = styled(PreviewModal)`
   max-width: 650px;
   max-height: min(85vh, calc(100vh - var(--safe-top) - var(--safe-bottom) - 30px));
 
-  padding: 16px;
-  background: var(--chakra-colors-surface);
-  border-radius: 16px;
+  padding: 20px;
+  background: rgba(15, 15, 20, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  border-radius: 24px;
 
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
 
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
+  box-shadow: 
+    0 10px 30px rgba(0, 0, 0, 0.35),
+    0 30px 60px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
 
   overflow: hidden;
 
   @media (max-width: 600px) {
     width: 95%;
     max-height: calc(100vh - var(--safe-top) - var(--safe-bottom) - 20px);
+    padding: 16px;
   }
 `;
 
 const GifPickerHeader = styled.div`
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   margin-bottom: 8px;
 `;
 
 const GifSearchInput = styled.input`
   flex: 1;
-  padding: 12px 16px;
-  border-radius: 25px;
-  border: 1px solid var(--chakra-colors-border);
-  background: var(--chakra-colors-bg);
+  padding: 12px 20px;
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
   color: var(--chakra-colors-textPrimary);
   font-size: max(16px, 0.95rem);
   outline: none;
   box-sizing: border-box;
+  transition: all 0.25s ease;
 
-  ::placeholder {
+  &:focus {
+    border-color: var(--chakra-colors-brandPrimary);
+    background: rgba(0, 0, 0, 0.4);
+    box-shadow: 0 0 10px rgba(255, 63, 94, 0.15);
+  }
+
+  &::placeholder {
     color: var(--chakra-colors-textSecondary);
+    opacity: 0.6;
   }
 `;
 
 const SearchGifButton = styled.button`
-  background: var(--chakra-colors-brandPrimary);
+  background: linear-gradient(135deg, var(--chakra-colors-brandPrimary), var(--chakra-colors-brandSecondary));
   border: none;
-  color: #000;
-  border-radius: 25px;
-  padding: 8px 12px;
-  font-weight: bold;
+  color: #fff;
+  border-radius: 24px;
+  padding: 8px 16px;
+  font-weight: 700;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.25s ease;
   min-width: 44px;
   min-height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
 
   &:hover {
-    background: var(--chakra-colors-brandHover);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 12px var(--chakra-colors-brandGlow);
   }
 `;
 
@@ -636,23 +856,29 @@ const OverlayButton = styled.button`
 
 const SearchPopup = styled.div`
   position: absolute;
-  top: 56px;
+  top: 76px;
   right: 20px;
   z-index: 100;
-  background: var(--chakra-colors-glassBg);
-  padding: 10px;
-  border-radius: 12px;
-  border: 1px solid var(--chakra-colors-border);
-  backdrop-filter: blur(10px);
+  background: rgba(10, 10, 14, 0.65);
+  padding: 10px 18px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
   display: flex;
-  gap: 10px;
+  gap: 12px;
   align-items: center;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+  box-shadow: 
+    0 10px 30px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  animation: slide-down-fade 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 
   @media (max-width: 600px) {
-    right: 10px;
-    left: 10px;
+    right: 12px;
+    left: 12px;
+    top: 64px;
     width: auto;
+    padding: 8px 14px;
   }
 `;
 
@@ -661,8 +887,13 @@ const SearchInput = styled.input`
   border: none;
   color: var(--chakra-colors-textPrimary);
   outline: none;
-  width: 150px;
-  font-size: max(16px, 0.9rem);
+  width: 180px;
+  font-size: 0.95rem;
+
+  &::placeholder {
+    color: var(--chakra-colors-textSecondary);
+    opacity: 0.6;
+  }
 
   @media (max-width: 600px) {
     flex: 1;
@@ -672,17 +903,22 @@ const SearchInput = styled.input`
 
 const RoomInfoDropdown = styled.div`
   position: absolute;
-  top: 120%;
+  top: 130%;
   left: 0;
-  width: 250px;
-  background: var(--chakra-colors-glassBg);
-  backdrop-filter: blur(20px);
-  border: 1px solid var(--chakra-colors-border);
-  border-radius: 12px;
-  padding: 15px;
+  width: 290px;
+  background: rgba(12, 12, 16, 0.7);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  padding: 20px;
   z-index: 1000;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  box-shadow: 
+    0 10px 35px rgba(0, 0, 0, 0.4),
+    0 30px 70px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
   box-sizing: border-box;
+  animation: slide-down-fade 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 
   @media (max-width: 480px) {
     width: calc(100vw - 32px);
@@ -1108,16 +1344,23 @@ export default function ChatRoom() {
     return (
       <>
         <ToastContainer position="top-center" />
-        <ChatContainer
-          style={{ justifyContent: "center", alignItems: "center" }}
-        >
+        <LandingWrapper>
+          <FloatingBlob />
           <JoinContainer>
-            <div style={{ textAlign: "center", marginBottom: "10px" }}>
-              <div style={{ display: "inline-flex", background: "rgba(0,191,165,0.1)", padding: "clamp(12px, 3vw, 16px)", borderRadius: "50%", marginBottom: "16px" }}>
+            <div style={{ textAlign: "center", marginBottom: "15px" }}>
+              <div style={{
+                display: "inline-flex",
+                background: "rgba(255, 63, 94, 0.08)",
+                border: "1px solid rgba(255, 63, 94, 0.25)",
+                boxShadow: "0 0 15px rgba(255, 63, 94, 0.15)",
+                padding: "16px",
+                borderRadius: "50%",
+                marginBottom: "20px"
+              }}>
                 <ShieldCheck size={36} color="var(--chakra-colors-brandPrimary)" />
               </div>
-              <h2 style={{ color: "var(--chakra-colors-textPrimary)", margin: 0, fontSize: "clamp(1.4rem, 4vw, 1.8rem)", letterSpacing: "-0.5px" }}>Secure Session</h2>
-              <p style={{ color: "var(--chakra-colors-textSecondary)", fontSize: "clamp(0.85rem, 2vw, 0.95rem)", marginTop: "8px" }}>Enter details to join the encrypted room</p>
+              <h2 style={{ color: "var(--chakra-colors-textPrimary)", margin: 0, fontSize: "clamp(1.5rem, 4vw, 2rem)", fontWeight: 800, letterSpacing: "-0.5px" }}>Secure Session</h2>
+              <p style={{ color: "var(--chakra-colors-textSecondary)", fontSize: "clamp(0.85rem, 2vw, 0.95rem)", marginTop: "8px", opacity: 0.85 }}>Enter details to join the encrypted room</p>
             </div>
 
             <JoinInput
@@ -1166,7 +1409,7 @@ export default function ChatRoom() {
               Join Secure Room
             </JoinButton>
           </JoinContainer>
-        </ChatContainer>
+        </LandingWrapper>
       </>
     );
   }
@@ -1401,18 +1644,18 @@ export default function ChatRoom() {
                   <div style={{ position: "relative" }}>
                     {m.file.loading ? (
                       <div style={{
-                        width: "100%", padding: "20px", background: "var(--chakra-colors-glassBg)", borderRadius: "12px", border: "1px solid rgba(255, 255, 255, 0.1)",
-                        display: "flex", flexDirection: "column", gap: "10px"
+                        width: "100%", padding: "18px", background: "rgba(255, 255, 255, 0.03)", borderRadius: "14px", border: "1px solid rgba(255, 255, 255, 0.06)",
+                        display: "flex", flexDirection: "column", gap: "8px"
                       }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                           <span style={{ fontSize: "0.85rem", fontWeight: "600", color: "var(--chakra-colors-textPrimary)", opacity: 0.8 }}>Uploading: {m.file.name}</span>
-                          <span style={{ fontSize: "0.75rem", color: "var(--chakra-colors-brandPrimary)" }}>...</span>
+                          <span style={{ fontSize: "0.75rem", color: "var(--chakra-colors-brandPrimary)", fontWeight: "bold" }}>...</span>
                         </div>
-                        <div style={{ width: "100%", height: "6px", background: "rgba(255, 255, 255, 0.1)", borderRadius: "10px", overflow: "hidden" }}>
+                        <div style={{ width: "100%", height: "4px", background: "rgba(255, 255, 255, 0.08)", borderRadius: "10px", overflow: "hidden" }}>
                           <div style={{
                             height: "100%",
                             width: `100%`,
-                            background: "linear-gradient(90deg, var(--chakra-colors-brandPrimary), #00e5ff, var(--chakra-colors-brandPrimary))",
+                            background: "linear-gradient(90deg, var(--chakra-colors-brandPrimary), var(--chakra-colors-brandSecondary), var(--chakra-colors-brandPrimary))",
                             borderRadius: "10px",
                             animation: "pulse 1.5s infinite"
                           }} />
@@ -1421,31 +1664,33 @@ export default function ChatRoom() {
                     ) : (
                       <FileCard onClick={() => setFullscreen(m.file)}>
                         {m.file.type && m.file.type.startsWith("image") ? (
-                          <img alt={m.file.name} src={m.file.url} style={{ width: "100%", borderRadius: 8 }} />
+                          <img alt={m.file.name} src={m.file.url} style={{ width: "100%", borderRadius: 10, display: "block" }} />
                         ) : m.file.type && m.file.type.startsWith("video") ? (
-                          <div style={{ position: "relative" }}>
-                            <video src={m.file.url} style={{ width: "100%", borderRadius: 8 }} />
-                            <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.3)" }}>
-                              <FaPlay style={{ color: "var(--chakra-colors-textPrimary)", fontSize: "2rem" }} />
+                          <div style={{ position: "relative", borderRadius: 10, overflow: "hidden" }}>
+                            <video src={m.file.url} style={{ width: "100%", display: "block" }} />
+                            <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.45)", backdropFilter: "blur(2px)" }}>
+                              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 48, height: 48, borderRadius: "50%", background: "var(--chakra-colors-brandPrimary)", boxShadow: "0 4px 15px rgba(0,0,0,0.3)" }}>
+                                <FaPlay style={{ color: "white", fontSize: "1.2rem", marginLeft: "3px" }} />
+                              </div>
                             </div>
                           </div>
                         ) : (
                           <div style={{
-                            display: "flex", alignItems: "center", gap: "clamp(8px, 3vw, 16px)", padding: "clamp(10px, 3vw, 16px)",
-                            background: "rgba(0, 191, 165, 0.08)", borderRadius: "12px", border: "1px solid rgba(0, 191, 165, 0.3)",
+                            display: "flex", alignItems: "center", gap: "12px", padding: "12px",
+                            background: "rgba(255, 255, 255, 0.02)", borderRadius: "10px", border: "1px solid rgba(255, 255, 255, 0.05)",
                             minWidth: 0
                           }}>
-                            <div style={{ fontSize: "clamp(1.8rem, 5vw, 2.5rem)", flexShrink: 0 }}>
+                            <div style={{ fontSize: "2rem", flexShrink: 0, filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.15))" }}>
                               {m.file.name.match(/\.(xlsx|xls|csv)$/i) ? "📊" :
                                 m.file.name.match(/\.(docx|doc)$/i) ? "📝" :
                                   m.file.name.match(/\.(zip|rar|7z)$/i) ? "🗜️" : "📎"}
                             </div>
                             <div style={{ display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
-                              <span style={{ fontWeight: "600", fontSize: "clamp(0.85rem, 2vw, 1rem)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                              <span style={{ fontWeight: "600", fontSize: "0.9rem", color: "var(--chakra-colors-textPrimary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                                 {m.file.name}
                               </span>
-                              <span style={{ fontSize: "clamp(0.75rem, 1.8vw, 0.85rem)", color: "var(--chakra-colors-brandPrimary)", marginTop: "4px" }}>
-                                {m.userName === userName ? "View Shared File" : "Click to preview & download"}
+                              <span style={{ fontSize: "0.75rem", color: "var(--chakra-colors-brandPrimary)", marginTop: "2px", fontWeight: "500" }}>
+                                {m.userName === userName ? "Shared File" : "Download Attachment"}
                               </span>
                             </div>
                           </div>
@@ -1457,11 +1702,11 @@ export default function ChatRoom() {
 
                 {/* Voice note inline player */}
                 {m.file && m.file.type && m.file.type.startsWith("audio") && (
-                  <div style={{ marginTop: 6 }}>
+                  <div style={{ marginTop: 8, background: "rgba(0,0,0,0.2)", borderRadius: "16px", padding: "6px 12px", border: "1px solid rgba(255, 255, 255, 0.04)" }}>
                     <audio
                       src={m.file.url}
                       controls
-                      style={{ width: "100%", maxWidth: "min(280px, 100%)", height: 36, borderRadius: 20 }}
+                      style={{ width: "100%", maxWidth: "min(280px, 100%)", height: 32 }}
                     />
                   </div>
                 )}

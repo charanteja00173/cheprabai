@@ -32,19 +32,19 @@ const LiveStream = () => {
   return (
     <Flex h="100%" w="100%" direction="column" bg="var(--chakra-colors-bg)">
       {/* Header */}
-      <Flex p={{ base: 2, md: 4 }} bg="var(--chakra-colors-surface)" borderBottom="1px solid var(--chakra-colors-border)" justify="space-between" align="center" gap={2}>
+      <Flex p={{ base: 3, md: 4 }} bg="rgba(10, 10, 10, 0.4)" backdropFilter="blur(20px)" borderBottom="1px solid rgba(255, 255, 255, 0.06)" justify="space-between" align="center" gap={2} minHeight="64px">
         <Flex align="center" gap={2}>
-          <Box p={2} bg="red.500" borderRadius="full" animation="pulse 2s infinite">
+          <Box p={2.5} bg="red.500" borderRadius="full" animation="pulse 2s infinite" boxShadow="0 0 10px rgba(239, 68, 68, 0.4)">
             <Radio color="white" size={16} />
           </Box>
-          <Text fontSize={{ base: "md", md: "xl" }} fontWeight="bold">Live Broadcast</Text>
+          <Text fontSize={{ base: "md", md: "xl" }} fontWeight="bold" letterSpacing="-0.5px">Live Broadcast</Text>
         </Flex>
         <Flex gap={2}>
-          <Button size={{ base: "sm", md: "md" }} leftIcon={<Plus size={14} />} bg="var(--chakra-colors-brandPrimary)" color="white" _hover={{ bg: "var(--chakra-colors-brandHover)" }} onClick={addParticipant}>
+          <Button size={{ base: "sm", md: "md" }} leftIcon={<Plus size={14} />} bg="linear-gradient(135deg, var(--chakra-colors-brandPrimary), var(--chakra-colors-brandSecondary))" color="white" _hover={{ bg: "var(--chakra-colors-brandHover)", transform: "translateY(-2px)", boxShadow: "0 4px 12px var(--chakra-colors-brandGlow)" }} onClick={addParticipant}>
             <Text display={{ base: "none", sm: "block" }}>Add Streamer</Text>
             <Text display={{ base: "block", sm: "none" }}>Add</Text>
           </Button>
-          <Button size={{ base: "sm", md: "md" }} leftIcon={<LogOut size={14} />} variant="outline" colorScheme="red">
+          <Button size={{ base: "sm", md: "md" }} leftIcon={<LogOut size={14} />} variant="outline" colorScheme="red" _hover={{ bg: "rgba(239, 68, 68, 0.1)" }}>
             <Text display={{ base: "none", sm: "block" }}>End Stream</Text>
             <Text display={{ base: "block", sm: "none" }}>End</Text>
           </Button>
@@ -52,8 +52,8 @@ const LiveStream = () => {
       </Flex>
 
       {/* Grid */}
-      <Box p={{ base: 3, md: 6 }} flex={1} overflowY="auto">
-        <Grid templateColumns="repeat(auto-fill, minmax(240px, 1fr))" gap={{ base: 4, md: 6 }}>
+      <Box p={{ base: 4, md: 6 }} flex={1} overflowY="auto">
+        <Grid templateColumns="repeat(auto-fill, minmax(260px, 1fr))" gap={{ base: 4, md: 6 }}>
           {participants.map((participant) => (
             <MotionBox
               key={participant.id}
@@ -63,23 +63,23 @@ const LiveStream = () => {
               position="relative"
               borderRadius="2xl"
               overflow="hidden"
-              bg="var(--chakra-colors-cardBg)"
-              border="1px solid var(--chakra-colors-border)"
-              boxShadow="var(--chakra-colors-cardShadow)"
+              bg="rgba(255, 255, 255, 0.02)"
+              border="1px solid rgba(255, 255, 255, 0.08)"
+              boxShadow="0 10px 25px rgba(0,0,0,0.3)"
               role="group"
-              _hover={{ transform: "translateY(-4px)", boxShadow: "var(--chakra-colors-cardShadowHover)", borderColor: "var(--chakra-colors-brandPrimary)" }}
+              _hover={{ transform: "translateY(-4px)", boxShadow: "0 15px 35px rgba(0,0,0,0.45)", borderColor: "var(--chakra-colors-brandPrimary)" }}
             >
-              <Image src={participant.img} alt={participant.name} w="100%" h="220px" objectFit="cover" transition="transform 0.5s" _groupHover={{ transform: "scale(1.05)" }} />
-              <Box p={4} bg="var(--chakra-colors-surface)" position="relative" zIndex={2}>
-                <Text fontWeight="bold" textAlign="center" fontSize="md">{participant.name}</Text>
+              <Image src={participant.img} alt={participant.name} w="100%" h="230px" objectFit="cover" transition="transform 0.5s" _groupHover={{ transform: "scale(1.05)" }} />
+              <Box p={4} bg="rgba(15, 15, 20, 0.75)" borderTop="1px solid rgba(255, 255, 255, 0.05)" position="relative" zIndex={2} backdropFilter="blur(10px)">
+                <Text fontWeight="bold" textAlign="center" fontSize="md" color="var(--chakra-colors-textPrimary)">{participant.name}</Text>
               </Box>
 
               {/* Hover Controls */}
               <Flex
                 position="absolute"
                 top={0} left={0} right={0} bottom={0}
-                bg="rgba(0,0,0,0.5)"
-                backdropFilter="blur(3px)"
+                bg="rgba(0,0,0,0.55)"
+                backdropFilter="blur(4px)"
                 justify="center"
                 align="center"
                 gap={4}
@@ -93,10 +93,11 @@ const LiveStream = () => {
                     icon={participant.isMuted ? <MicOff /> : <Mic />}
                     isRound
                     size="lg"
-                    bg={participant.isMuted ? "red.500" : "var(--chakra-colors-brandPrimary)"}
+                    bg={participant.isMuted ? "red.500" : "linear-gradient(135deg, var(--chakra-colors-brandPrimary), var(--chakra-colors-brandSecondary))"}
                     color="white"
                     _hover={{ bg: participant.isMuted ? "red.600" : "var(--chakra-colors-brandHover)" }}
                     onClick={() => toggleMute(participant.id)}
+                    aria-label={participant.isMuted ? "Unmute" : "Mute"}
                   />
                 </Tooltip>
                 <Tooltip label="Remove from Stream">
@@ -104,19 +105,21 @@ const LiveStream = () => {
                     icon={<Trash2 />}
                     isRound
                     size="lg"
-                    bg="rgba(255,255,255,0.2)"
+                    bg="rgba(255,255,255,0.15)"
+                    border="1px solid rgba(255,255,255,0.2)"
                     color="white"
-                    _hover={{ bg: "red.500" }}
+                    _hover={{ bg: "red.500", borderColor: "red.500" }}
                     onClick={() => removeParticipant(participant.id)}
+                    aria-label="Remove Streamer"
                   />
                 </Tooltip>
               </Flex>
             </MotionBox>
           ))}
           {participants.length === 0 && (
-            <Flex gridColumn="1 / -1" h="300px" justify="center" align="center" direction="column" color="var(--chakra-colors-textSecondary)">
-              <Radio size={48} style={{ opacity: 0.5, marginBottom: "1rem" }} />
-              <Text fontSize="lg">Stream is empty. Add a streamer to begin broadcasting.</Text>
+            <Flex gridColumn="1 / -1" h="320px" justify="center" align="center" direction="column" color="var(--chakra-colors-textSecondary)" bg="rgba(255,255,255,0.01)" border="1px dashed rgba(255,255,255,0.08)" borderRadius="2xl" p={6}>
+              <Radio size={40} style={{ opacity: 0.4, marginBottom: "1rem" }} />
+              <Text fontSize="md" textAlign="center" fontWeight="500">Stream is empty. Add a streamer to begin broadcasting.</Text>
             </Flex>
           )}
         </Grid>
