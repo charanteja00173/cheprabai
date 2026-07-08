@@ -227,7 +227,7 @@ const ThemeSwitcher = () => {
         <Overlay onClick={() => setIsOpen(false)}>
           <Modal onClick={(e) => e.stopPropagation()}>
             <ModalHeader>
-              <ModalTitle>⚙️ Settings</ModalTitle>
+              <ModalTitle><FaCog style={{ display: 'inline', verticalAlign: 'middle', marginRight: '8px' }} /> Settings</ModalTitle>
               <CloseButton onClick={() => setIsOpen(false)}>
                 <FaTimes />
               </CloseButton>

@@ -1,7 +1,7 @@
 import React, { useCallback, useRef, useEffect } from "react";
 import { Tldraw } from "@tldraw/tldraw";
 import styled from "styled-components";
-import { FaTimes, FaExpand, FaCompress, FaTrash } from "react-icons/fa";
+import { FaTimes, FaExpand, FaCompress, FaTrash, FaPaintBrush } from "react-icons/fa";
 
 const Overlay = styled.div`
   position: fixed;
@@ -271,7 +271,7 @@ export default function Whiteboard({ socket, roomId, onClose, isAdmin }) {
       <WhiteboardContainer $isFullScreen={isFullScreen} onClick={(e) => e.stopPropagation()}>
         {!isFullScreen && (
           <ModalHeader>
-            <HeaderTitle>🎨 <span className="hide-mobile">Collaborative</span> Whiteboard</HeaderTitle>
+            <HeaderTitle><FaPaintBrush style={{ flexShrink: 0 }} /> <span className="hide-mobile">Collaborative</span> Whiteboard</HeaderTitle>
             <HeaderActions>
               {isAdmin && (
                 <IconButton onClick={handleClearBoard} title="Clear Board for Everyone">

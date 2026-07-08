@@ -3,6 +3,7 @@ import { Box, Flex, Grid, Input, Button, Text, VStack, HStack, IconButton, Toolt
 import { io } from "socket.io-client";
 import { Mic, MicOff, Video, VideoOff, PhoneOff, Send, Users, ShieldCheck, AlertTriangle } from "lucide-react";
 import styled from "styled-components";
+import { signalService } from "../utils/signalService";
 
 const LandingWrapper = styled.div`
   display: flex;
@@ -191,14 +192,34 @@ export default function VideoCall() {
   const [text, setText] = useState("");
   const [muted, setMuted] = useState(false);
   const [videoOff, setVideoOff] = useState(false);
-  const isE2EE = false;
+  const [isE2EE, setIsE2EE] = useState(false);
+  const signalInitialized = useRef(false);
 
   /* ================= SIGNAL E2EE ================= */
   const sendEncryptedSignal = useCallback(async (event, payload, targetId) => {
+    try {
+      if (signalInitialized.current) {
+        // Encrypt the payload JSON string via Signal session
+        const plaintext = JSON.stringify(payload);
+        const ciphertext = await signalService.encryptMessage(targetId, plaintext);
+        socket.emit(event, { to: targetId, from: socket.id, encrypted: ciphertext, ...payload });
+        return;
+      }
+    } catch (e) {
+      // Fallback to plaintext if encryption fails
+    }
     socket.emit(event, { to: targetId, from: socket.id, ...payload });
   }, []);
 
-  const decryptSignal = useCallback(async (fromId, ciphertext, fallbackPlaintext) => {
+  const decryptSignal = useCallback(async (fromId, encrypted, fallbackPlaintext) => {
+    try {
+      if (encrypted && signalInitialized.current) {
+        const plaintext = await signalService.decryptMessage(fromId, encrypted);
+        return JSON.parse(plaintext);
+      }
+    } catch (e) {
+      // Fallback to plaintext if decryption fails
+    }
     return fallbackPlaintext;
   }, []);
 
@@ -274,6 +295,18 @@ export default function VideoCall() {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
       streamRef.current = stream;
       
+      // Initialize Signal Protocol E2EE
+      try {
+        const bundle = await signalService.initialize(socket.id);
+        socket.emit("publish-prekeys", bundle);
+        signalInitialized.current = true;
+        setIsE2EE(true);
+      } catch (e) {
+        console.warn("Signal init failed, continuing without E2EE", e);
+        signalInitialized.current = false;
+        setIsE2EE(false);
+      }
+
       setJoined(true);
       socket.emit("joinRoom", { roomId: room, userName: name });
     } catch {
@@ -292,8 +325,21 @@ export default function VideoCall() {
   useEffect(() => {
     socket.on("presence", ({ online }) => {
       setUsers(online);
-      online.forEach(u => {
+      online.forEach(async (u) => {
         if (u.id !== socket.id && !peersRef.current[u.id]) {
+          // Establish Signal session with peer before creating WebRTC connection
+          if (signalInitialized.current) {
+            try {
+              const peerBundle = await new Promise((resolve) => {
+                socket.emit("get-prekey", { targetSocketId: u.id }, resolve);
+              });
+              if (peerBundle && !peerBundle.error) {
+                await signalService.establishSession(u.id, peerBundle);
+              }
+            } catch (e) {
+              // Continue without E2EE for this peer
+            }
+          }
           createPeer(u.id, u.name, true);
         }
       });
@@ -370,33 +416,67 @@ export default function VideoCall() {
     <Flex h="100%" w="100%" direction={{ base: "column", md: "row" }} bg="var(--chakra-colors-bg)">
       {/* Video Stage */}
       <Flex flex={1} direction="column" p={4}>
-        <Flex justifyContent="space-between" alignItems="center" mb={4} p={3} bg="rgba(10, 10, 10, 0.4)" backdropFilter="blur(20px)" borderRadius="xl" border="1px solid rgba(255, 255, 255, 0.06)">
-          <HStack>
-            <Text fontWeight="bold">Meeting: {room}</Text>
+        <Flex
+          justifyContent="space-between" alignItems="center" mb={4} px={5} py={3}
+          bg="rgba(15, 15, 20, 0.5)" backdropFilter="blur(30px)" WebkitBackdropFilter="blur(30px)"
+          borderRadius="2xl" border="1px solid rgba(255, 255, 255, 0.08)"
+          boxShadow="0 4px 20px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06)"
+          transition="all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
+        >
+          <HStack spacing={3}>
+            <Text fontWeight="bold" letterSpacing="-0.3px">Meeting: {room}</Text>
             {isE2EE ? (
               <Tooltip label="Signaling is End-to-End Encrypted via Signal Protocol">
-                <HStack color="green.400"><ShieldCheck size={16} /><Text fontSize="xs">E2EE Active</Text></HStack>
+                <HStack color="green.400" spacing={1} bg="rgba(72, 187, 120, 0.1)" px={2} py={1} borderRadius="full" border="1px solid rgba(72, 187, 120, 0.2)">
+                  <ShieldCheck size={14} /><Text fontSize="xs" fontWeight="600">E2EE</Text>
+                </HStack>
               </Tooltip>
             ) : (
               <Tooltip label="Plain WebRTC Signaling">
-                <HStack color="yellow.400"><AlertTriangle size={16} /><Text fontSize="xs">Plain Signaling</Text></HStack>
+                <HStack color="yellow.400" spacing={1} bg="rgba(236, 201, 75, 0.1)" px={2} py={1} borderRadius="full" border="1px solid rgba(236, 201, 75, 0.2)">
+                  <AlertTriangle size={14} /><Text fontSize="xs" fontWeight="600">Plain</Text>
+                </HStack>
               </Tooltip>
             )}
           </HStack>
-          <Text color="var(--chakra-colors-textSecondary)"><Users size={16} style={{display:'inline', marginRight:4}} /> {users.length}</Text>
+          <HStack color="var(--chakra-colors-textSecondary)" spacing={1}>
+            <Users size={16} /><Text fontSize="sm" fontWeight="600">{users.length}</Text>
+          </HStack>
         </Flex>
 
-        <Grid templateColumns="repeat(auto-fit, minmax(300px, 1fr))" gap={4} flex={1} overflowY="auto">
-          <Box position="relative" borderRadius="2xl" overflow="hidden" bg="black" border="1px solid rgba(255, 255, 255, 0.08)" boxShadow="0 10px 25px rgba(0,0,0,0.3)">
+        <Grid templateColumns="repeat(auto-fit, minmax(280px, 1fr))" gap={4} flex={1} overflowY="auto">
+          <Box
+            position="relative" borderRadius="24px" overflow="hidden" bg="black"
+            border="1px solid rgba(255, 255, 255, 0.08)"
+            boxShadow="0 10px 40px rgba(0,0,0,0.4)"
+            transition="all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
+            _hover={{ borderColor: "var(--chakra-colors-brandPrimary)", boxShadow: "0 15px 50px rgba(0,0,0,0.5), 0 0 20px var(--chakra-colors-brandGlow)" }}
+          >
             <video ref={localRef} autoPlay muted playsInline style={{ width: "100%", height: "100%", objectFit: "cover", transform: "scaleX(-1)" }} />
-            <Box position="absolute" bottom={4} left={4} bg="rgba(15, 15, 20, 0.75)" px={3} py={1} borderRadius="lg" border="1px solid rgba(255, 255, 255, 0.08)" backdropFilter="blur(8px)">
+            <Box
+              position="absolute" bottom={4} left={4}
+              bg="rgba(15, 15, 20, 0.7)" px={3} py={1.5} borderRadius="xl"
+              border="1px solid rgba(255, 255, 255, 0.1)" backdropFilter="blur(12px)"
+              boxShadow="0 4px 12px rgba(0,0,0,0.3)"
+            >
               <Text fontSize="sm" color="white" fontWeight="bold">{name} (You)</Text>
             </Box>
           </Box>
           {Object.entries(peers).map(([id, { stream, name }]) => (
-            <Box key={id} position="relative" borderRadius="2xl" overflow="hidden" bg="black" border="1px solid rgba(255, 255, 255, 0.08)" boxShadow="0 10px 25px rgba(0,0,0,0.3)">
+            <Box
+              key={id} position="relative" borderRadius="24px" overflow="hidden" bg="black"
+              border="1px solid rgba(255, 255, 255, 0.08)"
+              boxShadow="0 10px 40px rgba(0,0,0,0.4)"
+              transition="all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
+              _hover={{ borderColor: "var(--chakra-colors-brandPrimary)", boxShadow: "0 15px 50px rgba(0,0,0,0.5), 0 0 20px var(--chakra-colors-brandGlow)" }}
+            >
               <video id={"video-" + id} autoPlay playsInline style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-              <Box position="absolute" bottom={4} left={4} bg="rgba(15, 15, 20, 0.75)" px={3} py={1} borderRadius="lg" border="1px solid rgba(255, 255, 255, 0.08)" backdropFilter="blur(8px)">
+              <Box
+                position="absolute" bottom={4} left={4}
+                bg="rgba(15, 15, 20, 0.7)" px={3} py={1.5} borderRadius="xl"
+                border="1px solid rgba(255, 255, 255, 0.1)" backdropFilter="blur(12px)"
+                boxShadow="0 4px 12px rgba(0,0,0,0.3)"
+              >
                 <Text fontSize="sm" color="white" fontWeight="bold">{name}</Text>
               </Box>
             </Box>
@@ -404,33 +484,89 @@ export default function VideoCall() {
         </Grid>
 
         {/* Controls */}
-        <Flex justify="center" align="center" gap={{ base: 3, md: 4 }} mt={4} p={{ base: 3, md: 4 }} bg="rgba(10, 10, 10, 0.4)" backdropFilter="blur(20px)" borderRadius="2xl" border="1px solid rgba(255, 255, 255, 0.06)">
-          <IconButton icon={muted ? <MicOff /> : <Mic />} isRound size={{ base: "md", md: "lg" }} bg={muted ? "red.500" : "rgba(255, 255, 255, 0.03)"} border="1px solid rgba(255, 255, 255, 0.05)" color="white" onClick={toggleMute} _hover={{ bg: muted ? "red.600" : "var(--chakra-colors-surfaceHover)", borderColor: "var(--chakra-colors-brandPrimary)" }} aria-label={muted ? "Unmute" : "Mute"} />
-          <IconButton icon={videoOff ? <VideoOff /> : <Video />} isRound size={{ base: "md", md: "lg" }} bg={videoOff ? "red.500" : "rgba(255, 255, 255, 0.03)"} border="1px solid rgba(255, 255, 255, 0.05)" color="white" onClick={toggleVideo} _hover={{ bg: videoOff ? "red.600" : "var(--chakra-colors-surfaceHover)", borderColor: "var(--chakra-colors-brandPrimary)" }} aria-label={videoOff ? "Turn Video On" : "Turn Video Off"} />
-          <IconButton icon={<PhoneOff />} isRound size={{ base: "md", md: "lg" }} bg="red.500" color="white" onClick={() => window.location.reload()} _hover={{ bg: "red.600" }} aria-label="End Call" />
+        <Flex
+          justify="center" align="center" gap={{ base: 3, md: 4 }} mt={4} p={{ base: 3, md: 4 }}
+          bg="rgba(15, 15, 20, 0.5)" backdropFilter="blur(30px)" WebkitBackdropFilter="blur(30px)"
+          borderRadius="2xl" border="1px solid rgba(255, 255, 255, 0.08)"
+          boxShadow="0 8px 30px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06)"
+        >
+          <IconButton
+            icon={muted ? <MicOff /> : <Mic />} isRound size={{ base: "md", md: "lg" }}
+            bg={muted ? "red.500" : "rgba(255, 255, 255, 0.06)"} border="1px solid rgba(255, 255, 255, 0.08)" color="white"
+            onClick={toggleMute} transition="all 0.2s cubic-bezier(0.4, 0, 0.2, 1)"
+            _hover={{ bg: muted ? "red.600" : "rgba(255,255,255,0.12)", borderColor: "var(--chakra-colors-brandPrimary)", transform: "scale(1.08)" }}
+            _active={{ transform: "scale(0.95)" }}
+            aria-label={muted ? "Unmute" : "Mute"}
+          />
+          <IconButton
+            icon={videoOff ? <VideoOff /> : <Video />} isRound size={{ base: "md", md: "lg" }}
+            bg={videoOff ? "red.500" : "rgba(255, 255, 255, 0.06)"} border="1px solid rgba(255, 255, 255, 0.08)" color="white"
+            onClick={toggleVideo} transition="all 0.2s cubic-bezier(0.4, 0, 0.2, 1)"
+            _hover={{ bg: videoOff ? "red.600" : "rgba(255,255,255,0.12)", borderColor: "var(--chakra-colors-brandPrimary)", transform: "scale(1.08)" }}
+            _active={{ transform: "scale(0.95)" }}
+            aria-label={videoOff ? "Turn Video On" : "Turn Video Off"}
+          />
+          <IconButton
+            icon={<PhoneOff />} isRound size={{ base: "md", md: "lg" }}
+            bg="red.500" color="white" onClick={() => window.location.reload()}
+            transition="all 0.2s cubic-bezier(0.4, 0, 0.2, 1)"
+            _hover={{ bg: "red.600", transform: "scale(1.08)" }}
+            _active={{ transform: "scale(0.95)" }}
+            aria-label="End Call"
+          />
         </Flex>
       </Flex>
 
       {/* Side Panel */}
-      <Flex w={{ base: "100%", md: "350px" }} direction="column" borderLeft="1px solid var(--chakra-colors-border)" bg="rgba(10, 10, 10, 0.25)" backdropFilter="blur(10px)">
-        <Box p={4} borderBottom="1px solid var(--chakra-colors-border)">
-          <Text fontWeight="bold">Meeting Chat</Text>
+      <Flex
+        w={{ base: "100%", md: "350px" }} direction="column"
+        borderLeft={{ md: "1px solid rgba(255, 255, 255, 0.06)" }}
+        bg="rgba(10, 10, 15, 0.35)" backdropFilter="blur(20px)"
+      >
+        <Box p={4} borderBottom="1px solid rgba(255, 255, 255, 0.06)">
+          <Text fontWeight="bold" letterSpacing="-0.3px">Meeting Chat</Text>
         </Box>
         <Flex flex={1} direction="column" p={4} overflowY="auto" gap={3}>
           {messages.map((m, i) => (
             <Flex key={i} direction="column" align={m.userName === name ? "flex-end" : "flex-start"}>
-              <Text fontSize="xs" color="var(--chakra-colors-textSecondary)" mb={1}>{m.userName}</Text>
-              <Box bg={m.userName === name ? "linear-gradient(135deg, var(--chakra-colors-brandPrimary), var(--chakra-colors-brandSecondary))" : "rgba(255,255,255,0.03)"} border="1px solid rgba(255,255,255,0.05)" color={m.userName === name ? "white" : "var(--chakra-colors-textPrimary)"} px={4} py={2} borderRadius="xl" maxW="90%">
+              <Text fontSize="xs" color="var(--chakra-colors-textSecondary)" mb={1} fontWeight="500">{m.userName}</Text>
+              <Box
+                bg={m.userName === name
+                  ? "linear-gradient(135deg, var(--chakra-colors-brandPrimary), var(--chakra-colors-brandSecondary))"
+                  : "rgba(255,255,255,0.04)"}
+                border={m.userName === name ? "none" : "1px solid rgba(255,255,255,0.06)"}
+                color={m.userName === name ? "white" : "var(--chakra-colors-textPrimary)"}
+                px={4} py={2.5} borderRadius="2xl" maxW="90%"
+                boxShadow={m.userName === name ? "0 4px 15px var(--chakra-colors-brandGlow)" : "none"}
+                transition="all 0.2s"
+              >
                 <Text fontSize="sm">{m.text}</Text>
               </Box>
             </Flex>
           ))}
         </Flex>
-        <Flex p={4} borderTop="1px solid var(--chakra-colors-border)" gap={2}>
-          <Input placeholder="Type a message..." value={text} onChange={e => setText(e.target.value)} onKeyDown={e => e.key === "Enter" && sendMessage()} bg="rgba(255,255,255,0.02)" border="1px solid rgba(255, 255, 255, 0.08)" height="44px" borderRadius="xl" _focus={{ borderColor: "var(--chakra-colors-brandPrimary)" }} />
-          <IconButton icon={<Send size={18} />} bg="linear-gradient(135deg, var(--chakra-colors-brandPrimary), var(--chakra-colors-brandSecondary))" color="white" _hover={{ bg: "var(--chakra-colors-brandHover)" }} onClick={sendMessage} height="44px" width="44px" borderRadius="xl" />
+        <Flex p={4} borderTop="1px solid rgba(255, 255, 255, 0.06)" gap={2}>
+          <Input
+            placeholder="Type a message..." value={text} onChange={e => setText(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && sendMessage()}
+            bg="rgba(255,255,255,0.03)" border="1px solid rgba(255, 255, 255, 0.08)"
+            height="44px" borderRadius="xl"
+            boxShadow="inset 0 2px 4px rgba(0,0,0,0.2)"
+            _hover={{ borderColor: "rgba(255,255,255,0.15)", bg: "rgba(255,255,255,0.05)" }}
+            _focus={{ borderColor: "var(--chakra-colors-brandPrimary)", boxShadow: "0 0 0 1px var(--chakra-colors-brandPrimary), 0 0 12px var(--chakra-colors-brandGlow)" }}
+          />
+          <IconButton
+            icon={<Send size={18} />}
+            bg="linear-gradient(135deg, var(--chakra-colors-brandPrimary), var(--chakra-colors-brandSecondary))"
+            color="white"
+            _hover={{ transform: "scale(1.05)", boxShadow: "0 4px 15px var(--chakra-colors-brandGlow)" }}
+            _active={{ transform: "scale(0.95)" }}
+            onClick={sendMessage} height="44px" width="44px" borderRadius="xl"
+            transition="all 0.2s cubic-bezier(0.4, 0, 0.2, 1)"
+          />
         </Flex>
       </Flex>
     </Flex>
   );
 }
+

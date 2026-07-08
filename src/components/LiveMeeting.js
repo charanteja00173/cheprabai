@@ -8,21 +8,24 @@ const MeetingOverlay = styled.div`
   position: fixed;
   inset: 40px;
   z-index: 10005;
-  background: rgba(10, 10, 10, 0.95);
-  backdrop-filter: blur(20px);
+  background: rgba(10, 10, 15, 0.45);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
   display: flex;
   flex-direction: column;
   color: white;
   padding: 24px;
   overflow: hidden;
   border-radius: 32px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 50px 100px rgba(0,0,0,0.8);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 
+    0 50px 100px rgba(0, 0, 0, 0.85),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
 
   @media (max-width: 768px) {
     inset: 0;
     border-radius: 0;
-    padding: 6px 8px;
+    padding: 12px 10px;
     background: #000;
   }
 `;
@@ -31,18 +34,11 @@ const MeetingHeader = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 15px;
+  margin-bottom: 20px;
   width: 100%;
-  height: 50px;
+  height: 54px;
   flex-shrink: 0;
-  padding: 0 20px;
-
-  @media (max-width: 768px) {
-    padding: 0 8px;
-    gap: 10px;
-    height: 40px;
-    margin-bottom: 8px;
-  }
+  padding: 0 12px;
 `;
 
 const ContentLayout = styled.div`
@@ -62,84 +58,103 @@ const ContentLayout = styled.div`
 
 const MainStage = styled.div`
   flex: 3;
-  background: #000;
-  border-radius: 24px;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 28px;
   overflow: hidden;
   position: relative;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 30px 60px rgba(0,0,0,0.6);
+  box-shadow: 
+    0 30px 60px rgba(0, 0, 0, 0.7),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
 `;
 
 const ParticipantGrid = styled.div`
   flex: 1;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
   overflow-y: auto;
-  padding-right: 10px;
+  padding-right: 8px;
 
   @media (max-width: 1024px) {
     display: flex;
     overflow-x: auto;
     overflow-y: hidden;
-    padding: 10px 5px;
-    max-height: 140px;
-    gap: 10px;
+    padding: 12px 4px;
+    max-height: 150px;
+    gap: 12px;
     &::-webkit-scrollbar { display: none; }
   }
 `;
 
 const VideoTile = styled.div`
-  background: #111;
-  border-radius: 12px;
+  background: rgba(20, 20, 25, 0.4);
+  backdrop-filter: blur(10px);
+  border-radius: 20px;
   overflow: hidden;
   position: relative;
   aspect-ratio: 16/9;
-  border: 1px solid ${props => props.$isTalking ? "var(--chakra-colors-brandPrimary)" : "rgba(255,255,255,0.1)"};
-  box-shadow: ${props => props.$isTalking ? "0 0 15px rgba(0, 191, 165, 0.4)" : "none"};
-  transition: all 0.3s ease;
+  border: 1px solid ${props => props.$isTalking ? "var(--chakra-colors-brandPrimary)" : "rgba(255,255,255,0.06)"};
+  box-shadow: ${props => props.$isTalking 
+    ? "0 0 20px rgba(0, 191, 165, 0.3), inset 0 1px 0 rgba(255,255,255,0.1)" 
+    : "0 8px 24px rgba(0, 0, 0, 0.3)"};
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
   flex-shrink: 0;
 
   @media (max-width: 1024px) {
-    width: clamp(120px, 35vw, 160px);
+    width: clamp(130px, 35vw, 170px);
+  }
+
+  &:hover {
+    transform: translateY(-2px);
+    border-color: var(--chakra-colors-brandPrimary);
+    box-shadow: 
+      0 12px 30px rgba(0, 0, 0, 0.45),
+      0 0 15px var(--chakra-colors-brandGlow);
   }
 
   &:hover .pin-overlay {
     opacity: 1;
   }
-  video { width: 100%; height: 100%; object-fit: cover; }
+  
+  video { 
+    width: 100%; 
+    height: 100%; 
+    object-fit: cover; 
+  }
 `;
 
 const PinOverlay = styled.div`
   position: absolute;
   inset: 0;
-  background: rgba(0,0,0,0.4);
+  background: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
   opacity: 0;
-  transition: opacity 0.2s ease;
+  transition: opacity 0.25s ease;
   pointer-events: none;
   z-index: 10;
 `;
 
 const PinButton = styled.div`
-  background: var(--chakra-colors-brandPrimary);
+  background: linear-gradient(135deg, var(--chakra-colors-brandPrimary), var(--chakra-colors-brandSecondary));
   color: white;
-  padding: 8px 12px;
+  padding: 8px 16px;
   border-radius: 20px;
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: 700;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   pointer-events: all;
-  transform: translateY(10px);
-  transition: transform 0.2s ease;
+  transform: translateY(8px);
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 
   ${VideoTile}:hover & {
     transform: translateY(0);
@@ -148,18 +163,25 @@ const PinButton = styled.div`
 
 const NameTag = styled.div`
   position: absolute;
-  bottom: 8px;
-  left: 8px;
-  background: rgba(0, 0, 0, 0.6);
+  bottom: 10px;
+  left: 10px;
+  background: rgba(15, 15, 20, 0.75);
   padding: 4px 10px;
-  border-radius: 8px;
+  border-radius: 10px;
   font-size: 0.75rem;
-  backdrop-filter: blur(4px);
+  font-weight: 600;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
   @media (max-width: 768px) {
     font-size: 0.65rem;
-    padding: 2px 6px;
-    bottom: 4px;
-    left: 4px;
+    padding: 3px 8px;
+    bottom: 6px;
+    left: 6px;
   }
 `;
 
@@ -171,18 +193,24 @@ const ControlBar = styled.div`
   display: flex;
   align-items: center;
   gap: 12px;
-  background: rgba(20, 20, 20, 0.6);
-  backdrop-filter: blur(20px);
-  border-radius: 30px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(15, 15, 20, 0.55);
+  backdrop-filter: blur(36px);
+  -webkit-backdrop-filter: blur(36px);
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
   padding: 8px 20px;
   z-index: 500;
-  box-shadow: 0 15px 35px rgba(0,0,0,0.4);
+  box-shadow: 
+    0 20px 45px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
   &:hover {
-    background: var(--chakra-colors-glassBg);
-    bottom: 35px;
+    background: rgba(15, 15, 20, 0.65);
+    bottom: 32px;
+    box-shadow: 
+      0 25px 50px rgba(0, 0, 0, 0.6),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1);
   }
 
   @media (max-width: 768px) {
@@ -205,25 +233,34 @@ const CircleButton = styled.button`
   width: 48px;
   height: 48px;
   border-radius: 14px;
-  border: 1px solid ${props => props.$active ? "rgba(255, 71, 87, 0.5)" : "rgba(255, 255, 255, 0.1)"};
-  background: ${props => props.$active ? "#ff4757" : "rgba(255, 255, 255, 0.05)"};
+  border: 1px solid ${props => props.$active ? "rgba(255, 71, 87, 0.5)" : "rgba(255, 255, 255, 0.06)"};
+  background: ${props => props.$active ? "#ff4757" : "rgba(255, 255, 255, 0.04)"};
   color: white;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 1.1rem;
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   flex-shrink: 0;
 
   @media (max-width: 768px) {
-    width: 36px;
-    height: 36px;
-    font-size: 0.9rem;
-    border-radius: 8px;
+    width: 38px;
+    height: 38px;
+    font-size: 0.95rem;
+    border-radius: 10px;
   }
 
-  &:hover { transform: translateY(-2px); background: ${props => props.$active ? "#ff6b81" : "rgba(255, 255, 255, 0.12)"}; }
+  &:hover { 
+    transform: translateY(-2px); 
+    background: ${props => props.$active ? "#ff6b81" : "rgba(255, 255, 255, 0.1)"};
+    border-color: ${props => props.$active ? "rgba(255, 71, 87, 0.8)" : "var(--chakra-colors-brandPrimary)"};
+    box-shadow: ${props => props.$active ? "none" : "0 0 10px var(--chakra-colors-brandGlow)"};
+  }
+  
+  &:active {
+    transform: translateY(0);
+  }
 `;
 
 
