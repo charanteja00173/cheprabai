@@ -76,7 +76,7 @@ const UnifiedWorkspace = () => {
 
       {/* Sidebar Navigation */}
       <MotionBox
-        w={{ base: isSidebarOpen ? "260px" : "0px", md: "86px" }}
+        w={{ base: isSidebarOpen ? "260px" : "0px", md: "68px" }}
         h="100%"
         bg="rgba(10, 10, 14, 0.55)"
         backdropFilter="blur(30px)"
@@ -86,21 +86,21 @@ const UnifiedWorkspace = () => {
         display="flex"
         flexDirection="column"
         alignItems="center"
-        py={isMobile ? "calc(68px + env(safe-area-inset-top, 0px))" : 8}
+        py={isMobile ? "calc(68px + env(safe-area-inset-top, 0px))" : 6}
         position={{ base: "fixed", md: "relative" }}
         zIndex={10}
         overflow="hidden"
         initial={false}
-        animate={{ width: isMobile ? (isSidebarOpen ? "260px" : "0px") : "86px" }}
+        animate={{ width: isMobile ? (isSidebarOpen ? "260px" : "0px") : "68px" }}
         transition={{ duration: 0.3, ease: "easeInOut" }}
       >
         {!isMobile && (
-          <Box mb={10} position="relative" display="flex" alignItems="center" justifyContent="center">
+          <Box mb={8} position="relative" display="flex" alignItems="center" justifyContent="center">
             {/* Pulsing radar rings for premium look */}
             <Box
               position="absolute"
-              w="48px"
-              h="48px"
+              w="40px"
+              h="40px"
               borderRadius="full"
               border="2px solid var(--chakra-colors-brandPrimary)"
               opacity={0.35}
@@ -108,7 +108,7 @@ const UnifiedWorkspace = () => {
               pointerEvents="none"
             />
             <Box color="var(--chakra-colors-brandPrimary)" zIndex={1} filter="drop-shadow(0 0 8px var(--chakra-colors-brandGlow))">
-              <ShieldCheck size={32} />
+              <ShieldCheck size={26} />
             </Box>
             <style>{`
               @keyframes radar-pulse {
@@ -119,16 +119,16 @@ const UnifiedWorkspace = () => {
           </Box>
         )}
 
-        <VStack spacing={5} w="100%" px={isMobile ? 3 : 0}>
+        <VStack spacing={4} w="100%" px={isMobile ? 3 : 0}>
           {NAV_ITEMS.map((item) => {
             const isActive = location.pathname === item.path;
             return (
               <Tooltip key={item.path} label={isMobile ? "" : item.label} placement="right" hasArrow>
                 <Flex
                   position="relative"
-                  w={isMobile ? "100%" : "54px"}
-                  h="54px"
-                  borderRadius="16px"
+                  w={isMobile ? "100%" : "46px"}
+                  h="46px"
+                  borderRadius="14px"
                   alignItems="center"
                   justifyContent={isMobile ? "flex-start" : "center"}
                   px={isMobile ? 4 : 0}
@@ -150,7 +150,7 @@ const UnifiedWorkspace = () => {
                       position="absolute"
                       inset={0}
                       bg="var(--chakra-colors-brandPrimary)"
-                      borderRadius="16px"
+                      borderRadius="14px"
                       boxShadow="0 4px 15px var(--chakra-colors-brandGlow)"
                       zIndex={-1}
                       transition={{ type: "spring", stiffness: 380, damping: 30 }}
@@ -161,9 +161,9 @@ const UnifiedWorkspace = () => {
                   {isActive && !isMobile && (
                     <Box
                       position="absolute"
-                      left="-10px"
-                      w="4px"
-                      h="16px"
+                      left="-8px"
+                      w="3px"
+                      h="14px"
                       bg="var(--chakra-colors-brandPrimary)"
                       borderRadius="full"
                     />

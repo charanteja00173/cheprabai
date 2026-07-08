@@ -41,14 +41,6 @@ export const GlobalStyle = createGlobalStyle`
     outline: none;
   }
 
-  /* Coarse pointer (touch devices) — bigger tap targets */
-  @media (pointer: coarse) {
-    button, a, [role='button'] {
-      min-height: 44px;
-      min-width: 44px;
-    }
-  }
-
   /* Safe Area custom properties */
   :root {
     --safe-top: env(safe-area-inset-top, 0px);

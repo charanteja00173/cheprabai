@@ -86,8 +86,8 @@ const ChatContainer = styled.div`
 const Header = styled.div`
   display: flex;
   align-items: center;
-  padding: clamp(10px, 2vw, 20px);
-  min-height: 64px;
+  padding: 8px 16px;
+  min-height: 52px;
   background: rgba(10, 10, 10, 0.4);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
@@ -95,18 +95,13 @@ const Header = styled.div`
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   box-sizing: border-box;
   z-index: 10;
-
-  @media (max-width: 480px) {
-    padding: 8px 12px;
-    min-height: 52px;
-  }
 `;
 
 const Avatar = styled.img`
-  width: clamp(32px, 4vw, 36px);
-  height: clamp(32px, 4vw, 36px);
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
-  margin-right: clamp(8px, 1.5vw, 12px);
+  margin-right: 8px;
   border: 1.5px solid rgba(255, 255, 255, 0.1);
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.25);
 `;
@@ -124,10 +119,10 @@ const ActionButton = styled.button`
   border: 1px solid rgba(255, 255, 255, 0.04);
   color: var(--chakra-colors-textPrimary);
   cursor: pointer;
-  font-size: 1.15rem;
-  min-width: 42px;
-  min-height: 42px;
-  border-radius: 12px;
+  font-size: 1rem;
+  min-width: 34px;
+  min-height: 34px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -139,13 +134,6 @@ const ActionButton = styled.button`
     border-color: var(--chakra-colors-brandPrimary);
     transform: translateY(-2px);
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-  }
-
-  @media (max-width: 480px) {
-    min-width: 34px;
-    min-height: 34px;
-    font-size: 1rem;
-    border-radius: 8px;
   }
 `;
 
@@ -545,19 +533,19 @@ const SendBtn = styled(PreviewButton)`
 const MessageInputContainer = styled.div`
   display: flex;
   align-items: center;
-  padding: 14px 24px;
+  padding: 10px 16px;
   background: rgba(10, 10, 14, 0.5);
   backdrop-filter: blur(30px);
   -webkit-backdrop-filter: blur(30px);
   border-top: 1px solid rgba(255, 255, 255, 0.06);
-  gap: 12px;
-  padding-bottom: calc(14px + var(--safe-bottom));
+  gap: 8px;
+  padding-bottom: calc(10px + var(--safe-bottom));
   box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.15);
   
   @media (max-width: 600px) {
-    padding: 10px 12px;
-    padding-bottom: calc(10px + var(--safe-bottom));
-    gap: 8px;
+    padding: 8px 12px;
+    padding-bottom: calc(8px + var(--safe-bottom));
+    gap: 6px;
 
     /* Target nested timer text */
     span {
@@ -567,30 +555,30 @@ const MessageInputContainer = styled.div`
 
     /* Target voice record button and timer controls */
     button {
-      width: 38px !important;
-      height: 38px !important;
+      width: 34px !important;
+      height: 34px !important;
       font-size: 0.9rem !important;
-      border-radius: 10px !important;
+      border-radius: 8px !important;
     }
 
     /* Target Ephemeral toggle button specifically */
     button[title*="Ephemeral"] {
-      padding: 6px 10px !important;
-      font-size: 0.82rem !important;
-      border-radius: 12px !important;
+      padding: 4px 8px !important;
+      font-size: 0.8rem !important;
+      border-radius: 10px !important;
     }
   }
 `;
 
 const MessageInput = styled.input`
   flex: 1;
-  padding: 14px 20px;
-  border-radius: 24px;
+  padding: 10px 16px;
+  border-radius: 20px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.03);
   color: var(--chakra-colors-textPrimary);
   outline: none;
-  font-size: max(16px, 0.98rem);
+  font-size: 0.92rem;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
 
@@ -611,12 +599,6 @@ const MessageInput = styled.input`
     color: var(--chakra-colors-textSecondary);
     opacity: 0.6;
   }
-
-  @media (max-width: 600px) {
-    padding: 10px 14px;
-    font-size: 0.92rem;
-    border-radius: 18px;
-  }
 `;
 
 const FileInput = styled.input`
@@ -624,12 +606,12 @@ const FileInput = styled.input`
 `;
 
 const FileUploadLabel = styled.label`
-  font-size: 1.3rem;
+  font-size: 1.15rem;
   cursor: pointer;
   color: var(--chakra-colors-textSecondary);
-  min-width: 44px;
-  min-height: 44px;
-  border-radius: 12px;
+  min-width: 36px;
+  min-height: 36px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -644,18 +626,11 @@ const FileUploadLabel = styled.label`
     border-color: var(--chakra-colors-brandPrimary);
     transform: translateY(-2px);
   }
-
-  @media (max-width: 480px) {
-    min-width: 34px;
-    min-height: 34px;
-    font-size: 1.1rem;
-    border-radius: 8px;
-  }
 `;
 
 const SendButton = styled.button`
-  width: 44px;
-  height: 44px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   border: none;
   background: linear-gradient(135deg, var(--chakra-colors-brandPrimary), var(--chakra-colors-brandSecondary));
@@ -675,11 +650,6 @@ const SendButton = styled.button`
 
   &:active {
     transform: scale(0.95);
-  }
-
-  @media (max-width: 480px) {
-    width: 34px;
-    height: 34px;
   }
 `;
 /* ================= GIF PICKER IMPROVED ================= */
