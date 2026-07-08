@@ -1081,7 +1081,9 @@ export default function ChatRoom() {
   /* ================= SOCKET ================= */
 
   useEffect(() => {
-    socketRef.current = io(process.env.REACT_APP_SOCKET_ENDPOINT || "http://localhost:4000");
+    socketRef.current = io(process.env.REACT_APP_SOCKET_ENDPOINT || "http://localhost:4000", {
+      transports: ["websocket"]
+    });
     return () => socketRef.current.disconnect();
   }, []);
 
