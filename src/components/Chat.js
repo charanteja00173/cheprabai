@@ -532,13 +532,15 @@ const PreviewModal = styled.div`
 
   @media (max-width: 600px) {
     width: 95%;
-    max-height: calc(100vh - var(--safe-top) - var(--safe-bottom) - 24px);
+    max-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - 24px);
     padding: 16px;
+    gap: 16px;
   }
 `;
 
 const PreviewContent = styled.div`
-  max-height: 60vh;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
 
   img,
@@ -825,7 +827,7 @@ const GifPickerOverlay = styled(PreviewOverlay)`
 const GifPickerModal = styled(PreviewModal)`
   width: 100%;
   max-width: 650px;
-  max-height: min(85vh, calc(100vh - var(--safe-top) - var(--safe-bottom) - 30px));
+  max-height: min(85vh, calc(100dvh - var(--safe-top) - var(--safe-bottom) - 30px));
 
   padding: 20px;
   background: rgba(15, 15, 20, 0.7);
@@ -847,8 +849,9 @@ const GifPickerModal = styled(PreviewModal)`
 
   @media (max-width: 600px) {
     width: 95%;
-    max-height: calc(100vh - var(--safe-top) - var(--safe-bottom) - 20px);
+    max-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - 20px);
     padding: 16px;
+    gap: 12px;
   }
 `;
 
@@ -907,12 +910,14 @@ const SearchGifButton = styled.button`
 
 const GifGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(120px, 30vw), 1fr));
-  gap: 4px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100px, 28vw), 1fr));
+  gap: 6px;
   overflow-y: auto;
-  max-height: 60vh;
+  flex: 1 1 auto;
+  min-height: 0;
   justify-items: center;
   scroll-behavior: smooth;
+  width: 100%;
 `;
 
 const GifCard = styled.div`
@@ -942,35 +947,20 @@ const GifItem = styled.img`
 const CardOverlay = styled.div`
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.25);
+  background: rgba(0, 0, 0, 0.4);
   display: flex;
   justify-content: center;
   align-items: center;
   opacity: 0;
-  transition: opacity 0.2s;
+  transition: opacity 0.2s ease;
 
-  ${GifCard}:hover & {
-    opacity: 1;
+  @media (hover: hover) {
+    ${GifCard}:hover & {
+      opacity: 1;
+    }
   }
 `;
 
-const OverlayButton = styled.button`
-  background: var(--chakra-colors-brandPrimary);
-  color: #000;
-  border: none;
-  padding: 6px 12px;
-  border-radius: 12px;
-  cursor: pointer;
-  font-weight: bold;
-  opacity: 0.9;
-  font-size: 0.85rem;
-  transition: all 0.2s;
-
-  &:hover {
-    background: var(--chakra-colors-brandHover);
-    opacity: 1;
-  }
-`;
 
 const SearchPopup = styled.div`
   position: absolute;
@@ -2057,21 +2047,20 @@ export default function ChatRoom() {
 
               <GifGrid ref={gifGridRef}>
                 {gifs.map((gif) => (
-                  <GifCard key={gif.id}>
+                  <GifCard
+                    key={gif.id}
+                    onClick={() => {
+                      handleSend({ text: "", gif: gif.images.fixed_height.url });
+                      setShowGifPicker(false);
+                    }}
+                  >
                     <GifItem
                       src={gif.images.fixed_height.url}
                       alt={gif.title}
                       loading="lazy"
                     />
                     <CardOverlay>
-                      <OverlayButton
-                        onClick={() => {
-                          handleSend({ text: "", gif: gif.images.fixed_height.url });
-                          setShowGifPicker(false);
-                        }}
-                      >
-                        <FaPaperPlane style={{ size: "sm" }} />
-                      </OverlayButton>
+                      <FaPaperPlane style={{ color: "#fff", fontSize: "1.1rem" }} />
                     </CardOverlay>
                   </GifCard>
                 ))}
@@ -2210,20 +2199,21 @@ export default function ChatRoom() {
             style={{
               position: "fixed",
               inset: 0,
-              background: "rgba(0,0,0,.9)",
+              background: "rgba(0,0,0,0.95)",
               display: "flex",
               justifyContent: "center",
               alignItems: "center",
+              zIndex: 20000,
             }}
           >
-            {fullscreen.type.startsWith("image") && (
+            {fullscreen.type && fullscreen.type.startsWith("image") && (
               <img
                 alt={fullscreen.name}
                 src={fullscreen.url}
                 style={{ maxWidth: "95%", maxHeight: "85vh", objectFit: "contain" }}
               />
             )}
-            {fullscreen.type.startsWith("video") && (
+            {fullscreen.type && fullscreen.type.startsWith("video") && (
               <video
                 src={fullscreen.url}
                 controls
@@ -2231,7 +2221,7 @@ export default function ChatRoom() {
                 style={{ maxWidth: "95%", maxHeight: "85vh", objectFit: "contain" }}
               />
             )}
-            {!fullscreen.type.startsWith("image") && !fullscreen.type.startsWith("video") && (
+            {(!fullscreen.type || (!fullscreen.type.startsWith("image") && !fullscreen.type.startsWith("video"))) && (
               <div style={{ textAlign: "center", color: "var(--chakra-colors-textPrimary)", padding: 20 }}>
                 <FaFile size={100} style={{ marginBottom: 20, opacity: 0.3 }} />
                 <h2 style={{ marginBottom: 10 }}>{fullscreen.name}</h2>
