@@ -10,7 +10,7 @@ const SettingsButton = styled.button`
   border: none;
   color: var(--chakra-colors-textPrimary);
   cursor: pointer;
-  font-size: 1.25rem;
+  font-size: 1.1rem;
   opacity: 0.7;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;

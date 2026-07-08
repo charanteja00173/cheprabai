@@ -14,9 +14,9 @@ const UnifiedWorkspace = () => {
   const isMobile = useBreakpointValue({ base: true, md: false });
 
   const NAV_ITEMS = [
-    { path: "/", icon: <MessageSquare size={24} />, label: "Secure Chat" },
-    { path: "/call", icon: <Video size={24} />, label: "E2EE Video Call" },
-    { path: "/live-stream", icon: <Radio size={24} />, label: "Live Stream" },
+    { path: "/", icon: <MessageSquare size={20} />, label: "Secure Chat" },
+    { path: "/call", icon: <Video size={20} />, label: "E2EE Video Call" },
+    { path: "/live-stream", icon: <Radio size={20} />, label: "Live Stream" },
   ];
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
@@ -76,7 +76,7 @@ const UnifiedWorkspace = () => {
 
       {/* Sidebar Navigation */}
       <MotionBox
-        w={{ base: isSidebarOpen ? "260px" : "0px", md: "68px" }}
+        w={{ base: isSidebarOpen ? "260px" : "0px", md: "60px" }}
         h="100%"
         bg="rgba(10, 10, 14, 0.55)"
         backdropFilter="blur(30px)"
@@ -91,7 +91,7 @@ const UnifiedWorkspace = () => {
         zIndex={10}
         overflow="hidden"
         initial={false}
-        animate={{ width: isMobile ? (isSidebarOpen ? "260px" : "0px") : "68px" }}
+        animate={{ width: isMobile ? (isSidebarOpen ? "260px" : "0px") : "60px" }}
         transition={{ duration: 0.3, ease: "easeInOut" }}
       >
         {!isMobile && (
@@ -99,8 +99,8 @@ const UnifiedWorkspace = () => {
             {/* Pulsing radar rings for premium look */}
             <Box
               position="absolute"
-              w="40px"
-              h="40px"
+              w="36px"
+              h="36px"
               borderRadius="full"
               border="2px solid var(--chakra-colors-brandPrimary)"
               opacity={0.35}
@@ -108,7 +108,7 @@ const UnifiedWorkspace = () => {
               pointerEvents="none"
             />
             <Box color="var(--chakra-colors-brandPrimary)" zIndex={1} filter="drop-shadow(0 0 8px var(--chakra-colors-brandGlow))">
-              <ShieldCheck size={26} />
+              <ShieldCheck size={22} />
             </Box>
             <style>{`
               @keyframes radar-pulse {
@@ -126,9 +126,9 @@ const UnifiedWorkspace = () => {
               <Tooltip key={item.path} label={isMobile ? "" : item.label} placement="right" hasArrow>
                 <Flex
                   position="relative"
-                  w={isMobile ? "100%" : "46px"}
-                  h="46px"
-                  borderRadius="14px"
+                  w={isMobile ? "100%" : "40px"}
+                  h="40px"
+                  borderRadius="10px"
                   alignItems="center"
                   justifyContent={isMobile ? "flex-start" : "center"}
                   px={isMobile ? 4 : 0}
@@ -150,7 +150,7 @@ const UnifiedWorkspace = () => {
                       position="absolute"
                       inset={0}
                       bg="var(--chakra-colors-brandPrimary)"
-                      borderRadius="14px"
+                      borderRadius="10px"
                       boxShadow="0 4px 15px var(--chakra-colors-brandGlow)"
                       zIndex={-1}
                       transition={{ type: "spring", stiffness: 380, damping: 30 }}
@@ -161,9 +161,9 @@ const UnifiedWorkspace = () => {
                   {isActive && !isMobile && (
                     <Box
                       position="absolute"
-                      left="-8px"
+                      left="-6px"
                       w="3px"
-                      h="14px"
+                      h="12px"
                       bg="var(--chakra-colors-brandPrimary)"
                       borderRadius="full"
                     />
