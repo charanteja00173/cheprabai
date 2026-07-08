@@ -78,7 +78,7 @@ const LiveBadge = styled.div`
 const ChatContainer = styled.div`
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100dvh;
   background: var(--chakra-colors-bg);
   box-sizing: border-box;
 `;
@@ -263,7 +263,7 @@ const LandingWrapper = styled.div`
   justify-content: center;
   align-items: center;
   width: 100vw;
-  height: 100vh;
+  height: 100dvh;
   position: relative;
   background: var(--chakra-colors-bg);
   overflow: hidden;
@@ -1081,7 +1081,7 @@ export default function ChatRoom() {
   /* ================= SOCKET ================= */
 
   useEffect(() => {
-    socketRef.current = io(process.env.REACT_APP_SOCKET_ENDPOINT || "http://localhost:4000", {
+    socketRef.current = io(process.env.REACT_APP_SOCKET_ENDPOINT || "https://cheprabai-backend.onrender.com", {
       transports: ["websocket"]
     });
     return () => socketRef.current.disconnect();

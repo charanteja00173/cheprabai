@@ -339,7 +339,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const localStreamRef = useRef(null);
 
   useEffect(() => {
-    const backendUrl = new URL(process.env.REACT_APP_SOCKET_ENDPOINT || "http://localhost:4000");
+    const backendUrl = new URL(process.env.REACT_APP_SOCKET_ENDPOINT || "https://cheprabai-backend.onrender.com");
 
     const init = async () => {
       try {
