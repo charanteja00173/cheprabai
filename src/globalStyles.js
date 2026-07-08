@@ -3,7 +3,7 @@ import { createGlobalStyle } from 'styled-components';
 
 export const GlobalStyle = createGlobalStyle`
   html {
-    font-size: clamp(13px, 0.3vw + 13px, 16px);
+    font-size: clamp(11px, 0.2vw + 11.5px, 13.5px);
     -webkit-tap-highlight-color: transparent;
   }
 
