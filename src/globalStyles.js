@@ -5,11 +5,15 @@ export const GlobalStyle = createGlobalStyle`
   html {
     font-size: clamp(11px, 0.2vw + 11.5px, 13.5px);
     -webkit-tap-highlight-color: transparent;
+    height: 100%;
+    overflow: hidden;
   }
 
   body {
     margin: 0;
     padding: 0;
+    height: 100%;
+    overflow: hidden;
     background: var(--chakra-colors-bg);
     color: var(--chakra-colors-textPrimary);
     transition: background 0.3s ease, color 0.3s ease;
@@ -23,7 +27,10 @@ export const GlobalStyle = createGlobalStyle`
 
   /* Dynamic viewport height for mobile browsers (address bar resilience) */
   #root {
+    height: 100%;
+    min-height: 100vh;
     min-height: 100dvh;
+    overflow: hidden;
   }
 
   /* Interactive touch target optimization */

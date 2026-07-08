@@ -21,6 +21,7 @@ const SettingsButton = styled.button`
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid rgba(255, 255, 255, 0.05);
+  flex-shrink: 0;
 
   &:hover {
     opacity: 1;
@@ -28,6 +29,20 @@ const SettingsButton = styled.button`
     border-color: var(--chakra-colors-brandPrimary);
     transform: rotate(45deg) scale(1.05);
     box-shadow: 0 0 12px rgba(255, 63, 94, 0.15);
+  }
+
+  @media (max-width: 480px) {
+    width: 30px;
+    height: 30px;
+    font-size: 0.85rem;
+    border-radius: 8px;
+  }
+
+  @media (max-width: 375px) {
+    width: 28px;
+    height: 28px;
+    font-size: 0.8rem;
+    border-radius: 7px;
   }
 `;
 

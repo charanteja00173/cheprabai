@@ -85,9 +85,11 @@ const LiveBadge = styled.div`
 const ChatContainer = styled.div`
   display: flex;
   flex-direction: column;
+  height: 100vh;
   height: 100dvh;
   background: var(--chakra-colors-bg);
   box-sizing: border-box;
+  overflow: hidden;
 `;
 
 const Header = styled.div`
@@ -102,6 +104,17 @@ const Header = styled.div`
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   box-sizing: border-box;
   z-index: 10;
+  flex-shrink: 0;
+
+  @media (max-width: 480px) {
+    padding: 6px 10px;
+    min-height: 46px;
+  }
+
+  @media (max-width: 375px) {
+    padding: 6px 8px;
+    min-height: 42px;
+  }
 `;
 
 const Avatar = styled.img`
@@ -111,6 +124,19 @@ const Avatar = styled.img`
   margin-right: 8px;
   border: 1.5px solid rgba(255, 255, 255, 0.1);
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.25);
+  flex-shrink: 0;
+
+  @media (max-width: 480px) {
+    width: 26px;
+    height: 26px;
+    margin-right: 6px;
+  }
+
+  @media (max-width: 375px) {
+    width: 24px;
+    height: 24px;
+    margin-right: 5px;
+  }
 `;
 
 const RoomActions = styled.div`
@@ -119,6 +145,15 @@ const RoomActions = styled.div`
   align-items: center;
   gap: clamp(8px, 2vw, 14px);
   flex-wrap: nowrap;
+  flex-shrink: 0;
+
+  @media (max-width: 480px) {
+    gap: 6px;
+  }
+
+  @media (max-width: 375px) {
+    gap: 4px;
+  }
 `;
 
 const ActionButton = styled.button`
@@ -134,6 +169,7 @@ const ActionButton = styled.button`
   align-items: center;
   justify-content: center;
   padding: 0;
+  flex-shrink: 0;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 
   &:hover {
@@ -141,6 +177,20 @@ const ActionButton = styled.button`
     border-color: var(--chakra-colors-brandPrimary);
     transform: translateY(-2px);
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  }
+
+  @media (max-width: 480px) {
+    min-width: 30px;
+    min-height: 30px;
+    font-size: 0.85rem;
+    border-radius: 8px;
+  }
+
+  @media (max-width: 375px) {
+    min-width: 28px;
+    min-height: 28px;
+    font-size: 0.8rem;
+    border-radius: 7px;
   }
 `;
 
@@ -208,6 +258,12 @@ const MessageBubble = styled.div`
       p.isSystem ? "10px" :
         p.isSender ? "16px 16px 4px 16px" :
           "16px 16px 16px 4px"};
+  }
+
+  @media (max-width: 375px) {
+    max-width: ${(p) => (p.isSystem ? "95%" : "92%")};
+    padding: ${(p) => (p.isSystem ? "4px 8px" : p.isFile ? "6px" : "8px 12px")};
+    font-size: ${(p) => (p.isSystem ? "0.72rem" : "0.88rem")};
   }
 `;
 
@@ -575,17 +631,50 @@ const MessageInputContainer = styled.div`
       border-radius: 10px !important;
     }
   }
+
+  @media (max-width: 480px) {
+    padding: 6px 8px;
+    padding-bottom: calc(6px + var(--safe-bottom));
+    gap: 4px;
+
+    button {
+      width: 30px !important;
+      height: 30px !important;
+      font-size: 0.8rem !important;
+      border-radius: 6px !important;
+    }
+
+    button[title*="Ephemeral"] {
+      padding: 3px 6px !important;
+      font-size: 0.75rem !important;
+      border-radius: 8px !important;
+    }
+  }
+
+  @media (max-width: 360px) {
+    padding: 4px 6px;
+    padding-bottom: calc(4px + var(--safe-bottom));
+    gap: 3px;
+
+    button {
+      width: 28px !important;
+      height: 28px !important;
+      font-size: 0.75rem !important;
+      border-radius: 5px !important;
+    }
+  }
 `;
 
 const MessageInput = styled.input`
   flex: 1;
+  min-width: 0;
   padding: 10px 16px;
   border-radius: 20px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.03);
   color: var(--chakra-colors-textPrimary);
   outline: none;
-  font-size: 0.92rem;
+  font-size: max(16px, 0.92rem);
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
 
@@ -605,6 +694,17 @@ const MessageInput = styled.input`
   &::placeholder {
     color: var(--chakra-colors-textSecondary);
     opacity: 0.6;
+  }
+
+  @media (max-width: 480px) {
+    padding: 8px 12px;
+    border-radius: 16px;
+    font-size: max(16px, 0.88rem);
+  }
+
+  @media (max-width: 375px) {
+    padding: 7px 10px;
+    border-radius: 14px;
   }
 `;
 
@@ -633,6 +733,19 @@ const FileUploadLabel = styled.label`
     border-color: var(--chakra-colors-brandPrimary);
     transform: translateY(-2px);
   }
+
+  @media (max-width: 480px) {
+    min-width: 32px;
+    min-height: 32px;
+    font-size: 1rem;
+    border-radius: 8px;
+  }
+
+  @media (max-width: 375px) {
+    min-width: 30px;
+    min-height: 30px;
+    font-size: 0.9rem;
+  }
 `;
 
 const SendButton = styled.button`
@@ -657,6 +770,18 @@ const SendButton = styled.button`
 
   &:active {
     transform: scale(0.95);
+  }
+
+  @media (max-width: 480px) {
+    width: 32px;
+    height: 32px;
+    font-size: 0.85rem;
+  }
+
+  @media (max-width: 375px) {
+    width: 30px;
+    height: 30px;
+    font-size: 0.8rem;
   }
 `;
 /* ================= GIF PICKER IMPROVED ================= */
@@ -1601,14 +1726,14 @@ export default function ChatRoom() {
         <Header>
           <Avatar src={image} alt="Logo" />
           <div
-            style={{ display: "flex", flexDirection: "column", cursor: "pointer", position: "relative", minWidth: 0 }}
+            style={{ display: "flex", flexDirection: "column", cursor: "pointer", position: "relative", minWidth: 0, flex: "1 1 auto", overflow: "hidden" }}
             onClick={() => setShowRoomInfo(!showRoomInfo)}
           >
-            <div style={{ fontWeight: "bold", fontSize: "clamp(0.95rem, 3vw, 1.1rem)", display: "flex", alignItems: "center", gap: 5, minWidth: 0 }}>
-              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "clamp(100px, 30vw, 300px)" }}>{roomId}</span>
-              <span style={{ fontSize: "0.6rem", opacity: 0.5, flexShrink: 0 }}>▼</span>
+            <div style={{ fontWeight: "bold", fontSize: "clamp(0.85rem, 2.5vw, 1.1rem)", display: "flex", alignItems: "center", gap: 4, minWidth: 0 }}>
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "clamp(60px, 25vw, 300px)" }}>{roomId}</span>
+              <span style={{ fontSize: "0.55rem", opacity: 0.5, flexShrink: 0 }}>▼</span>
             </div>
-            <div style={{ fontSize: "clamp(0.7rem, 2vw, 0.8rem)", color: "#aaa" }}>
+            <div style={{ fontSize: "clamp(0.65rem, 1.8vw, 0.8rem)", color: "#aaa" }}>
               {onlineUsers.length} online
             </div>
 
