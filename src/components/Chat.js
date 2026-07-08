@@ -5,11 +5,11 @@ import styled, { keyframes } from "styled-components";
 import {
   FaPaperPlane,
   FaPenNib,
-  FaFileUpload,
+  FaPaperclip,
+  FaClock,
   FaFile,
   FaSearch,
   FaMicrophone,
-  FaStop,
   FaDownload,
 } from "react-icons/fa";
 import { HiGif } from "react-icons/hi2";
@@ -601,66 +601,126 @@ const MessageInputContainer = styled.div`
   backdrop-filter: blur(30px);
   -webkit-backdrop-filter: blur(30px);
   border-top: 1px solid rgba(255, 255, 255, 0.06);
-  gap: 8px;
+  gap: 12px;
   padding-bottom: calc(10px + var(--safe-bottom));
   box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.15);
-  
+  flex-shrink: 0;
+  box-sizing: border-box;
+
   @media (max-width: 600px) {
     padding: 8px 12px;
     padding-bottom: calc(8px + var(--safe-bottom));
-    gap: 6px;
-
-    /* Target nested timer text */
-    span {
-      font-size: 0.72rem !important;
-      min-width: 24px !important;
-    }
-
-    /* Target voice record button and timer controls */
-    button {
-      width: 34px !important;
-      height: 34px !important;
-      font-size: 0.9rem !important;
-      border-radius: 8px !important;
-    }
-
-    /* Target Ephemeral toggle button specifically */
-    button[title*="Ephemeral"] {
-      padding: 4px 8px !important;
-      font-size: 0.8rem !important;
-      border-radius: 10px !important;
-    }
+    gap: 8px;
   }
 
   @media (max-width: 480px) {
     padding: 6px 8px;
     padding-bottom: calc(6px + var(--safe-bottom));
-    gap: 4px;
+    gap: 6px;
+  }
+`;
 
-    button {
-      width: 30px !important;
-      height: 30px !important;
-      font-size: 0.8rem !important;
-      border-radius: 6px !important;
-    }
+const InputPill = styled.div`
+  display: flex;
+  align-items: center;
+  flex: 1;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+  padding: 4px 8px;
+  gap: 4px;
+  min-width: 0;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+  transition: all 0.25s ease;
 
-    button[title*="Ephemeral"] {
-      padding: 3px 6px !important;
-      font-size: 0.75rem !important;
-      border-radius: 8px !important;
-    }
+  &:focus-within {
+    border-color: var(--chakra-colors-brandPrimary);
+    box-shadow: 
+      inset 0 2px 4px rgba(0, 0, 0, 0.2),
+      0 0 15px var(--chakra-colors-brandGlow);
+    background: rgba(0, 0, 0, 0.2);
   }
 
-  @media (max-width: 360px) {
-    padding: 4px 6px;
-    padding-bottom: calc(4px + var(--safe-bottom));
-    gap: 3px;
+  @media (max-width: 480px) {
+    padding: 2px 6px;
+    border-radius: 20px;
+    gap: 2px;
+  }
+`;
 
-    button {
-      width: 28px !important;
-      height: 28px !important;
-      font-size: 0.75rem !important;
-      border-radius: 5px !important;
+const IconButton = styled.button`
+  background: transparent;
+  border: none;
+  color: var(--chakra-colors-textSecondary);
+  cursor: pointer;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+
+  &:hover {
+    color: var(--chakra-colors-textPrimary);
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  &:active {
+    transform: scale(0.95);
+  }
+
+  @media (max-width: 480px) {
+    width: 28px;
+    height: 28px;
+    font-size: 0.95rem;
+  }
+`;
+
+const EphemeralToggle = styled(IconButton)`
+  color: ${(p) => (p.$active ? "#ff4757" : "var(--chakra-colors-textSecondary)")};
+  background: ${(p) => (p.$active ? "rgba(255, 71, 87, 0.12)" : "transparent")};
+
+  &:hover {
+    color: ${(p) => (p.$active ? "#ff6b72" : "var(--chakra-colors-textPrimary)")};
+    background: ${(p) => (p.$active ? "rgba(255, 71, 87, 0.18)" : "rgba(255, 255, 255, 0.05)")};
+  }
+`;
+
+const RecordingIndicator = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  color: #ff4757;
+  cursor: pointer;
+  animation: pulse 1.5s infinite;
+  flex-shrink: 0;
+
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #ff4757;
+  }
+
+  .timer {
+    font-size: 0.8rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  @media (max-width: 480px) {
+    padding: 0 4px;
+    gap: 4px;
+    .dot {
+      width: 6px;
+      height: 6px;
+    }
+    .timer {
+      font-size: 0.75rem;
     }
   }
 `;
@@ -668,28 +728,13 @@ const MessageInputContainer = styled.div`
 const MessageInput = styled.input`
   flex: 1;
   min-width: 0;
-  padding: 10px 16px;
-  border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.03);
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
   color: var(--chakra-colors-textPrimary);
   outline: none;
-  font-size: max(16px, 0.92rem);
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
-
-  &:hover {
-    border-color: rgba(255, 255, 255, 0.15);
-    background: rgba(255, 255, 255, 0.05);
-  }
-
-  &:focus {
-    border-color: var(--chakra-colors-brandPrimary);
-    background: rgba(0, 0, 0, 0.35);
-    box-shadow: 
-      0 0 0 1px var(--chakra-colors-brandPrimary),
-      0 0 12px rgba(255, 63, 94, 0.15);
-  }
+  font-size: 0.95rem;
+  box-shadow: none;
 
   &::placeholder {
     color: var(--chakra-colors-textSecondary);
@@ -697,14 +742,8 @@ const MessageInput = styled.input`
   }
 
   @media (max-width: 480px) {
-    padding: 8px 12px;
-    border-radius: 16px;
-    font-size: max(16px, 0.88rem);
-  }
-
-  @media (max-width: 375px) {
-    padding: 7px 10px;
-    border-radius: 14px;
+    padding: 6px 8px;
+    font-size: 0.9rem;
   }
 `;
 
@@ -712,45 +751,10 @@ const FileInput = styled.input`
   display: none;
 `;
 
-const FileUploadLabel = styled.label`
-  font-size: 1.15rem;
-  cursor: pointer;
-  color: var(--chakra-colors-textSecondary);
-  min-width: 36px;
-  min-height: 36px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  border: 1px solid rgba(255, 255, 255, 0.04);
-  background: rgba(255, 255, 255, 0.02);
-  transition: all 0.25s;
-
-  &:hover {
-    color: var(--chakra-colors-textPrimary);
-    background: var(--chakra-colors-surfaceHover);
-    border-color: var(--chakra-colors-brandPrimary);
-    transform: translateY(-2px);
-  }
-
-  @media (max-width: 480px) {
-    min-width: 32px;
-    min-height: 32px;
-    font-size: 1rem;
-    border-radius: 8px;
-  }
-
-  @media (max-width: 375px) {
-    min-width: 30px;
-    min-height: 30px;
-    font-size: 0.9rem;
-  }
-`;
 
 const SendButton = styled.button`
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   border: none;
   background: linear-gradient(135deg, var(--chakra-colors-brandPrimary), var(--chakra-colors-brandSecondary));
@@ -761,27 +765,29 @@ const SendButton = styled.button`
   justify-content: center;
   flex-shrink: 0;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 4px 10px rgba(0,0,0,0.25);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
 
-  &:hover {
+  &:hover:not(:disabled) {
     transform: scale(1.05);
     box-shadow: 0 6px 15px var(--chakra-colors-brandGlow);
   }
 
-  &:active {
+  &:active:not(:disabled) {
     transform: scale(0.95);
   }
 
-  @media (max-width: 480px) {
-    width: 32px;
-    height: 32px;
-    font-size: 0.85rem;
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.3);
+    box-shadow: none;
   }
 
-  @media (max-width: 375px) {
-    width: 30px;
-    height: 30px;
-    font-size: 0.8rem;
+  @media (max-width: 480px) {
+    width: 34px;
+    height: 34px;
+    font-size: 0.85rem;
   }
 `;
 /* ================= GIF PICKER IMPROVED ================= */
@@ -1114,11 +1120,15 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen }) {
 
   if (file.type && file.type.startsWith("audio")) {
     return (
-      <div style={{ marginTop: 4, background: "rgba(0,0,0,0.2)", borderRadius: "16px", padding: "6px 12px", border: "1px solid rgba(255, 255, 255, 0.04)" }}>
+      <div style={{ marginTop: 4, background: "rgba(255, 255, 255, 0.02)", borderRadius: "14px", padding: "10px 14px", border: "1px solid rgba(255, 255, 255, 0.05)", display: "flex", flexDirection: "column", gap: 6 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: "1.1rem" }}>🎵</span>
+          <span style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--chakra-colors-textPrimary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.name}</span>
+        </div>
         <audio
           src={decryptedUrl}
           controls
-          style={{ width: "100%", maxWidth: "min(280px, 100%)", height: 32 }}
+          style={{ width: "100%", height: 32 }}
         />
       </div>
     );
@@ -1127,34 +1137,59 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen }) {
   return (
     <FileCard onClick={() => setFullscreen({ ...file, url: decryptedUrl })}>
       {file.type && file.type.startsWith("image") ? (
-        <img alt={file.name} src={decryptedUrl} style={{ width: "100%", borderRadius: 10, display: "block" }} />
+        <div style={{ position: "relative", borderRadius: 10, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 4px 15px rgba(0,0,0,0.2)" }}>
+          <img alt={file.name} src={decryptedUrl} style={{ width: "100%", maxHeight: "240px", objectFit: "cover", display: "block" }} />
+          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "8px 12px", background: "linear-gradient(to top, rgba(0,0,0,0.8), transparent)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontSize: "0.75rem", color: "#eee", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "80%" }}>{file.name}</span>
+            <FaSearch style={{ fontSize: "0.75rem", color: "#eee" }} />
+          </div>
+        </div>
       ) : file.type && file.type.startsWith("video") ? (
-        <div style={{ position: "relative", borderRadius: 10, overflow: "hidden" }}>
-          <video src={decryptedUrl} style={{ width: "100%", display: "block" }} />
-          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.45)", backdropFilter: "blur(2px)" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 48, height: 48, borderRadius: "50%", background: "var(--chakra-colors-brandPrimary)", boxShadow: "0 4px 15px rgba(0,0,0,0.3)" }}>
-              <FaPlay style={{ color: "white", fontSize: "1.2rem", marginLeft: "3px" }} />
+        <div style={{ position: "relative", borderRadius: 10, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 4px 15px rgba(0,0,0,0.2)" }}>
+          <video src={decryptedUrl} style={{ width: "100%", maxHeight: "240px", objectFit: "cover", display: "block" }} />
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.4)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 44, height: 44, borderRadius: "50%", background: "var(--chakra-colors-brandPrimary)", boxShadow: "0 4px 15px rgba(0,0,0,0.35)" }}>
+              <FaPlay style={{ color: "white", fontSize: "1rem", marginLeft: "2px" }} />
             </div>
+          </div>
+          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "8px 12px", background: "linear-gradient(to top, rgba(0,0,0,0.8), transparent)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontSize: "0.75rem", color: "#eee", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "80%" }}>{file.name}</span>
           </div>
         </div>
       ) : (
         <div style={{
           display: "flex", alignItems: "center", gap: "12px", padding: "12px",
-          background: "rgba(255, 255, 255, 0.02)", borderRadius: "10px", border: "1px solid rgba(255, 255, 255, 0.05)",
-          minWidth: 0
+          background: "rgba(255, 255, 255, 0.02)", borderRadius: "12px", border: "1px solid rgba(255, 255, 255, 0.05)",
+          boxShadow: "0 4px 10px rgba(0,0,0,0.15)", minWidth: 0
         }}>
-          <div style={{ fontSize: "2rem", flexShrink: 0, filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.15))" }}>
+          <div style={{
+            display: "flex", alignItems: "center", justifyContent: "center",
+            width: 42, height: 42, borderRadius: "10px",
+            background: "rgba(255, 255, 255, 0.03)",
+            border: "1px solid rgba(255, 255, 255, 0.06)",
+            fontSize: "1.5rem", flexShrink: 0
+          }}>
             {file.name.match(/\.(xlsx|xls|csv)$/i) ? "📊" :
               file.name.match(/\.(docx|doc)$/i) ? "📝" :
-                file.name.match(/\.(zip|rar|7z)$/i) ? "🗜️" : "📎"}
+                file.name.match(/\.(zip|rar|7z)$/i) ? "🗜️" :
+                  file.name.match(/\.pdf$/i) ? "📕" : "📎"}
           </div>
-          <div style={{ display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
-            <span style={{ fontWeight: "600", fontSize: "0.9rem", color: "var(--chakra-colors-textPrimary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          <div style={{ display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0, flex: 1 }}>
+            <span style={{ fontWeight: "600", fontSize: "0.85rem", color: "var(--chakra-colors-textPrimary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
               {file.name}
             </span>
-            <span style={{ fontSize: "0.75rem", color: "var(--chakra-colors-brandPrimary)", marginTop: "2px", fontWeight: "500" }}>
-              Secure E2EE Download
+            <span style={{ fontSize: "0.72rem", color: "var(--chakra-colors-brandPrimary)", marginTop: "2px", fontWeight: "600" }}>
+              🔒 Secure E2EE Payload
             </span>
+          </div>
+          <div style={{
+            display: "flex", alignItems: "center", justifyContent: "center",
+            width: 32, height: 32, borderRadius: "50%",
+            background: "rgba(33, 150, 243, 0.1)",
+            border: "1px solid rgba(33, 150, 243, 0.25)",
+            color: "#2196F3", flexShrink: 0
+          }}>
+            <FaDownload style={{ fontSize: "0.8rem" }} />
           </div>
         </div>
       )}
@@ -2087,97 +2122,72 @@ export default function ChatRoom() {
         )}
 
         <MessageInputContainer>
-          {/* Ephemeral toggle */}
-          <button
-            onClick={() => { setEphemeralMode(!ephemeralMode); toast.info(ephemeralMode ? 'Ephemeral mode OFF' : 'Ephemeral mode ON — messages vanish in 15s'); }}
-            title={ephemeralMode ? "Ephemeral ON (messages vanish in 15s)" : "Ephemeral OFF"}
-            style={{
-              background: ephemeralMode ? "rgba(255, 107, 107, 0.15)" : "transparent",
-              border: ephemeralMode ? "1px solid rgba(255, 107, 107, 0.4)" : "1px solid var(--chakra-colors-border)",
-              color: ephemeralMode ? "#ff6b6b" : "var(--chakra-colors-textSecondary)",
-              borderRadius: 20, padding: "6px 8px", cursor: "pointer",
-              fontSize: "0.9rem", display: "flex", alignItems: "center",
-              transition: "all 0.2s", flexShrink: 0
-            }}
-          >
-            💨
-          </button>
+          <InputPill>
+            <IconButton as="label" htmlFor="file-input" title="Upload File">
+              <FaPaperclip />
+            </IconButton>
 
-          <FileUploadLabel htmlFor="file-input">
-            <FaFileUpload />
-          </FileUploadLabel>
+            <FileInput
+              ref={fileInputRef}
+              id="file-input"
+              type="file"
+              onChange={(e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                setPendingFile(null);
+                setPreviewUrl(null);
 
-          <FileInput
-            ref={fileInputRef}
-            id="file-input"
-            type="file"
-            onChange={(e) => {
-              const file = e.target.files[0];
-              if (!file) return;
-              setPendingFile(null);
-              setPreviewUrl(null);
-
-              setPendingFile(file);
-              setPreviewUrl(URL.createObjectURL(file));
-            }}
-          />
-
-          {/* Voice recording button */}
-          {isRecording ? (
-            <button
-              onClick={stopVoiceRecording}
-              style={{
-                background: "#ff4757", border: "none", color: "white",
-                borderRadius: "50%", width: 36, height: 36, cursor: "pointer",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                animation: "pulse 1.5s infinite", flexShrink: 0
+                setPendingFile(file);
+                setPreviewUrl(URL.createObjectURL(file));
               }}
-              title="Stop recording"
-            >
-              <FaStop size={14} />
-            </button>
-          ) : (
-            <button
-              onClick={startVoiceRecording}
-              style={{
-                background: "transparent", border: "1px solid var(--chakra-colors-border)",
-                color: "var(--chakra-colors-textSecondary)",
-                borderRadius: "50%", width: 36, height: 36, cursor: "pointer",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                transition: "all 0.2s", flexShrink: 0
+            />
+
+            {isRecording ? (
+              <RecordingIndicator onClick={stopVoiceRecording} title="Stop recording">
+                <span className="dot" />
+                <span className="timer">
+                  {Math.floor(recordingTime / 60)}:{String(recordingTime % 60).padStart(2, '0')}
+                </span>
+              </RecordingIndicator>
+            ) : (
+              <IconButton onClick={startVoiceRecording} title="Record voice note">
+                <FaMicrophone />
+              </IconButton>
+            )}
+
+            <MessageInput
+              placeholder={ephemeralMode ? "💨 Ephemeral message..." : "Type a message..."}
+              value={message}
+              onChange={(e) => {
+                setMessage(e.target.value);
+                handleTyping?.(e.target.value);
               }}
-              title="Record voice note"
+              onKeyDown={(e) => e.key === "Enter" && handleSend?.()}
+            />
+
+            <IconButton
+              onClick={() => {
+                setShowGifPicker(true);
+                fetchGifs();
+              }}
+              title="Send GIF"
             >
-              <FaMicrophone size={14} />
-            </button>
-          )}
+              <HiGif />
+            </IconButton>
 
-          {isRecording && (
-            <span style={{ fontSize: "0.75rem", color: "#ff4757", fontWeight: 600, minWidth: 30, flexShrink: 0 }}>
-              {Math.floor(recordingTime / 60)}:{String(recordingTime % 60).padStart(2, '0')}
-            </span>
-          )}
+            <EphemeralToggle
+              $active={ephemeralMode}
+              onClick={() => {
+                setEphemeralMode(!ephemeralMode);
+                toast.info(ephemeralMode ? 'Ephemeral mode OFF' : 'Ephemeral mode ON — messages vanish in 15s');
+              }}
+              title={ephemeralMode ? "Ephemeral ON (messages vanish in 15s)" : "Ephemeral OFF"}
+            >
+              <FaClock />
+            </EphemeralToggle>
+          </InputPill>
 
-          <MessageInput
-            placeholder={ephemeralMode ? "💨 Ephemeral message..." : "Type a message..."}
-            value={message}
-            onChange={(e) => {
-              setMessage(e.target.value);
-              handleTyping?.(e.target.value);
-            }}
-            onKeyDown={(e) => e.key === "Enter" && handleSend?.()}
-            style={ephemeralMode ? { borderColor: "rgba(255, 107, 107, 0.3)" } : {}}
-          />
-          <FileUploadLabel
-            onClick={() => {
-              setShowGifPicker(true);
-              fetchGifs();
-            }}
-          >
-            <HiGif />
-          </FileUploadLabel>
-
-          <SendButton onClick={() => handleSend()}>
+          <SendButton onClick={() => handleSend()} disabled={!message.trim()}>
             <FaPaperPlane />
           </SendButton>
         </MessageInputContainer>
