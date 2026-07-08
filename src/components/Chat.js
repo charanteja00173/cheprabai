@@ -21,6 +21,13 @@ import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import ThemeSwitcher from "./ThemeSwitcher";
 import { ShieldCheck } from "lucide-react";
+import { 
+  generateKeyFromSecret, 
+  encryptMessage, 
+  decryptMessage, 
+  encryptBinary, 
+  decryptBinary 
+} from "../utils/crypto";
 // Lazy-load heavy components
 const Whiteboard = React.lazy(() => import("./Whiteboard"));
 const LiveMeeting = React.lazy(() => import("./LiveMeeting"));
@@ -896,7 +903,136 @@ const RoomInfoDropdown = styled.div`
   }
 `;
 
+// Stateful component to handle downloading, decrypting and displaying E2EE files
+function E2EEFileAttachment({ file, roomKey, setFullscreen }) {
+  const [decryptedUrl, setDecryptedUrl] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
+  useEffect(() => {
+    if (!file.iv || !roomKey) {
+      setDecryptedUrl(file.url);
+      setLoading(false);
+      return;
+    }
+
+    let active = true;
+    const decrypt = async () => {
+      try {
+        setLoading(true);
+        const res = await fetch(file.url);
+        if (!res.ok) throw new Error("Fetch failed");
+        const encryptedBuffer = await res.arrayBuffer();
+
+        const ivBytes = new Uint8Array(
+          atob(file.iv)
+            .split("")
+            .map(c => c.charCodeAt(0))
+        );
+
+        const decryptedBuffer = await decryptBinary(roomKey, {
+          iv: ivBytes,
+          data: encryptedBuffer
+        });
+
+        const blob = new Blob([decryptedBuffer], { type: file.type || "application/octet-stream" });
+        const objectUrl = URL.createObjectURL(blob);
+
+        if (active) {
+          setDecryptedUrl(objectUrl);
+          setLoading(false);
+        }
+      } catch (err) {
+        console.error("File decryption failed:", err);
+        if (active) {
+          setError(true);
+          setLoading(false);
+        }
+      }
+    };
+
+    decrypt();
+
+    return () => {
+      active = false;
+      if (decryptedUrl && decryptedUrl.startsWith("blob:")) {
+        URL.revokeObjectURL(decryptedUrl);
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [file.url, file.iv, roomKey]);
+
+  if (loading) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "12px", background: "rgba(255,255,255,0.02)", borderRadius: "10px" }}>
+        <div style={{
+          width: 16, height: 16, border: "2px solid rgba(255,255,255,0.1)",
+          borderTop: "2px solid var(--chakra-colors-brandPrimary)",
+          borderRadius: "50%", animation: "spin 0.8s linear infinite"
+        }} />
+        <span style={{ fontSize: "0.8rem", opacity: 0.7 }}>Decrypting secure payload...</span>
+        <style>{"@keyframes spin { to { transform: rotate(360deg); } }"}</style>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "12px", background: "rgba(255, 107, 107, 0.05)", borderRadius: "10px", border: "1px solid rgba(255, 107, 107, 0.2)", color: "#ff6b6b" }}>
+        <span style={{ fontSize: "0.85rem" }}>🔒 File decryption failed</span>
+      </div>
+    );
+  }
+
+  if (file.type && file.type.startsWith("audio")) {
+    return (
+      <div style={{ marginTop: 4, background: "rgba(0,0,0,0.2)", borderRadius: "16px", padding: "6px 12px", border: "1px solid rgba(255, 255, 255, 0.04)" }}>
+        <audio
+          src={decryptedUrl}
+          controls
+          style={{ width: "100%", maxWidth: "min(280px, 100%)", height: 32 }}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <FileCard onClick={() => setFullscreen({ ...file, url: decryptedUrl })}>
+      {file.type && file.type.startsWith("image") ? (
+        <img alt={file.name} src={decryptedUrl} style={{ width: "100%", borderRadius: 10, display: "block" }} />
+      ) : file.type && file.type.startsWith("video") ? (
+        <div style={{ position: "relative", borderRadius: 10, overflow: "hidden" }}>
+          <video src={decryptedUrl} style={{ width: "100%", display: "block" }} />
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.45)", backdropFilter: "blur(2px)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 48, height: 48, borderRadius: "50%", background: "var(--chakra-colors-brandPrimary)", boxShadow: "0 4px 15px rgba(0,0,0,0.3)" }}>
+              <FaPlay style={{ color: "white", fontSize: "1.2rem", marginLeft: "3px" }} />
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div style={{
+          display: "flex", alignItems: "center", gap: "12px", padding: "12px",
+          background: "rgba(255, 255, 255, 0.02)", borderRadius: "10px", border: "1px solid rgba(255, 255, 255, 0.05)",
+          minWidth: 0
+        }}>
+          <div style={{ fontSize: "2rem", flexShrink: 0, filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.15))" }}>
+            {file.name.match(/\.(xlsx|xls|csv)$/i) ? "📊" :
+              file.name.match(/\.(docx|doc)$/i) ? "📝" :
+                file.name.match(/\.(zip|rar|7z)$/i) ? "🗜️" : "📎"}
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
+            <span style={{ fontWeight: "600", fontSize: "0.9rem", color: "var(--chakra-colors-textPrimary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {file.name}
+            </span>
+            <span style={{ fontSize: "0.75rem", color: "var(--chakra-colors-brandPrimary)", marginTop: "2px", fontWeight: "500" }}>
+              Secure E2EE Download
+            </span>
+          </div>
+        </div>
+      )}
+    </FileCard>
+  );
+}
 
 
 
@@ -908,6 +1044,7 @@ export default function ChatRoom() {
   const userColorsRef = useRef({});
 
   const [joined, setJoined] = useState(false);
+  const [roomKey, setRoomKey] = useState(null);
   const [roomId, setRoomId] = useState("");
   const [userName, setUserName] = useState("");
   const [securityCode, setSecurityCode] = useState("");
@@ -1106,22 +1243,52 @@ export default function ChatRoom() {
 
     socketRef.current.emit("joinRoom", { roomId, userName });
 
-    socketRef.current.on("chatHistory", (history) => {
-      const formatted = history.map(msg => ({ ...msg, ...msg.payload }));
+    socketRef.current.on("chatHistory", async (history) => {
+      const formatted = await Promise.all(history.map(async msg => {
+        const item = { ...msg, ...msg.payload };
+        if (item.encryptedPayload && roomKey) {
+          try {
+            item.text = await decryptMessage(roomKey, item.encryptedPayload);
+          } catch (e) {
+            item.text = "🔒 Decryption failed (invalid key or corrupted)";
+            item.decryptionError = true;
+          }
+        }
+        return item;
+      }));
       setMessages(formatted);
     });
 
     socketRef.current.on("hasMoreMessages", () => setHasMoreMessages(true));
 
-    socketRef.current.on("olderMessages", ({ messages: older, hasMore }) => {
-      const formatted = older.map(msg => ({ ...msg, ...msg.payload }));
+    socketRef.current.on("olderMessages", async ({ messages: older, hasMore }) => {
+      const formatted = await Promise.all(older.map(async msg => {
+        const item = { ...msg, ...msg.payload };
+        if (item.encryptedPayload && roomKey) {
+          try {
+            item.text = await decryptMessage(roomKey, item.encryptedPayload);
+          } catch (e) {
+            item.text = "🔒 Decryption failed (invalid key or corrupted)";
+            item.decryptionError = true;
+          }
+        }
+        return item;
+      }));
       setMessages(prev => [...formatted, ...prev]);
       setHasMoreMessages(hasMore);
       setLoadingMore(false);
     });
 
-    socketRef.current.on("newMessage", (msg) => {
+    socketRef.current.on("newMessage", async (msg) => {
       const formattedMsg = { ...msg, ...msg.payload };
+      if (formattedMsg.encryptedPayload && roomKey) {
+        try {
+          formattedMsg.text = await decryptMessage(roomKey, formattedMsg.encryptedPayload);
+        } catch (e) {
+          formattedMsg.text = "🔒 Decryption failed (invalid key or corrupted)";
+          formattedMsg.decryptionError = true;
+        }
+      }
       setMessages((m) => [...m, formattedMsg]);
       if (msg.userName !== userName) audioRef.current.play().catch(() => { });
     });
@@ -1162,7 +1329,7 @@ export default function ChatRoom() {
       socketRef.current.off();
       clearInterval(pingInterval);
     };
-  }, [joined, roomId, userName]);
+  }, [joined, roomId, userName, roomKey]);
 
   useEffect(() => {
     if (!joined) return;
@@ -1182,9 +1349,20 @@ export default function ChatRoom() {
       const tempId = `uploading-${Date.now()}`;
       setMessages(m => [...m, { id: tempId, userName, file: { name: file.name, loading: true }, ts: Date.now() }]);
 
+      let fileToUpload = file;
+      let ivString = null;
+
+      if (roomKey) {
+        const fileBuffer = await file.arrayBuffer();
+        const encrypted = await encryptBinary(roomKey, fileBuffer);
+        const encryptedBlob = new Blob([encrypted.data], { type: "application/octet-stream" });
+        fileToUpload = new File([encryptedBlob], file.name + ".enc", { type: "application/octet-stream" });
+        ivString = btoa(String.fromCharCode(...new Uint8Array(encrypted.iv)));
+      }
+
       const formData = new FormData();
-      formData.append("file", file);
-      const backendUrl = process.env.REACT_APP_SOCKET_ENDPOINT || "http://localhost:4000";
+      formData.append("file", fileToUpload);
+      const backendUrl = process.env.REACT_APP_SOCKET_ENDPOINT || "https://cheprabai-backend.onrender.com";
 
       const res = await axios.post(`${backendUrl}/api/upload`, formData, {
         headers: { "Content-Type": "multipart/form-data" }
@@ -1192,9 +1370,15 @@ export default function ChatRoom() {
 
       setMessages(m => m.filter(msg => msg.id !== tempId));
 
-      const fileData = { url: res.data.secure_url, name: file.name, type: file.type || res.data.format };
+      const fileData = { 
+        url: res.data.secure_url, 
+        name: file.name, 
+        type: file.type || res.data.format,
+        ...(ivString && { iv: ivString })
+      };
       handleSend({ file: fileData });
     } catch (err) {
+      console.error(err);
       toast.error("File upload failed!");
       setMessages(m => m.filter(msg => !msg.id?.startsWith("uploading-")));
     }
@@ -1226,7 +1410,17 @@ export default function ChatRoom() {
     }
     if (!customData && !message.trim()) return;
 
-    const payload = customData || { text: message };
+    let payload = customData || { text: message };
+
+    if (roomKey) {
+      if (!customData) {
+        const encrypted = await encryptMessage(roomKey, message);
+        payload = { encryptedPayload: encrypted };
+      } else if (customData.text) {
+        const encrypted = await encryptMessage(roomKey, customData.text);
+        payload = { ...customData, encryptedPayload: encrypted, text: undefined };
+      }
+    }
 
     socketRef.current.emit("sendMessage", {
       payload,
@@ -1352,14 +1546,20 @@ export default function ChatRoom() {
               placeholder="Security Code"
               value={securityCode}
               onChange={(e) => setSecurityCode(e.target.value)}
-              onKeyDown={(e) => {
+              onKeyDown={async (e) => {
                 if (e.key === "Enter") {
                   const code = securityCode.trim();
                   if (!SECURITY_CODE.includes(code)) {
                     toast.error("Invalid security code! Please check and try again.");
                     return;
                   }
-                  setJoined(true);
+                  try {
+                    const key = await generateKeyFromSecret(code + roomId);
+                    setRoomKey(key);
+                    setJoined(true);
+                  } catch (err) {
+                    toast.error("Failed to initialize secure session keys");
+                  }
                 }
               }}
             />
@@ -1375,7 +1575,13 @@ export default function ChatRoom() {
                   return;
                 }
 
-                setJoined(true);
+                try {
+                  const key = await generateKeyFromSecret(code + roomId);
+                  setRoomKey(key);
+                  setJoined(true);
+                } catch (err) {
+                  toast.error("Failed to initialize secure session keys");
+                }
               }}
             >
               Join Secure Room
@@ -1615,71 +1821,27 @@ export default function ChatRoom() {
                 {m.file && (
                   <div style={{ position: "relative" }}>
                     {m.file.loading ? (
-                      <div style={{
-                        width: "100%", padding: "18px", background: "rgba(255, 255, 255, 0.03)", borderRadius: "14px", border: "1px solid rgba(255, 255, 255, 0.06)",
-                        display: "flex", flexDirection: "column", gap: "8px"
-                      }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                          <span style={{ fontSize: "0.85rem", fontWeight: "600", color: "var(--chakra-colors-textPrimary)", opacity: 0.8 }}>Uploading: {m.file.name}</span>
-                          <span style={{ fontSize: "0.75rem", color: "var(--chakra-colors-brandPrimary)", fontWeight: "bold" }}>...</span>
-                        </div>
-                        <div style={{ width: "100%", height: "4px", background: "rgba(255, 255, 255, 0.08)", borderRadius: "10px", overflow: "hidden" }}>
-                          <div style={{
-                            height: "100%",
-                            width: `100%`,
-                            background: "linear-gradient(90deg, var(--chakra-colors-brandPrimary), var(--chakra-colors-brandSecondary), var(--chakra-colors-brandPrimary))",
-                            borderRadius: "10px",
-                            animation: "pulse 1.5s infinite"
-                          }} />
-                        </div>
-                      </div>
+                       <div style={{
+                         width: "100%", padding: "18px", background: "rgba(255, 255, 255, 0.03)", borderRadius: "14px", border: "1px solid rgba(255, 255, 255, 0.06)",
+                         display: "flex", flexDirection: "column", gap: "8px"
+                       }}>
+                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                           <span style={{ fontSize: "0.85rem", fontWeight: "600", color: "var(--chakra-colors-textPrimary)", opacity: 0.8 }}>Uploading: {m.file.name}</span>
+                           <span style={{ fontSize: "0.75rem", color: "var(--chakra-colors-brandPrimary)", fontWeight: "bold" }}>...</span>
+                         </div>
+                         <div style={{ width: "100%", height: "4px", background: "rgba(255, 255, 255, 0.08)", borderRadius: "10px", overflow: "hidden" }}>
+                           <div style={{
+                             height: "100%",
+                             width: `100%`,
+                             background: "linear-gradient(90deg, var(--chakra-colors-brandPrimary), var(--chakra-colors-brandSecondary), var(--chakra-colors-brandPrimary))",
+                             borderRadius: "10px",
+                             animation: "pulse 1.5s infinite"
+                           }} />
+                         </div>
+                       </div>
                     ) : (
-                      <FileCard onClick={() => setFullscreen(m.file)}>
-                        {m.file.type && m.file.type.startsWith("image") ? (
-                          <img alt={m.file.name} src={m.file.url} style={{ width: "100%", borderRadius: 10, display: "block" }} />
-                        ) : m.file.type && m.file.type.startsWith("video") ? (
-                          <div style={{ position: "relative", borderRadius: 10, overflow: "hidden" }}>
-                            <video src={m.file.url} style={{ width: "100%", display: "block" }} />
-                            <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.45)", backdropFilter: "blur(2px)" }}>
-                              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 48, height: 48, borderRadius: "50%", background: "var(--chakra-colors-brandPrimary)", boxShadow: "0 4px 15px rgba(0,0,0,0.3)" }}>
-                                <FaPlay style={{ color: "white", fontSize: "1.2rem", marginLeft: "3px" }} />
-                              </div>
-                            </div>
-                          </div>
-                        ) : (
-                          <div style={{
-                            display: "flex", alignItems: "center", gap: "12px", padding: "12px",
-                            background: "rgba(255, 255, 255, 0.02)", borderRadius: "10px", border: "1px solid rgba(255, 255, 255, 0.05)",
-                            minWidth: 0
-                          }}>
-                            <div style={{ fontSize: "2rem", flexShrink: 0, filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.15))" }}>
-                              {m.file.name.match(/\.(xlsx|xls|csv)$/i) ? "📊" :
-                                m.file.name.match(/\.(docx|doc)$/i) ? "📝" :
-                                  m.file.name.match(/\.(zip|rar|7z)$/i) ? "🗜️" : "📎"}
-                            </div>
-                            <div style={{ display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
-                              <span style={{ fontWeight: "600", fontSize: "0.9rem", color: "var(--chakra-colors-textPrimary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                                {m.file.name}
-                              </span>
-                              <span style={{ fontSize: "0.75rem", color: "var(--chakra-colors-brandPrimary)", marginTop: "2px", fontWeight: "500" }}>
-                                {m.userName === userName ? "Shared File" : "Download Attachment"}
-                              </span>
-                            </div>
-                          </div>
-                        )}
-                      </FileCard>
+                      <E2EEFileAttachment file={m.file} roomKey={roomKey} setFullscreen={setFullscreen} />
                     )}
-                  </div>
-                )}
-
-                {/* Voice note inline player */}
-                {m.file && m.file.type && m.file.type.startsWith("audio") && (
-                  <div style={{ marginTop: 8, background: "rgba(0,0,0,0.2)", borderRadius: "16px", padding: "6px 12px", border: "1px solid rgba(255, 255, 255, 0.04)" }}>
-                    <audio
-                      src={m.file.url}
-                      controls
-                      style={{ width: "100%", maxWidth: "min(280px, 100%)", height: 32 }}
-                    />
                   </div>
                 )}
 
