@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Box, Flex, VStack, IconButton, Tooltip, Text, useBreakpointValue } from "@chakra-ui/react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
-import { MessageSquare, Video, Radio, Menu, ShieldCheck } from "lucide-react";
+import { MessageSquare, Menu, ShieldCheck } from "lucide-react";
 import { motion } from "framer-motion";
 import ThemeSwitcher from "./ThemeSwitcher";
 
@@ -15,8 +15,6 @@ const UnifiedWorkspace = () => {
 
   const NAV_ITEMS = [
     { path: "/", icon: <MessageSquare size={20} />, label: "Secure Chat" },
-    { path: "/call", icon: <Video size={20} />, label: "E2EE Video Call" },
-    { path: "/live-stream", icon: <Radio size={20} />, label: "Live Stream" },
   ];
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
