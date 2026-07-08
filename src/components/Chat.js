@@ -898,8 +898,11 @@ const RoomInfoDropdown = styled.div`
   animation: slide-down-fade 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 
   @media (max-width: 480px) {
-    width: calc(100vw - 32px);
-    left: -10px;
+    position: fixed;
+    top: 60px;
+    left: 16px;
+    right: 16px;
+    width: auto;
   }
 `;
 
