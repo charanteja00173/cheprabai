@@ -19,6 +19,7 @@ import notificationSound from "../assets/iphone-sms.mp3";
 import { AiOutlineClose } from "react-icons/ai";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import ThemeSwitcher from "./ThemeSwitcher";
 import { ShieldCheck } from "lucide-react";
 // Lazy-load heavy components
 const Whiteboard = React.lazy(() => import("./Whiteboard"));
@@ -1450,6 +1451,7 @@ export default function ChatRoom() {
           </div>
 
           <RoomActions>
+            <ThemeSwitcher />
             {(showWhiteboard || showMeeting) && (
               <LiveBadge>
                 <div style={{ width: 6, height: 6, background: "white", borderRadius: "50%" }} />
