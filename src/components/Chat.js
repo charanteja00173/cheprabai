@@ -281,20 +281,30 @@ const Timestamp = styled.div`
   margin-top: 4px;
 `;
 
-const FileCard = styled.div`
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.04);
-  border-radius: 14px;
-  padding: 8px;
-  width: 100%;
+const FileAttachmentWrapper = styled.div`
+  width: 280px;
+  max-width: 100%;
   box-sizing: border-box;
+  border-radius: 16px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
-  transition: all 0.25s ease;
 
   &:hover {
-    background: rgba(255, 255, 255, 0.06);
+    background: rgba(255, 255, 255, 0.04);
     border-color: var(--chakra-colors-brandPrimary);
     transform: translateY(-1px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+  }
+
+  @media (max-width: 480px) {
+    width: 230px;
+  }
+
+  @media (max-width: 360px) {
+    width: 200px;
   }
 `;
 
@@ -1120,22 +1130,22 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen }) {
 
   if (file.type && file.type.startsWith("audio")) {
     return (
-      <div style={{ marginTop: 4, background: "rgba(255, 255, 255, 0.02)", borderRadius: "14px", padding: "10px 14px", border: "1px solid rgba(255, 255, 255, 0.05)", display: "flex", flexDirection: "column", gap: 6 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <FileAttachmentWrapper style={{ padding: "10px 12px", background: "rgba(255, 255, 255, 0.02)", cursor: "default" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
           <span style={{ fontSize: "1.1rem" }}>🎵</span>
           <span style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--chakra-colors-textPrimary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.name}</span>
         </div>
         <audio
           src={decryptedUrl}
           controls
-          style={{ width: "100%", height: 32 }}
+          style={{ width: "100%", height: 32, display: "block" }}
         />
-      </div>
+      </FileAttachmentWrapper>
     );
   }
 
   return (
-    <FileCard onClick={() => setFullscreen({ ...file, url: decryptedUrl })}>
+    <FileAttachmentWrapper onClick={() => setFullscreen({ ...file, url: decryptedUrl })}>
       {file.type && file.type.startsWith("image") ? (
         <div style={{ position: "relative", borderRadius: 10, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 4px 15px rgba(0,0,0,0.2)" }}>
           <img alt={file.name} src={decryptedUrl} style={{ width: "100%", maxHeight: "240px", objectFit: "cover", display: "block" }} />
@@ -1193,7 +1203,7 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen }) {
           </div>
         </div>
       )}
-    </FileCard>
+    </FileAttachmentWrapper>
   );
 }
 
