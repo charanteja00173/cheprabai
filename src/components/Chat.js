@@ -1219,7 +1219,7 @@ export default function ChatRoom() {
 
   useEffect(() => {
     socketRef.current = io(process.env.REACT_APP_SOCKET_ENDPOINT || "https://cheprabai-backend.onrender.com", {
-      transports: ["websocket"]
+      transports: ["polling", "websocket"]
     });
     return () => socketRef.current.disconnect();
   }, []);
