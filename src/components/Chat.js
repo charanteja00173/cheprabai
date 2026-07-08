@@ -78,7 +78,7 @@ const LiveBadge = styled.div`
 const ChatContainer = styled.div`
   display: flex;
   flex-direction: column;
-  height: 100%;
+  height: 100vh;
   background: var(--chakra-colors-bg);
   box-sizing: border-box;
 `;
@@ -262,8 +262,8 @@ const LandingWrapper = styled.div`
   display: flex;
   justify-content: center;
   align-items: center;
-  width: 100%;
-  height: 100%;
+  width: 100vw;
+  height: 100vh;
   position: relative;
   background: var(--chakra-colors-bg);
   overflow: hidden;
