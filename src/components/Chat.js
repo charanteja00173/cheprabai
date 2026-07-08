@@ -1244,7 +1244,7 @@ export default function ChatRoom() {
   useEffect(() => {
     if (!joined) return;
 
-    socketRef.current.emit("joinRoom", { roomId, userName });
+    socketRef.current.emit("joinRoom", { roomId, userName, securityCode });
 
     socketRef.current.on("chatHistory", async (history) => {
       const formatted = await Promise.all(history.map(async msg => {
@@ -1312,7 +1312,7 @@ export default function ChatRoom() {
 
     socketRef.current.on("connect", () => {
       if (joined && roomId && userName) {
-        socketRef.current.emit("joinRoom", { roomId, userName });
+        socketRef.current.emit("joinRoom", { roomId, userName, securityCode });
       }
     });
 
@@ -1332,7 +1332,7 @@ export default function ChatRoom() {
       socketRef.current.off();
       clearInterval(pingInterval);
     };
-  }, [joined, roomId, userName, roomKey]);
+  }, [joined, roomId, userName, roomKey, securityCode]);
 
   useEffect(() => {
     if (!joined) return;
