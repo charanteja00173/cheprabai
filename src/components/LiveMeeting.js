@@ -363,7 +363,10 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         peer.on("call", (call) => {
           call.answer(localStreamRef.current);
           call.on("stream", (rem) => {
-            setRemoteStreams(p => ({ ...p, [call.peer]: { stream: rem, name: "Participant" } }));
+            setRemoteStreams(p => {
+              const existingName = p[call.peer]?.name || "Participant";
+              return { ...p, [call.peer]: { stream: rem, name: existingName } };
+            });
           });
           // CRITICAL: Save incoming call to peers ref for screenshare support
           peers.current[call.peer] = call;
@@ -372,18 +375,16 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         peerRef.current = peer;
 
         socket.on("existing-callers", (callers) => {
+          // Store their names in state, but DO NOT call them. They will receive 'user-connected-call' and call us.
           callers.forEach(({ peerId, name }) => {
-            if (localStreamRef.current && peerRef.current) {
-              const call = peerRef.current.call(peerId, localStreamRef.current);
-              call.on("stream", (rem) => {
-                setRemoteStreams(p => ({ ...p, [peerId]: { stream: rem, name } }));
-              });
-              peers.current[peerId] = call;
-            }
+            setRemoteStreams(p => ({ ...p, [peerId]: { stream: p[peerId]?.stream || null, name } }));
           });
         });
 
         socket.on("user-connected-call", ({ peerId, name }) => {
+          // Pre-populate name in state
+          setRemoteStreams(p => ({ ...p, [peerId]: { stream: p[peerId]?.stream || null, name } }));
+
           if (localStreamRef.current && peerRef.current) {
             const call = peerRef.current.call(peerId, localStreamRef.current);
             call.on("stream", (rem) => {
