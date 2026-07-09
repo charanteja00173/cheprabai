@@ -1478,6 +1478,15 @@ export default function ChatRoom() {
 
     socketRef.current.on("disconnect", () => { });
 
+    socketRef.current.on("fileUrlUpdated", ({ localUrl, newUrl }) => {
+      setMessages(prev => prev.map(msg => {
+        if (msg.file && msg.file.url === localUrl) {
+          return { ...msg, file: { ...msg.file, url: newUrl } };
+        }
+        return msg;
+      }));
+    });
+
     // Latency Tracking (Ping-Pong)
     const pingInterval = setInterval(() => {
       if (socketRef.current && socketRef.current.connected) {
