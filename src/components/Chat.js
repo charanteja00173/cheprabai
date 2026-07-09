@@ -1411,7 +1411,14 @@ export default function ChatRoom() {
         const item = { ...msg, ...msg.payload };
         if (item.encryptedPayload && roomKey) {
           try {
-            item.text = await decryptMessage(roomKey, item.encryptedPayload);
+            const decryptedText = await decryptMessage(roomKey, item.encryptedPayload);
+            try {
+              const decryptedPayload = JSON.parse(decryptedText);
+              Object.assign(item, decryptedPayload);
+            } catch {
+              // Backward compatibility fallback for old plain text messages
+              item.text = decryptedText;
+            }
           } catch (e) {
             item.text = "🔒 Decryption failed (invalid key or corrupted)";
             item.decryptionError = true;
@@ -1429,7 +1436,14 @@ export default function ChatRoom() {
         const item = { ...msg, ...msg.payload };
         if (item.encryptedPayload && roomKey) {
           try {
-            item.text = await decryptMessage(roomKey, item.encryptedPayload);
+            const decryptedText = await decryptMessage(roomKey, item.encryptedPayload);
+            try {
+              const decryptedPayload = JSON.parse(decryptedText);
+              Object.assign(item, decryptedPayload);
+            } catch {
+              // Backward compatibility fallback for old plain text messages
+              item.text = decryptedText;
+            }
           } catch (e) {
             item.text = "🔒 Decryption failed (invalid key or corrupted)";
             item.decryptionError = true;
@@ -1446,7 +1460,14 @@ export default function ChatRoom() {
       const formattedMsg = { ...msg, ...msg.payload };
       if (formattedMsg.encryptedPayload && roomKey) {
         try {
-          formattedMsg.text = await decryptMessage(roomKey, formattedMsg.encryptedPayload);
+          const decryptedText = await decryptMessage(roomKey, formattedMsg.encryptedPayload);
+          try {
+            const decryptedPayload = JSON.parse(decryptedText);
+            Object.assign(formattedMsg, decryptedPayload);
+          } catch {
+            // Backward compatibility fallback for old plain text messages
+            formattedMsg.text = decryptedText;
+          }
         } catch (e) {
           formattedMsg.text = "🔒 Decryption failed (invalid key or corrupted)";
           formattedMsg.decryptionError = true;
@@ -1532,13 +1553,25 @@ export default function ChatRoom() {
         ivString = btoa(String.fromCharCode(...new Uint8Array(encrypted.iv)));
       }
 
-      const formData = new FormData();
-      formData.append("file", fileToUpload);
       const backendUrl = process.env.REACT_APP_SOCKET_ENDPOINT || "https://cheprabai-backend.onrender.com";
 
-      const res = await axios.post(`${backendUrl}/api/upload`, formData, {
-        headers: { "Content-Type": "multipart/form-data" }
-      });
+      // 1. Fetch secure Cloudinary upload signature from backend (prevents exposing API Secret)
+      const sigRes = await axios.get(`${backendUrl}/api/cloudinary-signature`);
+      const { signature, timestamp, cloud_name, api_key } = sigRes.data;
+
+      // 2. Upload file directly to Cloudinary's fast edge nodes
+      const resourceType = roomKey ? "raw" : "auto";
+      const cloudinaryFormData = new FormData();
+      cloudinaryFormData.append("file", fileToUpload);
+      cloudinaryFormData.append("api_key", api_key);
+      cloudinaryFormData.append("timestamp", timestamp);
+      cloudinaryFormData.append("signature", signature);
+
+      const res = await axios.post(
+        `https://api.cloudinary.com/v1_1/${cloud_name}/${resourceType}/upload`,
+        cloudinaryFormData,
+        { headers: { "Content-Type": "multipart/form-data" } }
+      );
 
       setMessages(m => m.filter(msg => msg.id !== tempId));
 
@@ -1585,13 +1618,10 @@ export default function ChatRoom() {
     let payload = customData || { text: message };
 
     if (roomKey) {
-      if (!customData) {
-        const encrypted = await encryptMessage(roomKey, message);
-        payload = { encryptedPayload: encrypted };
-      } else if (customData.text) {
-        const encrypted = await encryptMessage(roomKey, customData.text);
-        payload = { ...customData, encryptedPayload: encrypted, text: undefined };
-      }
+      // Encrypt the entire payload object as a JSON string for complete E2EE (covers text, file metadata, and GIFs)
+      const plainPayload = customData || { text: message };
+      const encrypted = await encryptMessage(roomKey, JSON.stringify(plainPayload));
+      payload = { encryptedPayload: encrypted };
     }
 
     socketRef.current.emit("sendMessage", {
