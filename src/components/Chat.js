@@ -2035,9 +2035,19 @@ export default function ChatRoom() {
                   placeholder="Search GIFs..."
                   value={gifQuery}
                   onChange={(e) => setGifQuery(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && fetchGifs(gifQuery)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      setGifOffset(0);
+                      setHasMoreGifs(true);
+                      fetchGifs(gifQuery, 0);
+                    }
+                  }}
                 />
-                <SearchGifButton onClick={() => fetchGifs(gifQuery)}>
+                <SearchGifButton onClick={() => {
+                  setGifOffset(0);
+                  setHasMoreGifs(true);
+                  fetchGifs(gifQuery, 0);
+                }}>
                   <FaSearch />
                 </SearchGifButton>
                 {/* <CloseGifPickerButton onClick={() => setShowGifPicker(false)}>
