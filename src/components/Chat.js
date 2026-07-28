@@ -1713,10 +1713,12 @@ export default function ChatRoom() {
   /* ================= SEND ================= */
 
   const handleSend = async (customData = null) => {
-    if (pendingFile) {
-      uploadFile(pendingFile);
+    if (!customData && pendingFile) {
+      const fileToUpload = pendingFile;
       setPendingFile(null);
       setPreviewUrl(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      uploadFile(fileToUpload);
       return;
     }
     if (!customData && !message.trim()) return;
