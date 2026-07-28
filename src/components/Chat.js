@@ -11,6 +11,8 @@ import {
   FaSearch,
   FaMicrophone,
   FaDownload,
+  FaEye,
+  FaEyeSlash,
 } from "react-icons/fa";
 import { HiGif } from "react-icons/hi2";
 import { FaVideo, FaPlay } from "react-icons/fa";
@@ -448,6 +450,39 @@ const JoinInput = styled.input`
     padding: 12px 16px;
     font-size: 0.95rem;
     border-radius: 12px;
+  }
+`;
+
+const PasswordInputContainer = styled.div`
+  position: relative;
+  width: 100%;
+`;
+
+const PasswordInput = styled(JoinInput)`
+  width: 100%;
+  padding-right: 48px;
+  box-sizing: border-box;
+`;
+
+const EyeButton = styled.button`
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--chakra-colors-textSecondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.15rem;
+  padding: 0;
+  z-index: 10;
+  transition: color 0.2s;
+
+  &:hover {
+    color: var(--chakra-colors-textPrimary);
   }
 `;
 
@@ -1236,6 +1271,7 @@ export default function ChatRoom() {
   const [roomId, setRoomId] = useState("");
   const [userName, setUserName] = useState("");
   const [securityCode, setSecurityCode] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [messages, setMessages] = useState([]);
   const [message, setMessage] = useState("");
   const [typingUsers, setTypingUsers] = useState([]);
@@ -1563,6 +1599,10 @@ export default function ChatRoom() {
       }));
     });
 
+    socketRef.current.on("messageDeleted", ({ messageId }) => {
+      setMessages(prev => prev.filter(msg => msg.id !== messageId));
+    });
+
     // Latency Tracking (Ping-Pong)
     const pingInterval = setInterval(() => {
       if (socketRef.current && socketRef.current.connected) {
@@ -1592,9 +1632,12 @@ export default function ChatRoom() {
 
   /* ================= FILE HANDLING ================= */
 
+  const [uploadProgress, setUploadProgress] = useState(0);
+
   const uploadFile = async (file) => {
     try {
       const tempId = `uploading-${Date.now()}`;
+      setUploadProgress(0);
       setMessages(m => [...m, { id: tempId, userName, file: { name: file.name, loading: true }, ts: Date.now() }]);
 
       let fileToUpload = file;
@@ -1610,17 +1653,32 @@ export default function ChatRoom() {
 
       const backendUrl = process.env.REACT_APP_SOCKET_ENDPOINT || "https://cheprabai-backend.onrender.com";
 
-      // Upload file through backend — it saves locally for instant access, then uploads to Cloudinary in the background
-      const formData = new FormData();
-      formData.append("file", fileToUpload);
+      // 1. Get signed upload credentials from backend (tiny fast request)
+      const sigRes = await axios.get(`${backendUrl}/api/cloudinary-signature`);
+      const { signature, timestamp, cloud_name, api_key } = sigRes.data;
+
+      // 2. Upload directly to Cloudinary's nearest edge CDN node (fastest possible path)
+      const resourceType = roomKey ? "raw" : "auto";
+      const cloudinaryFormData = new FormData();
+      cloudinaryFormData.append("file", fileToUpload);
+      cloudinaryFormData.append("api_key", api_key);
+      cloudinaryFormData.append("timestamp", timestamp);
+      cloudinaryFormData.append("signature", signature);
 
       const res = await axios.post(
-        `${backendUrl}/api/upload`,
-        formData,
-        { headers: { "Content-Type": "multipart/form-data" } }
+        `https://api.cloudinary.com/v1_1/${cloud_name}/${resourceType}/upload`,
+        cloudinaryFormData,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+          onUploadProgress: (progressEvent) => {
+            const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+            setUploadProgress(percent);
+          }
+        }
       );
 
       setMessages(m => m.filter(msg => msg.id !== tempId));
+      setUploadProgress(0);
 
       const fileData = { 
         url: res.data.secure_url, 
@@ -1791,28 +1849,37 @@ export default function ChatRoom() {
               onChange={(e) => setUserName(e.target.value)}
             />
 
-            <JoinInput
-              type="password"
-              placeholder="Security Code"
-              value={securityCode}
-              onChange={(e) => setSecurityCode(e.target.value)}
-              onKeyDown={async (e) => {
-                if (e.key === "Enter") {
-                  const code = securityCode.trim();
-                  if (!SECURITY_CODE.includes(code)) {
-                    toast.error("Invalid security code! Please check and try again.");
-                    return;
+            <PasswordInputContainer>
+              <PasswordInput
+                type={showPassword ? "text" : "password"}
+                placeholder="Security Code"
+                value={securityCode}
+                onChange={(e) => setSecurityCode(e.target.value)}
+                onKeyDown={async (e) => {
+                  if (e.key === "Enter") {
+                    const code = securityCode.trim();
+                    if (!SECURITY_CODE.includes(code)) {
+                      toast.error("Invalid security code! Please check and try again.");
+                      return;
+                    }
+                    try {
+                      const key = await generateKeyFromSecret(code + roomId);
+                      setRoomKey(key);
+                      setJoined(true);
+                    } catch (err) {
+                      toast.error("Failed to initialize secure session keys");
+                    }
                   }
-                  try {
-                    const key = await generateKeyFromSecret(code + roomId);
-                    setRoomKey(key);
-                    setJoined(true);
-                  } catch (err) {
-                    toast.error("Failed to initialize secure session keys");
-                  }
-                }
-              }}
-            />
+                }}
+              />
+              <EyeButton 
+                type="button" 
+                onClick={() => setShowPassword(!showPassword)}
+                title={showPassword ? "Hide security code" : "Show security code"}
+              >
+                {showPassword ? <FaEyeSlash /> : <FaEye />}
+              </EyeButton>
+            </PasswordInputContainer>
 
             <JoinButton
               onClick={async () => {
@@ -2077,15 +2144,16 @@ export default function ChatRoom() {
                        }}>
                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                            <span style={{ fontSize: "0.85rem", fontWeight: "600", color: "var(--chakra-colors-textPrimary)", opacity: 0.8 }}>Uploading: {m.file.name}</span>
-                           <span style={{ fontSize: "0.75rem", color: "var(--chakra-colors-brandPrimary)", fontWeight: "bold" }}>...</span>
+                           <span style={{ fontSize: "0.75rem", color: "var(--chakra-colors-brandPrimary)", fontWeight: "bold" }}>{uploadProgress > 0 ? `${uploadProgress}%` : "Preparing..."}</span>
                          </div>
                          <div style={{ width: "100%", height: "4px", background: "rgba(255, 255, 255, 0.08)", borderRadius: "10px", overflow: "hidden" }}>
                            <div style={{
                              height: "100%",
-                             width: `100%`,
-                             background: "linear-gradient(90deg, var(--chakra-colors-brandPrimary), var(--chakra-colors-brandSecondary), var(--chakra-colors-brandPrimary))",
+                             width: uploadProgress > 0 ? `${uploadProgress}%` : "30%",
+                             background: "linear-gradient(90deg, var(--chakra-colors-brandPrimary), var(--chakra-colors-brandSecondary))",
                              borderRadius: "10px",
-                             animation: "pulse 1.5s infinite"
+                             transition: "width 0.3s ease",
+                             ...(uploadProgress === 0 && { animation: "pulse 1.5s infinite" })
                            }} />
                          </div>
                        </div>
