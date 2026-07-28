@@ -1003,11 +1003,11 @@ const GifGrid = styled.div`
 const GifCard = styled.div`
   position: relative;
   width: 100%;
+  padding-bottom: 100%; /* rigid 1:1 box constraint */
   border-radius: 10px;
   overflow: hidden;
   cursor: pointer;
   background: rgba(255, 255, 255, 0.03);
-  aspect-ratio: 1 / 1;
   transition: transform 0.15s ease;
 
   &:active {
@@ -1016,6 +1016,9 @@ const GifCard = styled.div`
 `;
 
 const GifItem = styled.img`
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
