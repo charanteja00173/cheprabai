@@ -1653,21 +1653,12 @@ export default function ChatRoom() {
 
       const backendUrl = process.env.REACT_APP_SOCKET_ENDPOINT || "https://cheprabai-backend.onrender.com";
 
-      // 1. Get signed upload credentials from backend (tiny fast request)
-      const sigRes = await axios.get(`${backendUrl}/api/cloudinary-signature`);
-      const { signature, timestamp, cloud_name, api_key } = sigRes.data;
-
-      // 2. Upload directly to Cloudinary's nearest edge CDN node (fastest possible path)
-      const resourceType = roomKey ? "raw" : "auto";
-      const cloudinaryFormData = new FormData();
-      cloudinaryFormData.append("file", fileToUpload);
-      cloudinaryFormData.append("api_key", api_key);
-      cloudinaryFormData.append("timestamp", timestamp);
-      cloudinaryFormData.append("signature", signature);
+      const formData = new FormData();
+      formData.append("file", fileToUpload);
 
       const res = await axios.post(
-        `https://api.cloudinary.com/v1_1/${cloud_name}/${resourceType}/upload`,
-        cloudinaryFormData,
+        `${backendUrl}/api/upload`,
+        formData,
         {
           headers: { "Content-Type": "multipart/form-data" },
           onUploadProgress: (progressEvent) => {
