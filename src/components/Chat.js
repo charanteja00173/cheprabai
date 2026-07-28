@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, Suspense, useCallback } from "react";
 import { io } from "socket.io-client";
+import { Link } from "react-router-dom";
 import axios from "axios";
 import styled, { keyframes } from "styled-components";
 import {
@@ -1969,6 +1970,26 @@ export default function ChatRoom() {
             >
               Join Secure Room
             </JoinButton>
+
+            <Link
+              to="/admin"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "8px",
+                marginTop: "16px",
+                color: "var(--chakra-colors-textSecondary)",
+                fontSize: "0.85rem",
+                textDecoration: "none",
+                fontWeight: "600",
+                transition: "color 0.2s"
+              }}
+              onMouseEnter={(e) => e.target.style.color = "var(--chakra-colors-brandPrimary)"}
+              onMouseLeave={(e) => e.target.style.color = "var(--chakra-colors-textSecondary)"}
+            >
+              🛡️ Super Admin Console
+            </Link>
           </JoinContainer>
         </LandingWrapper>
       </>
@@ -2022,7 +2043,7 @@ export default function ChatRoom() {
                       ))}
                     </div>
                   </div>
-                  <div style={{ borderTop: "1px solid rgba(255, 255, 255, 0.1)", paddingTop: 10, marginTop: 10 }}>
+                  <div style={{ borderTop: "1px solid rgba(255, 255, 255, 0.1)", paddingTop: 10, marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
                     <button
                       onClick={exportChat}
                       style={{
@@ -2035,6 +2056,20 @@ export default function ChatRoom() {
                     >
                       <FaDownload /> Export Chat History
                     </button>
+                    <Link
+                      to="/admin"
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{
+                        display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                        width: "100%", padding: "8px 12px", borderRadius: 10,
+                        background: "rgba(255, 63, 94, 0.08)", border: "1px solid rgba(255, 63, 94, 0.25)",
+                        color: "var(--chakra-colors-brandPrimary)", cursor: "pointer", fontSize: "0.8rem", fontWeight: 600,
+                        textDecoration: "none", boxSizing: "border-box", transition: "all 0.2s"
+                      }}
+                    >
+                      🛡️ Super Admin Panel
+                    </Link>
                   </div>
                 </div>
               </RoomInfoDropdown>

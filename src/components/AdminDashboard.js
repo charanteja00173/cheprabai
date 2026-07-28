@@ -122,6 +122,36 @@ const FilterSection = styled.div`
   flex-wrap: wrap;
 `;
 
+const FilterSelect = styled.select`
+  padding: 12px 36px 12px 16px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  color: var(--chakra-colors-textPrimary);
+  font-size: 0.95rem;
+  outline: none;
+  cursor: pointer;
+  min-width: 180px;
+  max-width: 100%;
+  transition: all 0.25s ease;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.4)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px;
+
+  option {
+    background: #12121a;
+    color: #fff;
+  }
+
+  &:focus {
+    border-color: var(--chakra-colors-brandPrimary);
+    background: rgba(0, 0, 0, 0.2);
+    box-shadow: 0 0 0 1px var(--chakra-colors-brandPrimary), 0 0 15px var(--chakra-colors-brandGlow);
+  }
+`;
+
 const SearchInputWrapper = styled.div`
   position: relative;
   flex: 1;
@@ -388,6 +418,8 @@ export default function AdminDashboard() {
   const [newPw, setNewPw] = useState("");
   const [showCurrentPw, setShowCurrentPw] = useState(false);
   const [showNewPw, setShowNewPw] = useState(false);
+  const [selectedRoom, setSelectedRoom] = useState("");
+  const [selectedUser, setSelectedUser] = useState("");
 
   const backendUrl = process.env.REACT_APP_SOCKET_ENDPOINT || "https://cheprabai-backend.onrender.com";
 
@@ -436,6 +468,8 @@ export default function AdminDashboard() {
     localStorage.removeItem("admin_token");
     setToken("");
     setUploads([]);
+    setSelectedRoom("");
+    setSelectedUser("");
     toast.info("Logged out.");
   };
 
@@ -480,15 +514,35 @@ export default function AdminDashboard() {
     }
   };
 
+  const uniqueRoomsList = useMemo(() => {
+    return Array.from(new Set(uploads.map(item => item.roomId).filter(Boolean))).sort();
+  }, [uploads]);
+
+  const uniqueUsersList = useMemo(() => {
+    return Array.from(new Set(uploads.map(item => item.uploadedBy).filter(Boolean))).sort();
+  }, [uploads]);
+
   const filteredUploads = useMemo(() => {
+    let result = uploads;
+
+    if (selectedRoom) {
+      result = result.filter(item => item.roomId === selectedRoom);
+    }
+    if (selectedUser) {
+      result = result.filter(item => item.uploadedBy === selectedUser);
+    }
+
     const query = search.toLowerCase();
-    if (!query) return uploads;
-    return uploads.filter(item => 
-      (item.name || "").toLowerCase().includes(query) ||
-      (item.roomId || "").toLowerCase().includes(query) ||
-      (item.uploadedBy || "").toLowerCase().includes(query)
-    );
-  }, [uploads, search]);
+    if (query) {
+      result = result.filter(item => 
+        (item.name || "").toLowerCase().includes(query) ||
+        (item.roomId || "").toLowerCase().includes(query) ||
+        (item.uploadedBy || "").toLowerCase().includes(query)
+      );
+    }
+
+    return result;
+  }, [uploads, search, selectedRoom, selectedUser]);
 
   const stats = useMemo(() => {
     const totalFiles = uploads.length;
@@ -630,18 +684,41 @@ export default function AdminDashboard() {
           </StatCard>
         </StatsGrid>
 
-        <FilterSection>
-          <SearchInputWrapper>
-            <FaSearch style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", color: "var(--chakra-colors-textSecondary)" }} />
-            <SearchInput
-              type="text"
-              placeholder="Search uploads by name, room ID, or user..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </SearchInputWrapper>
-          <ActionButton onClick={() => fetchUploads(token)}>Refresh Data</ActionButton>
-        </FilterSection>
+         <FilterSection>
+           <SearchInputWrapper>
+             <FaSearch style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", color: "var(--chakra-colors-textSecondary)" }} />
+             <SearchInput
+               type="text"
+               placeholder="Search uploads by name, room ID, or user..."
+               value={search}
+               onChange={(e) => setSearch(e.target.value)}
+             />
+           </SearchInputWrapper>
+
+           <FilterSelect
+             value={selectedRoom}
+             onChange={(e) => setSelectedRoom(e.target.value)}
+             title="Filter by Room ID"
+           >
+             <option value="">All Rooms</option>
+             {uniqueRoomsList.map((r) => (
+               <option key={r} value={r}>{r}</option>
+             ))}
+           </FilterSelect>
+
+           <FilterSelect
+             value={selectedUser}
+             onChange={(e) => setSelectedUser(e.target.value)}
+             title="Filter by Contributor"
+           >
+             <option value="">All Users</option>
+             {uniqueUsersList.map((u) => (
+               <option key={u} value={u}>{u}</option>
+             ))}
+           </FilterSelect>
+
+           <ActionButton onClick={() => fetchUploads(token)}>Refresh Data</ActionButton>
+         </FilterSection>
 
         {loading ? (
           <div style={{ textAlign: "center", padding: "60px", color: "var(--chakra-colors-textSecondary)" }}>
