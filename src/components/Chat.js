@@ -802,7 +802,10 @@ const SendButton = styled.button`
     font-size: 0.85rem;
   }
 `;
-/* ================= GIF PICKER IMPROVED ================= */
+const slideUpMobile = keyframes`
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+`;
 
 const GifPickerOverlay = styled(PreviewOverlay)`
   background: rgba(8, 8, 12, 0.8);
@@ -819,18 +822,23 @@ const GifPickerOverlay = styled(PreviewOverlay)`
            max(12px, env(safe-area-inset-bottom))
            max(12px, env(safe-area-inset-left));
 
+  @media (max-width: 767px) {
+    align-items: flex-end;
+    padding: 0;
+  }
+
   @media (min-width: 768px) {
     padding: 0;
   }
 `;
 
-const GifPickerModal = styled(PreviewModal)`
+const GifPickerModal = styled.div`
   width: 100%;
   max-width: 650px;
   max-height: min(85vh, calc(100dvh - var(--safe-top) - var(--safe-bottom) - 30px));
 
   padding: 20px;
-  background: rgba(15, 15, 20, 0.7);
+  background: rgba(15, 15, 20, 0.75);
   border: 1px solid rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(40px);
   -webkit-backdrop-filter: blur(40px);
@@ -846,12 +854,29 @@ const GifPickerModal = styled(PreviewModal)`
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
 
   overflow: hidden;
+  animation: ${scaleUp} 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 
-  @media (max-width: 600px) {
-    width: 95%;
-    max-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - 20px);
+  @media (max-width: 767px) {
+    max-width: 100%;
+    height: 60dvh;
+    max-height: 60dvh;
+    border-radius: 24px 24px 0 0;
     padding: 16px;
     gap: 12px;
+    animation: ${slideUpMobile} 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    border-bottom: none;
+    border-left: none;
+    border-right: none;
+  }
+`;
+
+const CloseGifPickerButton = styled(IconButton)`
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--chakra-colors-textPrimary);
+  &:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.15);
   }
 `;
 
@@ -1253,7 +1278,27 @@ export default function ChatRoom() {
   const [loadingMore, setLoadingMore] = useState(false);
   const messagesContainerRef = useRef(null);
 
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    const isNearBottom = container.scrollHeight - container.clientHeight - container.scrollTop < 250;
+    const lastMessage = messages[messages.length - 1];
+    const isMyMessage = lastMessage && lastMessage.userName === userName;
+
+    if (isNearBottom || isMyMessage) {
+      requestAnimationFrame(() => {
+        container.scrollTop = container.scrollHeight;
+      });
+    }
+  }, [messages, userName]);
+
+  const gifGridRef = useRef(null);
+  const loadingGifsRef = useRef(false);
+
   const fetchGifs = async (query = "", offset = 0) => {
+    if (loadingGifsRef.current) return;
+    loadingGifsRef.current = true;
+
     const API_KEY = process.env.REACT_APP_GIPHY_API_KEY;
     const url = query
       ? `https://api.giphy.com/v1/gifs/search?api_key=${API_KEY}&q=${query}&limit=${GIF_LIMIT}&offset=${offset}`
@@ -1262,14 +1307,22 @@ export default function ChatRoom() {
     try {
       const res = await fetch(url);
       const data = await res.json();
-      if (data.data.length < GIF_LIMIT) setHasMoreGifs(false); // no more GIFs
-      if (offset === 0) setGifs(data.data);
-      else setGifs((prev) => [...prev, ...data.data]); // append
+      if (data.data.length < GIF_LIMIT) setHasMoreGifs(false);
+      if (offset === 0) {
+        setGifs(data.data);
+      } else {
+        setGifs((prev) => {
+          const existingIds = new Set(prev.map(g => g.id));
+          const unique = data.data.filter(g => !existingIds.has(g.id));
+          return [...prev, ...unique];
+        });
+      }
     } catch (err) {
+      console.error("GIF fetch error:", err);
+    } finally {
+      loadingGifsRef.current = false;
     }
   };
-
-  const gifGridRef = useRef(null);
 
   useEffect(() => {
     if (showGifPicker) {
@@ -1289,11 +1342,13 @@ export default function ChatRoom() {
 
     const handleScroll = () => {
       if (
-        grid.scrollTop + grid.clientHeight >= grid.scrollHeight - 10 &&
-        hasMoreGifs
+        grid.scrollTop + grid.clientHeight >= grid.scrollHeight - 50 &&
+        hasMoreGifs &&
+        !loadingGifsRef.current
       ) {
-        fetchGifs(gifQuery, gifOffset + GIF_LIMIT);
-        setGifOffset((prev) => prev + GIF_LIMIT);
+        const nextOffset = gifOffset + GIF_LIMIT;
+        setGifOffset(nextOffset);
+        fetchGifs(gifQuery, nextOffset);
       }
     };
 
@@ -1555,21 +1610,13 @@ export default function ChatRoom() {
 
       const backendUrl = process.env.REACT_APP_SOCKET_ENDPOINT || "https://cheprabai-backend.onrender.com";
 
-      // 1. Fetch secure Cloudinary upload signature from backend (prevents exposing API Secret)
-      const sigRes = await axios.get(`${backendUrl}/api/cloudinary-signature`);
-      const { signature, timestamp, cloud_name, api_key } = sigRes.data;
-
-      // 2. Upload file directly to Cloudinary's fast edge nodes
-      const resourceType = roomKey ? "raw" : "auto";
-      const cloudinaryFormData = new FormData();
-      cloudinaryFormData.append("file", fileToUpload);
-      cloudinaryFormData.append("api_key", api_key);
-      cloudinaryFormData.append("timestamp", timestamp);
-      cloudinaryFormData.append("signature", signature);
+      // Upload file through backend — it saves locally for instant access, then uploads to Cloudinary in the background
+      const formData = new FormData();
+      formData.append("file", fileToUpload);
 
       const res = await axios.post(
-        `https://api.cloudinary.com/v1_1/${cloud_name}/${resourceType}/upload`,
-        cloudinaryFormData,
+        `${backendUrl}/api/upload`,
+        formData,
         { headers: { "Content-Type": "multipart/form-data" } }
       );
 
@@ -1584,7 +1631,8 @@ export default function ChatRoom() {
       handleSend({ file: fileData });
     } catch (err) {
       console.error(err);
-      toast.error("File upload failed!");
+      const errorMsg = err.response?.data?.error || "File upload failed!";
+      toast.error(errorMsg);
       setMessages(m => m.filter(msg => !msg.id?.startsWith("uploading-")));
     }
   };
@@ -2089,9 +2137,9 @@ export default function ChatRoom() {
                 }}>
                   <FaSearch />
                 </SearchGifButton>
-                {/* <CloseGifPickerButton onClick={() => setShowGifPicker(false)}>
+                <CloseGifPickerButton onClick={() => setShowGifPicker(false)} title="Close GIF Drawer">
                   <AiOutlineClose />
-                </CloseGifPickerButton> */}
+                </CloseGifPickerButton>
               </GifPickerHeader>
 
               <GifGrid ref={gifGridRef}>

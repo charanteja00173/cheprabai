@@ -348,11 +348,30 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         setLocalStream(stream);
         if (myVideoRef.current) myVideoRef.current.srcObject = stream;
 
+        const iceServers = [
+          { urls: "stun:stun.l.google.com:19302" },
+          { urls: "stun:stun1.l.google.com:19302" },
+          { urls: "stun:stun2.l.google.com:19302" },
+          { urls: "stun:stun3.l.google.com:19302" },
+          { urls: "stun:stun4.l.google.com:19302" }
+        ];
+
+        if (process.env.REACT_APP_TURN_URL) {
+          iceServers.push({
+            urls: process.env.REACT_APP_TURN_URL,
+            username: process.env.REACT_APP_TURN_USERNAME,
+            credential: process.env.REACT_APP_TURN_PASSWORD
+          });
+        }
+
         const peer = new Peer(undefined, {
           path: "/peerjs",
           host: backendUrl.hostname,
           port: backendUrl.port || (backendUrl.protocol === "https:" ? 443 : 80),
           secure: backendUrl.protocol === "https:",
+          config: {
+            iceServers: iceServers
+          }
         });
 
         peer.on("open", (id) => {
