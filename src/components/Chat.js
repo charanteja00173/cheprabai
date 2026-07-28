@@ -13,6 +13,7 @@ import {
   FaDownload,
   FaEye,
   FaEyeSlash,
+  FaSignOutAlt,
 } from "react-icons/fa";
 import { HiGif } from "react-icons/hi2";
 import { FaVideo, FaPlay } from "react-icons/fa";
@@ -842,107 +843,113 @@ const slideUpMobile = keyframes`
   to { transform: translateY(0); }
 `;
 
-const GifPickerOverlay = styled(PreviewOverlay)`
-  background: rgba(8, 8, 12, 0.8);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+const GifPickerOverlay = styled.div`
+  position: fixed;
+  inset: 0;
   z-index: 10000;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 
   display: flex;
   align-items: center;
   justify-content: center;
 
-  padding: max(12px, env(safe-area-inset-top))
-           max(12px, env(safe-area-inset-right))
-           max(12px, env(safe-area-inset-bottom))
-           max(12px, env(safe-area-inset-left));
-
   @media (max-width: 767px) {
     align-items: flex-end;
-    padding: 0;
-  }
-
-  @media (min-width: 768px) {
-    padding: 0;
+    background: rgba(0, 0, 0, 0.5);
   }
 `;
 
 const GifPickerModal = styled.div`
   width: 100%;
-  max-width: 650px;
-  max-height: min(85vh, calc(100dvh - var(--safe-top) - var(--safe-bottom) - 30px));
+  max-width: 560px;
+  height: 70vh;
+  max-height: 70vh;
 
-  padding: 20px;
-  background: rgba(15, 15, 20, 0.75);
+  background: #0d0d12;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(40px);
-  -webkit-backdrop-filter: blur(40px);
-  border-radius: 24px;
+  border-radius: 20px;
 
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  overflow: hidden;
 
   box-shadow: 
-    0 10px 30px rgba(0, 0, 0, 0.35),
-    0 30px 60px rgba(0, 0, 0, 0.55),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    0 20px 60px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
 
-  overflow: hidden;
-  animation: ${scaleUp} 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation: ${scaleUp} 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
 
   @media (max-width: 767px) {
     max-width: 100%;
-    height: 60dvh;
-    max-height: 60dvh;
-    border-radius: 24px 24px 0 0;
-    padding: 16px;
-    gap: 12px;
-    animation: ${slideUpMobile} 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    height: 85dvh;
+    max-height: 85dvh;
+    border-radius: 20px 20px 0 0;
     border-bottom: none;
-    border-left: none;
-    border-right: none;
+    animation: ${slideUpMobile} 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+`;
+
+const GifDrawerHandle = styled.div`
+  display: none;
+  @media (max-width: 767px) {
+    display: flex;
+    justify-content: center;
+    padding: 10px 0 4px;
+    &::after {
+      content: '';
+      width: 36px;
+      height: 4px;
+      border-radius: 2px;
+      background: rgba(255, 255, 255, 0.2);
+    }
   }
 `;
 
 const CloseGifPickerButton = styled(IconButton)`
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   color: var(--chakra-colors-textPrimary);
+  flex-shrink: 0;
   &:hover {
-    background: rgba(255, 255, 255, 0.08);
-    border-color: rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.18);
   }
 `;
 
 const GifPickerHeader = styled.div`
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 8px;
+  gap: 8px;
+  padding: 12px 16px;
+  flex-shrink: 0;
+
+  @media (max-width: 767px) {
+    padding: 8px 12px 12px;
+  }
 `;
 
 const GifSearchInput = styled.input`
   flex: 1;
-  padding: 12px 20px;
-  border-radius: 24px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.03);
+  padding: 11px 18px;
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
   color: var(--chakra-colors-textPrimary);
   font-size: max(16px, 0.95rem);
   outline: none;
   box-sizing: border-box;
-  transition: all 0.25s ease;
+  transition: all 0.2s ease;
 
   &:focus {
     border-color: var(--chakra-colors-brandPrimary);
-    background: rgba(0, 0, 0, 0.4);
-    box-shadow: 0 0 10px rgba(255, 63, 94, 0.15);
+    background: rgba(0, 0, 0, 0.5);
+    box-shadow: 0 0 0 3px rgba(255, 63, 94, 0.1);
   }
 
   &::placeholder {
-    color: var(--chakra-colors-textSecondary);
-    opacity: 0.6;
+    color: rgba(255, 255, 255, 0.35);
   }
 `;
 
@@ -950,57 +957,75 @@ const SearchGifButton = styled.button`
   background: linear-gradient(135deg, var(--chakra-colors-brandPrimary), var(--chakra-colors-brandSecondary));
   border: none;
   color: #fff;
-  border-radius: 24px;
-  padding: 8px 16px;
+  border-radius: 22px;
+  padding: 0;
   font-weight: 700;
   cursor: pointer;
-  transition: all 0.25s ease;
+  transition: all 0.2s ease;
+  width: 44px;
+  height: 44px;
   min-width: 44px;
   min-height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 
   &:hover {
     transform: translateY(-1px);
-    box-shadow: 0 6px 12px var(--chakra-colors-brandGlow);
+    box-shadow: 0 6px 16px var(--chakra-colors-brandGlow);
+  }
+
+  &:active {
+    transform: scale(0.95);
   }
 `;
 
 const GifGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100px, 28vw), 1fr));
-  gap: 6px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  padding: 0 4px 4px;
   overflow-y: auto;
-  flex: 1 1 auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  flex: 1;
   min-height: 0;
-  justify-items: center;
-  scroll-behavior: smooth;
-  width: 100%;
+
+  @media (min-width: 768px) {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    padding: 0 8px 8px;
+  }
 `;
 
 const GifCard = styled.div`
   position: relative;
   width: 100%;
-  border-radius: 12px;
+  border-radius: 10px;
   overflow: hidden;
   cursor: pointer;
-  background: #000;
+  background: rgba(255, 255, 255, 0.03);
   aspect-ratio: 1 / 1;
+  transition: transform 0.15s ease;
+
+  &:active {
+    transform: scale(0.95);
+  }
 `;
 
 const GifItem = styled.img`
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition:
-    transform 0.2s,
-    box-shadow 0.2s;
-
-  &:hover {
-    transform: scale(1.05);
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.5);
+  display: block;
+  
+  @media (hover: hover) {
+    transition: transform 0.2s ease;
+    ${GifCard}:hover & {
+      transform: scale(1.06);
+    }
   }
 `;
 
@@ -1012,12 +1037,17 @@ const CardOverlay = styled.div`
   justify-content: center;
   align-items: center;
   opacity: 0;
-  transition: opacity 0.2s ease;
+  transition: opacity 0.15s ease;
 
   @media (hover: hover) {
     ${GifCard}:hover & {
       opacity: 1;
     }
+  }
+
+  /* On mobile: show briefly on tap via active */
+  ${GifCard}:active & {
+    opacity: 1;
   }
 `;
 
@@ -1314,17 +1344,28 @@ export default function ChatRoom() {
   const [loadingMore, setLoadingMore] = useState(false);
   const messagesContainerRef = useRef(null);
 
+  const lastMessageIdRef = useRef(null);
+
   useEffect(() => {
     const container = messagesContainerRef.current;
     if (!container) return;
-    const isNearBottom = container.scrollHeight - container.clientHeight - container.scrollTop < 250;
-    const lastMessage = messages[messages.length - 1];
-    const isMyMessage = lastMessage && lastMessage.userName === userName;
 
-    if (isNearBottom || isMyMessage) {
-      requestAnimationFrame(() => {
-        container.scrollTop = container.scrollHeight;
-      });
+    const lastMessage = messages[messages.length - 1];
+    if (!lastMessage) return;
+
+    // Check if the actual last message changed (i.e. new message received/sent)
+    const isNewMessage = lastMessageIdRef.current !== lastMessage.id;
+    lastMessageIdRef.current = lastMessage.id;
+
+    if (isNewMessage) {
+      const isNearBottom = container.scrollHeight - container.clientHeight - container.scrollTop < 250;
+      const isMyMessage = lastMessage.userName === userName;
+
+      if (isNearBottom || isMyMessage) {
+        requestAnimationFrame(() => {
+          container.scrollTop = container.scrollHeight;
+        });
+      }
     }
   }, [messages, userName]);
 
@@ -1373,12 +1414,13 @@ export default function ChatRoom() {
   }, [showGifPicker]);
 
   useEffect(() => {
+    if (!showGifPicker) return;
     const grid = gifGridRef.current;
     if (!grid) return;
 
     const handleScroll = () => {
       if (
-        grid.scrollTop + grid.clientHeight >= grid.scrollHeight - 50 &&
+        grid.scrollTop + grid.clientHeight >= grid.scrollHeight - 100 &&
         hasMoreGifs &&
         !loadingGifsRef.current
       ) {
@@ -1388,9 +1430,9 @@ export default function ChatRoom() {
       }
     };
 
-    grid.addEventListener("scroll", handleScroll);
+    grid.addEventListener("scroll", handleScroll, { passive: true });
     return () => grid.removeEventListener("scroll", handleScroll);
-  }, [gifOffset, gifQuery, hasMoreGifs]);
+  }, [showGifPicker, gifOffset, gifQuery, hasMoreGifs]);
 
   /* ================= HELPERS ================= */
 
@@ -1468,6 +1510,33 @@ export default function ChatRoom() {
     // Owner also clears local state
     setMessages([]);
     setJoined(false);
+  };
+
+  const handleLeaveRoom = () => {
+    const confirmLeave = window.confirm(
+      "Are you sure you want to leave this room? Your session history will be cleared.",
+    );
+    if (!confirmLeave) return;
+
+    if (socketRef.current) {
+      socketRef.current.emit("leaveRoom", { roomId, userName });
+    }
+
+    // Reset local state completely
+    setJoined(false);
+    setMessages([]);
+    setRoomId("");
+    setUserName("");
+    setSecurityCode("");
+    setRoomKey(null);
+    setOwnerToken(null);
+    setPendingFile(null);
+    setPreviewUrl(null);
+    setUploadProgress(0);
+    setOnlineUsers([]);
+    setShowMeeting(false);
+    setShowWhiteboard(false);
+    setLatency(0);
   };
   /* ================= SOCKET ================= */
 
@@ -1720,7 +1789,10 @@ export default function ChatRoom() {
       // Encrypt the entire payload object as a JSON string for complete E2EE (covers text, file metadata, and GIFs)
       const plainPayload = customData || { text: message };
       const encrypted = await encryptMessage(roomKey, JSON.stringify(plainPayload));
-      payload = { encryptedPayload: encrypted };
+      payload = { 
+        encryptedPayload: encrypted,
+        ...(customData && customData.file && { file: customData.file })
+      };
     }
 
     socketRef.current.emit("sendMessage", {
@@ -1989,6 +2061,10 @@ export default function ChatRoom() {
               <FaSearch />
             </ActionButton>
 
+            <ActionButton onClick={handleLeaveRoom} title="Leave Room" style={{ color: "var(--chakra-colors-brandPrimary)" }}>
+              <FaSignOutAlt />
+            </ActionButton>
+
             {showSearch && (
               <SearchPopup onClick={(e) => e.stopPropagation()}>
                 <FaSearch style={{ opacity: 0.5 }} />
@@ -2006,6 +2082,7 @@ export default function ChatRoom() {
               <ActionButton
                 onClick={handleDestroyRoom}
                 style={{ color: "red" }}
+                title="Destroy Room"
               >
                 {" "}
                 ✖{" "}
@@ -2178,6 +2255,7 @@ export default function ChatRoom() {
         {showGifPicker && (
           <GifPickerOverlay onClick={() => setShowGifPicker(false)}>
             <GifPickerModal onClick={(e) => e.stopPropagation()}>
+              <GifDrawerHandle />
               <GifPickerHeader>
                 <GifSearchInput
                   placeholder="Search GIFs..."
@@ -2222,6 +2300,18 @@ export default function ChatRoom() {
                     </CardOverlay>
                   </GifCard>
                 ))}
+                {hasMoreGifs && gifs.length > 0 && (
+                  <div style={{
+                    gridColumn: "1 / -1",
+                    display: "flex",
+                    justifyContent: "center",
+                    padding: "16px 0",
+                    color: "rgba(255,255,255,0.4)",
+                    fontSize: "0.8rem"
+                  }}>
+                    Scroll for more…
+                  </div>
+                )}
               </GifGrid>
             </GifPickerModal>
           </GifPickerOverlay>
