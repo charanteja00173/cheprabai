@@ -907,15 +907,38 @@ const GifDrawerHandle = styled.div`
     }
   }
 `;
-
-const CloseGifPickerButton = styled(IconButton)`
+const CloseGifPickerButton = styled.button`
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.1);
   color: var(--chakra-colors-textPrimary);
+  cursor: pointer;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
   flex-shrink: 0;
+  transition: all 0.2s ease;
+
   &:hover {
     background: rgba(255, 255, 255, 0.1);
     border-color: rgba(255, 255, 255, 0.18);
+  }
+
+  &:active {
+    transform: scale(0.95);
+  }
+
+  @media (max-width: 767px) {
+    width: 38px;
+    height: 38px;
+    min-width: 38px;
+    min-height: 38px;
+    font-size: 1.05rem;
   }
 `;
 
@@ -925,14 +948,18 @@ const GifPickerHeader = styled.div`
   gap: 8px;
   padding: 12px 16px;
   flex-shrink: 0;
+  box-sizing: border-box;
+  width: 100%;
 
   @media (max-width: 767px) {
-    padding: 8px 12px 12px;
+    padding: 8px 10px 10px;
+    gap: 6px;
   }
 `;
 
 const GifSearchInput = styled.input`
   flex: 1;
+  min-width: 0; /* crucial: lets flexbox shrink the input dynamically */
   padding: 11px 18px;
   border-radius: 22px;
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -952,13 +979,17 @@ const GifSearchInput = styled.input`
   &::placeholder {
     color: rgba(255, 255, 255, 0.35);
   }
+
+  @media (max-width: 767px) {
+    padding: 9px 14px;
+  }
 `;
 
 const SearchGifButton = styled.button`
   background: linear-gradient(135deg, var(--chakra-colors-brandPrimary), var(--chakra-colors-brandSecondary));
   border: none;
   color: #fff;
-  border-radius: 22px;
+  border-radius: 50%;
   padding: 0;
   font-weight: 700;
   cursor: pointer;
@@ -980,6 +1011,13 @@ const SearchGifButton = styled.button`
 
   &:active {
     transform: scale(0.95);
+  }
+
+  @media (max-width: 767px) {
+    width: 38px;
+    height: 38px;
+    min-width: 38px;
+    min-height: 38px;
   }
 `;
 
