@@ -1137,6 +1137,9 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
+  const lastDecryptedIvRef = useRef(null);
+  const lastDecryptedSourceUrlRef = useRef(null);
+
   useEffect(() => {
     if (!file.iv || !roomKey) {
       setDecryptedUrl(file.url);
@@ -1144,12 +1147,27 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen }) {
       return;
     }
 
+    // Optimization: If we already decrypted this exact payload (matching IV), reuse the blob URL
+    if (decryptedUrl && lastDecryptedIvRef.current === file.iv) {
+      lastDecryptedSourceUrlRef.current = file.url;
+      return;
+    }
+
     let active = true;
     const decrypt = async () => {
       try {
         setLoading(true);
-        const res = await fetch(file.url);
-        if (!res.ok) throw new Error("Fetch failed");
+        setError(false);
+
+        // If the URL is external (e.g. Cloudinary), fetch via our backend proxy to avoid client-side CORS blocks
+        let fetchUrl = file.url;
+        if (!file.url.startsWith(window.location.origin) && !file.url.includes("/uploads/")) {
+          const backendUrl = process.env.REACT_APP_SOCKET_ENDPOINT || "https://cheprabai-backend.onrender.com";
+          fetchUrl = `${backendUrl}/api/proxy-file?url=${encodeURIComponent(file.url)}`;
+        }
+
+        const res = await fetch(fetchUrl);
+        if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
         const encryptedBuffer = await res.arrayBuffer();
 
         const ivBytes = new Uint8Array(
@@ -1168,6 +1186,8 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen }) {
 
         if (active) {
           setDecryptedUrl(objectUrl);
+          lastDecryptedIvRef.current = file.iv;
+          lastDecryptedSourceUrlRef.current = file.url;
           setLoading(false);
         }
       } catch (err) {
@@ -1183,9 +1203,8 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen }) {
 
     return () => {
       active = false;
-      if (decryptedUrl && decryptedUrl.startsWith("blob:")) {
-        URL.revokeObjectURL(decryptedUrl);
-      }
+      // Note: Only revoke if the source URL actually changed or we unmount
+      // Since we want to preserve blob during local-to-cloud transition, do not revoke if the IV matches
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [file.url, file.iv, roomKey]);
@@ -2223,8 +2242,19 @@ export default function ChatRoom() {
                       );
                     }
 
-                    return (
-                      <a key={j} href={part} target="_blank" rel="noreferrer">
+                     return (
+                      <a
+                        key={j}
+                        href={part}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{
+                          color: "var(--chakra-colors-brandPrimary)",
+                          textDecoration: "underline",
+                          fontWeight: "600",
+                          wordBreak: "break-all"
+                        }}
+                      >
                         {part}
                       </a>
                     );
