@@ -848,45 +848,41 @@ const GifPickerOverlay = styled.div`
   position: fixed;
   inset: 0;
   z-index: 10000;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   display: flex;
   align-items: center;
   justify-content: center;
 
   @media (max-width: 767px) {
     align-items: flex-end;
-    background: rgba(0, 0, 0, 0.5);
+    background: rgba(0, 0, 0, 0.55);
   }
 `;
 
 const GifPickerModal = styled.div`
   width: 100%;
-  max-width: 560px;
-  height: 70vh;
-  max-height: 70vh;
-
-  background: #0d0d12;
+  max-width: 520px;
+  height: 72vh;
+  max-height: 72vh;
+  background: linear-gradient(180deg, #111118 0%, #0a0a10 100%);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 20px;
-
+  border-radius: 24px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-
-  box-shadow: 
-    0 20px 60px rgba(0, 0, 0, 0.6),
+  box-shadow:
+    0 24px 80px rgba(0, 0, 0, 0.7),
+    0 0 0 1px rgba(255, 255, 255, 0.04),
     inset 0 1px 0 rgba(255, 255, 255, 0.06);
-
   animation: ${scaleUp} 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
 
   @media (max-width: 767px) {
     max-width: 100%;
-    height: 85dvh;
-    max-height: 85dvh;
-    border-radius: 20px 20px 0 0;
+    height: 88dvh;
+    max-height: 88dvh;
+    border-radius: 24px 24px 0 0;
     border-bottom: none;
     animation: ${slideUpMobile} 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   }
@@ -897,160 +893,279 @@ const GifDrawerHandle = styled.div`
   @media (max-width: 767px) {
     display: flex;
     justify-content: center;
-    padding: 10px 0 4px;
+    padding: 10px 0 2px;
     &::after {
       content: '';
-      width: 36px;
+      width: 40px;
       height: 4px;
-      border-radius: 2px;
-      background: rgba(255, 255, 255, 0.2);
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.18);
     }
   }
 `;
+
+const GifPickerTitle = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px 6px;
+  flex-shrink: 0;
+
+  span.title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--chakra-colors-textPrimary);
+    letter-spacing: -0.01em;
+  }
+
+  span.badge {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--chakra-colors-brandPrimary);
+    background: rgba(255, 63, 94, 0.1);
+    border: 1px solid rgba(255, 63, 94, 0.15);
+    padding: 3px 8px;
+    border-radius: 6px;
+  }
+
+  @media (max-width: 767px) {
+    padding: 8px 14px 4px;
+    span.title { font-size: 0.95rem; }
+  }
+`;
+
 const CloseGifPickerButton = styled.button`
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.1);
   color: var(--chakra-colors-textPrimary);
   cursor: pointer;
-  width: 44px;
-  height: 44px;
-  min-width: 44px;
-  min-height: 44px;
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  min-height: 38px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.2rem;
+  font-size: 1.05rem;
   flex-shrink: 0;
   transition: all 0.2s ease;
+  margin-left: auto;
 
   &:hover {
-    background: rgba(255, 255, 255, 0.1);
-    border-color: rgba(255, 255, 255, 0.18);
+    background: rgba(255, 107, 107, 0.12);
+    border-color: rgba(255, 107, 107, 0.3);
+    color: #ff6b6b;
   }
 
   &:active {
-    transform: scale(0.95);
+    transform: scale(0.92);
   }
 
   @media (max-width: 767px) {
-    width: 38px;
-    height: 38px;
-    min-width: 38px;
-    min-height: 38px;
-    font-size: 1.05rem;
+    width: 34px;
+    height: 34px;
+    min-width: 34px;
+    min-height: 34px;
+    font-size: 0.95rem;
   }
 `;
 
 const GifPickerHeader = styled.div`
   display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 16px;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 18px;
   flex-shrink: 0;
-  box-sizing: border-box;
-  width: 100%;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 
   @media (max-width: 767px) {
-    padding: 8px 10px 10px;
-    gap: 6px;
+    padding: 10px 14px 12px;
+    gap: 8px;
+  }
+`;
+
+const GifPickerTopRow = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+`;
+
+const GifSearchContainer = styled.div`
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+`;
+
+const GifSearchIcon = styled.div`
+  position: absolute;
+  left: 14px;
+  color: rgba(255, 255, 255, 0.3);
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+  font-size: 0.95rem;
+
+  @media (max-width: 767px) {
+    left: 12px;
+    font-size: 0.85rem;
+  }
+`;
+
+const GifSearchClearButton = styled.button`
+  position: absolute;
+  right: 12px;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border-radius: 50%;
+  transition: all 0.15s ease;
+
+  &:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  @media (max-width: 767px) {
+    right: 10px;
+  }
+`;
+
+const GifEmptyState = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 50px 20px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.4);
+  flex: 1;
+
+  .icon {
+    font-size: 2.2rem;
+    color: rgba(255, 255, 255, 0.15);
+    margin-bottom: 12px;
+  }
+
+  .text {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin-bottom: 4px;
+    color: rgba(255, 255, 255, 0.7);
+  }
+
+  .subtext {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.35);
+  }
+`;
+
+const GiphyAttribution = styled.div`
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.25);
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  font-size: 0.65rem;
+  color: rgba(255, 255, 255, 0.3);
+  gap: 4px;
+  flex-shrink: 0;
+
+  a {
+    color: var(--chakra-colors-brandPrimary);
+    text-decoration: none;
+    font-weight: 600;
+    &:hover {
+      text-decoration: underline;
+    }
   }
 `;
 
 const GifSearchInput = styled.input`
   flex: 1;
-  min-width: 0; /* crucial: lets flexbox shrink the input dynamically */
-  padding: 11px 18px;
-  border-radius: 22px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  min-width: 0;
+  padding: 11px 16px 11px 40px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.04);
   color: var(--chakra-colors-textPrimary);
-  font-size: max(16px, 0.95rem);
+  font-size: max(16px, 0.9rem);
+  font-weight: 500;
   outline: none;
   box-sizing: border-box;
-  transition: all 0.2s ease;
+  transition: all 0.25s ease;
 
   &:focus {
     border-color: var(--chakra-colors-brandPrimary);
-    background: rgba(0, 0, 0, 0.5);
-    box-shadow: 0 0 0 3px rgba(255, 63, 94, 0.1);
+    background: rgba(0, 0, 0, 0.4);
+    box-shadow: 0 0 0 3px rgba(255, 63, 94, 0.08);
   }
 
   &::placeholder {
-    color: rgba(255, 255, 255, 0.35);
+    color: rgba(255, 255, 255, 0.3);
+    font-weight: 400;
   }
 
   @media (max-width: 767px) {
-    padding: 9px 14px;
+    padding: 10px 14px 10px 36px;
+    border-radius: 12px;
   }
 `;
 
-const SearchGifButton = styled.button`
-  background: linear-gradient(135deg, var(--chakra-colors-brandPrimary), var(--chakra-colors-brandSecondary));
-  border: none;
-  color: #fff;
-  border-radius: 50%;
-  padding: 0;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  width: 44px;
-  height: 44px;
-  min-width: 44px;
-  min-height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 
-  &:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 6px 16px var(--chakra-colors-brandGlow);
-  }
-
-  &:active {
-    transform: scale(0.95);
-  }
-
-  @media (max-width: 767px) {
-    width: 38px;
-    height: 38px;
-    min-width: 38px;
-    min-height: 38px;
-  }
-`;
 
 const GifGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 4px;
-  padding: 0 4px 4px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+  padding: 0 12px 12px;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
   flex: 1;
   min-height: 0;
 
+  @media (min-width: 420px) {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
   @media (min-width: 768px) {
-    grid-template-columns: repeat(4, 1fr);
-    gap: 6px;
-    padding: 0 8px 8px;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    padding: 0 14px 14px;
   }
 `;
 
 const GifCard = styled.div`
   position: relative;
   width: 100%;
-  padding-bottom: 100%; /* rigid 1:1 box constraint */
-  border-radius: 10px;
+  padding-bottom: 100%;
+  border-radius: 14px;
   overflow: hidden;
   cursor: pointer;
   background: rgba(255, 255, 255, 0.03);
-  transition: transform 0.15s ease;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  transition: transform 0.15s ease, box-shadow 0.2s ease;
 
   &:active {
-    transform: scale(0.95);
+    transform: scale(0.96);
+  }
+
+  @media (hover: hover) {
+    &:hover {
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+      border-color: rgba(255, 255, 255, 0.1);
+    }
   }
 `;
 
@@ -1062,11 +1177,12 @@ const GifItem = styled.img`
   height: 100%;
   object-fit: cover;
   display: block;
-  
+  background: rgba(255, 255, 255, 0.02);
+
   @media (hover: hover) {
-    transition: transform 0.2s ease;
+    transition: transform 0.25s ease;
     ${GifCard}:hover & {
-      transform: scale(1.06);
+      transform: scale(1.08);
     }
   }
 `;
@@ -1074,12 +1190,12 @@ const GifItem = styled.img`
 const CardOverlay = styled.div`
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.4);
+  background: linear-gradient(180deg, transparent 40%, rgba(0, 0, 0, 0.6) 100%);
   display: flex;
   justify-content: center;
   align-items: center;
   opacity: 0;
-  transition: opacity 0.15s ease;
+  transition: opacity 0.18s ease;
 
   @media (hover: hover) {
     ${GifCard}:hover & {
@@ -1087,7 +1203,6 @@ const CardOverlay = styled.div`
     }
   }
 
-  /* On mobile: show briefly on tap via active */
   ${GifCard}:active & {
     opacity: 1;
   }
@@ -1348,7 +1463,41 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen }) {
   );
 }
 
+const shimmer = keyframes`
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+`;
 
+const GifSkeleton = styled.div`
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, #13131c 25%, #252538 50%, #13131c 75%);
+  background-size: 200% 100%;
+  animation: ${shimmer} 1.6s infinite linear;
+  border-radius: 14px;
+`;
+
+function GifCardComponent({ gif, onSelect }) {
+  const [loaded, setLoaded] = useState(false);
+
+  return (
+    <GifCard onClick={() => onSelect(gif)}>
+      {!loaded && <GifSkeleton />}
+      <GifItem
+        src={gif.images.fixed_height.url}
+        alt={gif.title || "GIF"}
+        loading="lazy"
+        onLoad={() => setLoaded(true)}
+        style={{ opacity: loaded ? 1 : 0, transition: "opacity 0.25s ease" }}
+      />
+      {loaded && (
+        <CardOverlay>
+          <FaPaperPlane style={{ color: "#fff", fontSize: "1.1rem" }} />
+        </CardOverlay>
+      )}
+    </GifCard>
+  );
+}
 
 /* ================= COMPONENT ================= */
 
@@ -2360,63 +2509,88 @@ export default function ChatRoom() {
           <GifPickerOverlay onClick={() => setShowGifPicker(false)}>
             <GifPickerModal onClick={(e) => e.stopPropagation()}>
               <GifDrawerHandle />
+              
               <GifPickerHeader>
-                <GifSearchInput
-                  placeholder="Search GIFs..."
-                  value={gifQuery}
-                  onChange={(e) => setGifQuery(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      setGifOffset(0);
-                      setHasMoreGifs(true);
-                      fetchGifs(gifQuery, 0);
-                    }
-                  }}
-                />
-                <SearchGifButton onClick={() => {
-                  setGifOffset(0);
-                  setHasMoreGifs(true);
-                  fetchGifs(gifQuery, 0);
-                }}>
-                  <FaSearch />
-                </SearchGifButton>
-                <CloseGifPickerButton onClick={() => setShowGifPicker(false)} title="Close GIF Drawer">
-                  <AiOutlineClose />
-                </CloseGifPickerButton>
+                <GifPickerTopRow>
+                  <GifPickerTitle>
+                    <span className="title">Find GIFs</span>
+                    <span className="badge">GIPHY</span>
+                  </GifPickerTitle>
+                  <CloseGifPickerButton onClick={() => setShowGifPicker(false)} title="Close GIF Drawer">
+                    <AiOutlineClose />
+                  </CloseGifPickerButton>
+                </GifPickerTopRow>
+                
+                <GifSearchContainer>
+                  <GifSearchIcon>
+                    <FaSearch />
+                  </GifSearchIcon>
+                  <GifSearchInput
+                    placeholder="Search millions of GIFs..."
+                    value={gifQuery}
+                    onChange={(e) => setGifQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        setGifOffset(0);
+                        setHasMoreGifs(true);
+                        fetchGifs(gifQuery, 0);
+                      }
+                    }}
+                  />
+                  {gifQuery && (
+                    <GifSearchClearButton 
+                      onClick={() => {
+                        setGifQuery("");
+                        setGifOffset(0);
+                        setHasMoreGifs(true);
+                        fetchGifs("", 0);
+                      }}
+                      title="Clear Search"
+                    >
+                      <AiOutlineClose size={14} />
+                    </GifSearchClearButton>
+                  )}
+                </GifSearchContainer>
               </GifPickerHeader>
 
               <GifGrid ref={gifGridRef}>
                 {gifs.map((gif) => (
-                  <GifCard
+                  <GifCardComponent
                     key={gif.id}
-                    onClick={() => {
-                      handleSend({ text: "", gif: gif.images.fixed_height.url });
+                    gif={gif}
+                    onSelect={(selectedGif) => {
+                      handleSend({ text: "", gif: selectedGif.images.fixed_height.url });
                       setShowGifPicker(false);
                     }}
-                  >
-                    <GifItem
-                      src={gif.images.fixed_height.url}
-                      alt={gif.title}
-                      loading="lazy"
-                    />
-                    <CardOverlay>
-                      <FaPaperPlane style={{ color: "#fff", fontSize: "1.1rem" }} />
-                    </CardOverlay>
-                  </GifCard>
+                  />
                 ))}
+                
+                {!loadingGifsRef.current && gifs.length === 0 && (
+                  <GifEmptyState style={{ gridColumn: "1 / -1" }}>
+                    <div className="icon">🔍</div>
+                    <div className="text">No GIFs found</div>
+                    <div className="subtext">Try searching for something else</div>
+                  </GifEmptyState>
+                )}
+
                 {hasMoreGifs && gifs.length > 0 && (
                   <div style={{
                     gridColumn: "1 / -1",
                     display: "flex",
                     justifyContent: "center",
                     padding: "16px 0",
-                    color: "rgba(255,255,255,0.4)",
-                    fontSize: "0.8rem"
+                    color: "rgba(255, 255, 255, 0.4)",
+                    fontSize: "0.8rem",
+                    fontWeight: 500
                   }}>
                     Scroll for more…
                   </div>
                 )}
               </GifGrid>
+
+              <GiphyAttribution>
+                Powered by <a href="https://giphy.com" target="_blank" rel="noopener noreferrer">GIPHY</a>
+              </GiphyAttribution>
             </GifPickerModal>
           </GifPickerOverlay>
         )}
