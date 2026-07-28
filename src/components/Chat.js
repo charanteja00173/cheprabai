@@ -1309,8 +1309,7 @@ export default function ChatRoom() {
   const [message, setMessage] = useState("");
   const [typingUsers, setTypingUsers] = useState([]);
 
-  const [pendingFile, setPendingFile] = useState(null);
-  const [previewUrl, setPreviewUrl] = useState(null);
+  const [pendingFiles, setPendingFiles] = useState([]);
   const [fullscreen, setFullscreen] = useState(null);
   const typingTimeout = useRef(null);
   const fileInputRef = useRef(null);
@@ -1533,8 +1532,7 @@ export default function ChatRoom() {
     setSecurityCode("");
     setRoomKey(null);
     setOwnerToken(null);
-    setPendingFile(null);
-    setPreviewUrl(null);
+    setPendingFiles([]);
     setUploadProgress(0);
     setOnlineUsers([]);
     setShowMeeting(false);
@@ -1762,11 +1760,12 @@ export default function ChatRoom() {
 
   useEffect(() => {
     const onPaste = (e) => {
-      const item = [...e.clipboardData.items].find((i) => i.kind === "file");
-      if (item) {
-        const file = item.getAsFile();
-        setPendingFile(file);
-        setPreviewUrl(URL.createObjectURL(file));
+      const pastedFiles = [...e.clipboardData.items]
+        .filter((i) => i.kind === "file")
+        .map((i) => i.getAsFile())
+        .filter(Boolean);
+      if (pastedFiles.length > 0) {
+        setPendingFiles((prev) => [...prev, ...pastedFiles]);
       }
     };
     window.addEventListener("paste", onPaste);
@@ -1776,12 +1775,11 @@ export default function ChatRoom() {
   /* ================= SEND ================= */
 
   const handleSend = async (customData = null) => {
-    if (!customData && pendingFile) {
-      const fileToUpload = pendingFile;
-      setPendingFile(null);
-      setPreviewUrl(null);
+    if (!customData && pendingFiles.length > 0) {
+      const filesToUpload = [...pendingFiles];
+      setPendingFiles([]);
       if (fileInputRef.current) fileInputRef.current.value = "";
-      uploadFile(fileToUpload);
+      filesToUpload.forEach((f) => uploadFile(f));
       return;
     }
     if (!customData && !message.trim()) return;
@@ -2320,36 +2318,54 @@ export default function ChatRoom() {
           </GifPickerOverlay>
         )}
 
-        {pendingFile && (
-          <PreviewOverlay onClick={() => setPendingFile(null)}>
+        {pendingFiles.length > 0 && (
+          <PreviewOverlay onClick={() => setPendingFiles([])}>
             <PreviewModal onClick={(e) => e.stopPropagation()}>
-              {/* <h3 style={{ color: "var(--chakra-colors-textPrimary)", margin: 0 , textAlign: 'center'}}>Send file?</h3> */}
+              <div style={{ color: "var(--chakra-colors-textSecondary)", fontSize: "0.8rem", fontWeight: 600, textAlign: "center", marginBottom: 8 }}>
+                {pendingFiles.length} file{pendingFiles.length > 1 ? "s" : ""} selected
+              </div>
 
-              <PreviewContent style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "150px", width: "100%" }}>
-                {pendingFile.type && pendingFile.type.startsWith("image") ? (
-                  <img alt={pendingFile.name} src={previewUrl} style={{ maxWidth: "100%", maxHeight: "50vh", objectFit: "contain" }} />
-                ) : pendingFile.type && pendingFile.type.startsWith("video") ? (
-                  <video src={previewUrl} controls style={{ maxWidth: "100%", maxHeight: "50vh" }} />
-                ) : pendingFile.type && pendingFile.type.startsWith("audio") ? (
-                  <audio src={previewUrl} controls style={{ width: "100%", maxWidth: "320px" }} />
-                ) : (
-                  <div style={{ textAlign: "center", padding: "20px", width: "100%", boxSizing: "border-box" }}>
-                    <FaFile size={50} style={{ color: "var(--chakra-colors-brandPrimary)", marginBottom: "15px" }} />
-                    <div style={{ color: "var(--chakra-colors-textPrimary)", fontSize: "1rem", fontWeight: "600", wordBreak: "break-all" }}>
-                      {pendingFile.name}
+              <PreviewContent style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, minHeight: "150px", width: "100%", maxHeight: "55vh", overflowY: "auto" }}>
+                {pendingFiles.map((pf, idx) => {
+                  const objUrl = URL.createObjectURL(pf);
+                  return (
+                    <div key={idx} style={{ width: "100%", position: "relative" }}>
+                      {pf.type && pf.type.startsWith("image") ? (
+                        <img alt={pf.name} src={objUrl} style={{ maxWidth: "100%", maxHeight: pendingFiles.length === 1 ? "50vh" : "200px", objectFit: "contain", display: "block", margin: "0 auto", borderRadius: 8 }} />
+                      ) : pf.type && pf.type.startsWith("video") ? (
+                        <video src={objUrl} controls style={{ maxWidth: "100%", maxHeight: pendingFiles.length === 1 ? "50vh" : "200px", display: "block", margin: "0 auto", borderRadius: 8 }} />
+                      ) : pf.type && pf.type.startsWith("audio") ? (
+                        <audio src={objUrl} controls style={{ width: "100%", maxWidth: "320px" }} />
+                      ) : (
+                        <div style={{ textAlign: "center", padding: "12px", width: "100%", boxSizing: "border-box", background: "rgba(255,255,255,0.03)", borderRadius: 10 }}>
+                          <FaFile size={30} style={{ color: "var(--chakra-colors-brandPrimary)", marginBottom: 8 }} />
+                          <div style={{ color: "var(--chakra-colors-textPrimary)", fontSize: "0.9rem", fontWeight: 600, wordBreak: "break-all" }}>{pf.name}</div>
+                          <div style={{ color: "#888", fontSize: "0.75rem", marginTop: 4 }}>{(pf.size / 1024 / 1024).toFixed(2)} MB</div>
+                        </div>
+                      )}
+                      {pendingFiles.length > 1 && (
+                        <button
+                          onClick={() => setPendingFiles((prev) => prev.filter((_, i) => i !== idx))}
+                          style={{
+                            position: "absolute", top: 6, right: 6, background: "rgba(0,0,0,0.6)",
+                            border: "none", color: "#fff", borderRadius: "50%", width: 24, height: 24,
+                            display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
+                            fontSize: "0.7rem"
+                          }}
+                          title="Remove this file"
+                        >
+                          ✕
+                        </button>
+                      )}
                     </div>
-                    <div style={{ color: "#888", fontSize: "0.8rem", marginTop: "8px" }}>
-                      {(pendingFile.size / 1024 / 1024).toFixed(2)} MB • Ready to send
-                    </div>
-                  </div>
-                )}
+                  );
+                })}
               </PreviewContent>
 
               <PreviewActions>
                 <CancelBtn
                   onClick={() => {
-                    setPendingFile(null);
-                    setPreviewUrl(null);
+                    setPendingFiles([]);
                     if (fileInputRef.current) fileInputRef.current.value = "";
                   }}
                 >
@@ -2359,8 +2375,7 @@ export default function ChatRoom() {
                 <SendBtn
                   onClick={() => {
                     handleSend();
-                    setPendingFile(null);
-                    setPreviewUrl(null);
+                    setPendingFiles([]);
                     if (fileInputRef.current) fileInputRef.current.value = "";
                   }}
                 >
@@ -2381,14 +2396,11 @@ export default function ChatRoom() {
               ref={fileInputRef}
               id="file-input"
               type="file"
+              multiple
               onChange={(e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-                setPendingFile(null);
-                setPreviewUrl(null);
-
-                setPendingFile(file);
-                setPreviewUrl(URL.createObjectURL(file));
+                const files = Array.from(e.target.files);
+                if (files.length === 0) return;
+                setPendingFiles((prev) => [...prev, ...files]);
               }}
             />
 
