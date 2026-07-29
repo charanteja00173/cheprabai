@@ -538,35 +538,36 @@ const JoinButton = styled.button`
 const PreviewOverlay = styled.div`
   position: fixed;
   inset: 0;
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  background: rgba(0, 0, 0, 0.78);
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
+  background: rgba(0, 0, 0, 0.88);
   display: flex;
   justify-content: center;
-  align-items: stretch;
+  align-items: center;
   z-index: 10001;
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
-  animation: ${fadeIn} 0.25s ease-out;
+  animation: ${fadeIn} 0.3s ease-out;
 `;
 
 const PreviewModal = styled.div`
   width: ${(props) => (props.$isMobile ? "100vw" : "90vw")};
+  max-width: 1000px;
   height: ${(props) => (props.$isMobile ? "100vh" : "90vh")};
   max-height: ${(props) => (props.$isMobile ? "100dvh" : "90dvh")};
-  background: linear-gradient(180deg, rgba(15, 15, 20, 0.96) 0%, rgba(11, 11, 18, 0.98) 100%);
-  border: none;
-  border-radius: ${(props) => (props.$isMobile ? "0" : "16px")};
-  padding: ${(props) => (props.$isMobile ? "20px 20px 16px" : "24px")};
+  background: linear-gradient(135deg, rgba(20, 20, 30, 0.98) 0%, rgba(15, 15, 25, 0.98) 100%);
+  border: ${(props) => (props.$isMobile ? "none" : "1px solid rgba(255, 255, 255, 0.06)")};
+  border-radius: ${(props) => (props.$isMobile ? "0" : "24px")};
+  padding: ${(props) => (props.$isMobile ? "0" : "20px")};
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 0;
   overflow: hidden;
-  box-shadow: ${(props) => (props.$isMobile ? "none" : "0 25px 50px -12px rgba(0, 0, 0, 0.7)")};
-  animation: ${scaleUp} 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: ${(props) => (props.$isMobile ? "none" : "0 20px 60px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.05)")};
+  animation: ${scaleUp} 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
 
   @media (max-width: 600px) {
-    padding: 16px 14px 14px;
-    gap: 14px;
+    padding: 0;
+    gap: 0;
   }
 `;
 
@@ -574,41 +575,51 @@ const PreviewHeader = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 10px 0 4px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  gap: 14px;
+  padding: 22px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
   flex-shrink: 0;
   position: sticky;
   top: 0;
-  background: linear-gradient(180deg, rgba(15, 15, 20, 0.98) 0%, rgba(15, 15, 20, 0.88) 100%);
-  backdrop-filter: blur(16px);
+  background: linear-gradient(180deg, rgba(20, 20, 30, 0.98) 0%, rgba(15, 15, 25, 0.88) 100%);
+  backdrop-filter: blur(20px);
   z-index: 3;
 `;
 
 const PreviewTitle = styled.div`
-  color: var(--chakra-colors-textSecondary);
-  font-size: 0.95rem;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  background: linear-gradient(135deg, #fff 0%, rgba(255, 255, 255, 0.8) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-size: 1.1rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
 `;
 
 const PreviewCloseButton = styled.button`
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 107, 107, 0.1);
+  border: 1px solid rgba(255, 107, 107, 0.2);
   color: var(--chakra-colors-textPrimary);
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
 
   &:hover {
-    transform: translateY(-1px);
-    background: rgba(255, 255, 255, 0.14);
-    border-color: rgba(255, 255, 255, 0.2);
+    transform: translateY(-2px);
+    background: rgba(255, 107, 107, 0.15);
+    border-color: rgba(255, 107, 107, 0.3);
+    color: #ff8a8a;
+    box-shadow: 0 8px 16px rgba(255, 107, 107, 0.15);
+  }
+
+  &:active {
+    transform: scale(0.95);
   }
 `;
 
@@ -620,7 +631,8 @@ const PreviewContent = styled.div`
   flex-direction: column;
   align-items: center;
   gap: 16px;
-  padding-right: 2px;
+  padding: 24px;
+  padding-right: 10px;
 
   img,
   video {
@@ -638,43 +650,45 @@ const PreviewContent = styled.div`
 const PreviewActions = styled.div`
   display: flex;
   justify-content: flex-end;
-  gap: 14px;
-  padding-top: 10px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  gap: 12px;
+  padding: 22px 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  background: linear-gradient(180deg, rgba(15, 15, 25, 0.5) 0%, rgba(20, 20, 30, 0.6) 100%);
+  flex-shrink: 0;
 `;
 
 const PreviewButton = styled.button`
-  padding: 14px 26px;
-  border-radius: 16px;
+  padding: 12px 28px;
+  border-radius: 12px;
   border: none;
   cursor: pointer;
   font-weight: 700;
   font-size: 0.95rem;
-  min-height: 50px;
+  min-height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform 0.22s ease, box-shadow 0.22s ease, background 0.22s ease;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 
   &:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 10px 22px rgba(0, 0, 0, 0.28);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
   }
 
   &:active {
-    transform: translateY(0);
+    transform: scale(0.98);
   }
 `;
 
 const CancelBtn = styled(PreviewButton)`
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   color: var(--chakra-colors-textPrimary);
 
   &:hover {
-    background: rgba(255, 255, 255, 0.08);
-    border-color: rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
   }
 `;
 
@@ -893,27 +907,29 @@ const GifPickerOverlay = styled.div`
   position: fixed;
   inset: 0;
   z-index: 10000;
-  background: rgba(0, 0, 0, 0.72);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   display: flex;
   align-items: stretch;
   justify-content: center;
   overflow: hidden;
+  animation: ${fadeIn} 0.3s ease-out;
 `;
 
 const GifPickerModal = styled.div`
   position: relative;
-  width: ${(props) => (props.$isMobile ? "100vw" : "90vw")};
-  height: ${(props) => (props.$isMobile ? "100vh" : "90vh")};
-  background: linear-gradient(180deg, #111118 0%, #0a0a10 100%);
-  border: none;
-  border-radius: ${(props) => (props.$isMobile ? "0" : "16px")};
+  width: ${(props) => (props.$isMobile ? "100vw" : "85vw")};
+  max-width: 1200px;
+  height: ${(props) => (props.$isMobile ? "100vh" : "85vh")};
+  background: linear-gradient(135deg, rgba(20, 20, 30, 0.98) 0%, rgba(15, 15, 25, 0.98) 100%);
+  border: ${(props) => (props.$isMobile ? "none" : "1px solid rgba(255, 255, 255, 0.06)")};
+  border-radius: ${(props) => (props.$isMobile ? "0" : "24px")};
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  box-shadow: ${(props) => (props.$isMobile ? "none" : "0 25px 50px -12px rgba(0, 0, 0, 0.7)")};
-  animation: ${scaleUp} 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: ${(props) => (props.$isMobile ? "none" : "0 20px 60px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.05)")};
+  animation: ${scaleUp} 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
 
   @media (max-width: 767px) {
     height: 100dvh;
@@ -941,32 +957,35 @@ const GifDrawerHandle = styled.div`
 const GifPickerTitle = styled.div`
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 14px 16px 6px;
+  gap: 12px;
   flex-shrink: 0;
 
   span.title {
-    font-size: 1.05rem;
-    font-weight: 700;
-    color: var(--chakra-colors-textPrimary);
-    letter-spacing: -0.01em;
+    font-size: 1.3rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #fff 0%, rgba(255, 255, 255, 0.8) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    letter-spacing: -0.02em;
   }
 
   span.badge {
-    font-size: 0.65rem;
-    font-weight: 700;
-    letter-spacing: 0.05em;
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: var(--chakra-colors-brandPrimary);
-    background: rgba(255, 63, 94, 0.12);
-    border: 1px solid rgba(255, 63, 94, 0.18);
-    padding: 4px 10px;
+    color: #ff6b6b;
+    background: linear-gradient(135deg, rgba(255, 107, 107, 0.15) 0%, rgba(255, 63, 94, 0.1) 100%);
+    border: 1px solid rgba(255, 107, 107, 0.25);
+    padding: 6px 14px;
     border-radius: 999px;
+    backdrop-filter: blur(10px);
   }
 
   @media (max-width: 767px) {
-    padding: 10px 14px 4px;
-    span.title { font-size: 0.97rem; }
+    span.title { font-size: 1.15rem; }
+    span.badge { font-size: 0.65rem; padding: 4px 10px; }
   }
 `;
 
@@ -1011,19 +1030,19 @@ const CloseGifPickerButton = styled.button`
 const GifPickerHeader = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 16px 18px 14px;
+  gap: 14px;
+  padding: 24px 28px 18px;
   flex-shrink: 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(17, 17, 24, 0.96);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  background: linear-gradient(180deg, rgba(20, 20, 30, 0.98) 0%, rgba(15, 15, 25, 0.88) 100%);
   backdrop-filter: blur(20px);
   position: sticky;
   top: 0;
   z-index: 2;
 
   @media (max-width: 767px) {
-    padding: 12px 14px 12px;
-    gap: 10px;
+    padding: 14px 16px 12px;
+    gap: 12px;
   }
 `;
 
