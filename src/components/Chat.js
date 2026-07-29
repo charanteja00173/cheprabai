@@ -848,25 +848,19 @@ const GifPickerOverlay = styled.div`
   position: fixed;
   inset: 0;
   z-index: 10000;
-  background: rgba(0, 0, 0, 0.65);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   display: flex;
-  align-items: center;
+  align-items: stretch;
   justify-content: center;
-
-  @media (max-width: 767px) {
-    align-items: flex-end;
-    background: rgba(0, 0, 0, 0.55);
-  }
+  overflow: hidden;
 `;
 
 const GifPickerModal = styled.div`
   position: relative;
-  width: 100%;
-  max-width: 100%;
+  width: 100vw;
   height: 100vh;
-  max-height: 100vh;
   background: linear-gradient(180deg, #111118 0%, #0a0a10 100%);
   border: none;
   border-radius: 0;
@@ -877,10 +871,7 @@ const GifPickerModal = styled.div`
   animation: ${scaleUp} 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
 
   @media (max-width: 767px) {
-    width: 100%;
     height: 100dvh;
-    max-height: 100dvh;
-    border-radius: 0;
     animation: ${slideUpMobile} 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   }
 `;
@@ -891,12 +882,13 @@ const GifDrawerHandle = styled.div`
     display: flex;
     justify-content: center;
     padding: 10px 0 2px;
+    background: rgba(255, 255, 255, 0.03);
     &::after {
       content: '';
-      width: 40px;
+      width: 42px;
       height: 4px;
-      border-radius: 4px;
-      background: rgba(255, 255, 255, 0.18);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.22);
     }
   }
 `;
@@ -905,7 +897,7 @@ const GifPickerTitle = styled.div`
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 14px 18px 6px;
+  padding: 14px 16px 6px;
   flex-shrink: 0;
 
   span.title {
@@ -921,21 +913,21 @@ const GifPickerTitle = styled.div`
     letter-spacing: 0.05em;
     text-transform: uppercase;
     color: var(--chakra-colors-brandPrimary);
-    background: rgba(255, 63, 94, 0.1);
-    border: 1px solid rgba(255, 63, 94, 0.15);
-    padding: 3px 8px;
-    border-radius: 6px;
+    background: rgba(255, 63, 94, 0.12);
+    border: 1px solid rgba(255, 63, 94, 0.18);
+    padding: 4px 10px;
+    border-radius: 999px;
   }
 
   @media (max-width: 767px) {
-    padding: 8px 14px 4px;
-    span.title { font-size: 0.95rem; }
+    padding: 10px 14px 4px;
+    span.title { font-size: 0.97rem; }
   }
 `;
 
 const CloseGifPickerButton = styled.button`
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   color: var(--chakra-colors-textPrimary);
   cursor: pointer;
   width: 38px;
@@ -948,24 +940,25 @@ const CloseGifPickerButton = styled.button`
   justify-content: center;
   font-size: 1.05rem;
   flex-shrink: 0;
-  transition: all 0.2s ease;
+  transition: transform 0.2s ease, background 0.2s ease;
   margin-left: auto;
 
   &:hover {
-    background: rgba(255, 107, 107, 0.12);
+    transform: translateY(-1px);
+    background: rgba(255, 107, 107, 0.16);
     border-color: rgba(255, 107, 107, 0.3);
-    color: #ff6b6b;
+    color: #ff8a8a;
   }
 
   &:active {
-    transform: scale(0.92);
+    transform: scale(0.94);
   }
 
   @media (max-width: 767px) {
-    width: 34px;
-    height: 34px;
-    min-width: 34px;
-    min-height: 34px;
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    min-height: 36px;
     font-size: 0.95rem;
   }
 `;
@@ -973,14 +966,19 @@ const CloseGifPickerButton = styled.button`
 const GifPickerHeader = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 14px 18px;
+  gap: 12px;
+  padding: 16px 18px 14px;
   flex-shrink: 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(17, 17, 24, 0.96);
+  backdrop-filter: blur(20px);
+  position: sticky;
+  top: 0;
+  z-index: 2;
 
   @media (max-width: 767px) {
-    padding: 10px 14px 12px;
-    gap: 8px;
+    padding: 12px 14px 12px;
+    gap: 10px;
   }
 `;
 
@@ -1000,40 +998,40 @@ const GifSearchContainer = styled.div`
 
 const GifSearchIcon = styled.div`
   position: absolute;
-  left: 14px;
-  color: rgba(255, 255, 255, 0.3);
+  left: 16px;
+  color: rgba(255, 255, 255, 0.35);
   display: flex;
   align-items: center;
   pointer-events: none;
   font-size: 0.95rem;
 
   @media (max-width: 767px) {
-    left: 12px;
-    font-size: 0.85rem;
+    left: 14px;
+    font-size: 0.88rem;
   }
 `;
 
 const GifSearchClearButton = styled.button`
   position: absolute;
-  right: 12px;
+  right: 14px;
   background: none;
   border: none;
-  color: rgba(255, 255, 255, 0.4);
+  color: rgba(255, 255, 255, 0.45);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 4px;
   border-radius: 50%;
-  transition: all 0.15s ease;
+  transition: all 0.18s ease;
 
   &:hover {
     color: #fff;
-    background: rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.1);
   }
 
   @media (max-width: 767px) {
-    right: 10px;
+    right: 12px;
   }
 `;
 
@@ -1042,27 +1040,27 @@ const GifEmptyState = styled.div`
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 50px 20px;
+  padding: 60px 24px;
   text-align: center;
-  color: rgba(255, 255, 255, 0.4);
+  color: rgba(255, 255, 255, 0.38);
   flex: 1;
 
   .icon {
-    font-size: 2.2rem;
-    color: rgba(255, 255, 255, 0.15);
-    margin-bottom: 12px;
+    font-size: 2.4rem;
+    color: rgba(255, 255, 255, 0.18);
+    margin-bottom: 14px;
   }
 
   .text {
-    font-size: 0.95rem;
-    font-weight: 600;
-    margin-bottom: 4px;
-    color: rgba(255, 255, 255, 0.7);
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 6px;
+    color: rgba(255, 255, 255, 0.78);
   }
 
   .subtext {
-    font-size: 0.75rem;
-    color: rgba(255, 255, 255, 0.35);
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.45);
   }
 `;
 
@@ -1070,12 +1068,12 @@ const GiphyAttribution = styled.div`
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 10px;
-  background: rgba(0, 0, 0, 0.25);
-  border-top: 1px solid rgba(255, 255, 255, 0.04);
-  font-size: 0.65rem;
-  color: rgba(255, 255, 255, 0.3);
-  gap: 4px;
+  padding: 12px 16px;
+  background: rgba(11, 11, 18, 0.92);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.38);
+  gap: 6px;
   flex-shrink: 0;
 
   a {
@@ -1124,8 +1122,8 @@ const GifSearchInput = styled.input`
 const GifGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 6px;
-  padding: 0 12px 12px;
+  gap: 10px;
+  padding: 0 16px 18px;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
@@ -1136,10 +1134,9 @@ const GifGrid = styled.div`
     grid-template-columns: repeat(3, 1fr);
   }
 
-  @media (min-width: 768px) {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
-    padding: 0 14px 14px;
+  @media (min-width: 1024px) {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
   }
 `;
 
