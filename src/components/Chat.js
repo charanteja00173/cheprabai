@@ -71,6 +71,12 @@ const scaleUp = keyframes`
   to { opacity: 1; transform: scale(1) translateY(0); }
 `;
 
+const popIn = keyframes`
+  0% { opacity: 0; transform: scale(0.96) translateY(18px); }
+  60% { opacity: 1; transform: scale(1.02) translateY(-4px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+`;
+
 const LiveBadge = styled.div`
   background: #ff4757;
   color: white;
@@ -563,7 +569,8 @@ const PreviewModal = styled.div`
   gap: 0;
   overflow: hidden;
   box-shadow: ${(props) => (props.$isMobile ? "none" : "0 20px 60px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.05)")};
-  animation: ${scaleUp} 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation: ${popIn} 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform, opacity;
 
   @media (max-width: 600px) {
     padding: 0;
@@ -586,28 +593,42 @@ const PreviewHeader = styled.div`
   z-index: 3;
 `;
 
+const PreviewTitleGroup = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+`;
+
 const PreviewTitle = styled.div`
-  background: linear-gradient(135deg, #fff 0%, rgba(255, 255, 255, 0.8) 100%);
+  background: linear-gradient(135deg, #fff 0%, rgba(255, 255, 255, 0.92) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  font-size: 1.1rem;
+  font-size: 1.18rem;
   font-weight: 800;
   letter-spacing: -0.02em;
 `;
 
+const PreviewSubtitle = styled.div`
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  max-width: 760px;
+  letter-spacing: 0.01em;
+`;
+
 const PreviewCloseButton = styled.button`
-  background: rgba(255, 107, 107, 0.1);
-  border: 1px solid rgba(255, 107, 107, 0.2);
+  background: rgba(255, 107, 107, 0.12);
+  border: 1px solid rgba(255, 107, 107, 0.22);
   color: var(--chakra-colors-textPrimary);
   width: 44px;
   height: 44px;
-  border-radius: 12px;
+  border-radius: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.22s ease;
   flex-shrink: 0;
 
   &:hover {
@@ -1096,6 +1117,19 @@ const GifPickerTitle = styled.div`
   }
 `;
 
+const GifPickerSubtitle = styled.div`
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 0.95rem;
+  line-height: 1.55;
+  max-width: 780px;
+  letter-spacing: 0.01em;
+  opacity: 0.95;
+
+  @media (max-width: 767px) {
+    font-size: 0.9rem;
+  }
+`;
+
 const CloseGifPickerButton = styled.button`
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -1316,12 +1350,22 @@ const GifCard = styled.div`
   position: relative;
   width: 100%;
   padding-bottom: 100%;
-  border-radius: 14px;
+  border-radius: 16px;
   overflow: hidden;
   cursor: pointer;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.04);
-  transition: transform 0.15s ease, box-shadow 0.2s ease;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  transition: transform 0.2s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+
+  &:before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+    pointer-events: none;
+    transition: box-shadow 0.25s ease;
+  }
 
   &:active {
     transform: scale(0.96);
@@ -1329,8 +1373,13 @@ const GifCard = styled.div`
 
   @media (hover: hover) {
     &:hover {
-      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
-      border-color: rgba(255, 255, 255, 0.1);
+      transform: translateY(-2px);
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+      border-color: rgba(255, 255, 255, 0.14);
+    }
+
+    &:hover:before {
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12), 0 0 0 4px rgba(255, 255, 255, 0.06);
     }
   }
 `;
@@ -2627,7 +2676,9 @@ export default function ChatRoom() {
                     src={m.gif}
                     alt="GIF"
                     style={{ maxWidth: "clamp(150px, 50vw, 200px)", borderRadius: 10, marginTop: "8px", cursor: "pointer" }}
-                    onClick={() => setFullscreen({ url: m.gif, type: "image", name: "GIF" })}
+                    onClick={() =>
+                      isMobile && setFullscreen({ url: m.gif, type: "image" })
+                    }
                   />
                 )}
 
@@ -2693,7 +2744,7 @@ export default function ChatRoom() {
                     <AiOutlineClose />
                   </CloseGifPickerButton>
                 </GifPickerTopRow>
-                
+                <GifPickerSubtitle>Search expressive reactions and send instantly with one tap.</GifPickerSubtitle>
                 <GifSearchContainer>
                   <GifSearchIcon>
                     <FaSearch />
@@ -2772,9 +2823,14 @@ export default function ChatRoom() {
           <PreviewOverlay onClick={() => setPendingFiles([])}>
             <PreviewModal $isMobile={isMobile} onClick={(e) => e.stopPropagation()}>
               <PreviewHeader>
-                <PreviewTitle>
-                  {pendingFiles.length} file{pendingFiles.length > 1 ? "s" : ""} selected
-                </PreviewTitle>
+                <PreviewTitleGroup>
+                  <PreviewTitle>
+                    {pendingFiles.length} file{pendingFiles.length > 1 ? "s" : ""} selected
+                  </PreviewTitle>
+                  <PreviewSubtitle>
+                    Review your selected files before sending — tap any preview to inspect it in full size.
+                  </PreviewSubtitle>
+                </PreviewTitleGroup>
                 <PreviewCloseButton
                   onClick={() => {
                     setPendingFiles([]);
