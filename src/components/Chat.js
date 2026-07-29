@@ -1346,6 +1346,7 @@ const GifGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 14px;
+  margin-top: 10px;
   padding: 0 20px 18px;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
