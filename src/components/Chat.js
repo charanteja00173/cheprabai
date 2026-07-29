@@ -1440,7 +1440,7 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen }) {
   }
 
   return (
-    <FileAttachmentWrapper onClick={() => setFullscreen({ ...file, url: decryptedUrl })}>
+    <FileAttachmentWrapper onClick={() => isMobile && setFullscreen({ ...file, url: decryptedUrl })}>
       {file.type && file.type.startsWith("image") ? (
         <div style={{ position: "relative", borderRadius: 10, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 4px 15px rgba(0,0,0,0.2)" }}>
           <img alt={file.name} src={decryptedUrl} style={{ width: "100%", maxHeight: "240px", objectFit: "cover", display: "block" }} />
@@ -1557,6 +1557,7 @@ export default function ChatRoom() {
 
   const [pendingFiles, setPendingFiles] = useState([]);
   const [fullscreen, setFullscreen] = useState(null);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const typingTimeout = useRef(null);
   const fileInputRef = useRef(null);
   const [ownerToken, setOwnerToken] = useState("");
@@ -1619,6 +1620,14 @@ export default function ChatRoom() {
 
   const gifGridRef = useRef(null);
   const loadingGifsRef = useRef(false);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   const fetchGifs = async (query = "", offset = 0) => {
     if (loadingGifsRef.current) return;
@@ -2492,7 +2501,7 @@ export default function ChatRoom() {
                     alt="GIF"
                     style={{ maxWidth: "clamp(150px, 50vw, 200px)", borderRadius: 10, marginTop: "8px", cursor: "pointer" }}
                     onClick={() =>
-                      setFullscreen({ url: m.gif, type: "image" })
+                      isMobile && setFullscreen({ url: m.gif, type: "image" })
                     }
                   />
                 )}
