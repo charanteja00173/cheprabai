@@ -570,6 +570,48 @@ const PreviewModal = styled.div`
   }
 `;
 
+const PreviewHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  background: linear-gradient(180deg, rgba(15, 15, 20, 0.98) 0%, rgba(15, 15, 20, 0.88) 100%);
+  backdrop-filter: blur(16px);
+  z-index: 3;
+`;
+
+const PreviewTitle = styled.div`
+  color: var(--chakra-colors-textSecondary);
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+`;
+
+const PreviewCloseButton = styled.button`
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--chakra-colors-textPrimary);
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+
+  &:hover {
+    transform: translateY(-1px);
+    background: rgba(255, 255, 255, 0.14);
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+`;
+
 const PreviewContent = styled.div`
   flex: 1 1 auto;
   min-height: 0;
@@ -2595,9 +2637,20 @@ export default function ChatRoom() {
         {pendingFiles.length > 0 && (
           <PreviewOverlay onClick={() => setPendingFiles([])}>
             <PreviewModal onClick={(e) => e.stopPropagation()}>
-              <div style={{ color: "var(--chakra-colors-textSecondary)", fontSize: "0.8rem", fontWeight: 600, textAlign: "center", marginBottom: 8 }}>
-                {pendingFiles.length} file{pendingFiles.length > 1 ? "s" : ""} selected
-              </div>
+              <PreviewHeader>
+                <PreviewTitle>
+                  {pendingFiles.length} file{pendingFiles.length > 1 ? "s" : ""} selected
+                </PreviewTitle>
+                <PreviewCloseButton
+                  onClick={() => {
+                    setPendingFiles([]);
+                    if (fileInputRef.current) fileInputRef.current.value = "";
+                  }}
+                  title="Close preview"
+                >
+                  <AiOutlineClose />
+                </PreviewCloseButton>
+              </PreviewHeader>
 
               <PreviewContent style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, minHeight: "150px", width: "100%", maxHeight: "55vh", overflowY: "auto" }}>
                 {pendingFiles.map((pf, idx) => {
