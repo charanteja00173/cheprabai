@@ -571,6 +571,7 @@ const PreviewModal = styled.div`
   box-shadow: ${(props) => (props.$isMobile ? "none" : "0 20px 60px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.05)")};
   animation: ${popIn} 0.35s cubic-bezier(0.16, 1, 0.3, 1);
   will-change: transform, opacity;
+  margin: auto;
 
   @media (max-width: 600px) {
     padding: 0;
@@ -648,37 +649,49 @@ const PreviewContent = styled.div`
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: ${(props) => 
+    props.$singleFile 
+      ? "1fr" 
+      : "repeat(auto-fit, minmax(240px, 1fr))"
+  };
   justify-items: center;
+  align-items: ${(props) => (props.$singleFile ? "stretch" : "center")};
+  justify-content: center;
   gap: 18px;
   padding: 24px;
   width: 100%;
-  align-content: start;
+  align-content: center;
 
   @media (max-width: 767px) {
-    padding: 18px;
-    gap: 14px;
+    padding: 16px;
+    gap: 12px;
+    grid-template-columns: 1fr;
   }
 `;
 
 const PreviewCard = styled.div`
   position: relative;
   width: 100%;
-  min-height: 220px;
+  height: ${(props) => (props.$singleFile ? "100%" : "auto")};
+  min-height: ${(props) => (props.$singleFile ? "420px" : "220px")};
   display: flex;
   flex-direction: column;
-  border-radius: 22px;
-  background: rgba(255, 255, 255, 0.03);
+  border-radius: ${(props) => (props.$singleFile ? "20px" : "22px")};
+  background: rgba(255, 255, 255, 0.02);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.22);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.04);
   overflow: hidden;
-  transition: transform 0.2s ease, border-color 0.2s ease;
+  transition: all 0.24s cubic-bezier(0.2, 0, 0, 1);
+  will-change: transform, border-color;
+  backface-visibility: hidden;
 
   @media (hover: hover) {
     &:hover {
-      transform: translateY(-2px);
-      border-color: rgba(255, 255, 255, 0.14);
+      transform: ${(props) => (props.$singleFile ? "none" : "translateY(-3px)")};
+      border-color: rgba(255, 255, 255, 0.12);
+      box-shadow: 0 28px 80px rgba(0, 0, 0, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.06);
     }
   }
 `;
@@ -686,29 +699,33 @@ const PreviewCard = styled.div`
 const PreviewMediaWrapper = styled.div`
   position: relative;
   width: 100%;
-  min-height: 180px;
+  flex: ${(props) => (props.$singleFile ? "1 1 auto" : "0 0 auto")};
+  min-height: ${(props) => (props.$singleFile ? "360px" : "180px")};
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.03);
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.16) 0%, rgba(0, 0, 0, 0.08) 100%);
+  overflow: hidden;
 `;
 
 const PreviewMedia = styled.img`
   width: 100%;
   height: 100%;
-  max-height: 320px;
   object-fit: contain;
   display: block;
-  background: rgba(255, 255, 255, 0.02);
+  background: transparent;
+  user-select: none;
+  -webkit-user-drag: none;
 `;
 
 const PreviewVideo = styled.video`
   width: 100%;
   height: 100%;
-  max-height: 320px;
   object-fit: contain;
   display: block;
-  background: rgba(0, 0, 0, 0.14);
+  background: rgba(0, 0, 0, 0.08);
+  user-select: none;
+  -webkit-user-drag: none;
 `;
 
 const PreviewFilePlaceholder = styled.div`
@@ -2676,9 +2693,7 @@ export default function ChatRoom() {
                     src={m.gif}
                     alt="GIF"
                     style={{ maxWidth: "clamp(150px, 50vw, 200px)", borderRadius: 10, marginTop: "8px", cursor: "pointer" }}
-                    onClick={() =>
-                      isMobile && setFullscreen({ url: m.gif, type: "image" })
-                    }
+                    onClick={() => setFullscreen({ url: m.gif, type: "image" })}
                   />
                 )}
 
@@ -2842,16 +2857,16 @@ export default function ChatRoom() {
                 </PreviewCloseButton>
               </PreviewHeader>
 
-              <PreviewContent>
+              <PreviewContent $singleFile={pendingFiles.length === 1}>
                 {pendingFiles.map((pf, idx) => {
                   const objUrl = URL.createObjectURL(pf);
                   return (
-                    <PreviewCard key={idx}>
-                      <PreviewMediaWrapper>
+                    <PreviewCard key={`${pf.name}-${pf.size}-${idx}`} $singleFile={pendingFiles.length === 1}>
+                      <PreviewMediaWrapper $singleFile={pendingFiles.length === 1}>
                         {pf.type && pf.type.startsWith("image") ? (
-                          <PreviewMedia alt={pf.name} src={objUrl} />
+                          <PreviewMedia alt={pf.name} src={objUrl} loading="lazy" />
                         ) : pf.type && pf.type.startsWith("video") ? (
-                          <PreviewVideo src={objUrl} controls />
+                          <PreviewVideo src={objUrl} controls autoPlay={pendingFiles.length === 1} />
                         ) : (
                           <PreviewFilePlaceholder>
                             <FaFile size={30} style={{ color: "var(--chakra-colors-brandPrimary)", marginBottom: 10 }} />
@@ -2861,20 +2876,22 @@ export default function ChatRoom() {
                         )}
                       </PreviewMediaWrapper>
 
-                      <PreviewFileInfo>
-                        <PreviewFileName>{pf.name}</PreviewFileName>
-                        <PreviewFileMeta>
-                          {pf.type ? pf.type.replace("application/", "").replace("image/", "Image").replace("video/", "Video").replace("audio/", "Audio") : "File"} • {(pf.size / 1024 / 1024).toFixed(2)} MB
-                        </PreviewFileMeta>
-                      </PreviewFileInfo>
+                      {pendingFiles.length === 1 ? null : (
+                        <>
+                          <PreviewFileInfo>
+                            <PreviewFileName>{pf.name}</PreviewFileName>
+                            <PreviewFileMeta>
+                              {pf.type ? pf.type.replace("application/", "").replace("image/", "Image").replace("video/", "Video").replace("audio/", "Audio") : "File"} • {(pf.size / 1024 / 1024).toFixed(2)} MB
+                            </PreviewFileMeta>
+                          </PreviewFileInfo>
 
-                      {pendingFiles.length > 1 && (
-                        <PreviewRemoveButton
-                          onClick={() => setPendingFiles((prev) => prev.filter((_, i) => i !== idx))}
-                          title="Remove this file"
-                        >
-                          ✕
-                        </PreviewRemoveButton>
+                          <PreviewRemoveButton
+                            onClick={() => setPendingFiles((prev) => prev.filter((_, i) => i !== idx))}
+                            title="Remove this file"
+                          >
+                            ✕
+                          </PreviewRemoveButton>
+                        </>
                       )}
                     </PreviewCard>
                   );
@@ -2981,18 +2998,55 @@ export default function ChatRoom() {
             style={{
               position: "fixed",
               inset: 0,
-              background: "rgba(0,0,0,0.95)",
+              background: "rgba(0, 0, 0, 0.96)",
+              backdropFilter: "blur(12px)",
               display: "flex",
+              flexDirection: "column",
               justifyContent: "center",
               alignItems: "center",
               zIndex: 20000,
+              animation: "fadeIn 0.25s ease-out",
+              padding: "20px",
             }}
           >
+            <div
+              style={{
+                position: "absolute",
+                top: "24px",
+                right: "24px",
+                background: "rgba(255, 107, 107, 0.12)",
+                border: "1px solid rgba(255, 107, 107, 0.22)",
+                color: "var(--chakra-colors-textPrimary)",
+                width: "44px",
+                height: "44px",
+                borderRadius: "12px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+                transition: "all 0.22s ease",
+              }}
+              onClick={(e) => { e.stopPropagation(); setFullscreen(null); }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "rgba(255, 107, 107, 0.15)";
+                e.currentTarget.style.borderColor = "rgba(255, 107, 107, 0.3)";
+                e.currentTarget.style.color = "#ff8a8a";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "rgba(255, 107, 107, 0.12)";
+                e.currentTarget.style.borderColor = "rgba(255, 107, 107, 0.22)";
+                e.currentTarget.style.color = "var(--chakra-colors-textPrimary)";
+              }}
+            >
+              <AiOutlineClose />
+            </div>
+
             {fullscreen.type && fullscreen.type.startsWith("image") && (
               <img
                 alt={fullscreen.name}
                 src={fullscreen.url}
-                style={{ maxWidth: "95%", maxHeight: "85vh", objectFit: "contain" }}
+                onClick={(e) => e.stopPropagation()}
+                style={{ maxWidth: "95%", maxHeight: "85vh", objectFit: "contain", borderRadius: "20px", animation: "popIn 0.35s cubic-bezier(0.16, 1, 0.3, 1)" }}
               />
             )}
             {fullscreen.type && fullscreen.type.startsWith("video") && (
@@ -3000,25 +3054,35 @@ export default function ChatRoom() {
                 src={fullscreen.url}
                 controls
                 autoPlay
-                style={{ maxWidth: "95%", maxHeight: "85vh", objectFit: "contain" }}
+                onClick={(e) => e.stopPropagation()}
+                style={{ maxWidth: "95%", maxHeight: "85vh", objectFit: "contain", borderRadius: "20px", animation: "popIn 0.35s cubic-bezier(0.16, 1, 0.3, 1)", background: "rgba(0, 0, 0, 0.16)" }}
               />
             )}
             {(!fullscreen.type || (!fullscreen.type.startsWith("image") && !fullscreen.type.startsWith("video"))) && (
-              <div style={{ textAlign: "center", color: "var(--chakra-colors-textPrimary)", padding: 20 }}>
+              <div style={{ textAlign: "center", color: "var(--chakra-colors-textPrimary)", padding: "40px", background: "rgba(255, 255, 255, 0.03)", borderRadius: "24px", border: "1px solid rgba(255, 255, 255, 0.08)", maxWidth: "500px", animation: "popIn 0.35s cubic-bezier(0.16, 1, 0.3, 1)" }} onClick={(e) => e.stopPropagation()}>
                 <FaFile size={100} style={{ marginBottom: 20, opacity: 0.3 }} />
-                <h2 style={{ marginBottom: 10 }}>{fullscreen.name}</h2>
-                <p style={{ opacity: 0.6, marginBottom: 20 }}>This file type cannot be previewed in the browser.</p>
+                <h2 style={{ marginBottom: 10, fontSize: "1.4rem", fontWeight: 700 }}>{fullscreen.name}</h2>
+                <p style={{ opacity: 0.6, marginBottom: 20, lineHeight: 1.6 }}>This file type cannot be previewed in the browser.</p>
                 <a
                   href={fullscreen.url}
                   download={fullscreen.name}
                   style={{
-                    background: "#2196F3",
-                    color: "var(--chakra-colors-textPrimary)",
-                    padding: "12px 24px",
+                    background: "var(--chakra-colors-brandPrimary)",
+                    color: "white",
+                    padding: "12px 28px",
                     borderRadius: "12px",
                     textDecoration: "none",
                     fontWeight: "bold",
-                    display: "inline-block"
+                    display: "inline-block",
+                    transition: "all 0.22s ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = "translateY(-2px)";
+                    e.currentTarget.style.boxShadow = "0 8px 24px rgba(0, 0, 0, 0.4)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = "translateY(0)";
+                    e.currentTarget.style.boxShadow = "none";
                   }}
                   onClick={(e) => e.stopPropagation()}
                 >
