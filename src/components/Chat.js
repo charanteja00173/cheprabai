@@ -1324,7 +1324,7 @@ const RoomInfoDropdown = styled.div`
 `;
 
 // Stateful component to handle downloading, decrypting and displaying E2EE files
-function E2EEFileAttachment({ file, roomKey, setFullscreen }) {
+function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile }) {
   const [decryptedUrl, setDecryptedUrl] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -2529,7 +2529,7 @@ export default function ChatRoom() {
                          </div>
                        </div>
                     ) : (
-                      <E2EEFileAttachment file={m.file} roomKey={roomKey} setFullscreen={setFullscreen} />
+                      <E2EEFileAttachment file={m.file} roomKey={roomKey} setFullscreen={setFullscreen} isMobile={isMobile} />
                     )}
                   </div>
                 )}
