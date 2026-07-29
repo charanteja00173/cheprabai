@@ -12,7 +12,7 @@ const Overlay = styled.div`
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: ${(props) => (props.$isFullScreen ? "0" : "40px")};
+  padding: ${(props) => (props.$isFullScreen && props.$isMobile ? "0" : "40px")};
   box-sizing: border-box;
 
   @media (max-width: 768px) {
@@ -24,14 +24,14 @@ const Overlay = styled.div`
 
 const WhiteboardContainer = styled.div`
   position: relative;
-  width: ${(props) => (props.$isFullScreen ? "100%" : "90%")};
-  max-width: ${(props) => (props.$isFullScreen ? "100%" : "1600px")};
-  height: ${(props) => (props.$isFullScreen ? "100dvh" : "85dvh")};
+  width: ${(props) => (props.$isFullScreen && props.$isMobile ? "100%" : "90%")};
+  max-width: ${(props) => (props.$isFullScreen && props.$isMobile ? "100%" : "1600px")};
+  height: ${(props) => (props.$isFullScreen && props.$isMobile ? "100dvh" : "85dvh")};
   background: var(--chakra-colors-surface);
-  border-radius: ${(props) => (props.$isFullScreen ? "0" : "clamp(12px, 2vw, 16px)")};
-  box-shadow: ${(props) => (props.$isFullScreen ? "none" : "0 25px 50px -12px rgba(0, 0, 0, 0.7)")};
-  border: ${(props) => (props.$isFullScreen ? "none" : "1px solid rgba(255, 255, 255, 0.1)")};
-  padding: ${(props) => (props.$isFullScreen ? "0" : "clamp(16px, 3vw, 24px)")};
+  border-radius: ${(props) => (props.$isFullScreen && props.$isMobile ? "0" : "clamp(12px, 2vw, 16px)")};
+  box-shadow: ${(props) => (props.$isFullScreen && props.$isMobile ? "none" : "0 25px 50px -12px rgba(0, 0, 0, 0.7)")};
+  border: ${(props) => (props.$isFullScreen && props.$isMobile ? "none" : "1px solid rgba(255, 255, 255, 0.1)")};
+  padding: ${(props) => (props.$isFullScreen && props.$isMobile ? "0" : "clamp(16px, 3vw, 24px)")};
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -52,9 +52,9 @@ const CanvasWrapper = styled.div`
   width: 100%;
   min-height: 0;
   position: relative;
-  border-radius: ${(props) => (props.$isFullScreen ? "0" : "clamp(8px, 1.5vw, 12px)")};
+  border-radius: ${(props) => (props.$isFullScreen && props.$isMobile ? "0" : "clamp(8px, 1.5vw, 12px)")};
   overflow: hidden;
-  border: ${(props) => (props.$isFullScreen ? "none" : "1px solid rgba(255, 255, 255, 0.08)")};
+  border: ${(props) => (props.$isFullScreen && props.$isMobile ? "none" : "1px solid rgba(255, 255, 255, 0.08)")};
   background: var(--chakra-colors-bg);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   flex: 1;
@@ -156,6 +156,15 @@ export default function Whiteboard({ socket, roomId, onClose, isAdmin }) {
   const isSyncing = useRef(false);
   const isInteracting = useRef(false);
   const [isFullScreen, setIsFullScreen] = React.useState(false);
+  const [isMobile, setIsMobile] = React.useState(window.innerWidth <= 768);
+
+  React.useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   const handleClearBoard = useCallback(() => {
     if (!appRef.current) return;
@@ -267,8 +276,8 @@ export default function Whiteboard({ socket, roomId, onClose, isAdmin }) {
   );
 
   return (
-    <Overlay $isFullScreen={isFullScreen} onClick={onClose}>
-      <WhiteboardContainer $isFullScreen={isFullScreen} onClick={(e) => e.stopPropagation()}>
+    <Overlay $isFullScreen={isFullScreen} $isMobile={isMobile} onClick={onClose}>
+      <WhiteboardContainer $isFullScreen={isFullScreen} $isMobile={isMobile} onClick={(e) => e.stopPropagation()}>
         {!isFullScreen && (
           <ModalHeader>
             <HeaderTitle><FaPaintBrush style={{ flexShrink: 0 }} /> <span className="hide-mobile">Collaborative</span> Whiteboard</HeaderTitle>
@@ -278,9 +287,11 @@ export default function Whiteboard({ socket, roomId, onClose, isAdmin }) {
                   <FaTrash />
                 </IconButton>
               )}
-              <IconButton onClick={() => setIsFullScreen(true)} title="Expand to Fullscreen">
-                <FaExpand />
-              </IconButton>
+              {isMobile && (
+                <IconButton onClick={() => setIsFullScreen(true)} title="Expand to Fullscreen">
+                  <FaExpand />
+                </IconButton>
+              )}
               <IconButton $danger onClick={onClose} title="Close Whiteboard">
                 <FaTimes />
               </IconButton>
@@ -320,7 +331,8 @@ export default function Whiteboard({ socket, roomId, onClose, isAdmin }) {
         )}
 
         <CanvasWrapper
-          isFullScreen={isFullScreen}
+          $isFullScreen={isFullScreen}
+          $isMobile={isMobile}
           onPointerDown={() => { isInteracting.current = true; }}
           onPointerUp={() => { isInteracting.current = false; }}
           onPointerLeave={() => { isInteracting.current = false; }}
