@@ -862,28 +862,25 @@ const GifPickerOverlay = styled.div`
 `;
 
 const GifPickerModal = styled.div`
+  position: relative;
   width: 100%;
-  max-width: 520px;
-  height: 72vh;
-  max-height: 72vh;
+  max-width: 100%;
+  height: 100vh;
+  max-height: 100vh;
   background: linear-gradient(180deg, #111118 0%, #0a0a10 100%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 24px;
+  border: none;
+  border-radius: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  box-shadow:
-    0 24px 80px rgba(0, 0, 0, 0.7),
-    0 0 0 1px rgba(255, 255, 255, 0.04),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  box-shadow: none;
   animation: ${scaleUp} 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
 
   @media (max-width: 767px) {
-    max-width: 100%;
-    height: 88dvh;
-    max-height: 88dvh;
-    border-radius: 24px 24px 0 0;
-    border-bottom: none;
+    width: 100%;
+    height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0;
     animation: ${slideUpMobile} 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   }
 `;
