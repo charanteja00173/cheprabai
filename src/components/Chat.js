@@ -1073,6 +1073,7 @@ const GifPickerModal = styled.div`
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  margin: auto;
   box-shadow: ${(props) => (props.$isMobile ? "none" : "0 20px 60px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.05)")};
   animation: ${scaleUp} 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
 
@@ -1749,6 +1750,7 @@ export default function ChatRoom() {
   const [typingUsers, setTypingUsers] = useState([]);
 
   const [pendingFiles, setPendingFiles] = useState([]);
+  const [pendingFilesUrls, setPendingFilesUrls] = useState({});
   const [fullscreen, setFullscreen] = useState(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const typingTimeout = useRef(null);
@@ -1787,6 +1789,30 @@ export default function ChatRoom() {
   const messagesContainerRef = useRef(null);
 
   const lastMessageIdRef = useRef(null);
+
+  // ── Manage blob URLs for pending files to prevent flickering ──
+  useEffect(() => {
+    const newUrls = {};
+    pendingFiles.forEach((file, idx) => {
+      const key = `${file.name}-${file.size}-${idx}`;
+      if (!pendingFilesUrls[key]) {
+        newUrls[key] = URL.createObjectURL(file);
+      } else {
+        newUrls[key] = pendingFilesUrls[key];
+      }
+    });
+
+    setPendingFilesUrls(newUrls);
+
+    return () => {
+      // Only revoke URLs for files that are no longer in pendingFiles
+      Object.entries(pendingFilesUrls).forEach(([key, url]) => {
+        if (!newUrls[key]) {
+          URL.revokeObjectURL(url);
+        }
+      });
+    };
+  }, [pendingFiles]);
 
   useEffect(() => {
     const container = messagesContainerRef.current;
@@ -2859,9 +2885,10 @@ export default function ChatRoom() {
 
               <PreviewContent $singleFile={pendingFiles.length === 1}>
                 {pendingFiles.map((pf, idx) => {
-                  const objUrl = URL.createObjectURL(pf);
+                  const key = `${pf.name}-${pf.size}-${idx}`;
+                  const objUrl = pendingFilesUrls[key];
                   return (
-                    <PreviewCard key={`${pf.name}-${pf.size}-${idx}`} $singleFile={pendingFiles.length === 1}>
+                    <PreviewCard key={key} $singleFile={pendingFiles.length === 1}>
                       <PreviewMediaWrapper $singleFile={pendingFiles.length === 1}>
                         {pf.type && pf.type.startsWith("image") ? (
                           <PreviewMedia alt={pf.name} src={objUrl} loading="lazy" />
