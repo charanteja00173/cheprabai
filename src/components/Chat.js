@@ -538,40 +538,35 @@ const JoinButton = styled.button`
 const PreviewOverlay = styled.div`
   position: fixed;
   inset: 0;
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  background: rgba(8, 8, 12, 0.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  background: rgba(0, 0, 0, 0.78);
   display: flex;
   justify-content: center;
-  align-items: center;
-  z-index: 9999;
+  align-items: stretch;
+  z-index: 10001;
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   animation: ${fadeIn} 0.25s ease-out;
 `;
 
 const PreviewModal = styled.div`
-  background: rgba(15, 15, 20, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(40px);
-  -webkit-backdrop-filter: blur(40px);
-  border-radius: 24px;
-  width: min(90%, 500px);
-  max-height: 85vh;
-  padding: clamp(20px, 4vw, 28px);
+  width: 100vw;
+  height: 100vh;
+  max-height: 100dvh;
+  background: linear-gradient(180deg, rgba(15, 15, 20, 0.96) 0%, rgba(11, 11, 18, 0.98) 100%);
+  border: none;
+  border-radius: 0;
+  padding: 20px 20px 16px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  box-shadow: 
-    0 10px 30px rgba(0, 0, 0, 0.3),
-    0 30px 60px rgba(0, 0, 0, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  gap: 18px;
+  overflow: hidden;
+  box-shadow: none;
   animation: ${scaleUp} 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 
   @media (max-width: 600px) {
-    width: 95%;
-    max-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - 24px);
-    padding: 16px;
-    gap: 16px;
+    padding: 16px 14px 14px;
+    gap: 14px;
   }
 `;
 
@@ -579,42 +574,50 @@ const PreviewContent = styled.div`
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding-right: 2px;
 
   img,
   video {
+    width: 100%;
     max-width: 100%;
-    max-height: 50vh;
+    max-height: calc(100vh - 290px);
     object-fit: contain;
-    border-radius: 16px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    border-radius: 18px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.35);
+    background: rgba(255, 255, 255, 0.02);
   }
 `;
 
 const PreviewActions = styled.div`
   display: flex;
   justify-content: flex-end;
-  gap: 12px;
-  margin-top: 8px;
+  gap: 14px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
 `;
 
 const PreviewButton = styled.button`
-  padding: 12px 24px;
-  border-radius: 14px;
+  padding: 14px 26px;
+  border-radius: 16px;
   border: none;
   cursor: pointer;
   font-weight: 700;
   font-size: 0.95rem;
-  min-height: 48px;
+  min-height: 50px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  transition: transform 0.22s ease, box-shadow 0.22s ease, background 0.22s ease;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
 
   &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+    transform: translateY(-1px);
+    box-shadow: 0 10px 22px rgba(0, 0, 0, 0.28);
   }
 
   &:active {
