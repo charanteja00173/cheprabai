@@ -627,23 +627,122 @@ const PreviewContent = styled.div`
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  justify-items: center;
+  gap: 18px;
+  padding: 24px;
+  width: 100%;
+  align-content: start;
+
+  @media (max-width: 767px) {
+    padding: 18px;
+    gap: 14px;
+  }
+`;
+
+const PreviewCard = styled.div`
+  position: relative;
+  width: 100%;
+  min-height: 220px;
+  display: flex;
+  flex-direction: column;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.22);
+  overflow: hidden;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+
+  @media (hover: hover) {
+    &:hover {
+      transform: translateY(-2px);
+      border-color: rgba(255, 255, 255, 0.14);
+    }
+  }
+`;
+
+const PreviewMediaWrapper = styled.div`
+  position: relative;
+  width: 100%;
+  min-height: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.03);
+`;
+
+const PreviewMedia = styled.img`
+  width: 100%;
+  height: 100%;
+  max-height: 320px;
+  object-fit: contain;
+  display: block;
+  background: rgba(255, 255, 255, 0.02);
+`;
+
+const PreviewVideo = styled.video`
+  width: 100%;
+  height: 100%;
+  max-height: 320px;
+  object-fit: contain;
+  display: block;
+  background: rgba(0, 0, 0, 0.14);
+`;
+
+const PreviewFilePlaceholder = styled.div`
+  width: 100%;
+  min-height: 180px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
+  justify-content: center;
   padding: 24px;
-  padding-right: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  color: rgba(255, 255, 255, 0.75);
+  text-align: center;
+`;
 
-  img,
-  video {
-    width: 100%;
-    max-width: 100%;
-    max-height: calc(100vh - 290px);
-    object-fit: contain;
-    border-radius: 18px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.35);
-    background: rgba(255, 255, 255, 0.02);
+const PreviewFileInfo = styled.div`
+  padding: 18px 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+`;
+
+const PreviewFileName = styled.div`
+  color: var(--chakra-colors-textPrimary);
+  font-weight: 700;
+  font-size: 0.96rem;
+  line-height: 1.35;
+  word-break: break-word;
+`;
+
+const PreviewFileMeta = styled.div`
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 0.82rem;
+`;
+
+const PreviewRemoveButton = styled.button`
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.2s ease, background 0.2s ease;
+  font-size: 0.82rem;
+
+  &:hover {
+    transform: translateY(-1px);
+    background: rgba(255, 255, 255, 0.2);
   }
 `;
 
@@ -651,10 +750,14 @@ const PreviewActions = styled.div`
   display: flex;
   justify-content: flex-end;
   gap: 12px;
-  padding: 22px 24px;
+  flex-wrap: wrap;
+  padding: 22px 24px 24px;
   border-top: 1px solid rgba(255, 255, 255, 0.04);
   background: linear-gradient(180deg, rgba(15, 15, 25, 0.5) 0%, rgba(20, 20, 30, 0.6) 100%);
-  flex-shrink: 0;
+
+  @media (max-width: 767px) {
+    justify-content: stretch;
+  }
 `;
 
 const PreviewButton = styled.button`
@@ -678,6 +781,10 @@ const PreviewButton = styled.button`
 
   &:active {
     transform: scale(0.98);
+  }
+
+  @media (max-width: 767px) {
+    width: 100%;
   }
 `;
 
@@ -1185,22 +1292,23 @@ const GifSearchInput = styled.input`
 
 const GifGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
-  padding: 0 16px 18px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  padding: 0 20px 18px;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
+  align-items: start;
   flex: 1;
   min-height: 0;
 
-  @media (min-width: 420px) {
-    grid-template-columns: repeat(3, 1fr);
+  @media (max-width: 767px) {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    padding: 0 14px 18px;
   }
 
   @media (min-width: 1024px) {
-    grid-template-columns: repeat(4, 1fr);
-    gap: 12px;
+    gap: 16px;
   }
 `;
 
@@ -1459,7 +1567,7 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile }) {
   }
 
   return (
-    <FileAttachmentWrapper onClick={() => isMobile && setFullscreen({ ...file, url: decryptedUrl })}>
+    <FileAttachmentWrapper onClick={() => setFullscreen({ ...file, url: decryptedUrl })}>
       {file.type && file.type.startsWith("image") ? (
         <div style={{ position: "relative", borderRadius: 10, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 4px 15px rgba(0,0,0,0.2)" }}>
           <img alt={file.name} src={decryptedUrl} style={{ width: "100%", maxHeight: "240px", objectFit: "cover", display: "block" }} />
@@ -2519,9 +2627,7 @@ export default function ChatRoom() {
                     src={m.gif}
                     alt="GIF"
                     style={{ maxWidth: "clamp(150px, 50vw, 200px)", borderRadius: 10, marginTop: "8px", cursor: "pointer" }}
-                    onClick={() =>
-                      isMobile && setFullscreen({ url: m.gif, type: "image" })
-                    }
+                    onClick={() => setFullscreen({ url: m.gif, type: "image", name: "GIF" })}
                   />
                 )}
 
@@ -2680,39 +2786,41 @@ export default function ChatRoom() {
                 </PreviewCloseButton>
               </PreviewHeader>
 
-              <PreviewContent style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, minHeight: "150px", width: "100%", maxHeight: "55vh", overflowY: "auto" }}>
+              <PreviewContent>
                 {pendingFiles.map((pf, idx) => {
                   const objUrl = URL.createObjectURL(pf);
                   return (
-                    <div key={idx} style={{ width: "100%", position: "relative" }}>
-                      {pf.type && pf.type.startsWith("image") ? (
-                        <img alt={pf.name} src={objUrl} style={{ maxWidth: "100%", maxHeight: pendingFiles.length === 1 ? "50vh" : "200px", objectFit: "contain", display: "block", margin: "0 auto", borderRadius: 8 }} />
-                      ) : pf.type && pf.type.startsWith("video") ? (
-                        <video src={objUrl} controls style={{ maxWidth: "100%", maxHeight: pendingFiles.length === 1 ? "50vh" : "200px", display: "block", margin: "0 auto", borderRadius: 8 }} />
-                      ) : pf.type && pf.type.startsWith("audio") ? (
-                        <audio src={objUrl} controls style={{ width: "100%", maxWidth: "320px" }} />
-                      ) : (
-                        <div style={{ textAlign: "center", padding: "12px", width: "100%", boxSizing: "border-box", background: "rgba(255,255,255,0.03)", borderRadius: 10 }}>
-                          <FaFile size={30} style={{ color: "var(--chakra-colors-brandPrimary)", marginBottom: 8 }} />
-                          <div style={{ color: "var(--chakra-colors-textPrimary)", fontSize: "0.9rem", fontWeight: 600, wordBreak: "break-all" }}>{pf.name}</div>
-                          <div style={{ color: "#888", fontSize: "0.75rem", marginTop: 4 }}>{(pf.size / 1024 / 1024).toFixed(2)} MB</div>
-                        </div>
-                      )}
+                    <PreviewCard key={idx}>
+                      <PreviewMediaWrapper>
+                        {pf.type && pf.type.startsWith("image") ? (
+                          <PreviewMedia alt={pf.name} src={objUrl} />
+                        ) : pf.type && pf.type.startsWith("video") ? (
+                          <PreviewVideo src={objUrl} controls />
+                        ) : (
+                          <PreviewFilePlaceholder>
+                            <FaFile size={30} style={{ color: "var(--chakra-colors-brandPrimary)", marginBottom: 10 }} />
+                            <div>{pf.name}</div>
+                            <div style={{ marginTop: 6, color: "rgba(255,255,255,0.6)", fontSize: "0.85rem" }}>{(pf.size / 1024 / 1024).toFixed(2)} MB</div>
+                          </PreviewFilePlaceholder>
+                        )}
+                      </PreviewMediaWrapper>
+
+                      <PreviewFileInfo>
+                        <PreviewFileName>{pf.name}</PreviewFileName>
+                        <PreviewFileMeta>
+                          {pf.type ? pf.type.replace("application/", "").replace("image/", "Image").replace("video/", "Video").replace("audio/", "Audio") : "File"} • {(pf.size / 1024 / 1024).toFixed(2)} MB
+                        </PreviewFileMeta>
+                      </PreviewFileInfo>
+
                       {pendingFiles.length > 1 && (
-                        <button
+                        <PreviewRemoveButton
                           onClick={() => setPendingFiles((prev) => prev.filter((_, i) => i !== idx))}
-                          style={{
-                            position: "absolute", top: 6, right: 6, background: "rgba(0,0,0,0.6)",
-                            border: "none", color: "#fff", borderRadius: "50%", width: 24, height: 24,
-                            display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
-                            fontSize: "0.7rem"
-                          }}
                           title="Remove this file"
                         >
                           ✕
-                        </button>
+                        </PreviewRemoveButton>
                       )}
-                    </div>
+                    </PreviewCard>
                   );
                 })}
               </PreviewContent>
