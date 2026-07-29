@@ -550,18 +550,18 @@ const PreviewOverlay = styled.div`
 `;
 
 const PreviewModal = styled.div`
-  width: 100vw;
-  height: 100vh;
-  max-height: 100dvh;
+  width: ${(props) => (props.$isMobile ? "100vw" : "90vw")};
+  height: ${(props) => (props.$isMobile ? "100vh" : "90vh")};
+  max-height: ${(props) => (props.$isMobile ? "100dvh" : "90dvh")};
   background: linear-gradient(180deg, rgba(15, 15, 20, 0.96) 0%, rgba(11, 11, 18, 0.98) 100%);
   border: none;
-  border-radius: 0;
-  padding: 20px 20px 16px;
+  border-radius: ${(props) => (props.$isMobile ? "0" : "16px")};
+  padding: ${(props) => (props.$isMobile ? "20px 20px 16px" : "24px")};
   display: flex;
   flex-direction: column;
   gap: 18px;
   overflow: hidden;
-  box-shadow: none;
+  box-shadow: ${(props) => (props.$isMobile ? "none" : "0 25px 50px -12px rgba(0, 0, 0, 0.7)")};
   animation: ${scaleUp} 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 
   @media (max-width: 600px) {
@@ -904,15 +904,15 @@ const GifPickerOverlay = styled.div`
 
 const GifPickerModal = styled.div`
   position: relative;
-  width: 100vw;
-  height: 100vh;
+  width: ${(props) => (props.$isMobile ? "100vw" : "90vw")};
+  height: ${(props) => (props.$isMobile ? "100vh" : "90vh")};
   background: linear-gradient(180deg, #111118 0%, #0a0a10 100%);
   border: none;
-  border-radius: 0;
+  border-radius: ${(props) => (props.$isMobile ? "0" : "16px")};
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  box-shadow: none;
+  box-shadow: ${(props) => (props.$isMobile ? "none" : "0 25px 50px -12px rgba(0, 0, 0, 0.7)")};
   animation: ${scaleUp} 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
 
   @media (max-width: 767px) {
@@ -2555,7 +2555,7 @@ export default function ChatRoom() {
 
         {showGifPicker && (
           <GifPickerOverlay onClick={() => setShowGifPicker(false)}>
-            <GifPickerModal onClick={(e) => e.stopPropagation()}>
+            <GifPickerModal $isMobile={isMobile} onClick={(e) => e.stopPropagation()}>
               <GifDrawerHandle />
               
               <GifPickerHeader>
@@ -2645,7 +2645,7 @@ export default function ChatRoom() {
 
         {pendingFiles.length > 0 && (
           <PreviewOverlay onClick={() => setPendingFiles([])}>
-            <PreviewModal onClick={(e) => e.stopPropagation()}>
+            <PreviewModal $isMobile={isMobile} onClick={(e) => e.stopPropagation()}>
               <PreviewHeader>
                 <PreviewTitle>
                   {pendingFiles.length} file{pendingFiles.length > 1 ? "s" : ""} selected
