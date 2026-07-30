@@ -3008,9 +3008,8 @@ export default function ChatRoom() {
                 {!isSystem && (
                   <span style={{
                     fontSize: "0.6rem", color: "#ff6b6b", fontWeight: 600,
-                    display: "flex", alignItems: "flex-end", justifyContent: 'flex-end', gap: 3
+                    display: "flex", alignItems: "center", justifyContent: 'flex-end', gap: 3
                   }}>
-
                     <button type="button" onClick={() => setReplyTo({ id: m.id, userName: m.userName, preview: m.text || m.file?.name || (m.gif ? "GIF" : "Media"), })} aria-label={`Reply to ${m.userName}`} title="Reply" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "5px", height: "25px", padding: "0 8px", borderRadius: "7px", border: "1px solid rgba(255,255,255,.07)", background: "rgba(255,255,255,.035)", color: "var(--chakra-colors-textSecondary)", cursor: "pointer", fontSize: ".62rem", fontWeight: 600, transition: "background .15s ease, color .15s ease, border-color .15s ease, transform .15s ease", flexShrink: 0, }} onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,.09)"; e.currentTarget.style.borderColor = "rgba(255,255,255,.13)"; e.currentTarget.style.color = "var(--chakra-colors-brandPrimary)"; e.currentTarget.style.transform = "translateY(-1px)"; }} onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,.035)"; e.currentTarget.style.borderColor = "rgba(255,255,255,.07)"; e.currentTarget.style.color = "var(--chakra-colors-textSecondary)"; e.currentTarget.style.transform = "translateY(0)"; }} > <FaReply fontSize=".68rem" /> <span>Reply</span> </button>
                   </span>
                 )}
