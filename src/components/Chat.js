@@ -243,7 +243,7 @@ const MessageBubble = styled.div`
     p.isSystem ? "center" : p.isSender ? "flex-end" : "flex-start"};
 
   color: ${(p) =>
-    p.isSystem ? (p.systemType === "join" ? "#2ecc71" : "#e74c3c") :
+    p.isSystem ? (p.systemType === "join" ? "#2ecc71" : p.systemType === "ephemeral-change" ? "#e0a030" : "#e74c3c") :
       p.isSender ? "#fff" :
         "var(--chakra-colors-textPrimary)"};
 
@@ -1078,8 +1078,113 @@ const GifPickerModal = styled.div`
   animation: ${scaleUp} 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
 
   @media (max-width: 767px) {
+    width: 100vw;
     height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0;
+    margin: 0;
+    border: none;
     animation: ${slideUpMobile} 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+`;
+
+const EphemeralMenuOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: transparent;
+`;
+
+const EphemeralMenuCard = styled.div`
+  position: absolute;
+  bottom: 54px;
+  right: 0;
+  width: 250px;
+  background: rgba(10, 10, 15, 0.85);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  padding: 16px;
+  box-shadow: 
+    0 10px 30px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  animation: scaleUp 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  .title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--chakra-colors-textPrimary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .subtitle {
+    font-size: 0.72rem;
+    color: rgba(255, 255, 255, 0.4);
+    line-height: 1.35;
+  }
+
+  .options {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .option-btn {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    padding: 8px 12px;
+    background: none;
+    border: none;
+    border-radius: 8px;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.82rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-align: left;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.05);
+      color: #fff;
+    }
+
+    &.active {
+      background: rgba(255, 63, 94, 0.12);
+      color: var(--chakra-colors-brandPrimary);
+      font-weight: 700;
+    }
+
+    &.custom-btn {
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      margin-top: 4px;
+      border-radius: 0 0 8px 8px;
+      color: rgba(255, 255, 255, 0.5);
+      font-style: italic;
+
+      &:hover {
+        color: #fff;
+      }
+    }
+
+    .check {
+      font-size: 0.8rem;
+      font-weight: 900;
+    }
+  }
+
+  @media (max-width: 480px) {
+    width: 220px;
+    bottom: 50px;
+    right: -10px;
   }
 `;
 
@@ -1775,7 +1880,9 @@ export default function ChatRoom() {
 
   // ── Ephemeral Messages ──
   const [ephemeralMode, setEphemeralMode] = useState(false);
-  const EPHEMERAL_DURATION = 15; // seconds before message self-destructs
+  const [roomEphemeralDuration, setRoomEphemeralDuration] = useState(0); // 0 means OFF, positive is seconds
+  const [showEphemeralMenu, setShowEphemeralMenu] = useState(false);
+  const DEFAULT_EPHEMERAL_DURATION = 15; // fallback seconds if single message timer fails
 
   // ── Voice Notes ──
   const [isRecording, setIsRecording] = useState(false);
@@ -2030,7 +2137,8 @@ export default function ChatRoom() {
         const now = Date.now();
         return prev.filter(m => {
           if (!m.ephemeral) return true;
-          return now - m.ts < EPHEMERAL_DURATION * 1000;
+          const duration = m.ephemeralDuration || DEFAULT_EPHEMERAL_DURATION;
+          return now - m.ts < duration * 1000;
         });
       });
     }, 1000);
@@ -2146,6 +2254,30 @@ export default function ChatRoom() {
 
     socketRef.current.on("messageDeleted", ({ messageId }) => {
       setMessages(prev => prev.filter(msg => msg.id !== messageId));
+    });
+
+    // ── Disappearing Messages Sync ──
+    socketRef.current.on("syncRoomMetadata", ({ ephemeralDuration }) => {
+      if (ephemeralDuration !== undefined) {
+        setRoomEphemeralDuration(ephemeralDuration);
+        setEphemeralMode(ephemeralDuration > 0);
+      }
+    });
+
+    socketRef.current.on("roomEphemeralUpdated", ({ ephemeralDuration, userName: settingUser }) => {
+      setRoomEphemeralDuration(ephemeralDuration);
+      setEphemeralMode(ephemeralDuration > 0);
+      setMessages(prev => [
+        ...prev,
+        {
+          id: `ephemeral-change-${Date.now()}`,
+          type: "system",
+          action: "ephemeral-change",
+          userName: settingUser,
+          ephemeralDuration,
+          ts: Date.now()
+        }
+      ]);
     });
 
     // Latency Tracking (Ping-Pong)
@@ -2271,12 +2403,14 @@ export default function ChatRoom() {
       };
     }
 
+    const isEphemeral = ephemeralMode || roomEphemeralDuration > 0;
     socketRef.current.emit("sendMessage", {
       payload,
       userName,
       roomId,
       ts: Date.now(),
-      ephemeral: ephemeralMode, // ephemeral flag
+      ephemeral: isEphemeral,
+      ephemeralDuration: roomEphemeralDuration > 0 ? roomEphemeralDuration : DEFAULT_EPHEMERAL_DURATION,
     });
 
     if (!customData) setMessage("");
@@ -2641,8 +2775,13 @@ export default function ChatRoom() {
 
                 {isSystem && (
                   <span>
-                    {m.userName} {systemType === "join" ? "joined" : "left"} the
-                    room
+                    {systemType === "ephemeral-change" ? (
+                      m.ephemeralDuration > 0
+                        ? `💨 ${m.userName} enabled disappearing messages (${m.ephemeralDuration >= 86400 ? `${Math.floor(m.ephemeralDuration / 86400)}d` : m.ephemeralDuration >= 3600 ? `${Math.floor(m.ephemeralDuration / 3600)}h` : m.ephemeralDuration >= 60 ? `${Math.floor(m.ephemeralDuration / 60)}m` : `${m.ephemeralDuration}s`})`
+                        : `💨 ${m.userName} turned off disappearing messages`
+                    ) : (
+                      `${m.userName} ${systemType === "join" ? "joined" : "left"} the room`
+                    )}
                   </span>
                 )}
 
@@ -2759,7 +2898,7 @@ export default function ChatRoom() {
                       fontSize: "0.6rem", color: "#ff6b6b", fontWeight: 600,
                       display: "flex", alignItems: "center", gap: 3
                     }}>
-                      💨 {Math.max(0, EPHEMERAL_DURATION - Math.floor((Date.now() - m.ts) / 1000))}s
+                      💨 {Math.max(0, (m.ephemeralDuration || DEFAULT_EPHEMERAL_DURATION) - Math.floor((Date.now() - m.ts) / 1000))}s
                     </span>
                   )}
                 </div>
@@ -3001,16 +3140,68 @@ export default function ChatRoom() {
               <HiGif />
             </IconButton>
 
-            <EphemeralToggle
-              $active={ephemeralMode}
-              onClick={() => {
-                setEphemeralMode(!ephemeralMode);
-                toast.info(ephemeralMode ? 'Ephemeral mode OFF' : 'Ephemeral mode ON — messages vanish in 15s');
-              }}
-              title={ephemeralMode ? "Ephemeral ON (messages vanish in 15s)" : "Ephemeral OFF"}
-            >
-              <FaClock />
-            </EphemeralToggle>
+            <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+              <EphemeralToggle
+                $active={roomEphemeralDuration > 0}
+                onClick={() => setShowEphemeralMenu(!showEphemeralMenu)}
+                title={roomEphemeralDuration > 0 ? `Disappearing messages ON (${roomEphemeralDuration >= 3600 ? `${Math.floor(roomEphemeralDuration / 3600)}h` : roomEphemeralDuration >= 60 ? `${Math.floor(roomEphemeralDuration / 60)}m` : `${roomEphemeralDuration}s`})` : "Disappearing messages OFF"}
+              >
+                <FaClock />
+              </EphemeralToggle>
+
+              {showEphemeralMenu && (
+                <>
+                  <EphemeralMenuOverlay onClick={() => setShowEphemeralMenu(false)} />
+                  <EphemeralMenuCard onClick={(e) => e.stopPropagation()}>
+                    <div className="title">💨 Disappearing Messages</div>
+                    <div className="subtitle">All new messages in this room will vanish after the selected time.</div>
+
+                    <div className="options">
+                      {[
+                        { label: "Off", value: 0 },
+                        { label: "15 Seconds", value: 15 },
+                        { label: "1 Minute", value: 60 },
+                        { label: "5 Minutes", value: 300 },
+                        { label: "1 Hour", value: 3600 },
+                        { label: "24 Hours", value: 86400 }
+                      ].map((opt) => (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          className={`option-btn ${roomEphemeralDuration === opt.value ? 'active' : ''}`}
+                          onClick={() => {
+                            socketRef.current.emit("updateRoomEphemeral", { roomId, ephemeralDuration: opt.value });
+                            setShowEphemeralMenu(false);
+                          }}
+                        >
+                          <span>{opt.label}</span>
+                          {roomEphemeralDuration === opt.value && <span className="check">✓</span>}
+                        </button>
+                      ))}
+
+                      <button
+                        type="button"
+                        className="option-btn custom-btn"
+                        onClick={() => {
+                          const val = window.prompt("Enter custom timer in seconds (e.g. 30, 120, 600):");
+                          if (val !== null) {
+                            const parsed = parseInt(val, 10);
+                            if (!isNaN(parsed) && parsed >= 0) {
+                              socketRef.current.emit("updateRoomEphemeral", { roomId, ephemeralDuration: parsed });
+                            } else {
+                              toast.error("Please enter a valid number.");
+                            }
+                          }
+                          setShowEphemeralMenu(false);
+                        }}
+                      >
+                        ⏱ Custom Timer…
+                      </button>
+                    </div>
+                  </EphemeralMenuCard>
+                </>
+              )}
+            </div>
           </InputPill>
 
           <SendButton onClick={() => handleSend()} disabled={!message.trim()}>
