@@ -48,6 +48,8 @@ const ContentContainer = styled.main`
   padding: 32px;
   max-width: 1400px;
   width: 100%;
+  overflow:auto;
+  max-height: 100vh;
   margin: 0 auto;
   box-sizing: border-box;
 
@@ -206,6 +208,8 @@ const GridTable = styled.table`
   width: 100%;
   border-collapse: collapse;
   text-align: left;
+  // max-height: 60vh;
+  // overflow-y: auto;
 
   th, td {
     padding: 16px 24px;
@@ -238,6 +242,10 @@ const MobileCardList = styled.div`
   display: none;
   flex-direction: column;
   gap: 16px;
+
+  // height: 60vh;
+  // overflow-y: auto;
+  overflow-x: hidden;
 
   @media (max-width: 768px) {
     display: flex;
@@ -583,7 +591,7 @@ export default function AdminDashboard() {
 
     const query = search.toLowerCase();
     if (query) {
-      result = result.filter(item => 
+      result = result.filter(item =>
         (item.name || "").toLowerCase().includes(query) ||
         (item.roomId || "").toLowerCase().includes(query) ||
         (item.uploadedBy || "").toLowerCase().includes(query)
@@ -633,7 +641,7 @@ export default function AdminDashboard() {
               <h2 style={{ margin: 0, fontSize: "1.5rem", fontWeight: 800 }}>Admin Console</h2>
               <p style={{ color: "var(--chakra-colors-textSecondary)", fontSize: "0.85rem", marginTop: "8px" }}>Enter admin password key to log in</p>
             </div>
-            
+
             <LoginInputContainer>
               <LoginInput
                 type={showPassword ? "text" : "password"}
@@ -641,8 +649,8 @@ export default function AdminDashboard() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
-              <LoginEyeButton 
-                type="button" 
+              <LoginEyeButton
+                type="button"
                 onClick={() => setShowPassword(!showPassword)}
               >
                 {showPassword ? <FaEyeSlash /> : <FaEye />}
@@ -688,7 +696,7 @@ export default function AdminDashboard() {
             boxShadow: "0 20px 50px rgba(0,0,0,0.5)"
           }}>
             <h3 style={{ margin: 0, fontWeight: 800, fontSize: "1.25rem" }}>Change Admin Password</h3>
-            
+
             <LoginInputContainer>
               <LoginInput
                 type={showCurrentPw ? "text" : "password"}
@@ -700,7 +708,7 @@ export default function AdminDashboard() {
                 {showCurrentPw ? <FaEyeSlash /> : <FaEye />}
               </LoginEyeButton>
             </LoginInputContainer>
-            
+
             <LoginInputContainer>
               <LoginInput
                 type={showNewPw ? "text" : "password"}
@@ -712,7 +720,7 @@ export default function AdminDashboard() {
                 {showNewPw ? <FaEyeSlash /> : <FaEye />}
               </LoginEyeButton>
             </LoginInputContainer>
-            
+
             <div style={{ display: "flex", gap: "12px" }}>
               <LoginButton type="button" onClick={handleChangePassword} style={{ flex: 1 }}>Update Password</LoginButton>
               <ActionButton type="button" onClick={() => setShowChangePassword(false)} style={{ flex: 0 }}>Cancel</ActionButton>
@@ -746,67 +754,67 @@ export default function AdminDashboard() {
           </StatCard>
         </StatsGrid>
 
-         <FilterSection>
-           <div style={{ display: "flex", gap: 8, padding: 4, borderRadius: 12, background: "rgba(255,255,255,.035)", border: "1px solid rgba(255,255,255,.08)" }}>
-             {[['all', 'All'], ['realtime', 'Realtime'], ['cloudinary', 'Cloudinary']].map(([value, label]) => (
-               <button key={value} type="button" onClick={() => setSourceFilter(value)} aria-pressed={sourceFilter === value} style={{ border: 0, borderRadius: 8, cursor: 'pointer', padding: '8px 11px', fontSize: '.78rem', fontWeight: 700, color: sourceFilter === value ? '#fff' : 'var(--chakra-colors-textSecondary)', background: sourceFilter === value ? 'var(--chakra-colors-brandPrimary)' : 'transparent' }}>{label}</button>
-             ))}
-           </div>
-           <SearchInputWrapper>
-             <FaSearch style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", color: "var(--chakra-colors-textSecondary)" }} />
-             <SearchInput
-               type="text"
-               placeholder="Search uploads by name, room ID, or user..."
-               value={search}
-               onChange={(e) => setSearch(e.target.value)}
-             />
-           </SearchInputWrapper>
+        <FilterSection>
+          <div style={{ display: "flex", gap: 8, padding: 4, borderRadius: 12, background: "rgba(255,255,255,.035)", border: "1px solid rgba(255,255,255,.08)" }}>
+            {[['all', 'All'], ['realtime', 'Realtime'], ['cloudinary', 'Cloudinary']].map(([value, label]) => (
+              <button key={value} type="button" onClick={() => setSourceFilter(value)} aria-pressed={sourceFilter === value} style={{ border: 0, borderRadius: 8, cursor: 'pointer', padding: '8px 11px', fontSize: '.78rem', fontWeight: 700, color: sourceFilter === value ? '#fff' : 'var(--chakra-colors-textSecondary)', background: sourceFilter === value ? 'var(--chakra-colors-brandPrimary)' : 'transparent' }}>{label}</button>
+            ))}
+          </div>
+          <SearchInputWrapper>
+            <FaSearch style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", color: "var(--chakra-colors-textSecondary)" }} />
+            <SearchInput
+              type="text"
+              placeholder="Search uploads by name, room ID, or user..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </SearchInputWrapper>
 
-           <FilterSelect
-             value={selectedRoom}
-             onChange={(e) => setSelectedRoom(e.target.value)}
-             title="Filter by Room ID"
-           >
-             <option value="">All Rooms</option>
-             {uniqueRoomsList.map((r) => (
-               <option key={r} value={r}>{r}</option>
-             ))}
-           </FilterSelect>
+          <FilterSelect
+            value={selectedRoom}
+            onChange={(e) => setSelectedRoom(e.target.value)}
+            title="Filter by Room ID"
+          >
+            <option value="">All Rooms</option>
+            {uniqueRoomsList.map((r) => (
+              <option key={r} value={r}>{r}</option>
+            ))}
+          </FilterSelect>
 
-           <FilterSelect
-             value={selectedUser}
-             onChange={(e) => setSelectedUser(e.target.value)}
-             title="Filter by Contributor"
-           >
-             <option value="">All Users</option>
-             {uniqueUsersList.map((u) => (
-               <option key={u} value={u}>{u}</option>
-             ))}
-           </FilterSelect>
+          <FilterSelect
+            value={selectedUser}
+            onChange={(e) => setSelectedUser(e.target.value)}
+            title="Filter by Contributor"
+          >
+            <option value="">All Users</option>
+            {uniqueUsersList.map((u) => (
+              <option key={u} value={u}>{u}</option>
+            ))}
+          </FilterSelect>
 
-           <FilterSelect value={dateRange} onChange={(e) => setDateRange(e.target.value)} title="Filter by upload date">
-             <option value="all">All dates</option>
-             <option value="1">Last 24 hours</option>
-             <option value="5">Last 5 days</option>
-             <option value="30">Last 30 days</option>
-             <option value="60">Last 2 months</option>
-           </FilterSelect>
+          <FilterSelect value={dateRange} onChange={(e) => setDateRange(e.target.value)} title="Filter by upload date">
+            <option value="all">All dates</option>
+            <option value="1">Last 24 hours</option>
+            <option value="5">Last 5 days</option>
+            <option value="30">Last 30 days</option>
+            <option value="60">Last 2 months</option>
+          </FilterSelect>
 
-           <FilterSelect value={sortBy} onChange={(e) => setSortBy(e.target.value)} title="Sort uploads">
-             <option value="newest">Newest first</option>
-             <option value="oldest">Oldest first</option>
-             <option value="name">File name A–Z</option>
-             <option value="room">Room ID A–Z</option>
-           </FilterSelect>
+          <FilterSelect value={sortBy} onChange={(e) => setSortBy(e.target.value)} title="Sort uploads">
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="name">File name A–Z</option>
+            <option value="room">Room ID A–Z</option>
+          </FilterSelect>
 
-           <ActionButton onClick={() => fetchUploads(token)} disabled={loading} aria-busy={loading} title="Refresh dashboard data">
-             {loading ? <span style={{ width: 14, height: 14, borderRadius: "50%", border: "2px solid rgba(255,255,255,.25)", borderTopColor: "var(--chakra-colors-brandPrimary)", animation: "spin .7s linear infinite" }} /> : "Refresh"}
-           </ActionButton>
-           <div style={{ display: "flex", gap: 4, padding: 4, background: "rgba(255,255,255,.035)", border: "1px solid rgba(255,255,255,.08)", borderRadius: 12 }} aria-label="Dashboard layout">
-             <ActionButton type="button" onClick={() => setViewMode("list")} aria-pressed={viewMode === "list"} title="List layout" style={{ padding: "8px 10px", color: viewMode === "list" ? "var(--chakra-colors-brandPrimary)" : undefined }}><FaList /></ActionButton>
-             <ActionButton type="button" onClick={() => setViewMode("grid")} aria-pressed={viewMode === "grid"} title="Grid layout" style={{ padding: "8px 10px", color: viewMode === "grid" ? "var(--chakra-colors-brandPrimary)" : undefined }}><FaThLarge /></ActionButton>
-           </div>
-         </FilterSection>
+          <ActionButton onClick={() => fetchUploads(token)} disabled={loading} aria-busy={loading} title="Refresh dashboard data">
+            {loading ? <span style={{ width: 14, height: 14, borderRadius: "50%", border: "2px solid rgba(255,255,255,.25)", borderTopColor: "var(--chakra-colors-brandPrimary)", animation: "spin .7s linear infinite" }} /> : "Refresh"}
+          </ActionButton>
+          <div style={{ display: "flex", gap: 4, padding: 4, background: "rgba(255,255,255,.035)", border: "1px solid rgba(255,255,255,.08)", borderRadius: 12 }} aria-label="Dashboard layout">
+            <ActionButton type="button" onClick={() => setViewMode("list")} aria-pressed={viewMode === "list"} title="List layout" style={{ padding: "8px 10px", color: viewMode === "list" ? "var(--chakra-colors-brandPrimary)" : undefined }}><FaList /></ActionButton>
+            <ActionButton type="button" onClick={() => setViewMode("grid")} aria-pressed={viewMode === "grid"} title="Grid layout" style={{ padding: "8px 10px", color: viewMode === "grid" ? "var(--chakra-colors-brandPrimary)" : undefined }}><FaThLarge /></ActionButton>
+          </div>
+        </FilterSection>
 
         {!loading && <div style={{ margin: "-8px 0 16px", fontSize: ".82rem", color: "var(--chakra-colors-textSecondary)" }}>{filteredUploads.length} file{filteredUploads.length === 1 ? "" : "s"} shown</div>}
 
@@ -819,7 +827,7 @@ export default function AdminDashboard() {
             No uploads found.
           </div>
         ) : (
-          <>
+          <div style={{ overflow: 'auto', maxHeight: '100vh' }}>
             {viewMode === "list" ? <TableCard>
               <GridTable>
                 <thead>
@@ -907,7 +915,7 @@ export default function AdminDashboard() {
                 </MobileCard>
               ))}
             </MobileCardList>}
-          </>
+          </div>
         )}
       </ContentContainer>
       {previewItem && <div role="dialog" aria-modal="true" aria-label="File preview" onClick={() => setPreviewItem(null)} style={{ position: "fixed", inset: 0, zIndex: 12000, background: "rgba(0,0,0,.76)", backdropFilter: "blur(8px)", padding: 20, display: "grid", placeItems: "center" }}>
