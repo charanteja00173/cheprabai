@@ -16,8 +16,7 @@ import {
   FaEye,
   FaEyeSlash,
   FaSignOutAlt,
-  FaReply,
-  FaReplyd
+  FaReply
 } from "react-icons/fa";
 import { HiGif } from "react-icons/hi2";
 import { FaVideo, FaPlay } from "react-icons/fa";
@@ -1676,6 +1675,44 @@ const RoomInfoTrigger = styled.button`
   // }
 `;
 
+function ReplyAttachmentPreview({ reply, roomKey }) {
+  const [url, setUrl] = useState(reply.gif || null);
+
+  useEffect(() => {
+    const file = reply.file;
+    if (!file?.url || reply.gif) return undefined;
+    let objectUrl;
+    let active = true;
+    (async () => {
+      try {
+        let source = file.url;
+        if (file.iv && !file.url.startsWith(window.location.origin) && !file.url.includes("/uploads/")) {
+          const backendUrl = process.env.REACT_APP_SOCKET_ENDPOINT || "https://cheprabai-backend.onrender.com";
+          source = `${backendUrl}/api/proxy-file?url=${encodeURIComponent(file.url)}`;
+        }
+        const response = await fetch(source);
+        if (!response.ok) throw new Error("Preview download failed");
+        let blob;
+        if (file.iv && roomKey) {
+          const encrypted = await response.arrayBuffer();
+          const iv = new Uint8Array(atob(file.iv).split("").map((char) => char.charCodeAt(0)));
+          const decrypted = await decryptBinary(roomKey, { iv, data: encrypted });
+          blob = new Blob([decrypted], { type: file.type || "application/octet-stream" });
+        } else {
+          blob = await response.blob();
+        }
+        objectUrl = URL.createObjectURL(blob);
+        if (active) setUrl(objectUrl);
+      } catch { /* The textual fallback remains available. */ }
+    })();
+    return () => { active = false; if (objectUrl) URL.revokeObjectURL(objectUrl); };
+  }, [reply.file, reply.gif, roomKey]);
+
+  if (url && (reply.gif || reply.file?.type?.startsWith("image/"))) return <img src={url} alt="Replied attachment" style={{ width: 42, height: 42, objectFit: "cover", borderRadius: 7, flexShrink: 0 }} />;
+  if (url && reply.file?.type?.startsWith("video/")) return <video src={`${url}#t=0.1`} muted playsInline style={{ width: 42, height: 42, objectFit: "cover", borderRadius: 7, flexShrink: 0 }} />;
+  return reply.file ? <div style={{ width: 42, height: 42, borderRadius: 7, flexShrink: 0, display: "grid", placeItems: "center", background: "rgba(255,255,255,.09)", fontSize: ".62rem", fontWeight: 800 }}>FILE</div> : null;
+}
+
 // Stateful component to handle downloading, decrypting and displaying E2EE files
 function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile }) {
   const [decryptedUrl, setDecryptedUrl] = useState(null);
@@ -1888,9 +1925,10 @@ function GifCardComponent({ gif, onSelect }) {
     <GifCard onClick={() => onSelect(gif)}>
       {!loaded && <GifSkeleton />}
       <GifItem
-        src={gif.images.fixed_height.url}
+        src={gif.images.fixed_height_small?.webp || gif.images.fixed_height?.webp || gif.images.fixed_height.url}
         alt={gif.title || "GIF"}
         loading="lazy"
+        decoding="async"
         onLoad={() => setLoaded(true)}
         style={{ opacity: loaded ? 1 : 0, transition: "opacity 0.25s ease" }}
       />
@@ -1932,6 +1970,7 @@ export default function ChatRoom() {
   const [onlineUsers, setOnlineUsers] = useState([]);
 
   const [showGifPicker, setShowGifPicker] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showWhiteboard, setShowWhiteboard] = useState(false);
   const [showMeeting, setShowMeeting] = useState(false);
   const [showRoomInfo, setShowRoomInfo] = useState(false);
@@ -2015,6 +2054,9 @@ export default function ChatRoom() {
 
   const gifGridRef = useRef(null);
   const loadingGifsRef = useRef(false);
+  const gifCacheRef = useRef(new Map());
+  const gifRequestRef = useRef(null);
+  const gifPageSizeRef = useRef(20);
 
   useEffect(() => {
     const handleResize = () => {
@@ -2025,17 +2067,34 @@ export default function ChatRoom() {
   }, []);
 
   const fetchGifs = async (query = "", offset = 0) => {
-    if (loadingGifsRef.current) return;
+    const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    const limit = connection?.saveData || /(^|-)2g/.test(connection?.effectiveType || "") ? 12 : 20;
+    gifPageSizeRef.current = limit;
+    const cacheKey = `${query.trim().toLowerCase()}:${offset}:${limit}`;
+    const cached = gifCacheRef.current.get(cacheKey);
+    if (cached && Date.now() - cached.savedAt < 10 * 60 * 1000) {
+      if (offset === 0) setGifs(cached.data); else setGifs((previous) => [...previous, ...cached.data.filter((gif) => !previous.some((item) => item.id === gif.id))]);
+      return;
+    }
     loadingGifsRef.current = true;
+    gifRequestRef.current?.abort();
+    const controller = new AbortController();
+    gifRequestRef.current = controller;
 
     const backendUrl = process.env.REACT_APP_SOCKET_ENDPOINT || "https://cheprabai-backend.onrender.com";
-    const params = new URLSearchParams({ q: query.trim().slice(0, 100), limit: String(Math.min(GIF_LIMIT, 25)), offset: String(offset) });
+    const params = new URLSearchParams({ q: query.trim().slice(0, 100), limit: String(limit), offset: String(offset) });
 
     try {
-      const res = await fetch(`${backendUrl}/api/gifs?${params}`);
+      let res = await fetch(`${backendUrl}/api/gifs?${params}`, { signal: controller.signal });
+      if (!res.ok && process.env.REACT_APP_GIPHY_API_KEY) {
+        const upstream = query.trim() ? "https://api.giphy.com/v1/gifs/search" : "https://api.giphy.com/v1/gifs/trending";
+        res = await fetch(`${upstream}?${params}&api_key=${encodeURIComponent(process.env.REACT_APP_GIPHY_API_KEY)}`, { signal: controller.signal });
+      }
       if (!res.ok) throw new Error(`GIF service returned ${res.status}`);
       const data = await res.json();
-      if (data.data.length < GIF_LIMIT) setHasMoreGifs(false);
+      gifCacheRef.current.set(cacheKey, { data: data.data, savedAt: Date.now() });
+      if (gifCacheRef.current.size > 80) gifCacheRef.current.delete(gifCacheRef.current.keys().next().value);
+      if (data.data.length < limit) setHasMoreGifs(false);
       if (offset === 0) {
         setGifs(data.data);
       } else {
@@ -2046,12 +2105,23 @@ export default function ChatRoom() {
         });
       }
     } catch (err) {
+      if (err.name === "AbortError") return;
       console.error("GIF fetch error:", err);
       toast.error("GIFs are temporarily unavailable. Please try again.");
     } finally {
       loadingGifsRef.current = false;
     }
   };
+
+  useEffect(() => {
+    if (!showGifPicker) return undefined;
+    const timer = setTimeout(() => {
+      setGifOffset(0);
+      setHasMoreGifs(true);
+      fetchGifs(gifQuery, 0);
+    }, gifQuery ? 280 : 0);
+    return () => clearTimeout(timer);
+  }, [showGifPicker, gifQuery]);
 
   useEffect(() => {
     if (showGifPicker) {
@@ -2076,7 +2146,7 @@ export default function ChatRoom() {
         hasMoreGifs &&
         !loadingGifsRef.current
       ) {
-        const nextOffset = gifOffset + GIF_LIMIT;
+        const nextOffset = gifOffset + gifPageSizeRef.current;
         setGifOffset(nextOffset);
         fetchGifs(gifQuery, nextOffset);
       }
@@ -2875,9 +2945,9 @@ export default function ChatRoom() {
                 )}
 
                 {!isSystem && m.replyTo && (
-                  <div style={{ borderLeft: "3px solid var(--chakra-colors-brandPrimary)", background: "rgba(255,255,255,.055)", borderRadius: 8, padding: "7px 9px", marginBottom: 8, fontSize: ".76rem", lineHeight: 1.35 }}>
-                    <div style={{ color: "var(--chakra-colors-brandPrimary)", fontWeight: 700 }}>{m.replyTo.userName || "Message"}</div>
-                    <div style={{ opacity: .78, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.replyTo.preview || "Attachment"}</div>
+                  <div style={{ borderLeft: "3px solid var(--chakra-colors-brandPrimary)", background: "rgba(255,255,255,.055)", borderRadius: 8, padding: "7px 9px", marginBottom: 8, fontSize: ".76rem", lineHeight: 1.35, display: "flex", gap: 9, alignItems: "center" }}>
+                    <ReplyAttachmentPreview reply={m.replyTo} roomKey={roomKey} />
+                    <div style={{ minWidth: 0, flex: 1 }}><div style={{ color: "var(--chakra-colors-brandPrimary)", fontWeight: 700 }}>{m.replyTo.userName || "Message"}</div><div style={{ opacity: .78, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.replyTo.preview || "Attachment"}</div></div>
                   </div>
                 )}
 
@@ -3010,7 +3080,7 @@ export default function ChatRoom() {
                     fontSize: "0.6rem", color: "#ff6b6b", fontWeight: 600,
                     display: "flex", alignItems: "center", justifyContent: 'flex-end', gap: 3
                   }}>
-                    <button type="button" onClick={() => setReplyTo({ id: m.id, userName: m.userName, preview: m.text || m.file?.name || (m.gif ? "GIF" : "Media"), })} aria-label={`Reply to ${m.userName}`} title="Reply" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "5px", height: "25px", padding: "0 8px", borderRadius: "7px", border: "1px solid rgba(255,255,255,.07)", background: "rgba(255,255,255,.035)", color: "var(--chakra-colors-textSecondary)", cursor: "pointer", fontSize: ".62rem", fontWeight: 600, transition: "background .15s ease, color .15s ease, border-color .15s ease, transform .15s ease", flexShrink: 0, }} onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,.09)"; e.currentTarget.style.borderColor = "rgba(255,255,255,.13)"; e.currentTarget.style.color = "var(--chakra-colors-brandPrimary)"; e.currentTarget.style.transform = "translateY(-1px)"; }} onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,.035)"; e.currentTarget.style.borderColor = "rgba(255,255,255,.07)"; e.currentTarget.style.color = "var(--chakra-colors-textSecondary)"; e.currentTarget.style.transform = "translateY(0)"; }} > <FaReply fontSize=".68rem" /> <span>Reply</span> </button>
+                    <button type="button" onClick={() => setReplyTo({ id: m.id, userName: m.userName, preview: m.text || m.file?.name || (m.gif ? "GIF" : "Media"), file: m.file || null, gif: m.gif || null })} aria-label={`Reply to ${m.userName}`} title="Reply" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "5px", height: "25px", padding: "0 8px", borderRadius: "7px", border: "1px solid rgba(255,255,255,.07)", background: "rgba(255,255,255,.035)", color: "var(--chakra-colors-textSecondary)", cursor: "pointer", fontSize: ".62rem", fontWeight: 600, transition: "background .15s ease, color .15s ease, border-color .15s ease, transform .15s ease", flexShrink: 0, }} onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,.09)"; e.currentTarget.style.borderColor = "rgba(255,255,255,.13)"; e.currentTarget.style.color = "var(--chakra-colors-brandPrimary)"; e.currentTarget.style.transform = "translateY(-1px)"; }} onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,.035)"; e.currentTarget.style.borderColor = "rgba(255,255,255,.07)"; e.currentTarget.style.color = "var(--chakra-colors-textSecondary)"; e.currentTarget.style.transform = "translateY(0)"; }} > <FaReply fontSize=".68rem" /> <span>Reply</span> </button>
                   </span>
                 )}
               </MessageBubble>
@@ -3076,7 +3146,6 @@ export default function ChatRoom() {
                     gif={gif}
                     onSelect={(selectedGif) => {
                       handleSend({ text: "", gif: selectedGif.images.fixed_height.url });
-                      setShowGifPicker(false);
                     }}
                   />
                 ))}
@@ -3259,6 +3328,12 @@ export default function ChatRoom() {
               onKeyDown={(e) => e.key === "Enter" && handleSend?.()}
             />
 
+            <div style={{ position: "relative" }}>
+              <IconButton type="button" onClick={() => setShowEmojiPicker((value) => !value)} title="Choose an emoji" aria-label="Choose an emoji">😊</IconButton>
+              {showEmojiPicker && <div style={{ position: "absolute", bottom: "calc(100% + 10px)", left: 0, zIndex: 30, width: "min(300px, calc(100vw - 28px))", padding: 10, borderRadius: 16, background: "#171922", border: "1px solid rgba(255,255,255,.12)", boxShadow: "0 18px 42px rgba(0,0,0,.42)", display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>
+                {["😀","😂","🥹","😍","❤️","👍","👎","🙏","👏","🎉","🔥","💯","✅","❓","😢","😡","🤝","✨","🎈","👀","😎"].map((emoji) => <button key={emoji} type="button" onClick={() => { setMessage((current) => `${current}${emoji}`); setShowEmojiPicker(false); }} style={{ border: 0, borderRadius: 9, background: "transparent", color: "inherit", cursor: "pointer", fontSize: "1.25rem", padding: "7px 2px" }}>{emoji}</button>)}
+              </div>}
+            </div>
             <IconButton
               onClick={() => {
                 setShowGifPicker(true);

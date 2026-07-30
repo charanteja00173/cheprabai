@@ -33,10 +33,18 @@ const MeetingOverlay = styled.div`
   `}
 
   @media (max-width: 768px) {
-    inset: 0;
-    border-radius: 0;
-    padding: 12px 10px;
-    background: #000;
+    ${p => p.$minimized ? `
+      inset: auto 12px calc(12px + env(safe-area-inset-bottom)) auto;
+      width: min(300px, calc(100vw - 24px));
+      height: 176px;
+      padding: 8px;
+      border-radius: 18px;
+    ` : `
+      inset: 0;
+      border-radius: 0;
+      padding: 12px 10px;
+      background: #000;
+    `}
   }
 `;
 

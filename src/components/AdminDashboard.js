@@ -120,6 +120,12 @@ const FilterSection = styled.div`
   align-items: center;
   width: 100%;
   flex-wrap: wrap;
+
+  @media (max-width: 480px) {
+    gap: 10px;
+    > select { flex: 1 1 calc(50% - 5px); min-width: 0; }
+    > button { flex: 1 1 auto; justify-content: center; }
+  }
 `;
 
 const FilterSelect = styled.select`
@@ -156,6 +162,11 @@ const SearchInputWrapper = styled.div`
   position: relative;
   flex: 1;
   min-width: 280px;
+
+  @media (max-width: 480px) {
+    min-width: 0;
+    width: 100%;
+  }
 `;
 
 const SearchInput = styled.input`
@@ -430,6 +441,7 @@ export default function AdminDashboard() {
   const [token, setToken] = useState(localStorage.getItem("admin_token") || "");
   const [uploads, setUploads] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [previewItem, setPreviewItem] = useState(null);
   const [search, setSearch] = useState("");
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [currentPw, setCurrentPw] = useState("");
@@ -787,7 +799,9 @@ export default function AdminDashboard() {
              <option value="room">Room ID A–Z</option>
            </FilterSelect>
 
-           <ActionButton onClick={() => fetchUploads(token)}>Refresh Data</ActionButton>
+           <ActionButton onClick={() => fetchUploads(token)} disabled={loading} aria-busy={loading} title="Refresh dashboard data">
+             {loading ? <span style={{ width: 14, height: 14, borderRadius: "50%", border: "2px solid rgba(255,255,255,.25)", borderTopColor: "var(--chakra-colors-brandPrimary)", animation: "spin .7s linear infinite" }} /> : "Refresh"}
+           </ActionButton>
            <div style={{ display: "flex", gap: 4, padding: 4, background: "rgba(255,255,255,.035)", border: "1px solid rgba(255,255,255,.08)", borderRadius: 12 }} aria-label="Dashboard layout">
              <ActionButton type="button" onClick={() => setViewMode("list")} aria-pressed={viewMode === "list"} title="List layout" style={{ padding: "8px 10px", color: viewMode === "list" ? "var(--chakra-colors-brandPrimary)" : undefined }}><FaList /></ActionButton>
              <ActionButton type="button" onClick={() => setViewMode("grid")} aria-pressed={viewMode === "grid"} title="Grid layout" style={{ padding: "8px 10px", color: viewMode === "grid" ? "var(--chakra-colors-brandPrimary)" : undefined }}><FaThLarge /></ActionButton>
@@ -821,7 +835,7 @@ export default function AdminDashboard() {
                 <tbody>
                   {filteredUploads.map((item) => (
                     <tr key={item.id}>
-                      <td>{renderPreview(item)}</td>
+                      <td><button type="button" onClick={() => setPreviewItem(item)} title="Preview file" style={{ border: 0, padding: 0, background: "transparent", cursor: "pointer" }}>{renderPreview(item)}</button></td>
                       <td>
                         <FileLink href={item.url} target="_blank" rel="noreferrer">
                           <FaDownload style={{ flexShrink: 0, color: "var(--chakra-colors-brandPrimary)" }} />
@@ -842,6 +856,7 @@ export default function AdminDashboard() {
                         {new Date(item.timestamp).toLocaleString()}
                       </td>
                       <td style={{ textAlign: "right" }}>
+                        <ActionButton onClick={() => setPreviewItem(item)} title="Preview file"><FaEye /></ActionButton>{" "}
                         <ActionButton $danger title="Permanently delete this file" onClick={() => handleDelete(item.roomId, item.id)}>
                           <FaTrash /> Delete
                         </ActionButton>
@@ -853,7 +868,7 @@ export default function AdminDashboard() {
             </TableCard> : <UploadGrid>
               {filteredUploads.map((item) => (
                 <UploadGridCard key={item.id}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>{renderPreview(item)}<div style={{ minWidth: 0, flex: 1 }}><FileLink href={item.url} target="_blank" rel="noreferrer" style={{ padding: 0, border: 0, background: "transparent" }}>{item.name}</FileLink><div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}><Badge>{(item.source || "realtime") === "cloudinary" ? "Cloudinary" : "Realtime"}</Badge>{item.type && <Badge $brand>{item.type.split('/')[0]}</Badge>}</div></div></div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}><button type="button" onClick={() => setPreviewItem(item)} title="Preview file" style={{ border: 0, padding: 0, background: "transparent", cursor: "pointer" }}>{renderPreview(item)}</button><div style={{ minWidth: 0, flex: 1 }}><FileLink href={item.url} target="_blank" rel="noreferrer" style={{ padding: 0, border: 0, background: "transparent" }}>{item.name}</FileLink><div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}><Badge>{(item.source || "realtime") === "cloudinary" ? "Cloudinary" : "Realtime"}</Badge>{item.type && <Badge $brand>{item.type.split('/')[0]}</Badge>}</div></div><ActionButton onClick={() => setPreviewItem(item)} title="Preview file"><FaEye /></ActionButton></div>
                   <div style={{ display: "grid", gap: 5, fontSize: ".78rem", color: "var(--chakra-colors-textSecondary)" }}><span>Room: <strong style={{ color: "var(--chakra-colors-textPrimary)" }}>{item.roomId}</strong></span><span>By: <strong style={{ color: "var(--chakra-colors-textPrimary)" }}>{item.uploadedBy}</strong></span><span>{new Date(item.timestamp).toLocaleString()}</span></div>
                   <ActionButton $danger onClick={() => handleDelete(item.roomId, item.id)} style={{ justifyContent: "center" }}><FaTrash /> Delete permanently</ActionButton>
                 </UploadGridCard>
@@ -895,6 +910,13 @@ export default function AdminDashboard() {
           </>
         )}
       </ContentContainer>
+      {previewItem && <div role="dialog" aria-modal="true" aria-label="File preview" onClick={() => setPreviewItem(null)} style={{ position: "fixed", inset: 0, zIndex: 12000, background: "rgba(0,0,0,.76)", backdropFilter: "blur(8px)", padding: 20, display: "grid", placeItems: "center" }}>
+        <div onClick={(event) => event.stopPropagation()} style={{ width: "min(760px, 100%)", maxHeight: "90dvh", overflow: "auto", borderRadius: 20, padding: 16, background: "#151720", border: "1px solid rgba(255,255,255,.14)", boxShadow: "0 28px 80px rgba(0,0,0,.55)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}><strong style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{previewItem.name}</strong><ActionButton onClick={() => setPreviewItem(null)}>Close</ActionButton></div>
+          {(previewItem.type || "").startsWith("image/") ? <img src={previewItem.url} alt={previewItem.name} style={{ display: "block", width: "100%", maxHeight: "68dvh", objectFit: "contain", borderRadius: 12, background: "#090a0e" }} /> : (previewItem.type || "").startsWith("video/") ? <video src={previewItem.url} controls autoPlay playsInline style={{ display: "block", width: "100%", maxHeight: "68dvh", borderRadius: 12, background: "#090a0e" }} /> : <a href={previewItem.url} target="_blank" rel="noreferrer" style={{ display: "block", padding: 30, textAlign: "center", color: "var(--chakra-colors-brandPrimary)" }}>Open this file in a new tab</a>}
+        </div>
+      </div>}
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </AdminWrapper>
   );
 }
