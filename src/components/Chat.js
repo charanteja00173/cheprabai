@@ -3330,8 +3330,8 @@ export default function ChatRoom() {
 
             <div style={{ position: "relative" }}>
               <IconButton type="button" onClick={() => setShowEmojiPicker((value) => !value)} title="Choose an emoji" aria-label="Choose an emoji">😊</IconButton>
-              {showEmojiPicker && <div style={{ position: "absolute", bottom: "calc(100% + 10px)", left: 0, zIndex: 30, width: "min(300px, calc(100vw - 28px))", padding: 10, borderRadius: 16, background: "#171922", border: "1px solid rgba(255,255,255,.12)", boxShadow: "0 18px 42px rgba(0,0,0,.42)", display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>
-                {["😀","😂","🥹","😍","❤️","👍","👎","🙏","👏","🎉","🔥","💯","✅","❓","😢","😡","🤝","✨","🎈","👀","😎"].map((emoji) => <button key={emoji} type="button" onClick={() => { setMessage((current) => `${current}${emoji}`); setShowEmojiPicker(false); }} style={{ border: 0, borderRadius: 9, background: "transparent", color: "inherit", cursor: "pointer", fontSize: "1.25rem", padding: "7px 2px" }}>{emoji}</button>)}
+              {showEmojiPicker && <div style={{ position: "absolute", bottom: "calc(100% + 10px)", right: 2, bottom: 50, zIndex: 30, width: "min(300px, calc(100vw - 28px))", padding: 10, borderRadius: 16, background: "#171922", border: "1px solid rgba(255,255,255,.12)", boxShadow: "0 18px 42px rgba(0,0,0,.42)", display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>
+                {["😀", "😂", "🥹", "😍", "❤️", "👍", "👎", "🙏", "👏", "🎉", "🔥", "💯", "✅", "❓", "😢", "😡", "🤝", "✨", "🎈", "👀", "😎"].map((emoji) => <button key={emoji} type="button" onClick={() => { setMessage((current) => `${current}${emoji}`); setShowEmojiPicker(false); }} style={{ border: 0, borderRadius: 9, background: "transparent", color: "inherit", cursor: "pointer", fontSize: "1.25rem", padding: "7px 2px" }}>{emoji}</button>)}
               </div>}
             </div>
             <IconButton
