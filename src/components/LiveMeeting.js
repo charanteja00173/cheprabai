@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import styled from "styled-components";
-import { FaMicrophone, FaVideo, FaPhoneSlash, FaSync, FaDesktop, FaFolderOpen, FaRecordVinyl, FaThumbtack, FaThLarge, FaCompress, FaExpand } from "react-icons/fa";
+import { FaMicrophone, FaVideo, FaPhoneSlash, FaSync, FaDesktop, FaFolderOpen, FaRecordVinyl, FaCompress, FaExpand, FaWindowMinimize } from "react-icons/fa";
 import { Peer } from "peerjs";
 import { toast } from "react-toastify";
 
@@ -21,6 +21,16 @@ const MeetingOverlay = styled.div`
   box-shadow: 
     0 50px 100px rgba(0, 0, 0, 0.85),
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
+
+  ${p => p.$minimized && `
+    inset: auto 18px 18px auto;
+    width: min(360px, calc(100vw - 32px));
+    height: 210px;
+    min-height: 0;
+    padding: 10px;
+    border-radius: 20px;
+    cursor: pointer;
+  `}
 
   @media (max-width: 768px) {
     inset: 0;
@@ -117,47 +127,10 @@ const VideoTile = styled.div`
       0 0 15px var(--chakra-colors-brandGlow);
   }
 
-  &:hover .pin-overlay {
-    opacity: 1;
-  }
-  
   video { 
     width: 100%; 
     height: 100%; 
     object-fit: cover; 
-  }
-`;
-
-const PinOverlay = styled.div`
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transition: opacity 0.25s ease;
-  pointer-events: none;
-  z-index: 10;
-`;
-
-const PinButton = styled.div`
-  background: linear-gradient(135deg, var(--chakra-colors-brandPrimary), var(--chakra-colors-brandSecondary));
-  color: white;
-  padding: 8px 16px;
-  border-radius: 20px;
-  font-size: 0.75rem;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  pointer-events: all;
-  transform: translateY(8px);
-  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-
-  ${VideoTile}:hover & {
-    transform: translateY(0);
   }
 `;
 
@@ -325,8 +298,8 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const [watermarkPos, setWatermarkPos] = useState({ x: 10, y: 10 });
   const [focusedPeerId, setFocusedPeerId] = useState(null);
   const [myPeerId, setMyPeerId] = useState(null);
-  const [showGrid, setShowGrid] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
   
   const containerRef = useRef();
   const peerRef = useRef(null);
@@ -408,7 +381,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
             const call = peerRef.current.call(peerId, localStreamRef.current);
             call.on("stream", (rem) => {
               setRemoteStreams(p => ({ ...p, [peerId]: { stream: rem, name } }));
-              toast.info(`${name} joined the stage`);
+              toast.info(`${name} joined the call`);
             });
             peers.current[peerId] = call;
           }
@@ -457,6 +430,10 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
           setTimeout(() => setIsSyncing(false), 1000);
         });
 
+        socket.on("meeting-control-denied", ({ message }) => {
+          toast.error(message || "Only the room admin can use this meeting control.");
+        });
+
         socket.on("reaction", (emoji) => {
           const id = Date.now() + Math.random();
           setReactions(p => [...p, { id, emoji, x: Math.random() * 80 + 10 }]);
@@ -486,7 +463,9 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       socket.off("user-connected-call");
       socket.off("existing-callers");
       socket.off("user-disconnected-call");
+      socket.off("screenshare-started");
       socket.off("syncMedia");
+      socket.off("meeting-control-denied");
       socket.off("reaction");
       window.removeEventListener("blur", handleBlur);
       window.removeEventListener("focus", handleFocus);
@@ -595,7 +574,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const startScreenShare = async () => {
     try {
         if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
-            toast.error("Screen sharing is not supported on this device or browser.");
+            toast.error("Screen sharing is unavailable in this browser. Use a supported Android browser or desktop browser.");
             return;
         }
 
@@ -641,7 +620,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
             stopScreenShare();
         };
     } catch (err) {
-        toast.error("Failed to start screen share");
+        toast.error(err.name === "NotAllowedError" ? "Screen sharing was cancelled." : "Unable to start screen sharing on this device.");
     }
   };
 
@@ -662,6 +641,10 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   };
 
   const toggleRecording = async () => {
+    if (!isAdmin) {
+        toast.error("Only the room admin can record this meeting.");
+        return;
+    }
     if (isRecording) {
         if (recorderRef.current && recorderRef.current.state !== 'inactive') {
             recorderRef.current.stop();
@@ -756,11 +739,11 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   };
 
   return (
-    <MeetingOverlay ref={containerRef}>
+    <MeetingOverlay ref={containerRef} $minimized={isMinimized} onClick={isMinimized ? () => setIsMinimized(false) : undefined}>
       <MeetingHeader>
         <div style={{ display: "flex", alignItems: "center", gap: "12px", minWidth: 0 }}>
           <div className="live-pulse" style={{ width: 8, height: 8, background: "#ff4757", borderRadius: "50%", flexShrink: 0 }} />
-          <h2 style={{ margin: 0, fontSize: "1rem", fontWeight: 700, letterSpacing: "-0.5px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Social Stage</h2>
+          <h2 style={{ margin: 0, fontSize: "1rem", fontWeight: 700, letterSpacing: "-0.5px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Video call</h2>
         </div>
         <div style={{ display: "flex", gap: "4px", background: "rgba(255,255,255,0.08)", padding: "4px", borderRadius: "14px", border: "1px solid rgba(255,255,255,0.12)", alignItems: "center" }}>
           <CircleButton 
@@ -772,11 +755,10 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
           </CircleButton>
           <CircleButton 
             style={{ width: 32, height: 32, fontSize: "0.8rem" }}
-            active={!showGrid} 
-            onClick={() => setShowGrid(!showGrid)} 
-            title={showGrid ? "Switch to Theater Mode (Hide Grid)" : "Switch to Grid Mode (Show Participants)"}
+            onClick={(event) => { event.stopPropagation(); setIsMinimized(true); }}
+            title="Minimize call"
           >
-            <FaThLarge />
+            <FaWindowMinimize />
           </CircleButton>
           <div style={{ width: 1, height: 16, background: "rgba(255,255,255,0.1)", margin: "0 4px" }} />
           <CircleButton $active={true} onClick={onClose} title="Leave Meeting">
@@ -786,8 +768,8 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       </MeetingHeader>
 
       <ContentLayout $isAdmin={isAdmin}>
-        <MainStage style={{ flex: showGrid ? 3 : 10 }}>
-          {!isAdmin && <PrivacyGuard show={!isFocused}><h3>Privacy Guard Active</h3><p>Screenshots and captures are restricted.</p></PrivacyGuard>}
+        <MainStage>
+          {!isAdmin && <PrivacyGuard show={!isFocused}><h3>Privacy watermark active</h3><p>Your name and a live timestamp remain visible during this call.</p></PrivacyGuard>}
           <div style={{ position: "absolute", top: 10, left: 10, zIndex: 60, fontSize: "0.6rem", opacity: 0.3, color: "var(--chakra-colors-textPrimary)" }}>
               ID: {myPeerId || "Connecting..."}
           </div>
@@ -801,7 +783,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
               <div style={{ width: "100%", height: "100%", position: "relative" }}>
                  <video autoPlay playsInline ref={el => { if (el) el.srcObject = focusedPeerId === "local" ? localStream : remoteStreams[focusedPeerId]?.stream; }} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
                  <div style={{ position: "absolute", top: 20, left: 20, background: "rgba(0,0,0,0.6)", padding: "5px 15px", borderRadius: 20, display: "flex", alignItems: "center", gap: 10 }}>
-                    <span>Pinned: {focusedPeerId === "local" ? "You" : remoteStreams[focusedPeerId]?.name}</span>
+                    <span>Viewing: {focusedPeerId === "local" ? "You" : remoteStreams[focusedPeerId]?.name}</span>
                     <button onClick={() => setFocusedPeerId(null)} style={{ background: "none", border: "none", color: "var(--chakra-colors-textPrimary)", cursor: "pointer" }}>✕</button>
                  </div>
               </div>
@@ -827,38 +809,22 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
           )}
         </MainStage>
 
-        {showGrid && (
         <ParticipantGrid>
           <VideoTile $isTalking={speakingPeers.local} onClick={() => setFocusedPeerId("local")}>
             <video ref={myVideoRef} autoPlay muted playsInline />
-            <PinOverlay className="pin-overlay">
-                <PinButton><FaThumbtack /> Pin to Stage</PinButton>
-            </PinOverlay>
             <NameTag>
-                {userName} (You) {focusedPeerId === "local" && "(Sharing)"}
-                <FaThumbtack 
-                    size={14} 
-                    style={{ cursor: 'pointer', color: focusedPeerId === "local" ? "var(--chakra-colors-brandPrimary)" : "inherit" }} 
-                />
+                {userName} (You)
             </NameTag>
           </VideoTile>
           {Object.entries(remoteStreams).map(([id, info]) => (
             <VideoTile key={id} $isTalking={speakingPeers[id]} onClick={() => setFocusedPeerId(id)}>
               <video autoPlay playsInline ref={el => { if (el) el.srcObject = info.stream; }} />
-              <PinOverlay className="pin-overlay">
-                  <PinButton><FaThumbtack /> Pin to Stage</PinButton>
-              </PinOverlay>
               <NameTag>
-                {info.name} 
-                <FaThumbtack 
-                    size={14} 
-                    style={{ cursor: 'pointer', color: focusedPeerId === id ? "var(--chakra-colors-brandPrimary)" : "inherit" }} 
-                />
+                {info.name}
               </NameTag>
             </VideoTile>
           ))}
         </ParticipantGrid>
-        )}
       </ContentLayout>
 
       <ControlBar>
@@ -866,17 +832,19 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         <CircleButton $active={isVideoOff} onClick={() => { if (localStream) { localStream.getVideoTracks()[0].enabled = isVideoOff; setIsVideoOff(!isVideoOff); } }} title={isVideoOff ? "Turn Camera On" : "Turn Camera Off"}><FaVideo /></CircleButton>
         <CircleButton onClick={startScreenShare} title="Share Your Screen with Others"><FaDesktop /></CircleButton>
         
-        <div style={{ display: "flex", gap: "10px", alignItems: "center", borderLeft: "1px solid rgba(255,255,255,0.1)", paddingLeft: "10px", marginLeft: "5px" }}>
-            <label><CircleButton as="span" title="Broadcast a Video File from your computer"><FaFolderOpen /><input type="file" hidden accept="video/*" onChange={handleLocalFile} /></CircleButton></label>
-            <CircleButton 
-                $active={isRecording} 
-                onClick={toggleRecording} 
-                title={isRecording ? "Stop and Save Recording" : "Start Recording this Session"}
-                style={{ background: isRecording ? "#ff4757" : "transparent", borderColor: isRecording ? "#ff4757" : "rgba(255,71,87,0.3)" }}
-            >
-                <FaRecordVinyl color={isRecording ? "white" : "#ff4757"} />
-            </CircleButton>
-        </div>
+        {isAdmin && (
+          <div style={{ display: "flex", gap: "10px", alignItems: "center", borderLeft: "1px solid rgba(255,255,255,0.1)", paddingLeft: "10px", marginLeft: "5px" }}>
+              <label><CircleButton as="span" title="Broadcast a Video File from your computer"><FaFolderOpen /><input type="file" hidden accept="video/*" onChange={handleLocalFile} /></CircleButton></label>
+              <CircleButton 
+                  $active={isRecording} 
+                  onClick={toggleRecording} 
+                  title={isRecording ? "Stop and save meeting recording" : "Start meeting recording (admin only)"}
+                  style={{ background: isRecording ? "#ff4757" : "transparent", borderColor: isRecording ? "#ff4757" : "rgba(255,71,87,0.3)" }}
+              >
+                  <FaRecordVinyl color={isRecording ? "white" : "#ff4757"} />
+              </CircleButton>
+          </div>
+        )}
         <div style={{ width: 1, height: 24, background: "rgba(255,255,255,0.1)", margin: "0 5px", flexShrink: 0 }} />
         {["❤️", "👏", "😂"].map(e => <CircleButton key={e} onClick={() => sendReaction(e)} title={`Send ${e} reaction`} style={{ background: "transparent", border: "none" }}>{e}</CircleButton>)}
       </ControlBar>

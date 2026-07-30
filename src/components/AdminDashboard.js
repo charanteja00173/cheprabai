@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import axios from "axios";
 import styled from "styled-components";
-import { FaTrash, FaSearch, FaEye, FaEyeSlash, FaDownload, FaSignOutAlt, FaFolder, FaDatabase, FaLock, FaUsers, FaCog } from "react-icons/fa";
+import { FaTrash, FaSearch, FaEye, FaEyeSlash, FaDownload, FaSignOutAlt, FaFolder, FaDatabase, FaLock, FaUsers, FaCog, FaList, FaThLarge } from "react-icons/fa";
 import { toast, ToastContainer } from "react-toastify";
 
 const AdminWrapper = styled.div`
@@ -244,6 +244,24 @@ const MobileCard = styled.div`
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
 `;
 
+const UploadGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 16px;
+`;
+
+const UploadGridCard = styled.article`
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.16);
+`;
+
 const MobileCardRow = styled.div`
   display: flex;
   justify-content: space-between;
@@ -420,6 +438,10 @@ export default function AdminDashboard() {
   const [showNewPw, setShowNewPw] = useState(false);
   const [selectedRoom, setSelectedRoom] = useState("");
   const [selectedUser, setSelectedUser] = useState("");
+  const [dateRange, setDateRange] = useState("all");
+  const [sortBy, setSortBy] = useState("newest");
+  const [sourceFilter, setSourceFilter] = useState("all");
+  const [viewMode, setViewMode] = useState("list");
 
   const backendUrl = process.env.REACT_APP_SOCKET_ENDPOINT || "https://cheprabai-backend.onrender.com";
 
@@ -444,8 +466,21 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (token) {
       fetchUploads(token);
+      const refreshTimer = setInterval(() => fetchUploads(token), 20000);
+      return () => clearInterval(refreshTimer);
     }
+    return undefined;
   }, [token, fetchUploads]);
+
+  const renderPreview = (item) => {
+    if ((item.type || "").startsWith("image/")) {
+      return <img src={item.url} alt="" style={{ width: 44, height: 44, borderRadius: 9, objectFit: "cover", display: "block", background: "#151821" }} loading="lazy" />;
+    }
+    if ((item.type || "").startsWith("video/")) {
+      return <video src={`${item.url}#t=0.1`} muted preload="metadata" style={{ width: 44, height: 44, borderRadius: 9, objectFit: "cover", display: "block", background: "#151821" }} />;
+    }
+    return <div style={{ width: 44, height: 44, display: "grid", placeItems: "center", borderRadius: 9, background: "rgba(255,255,255,.06)", color: "var(--chakra-colors-brandPrimary)", fontSize: ".7rem", fontWeight: 800 }}>FILE</div>;
+  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -502,7 +537,6 @@ export default function AdminDashboard() {
   };
 
   const handleDelete = async (roomId, messageId) => {
-    if (!window.confirm("Are you sure you want to permanently delete this file and remove its message from chat history?")) return;
     try {
       await axios.delete(`${backendUrl}/api/admin/uploads/${roomId}/${messageId}`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -523,13 +557,16 @@ export default function AdminDashboard() {
   }, [uploads]);
 
   const filteredUploads = useMemo(() => {
-    let result = uploads;
+    let result = [...uploads];
 
     if (selectedRoom) {
       result = result.filter(item => item.roomId === selectedRoom);
     }
     if (selectedUser) {
       result = result.filter(item => item.uploadedBy === selectedUser);
+    }
+    if (sourceFilter !== "all") {
+      result = result.filter((item) => (item.source || "realtime") === sourceFilter);
     }
 
     const query = search.toLowerCase();
@@ -541,8 +578,21 @@ export default function AdminDashboard() {
       );
     }
 
+    const rangeDays = { "1": 1, "5": 5, "30": 30, "60": 60 }[dateRange];
+    if (rangeDays) {
+      const cutoff = Date.now() - rangeDays * 24 * 60 * 60 * 1000;
+      result = result.filter((item) => Number(item.timestamp) >= cutoff);
+    }
+
+    result.sort((a, b) => {
+      if (sortBy === "oldest") return Number(a.timestamp) - Number(b.timestamp);
+      if (sortBy === "name") return (a.name || "").localeCompare(b.name || "");
+      if (sortBy === "room") return (a.roomId || "").localeCompare(b.roomId || "");
+      return Number(b.timestamp) - Number(a.timestamp);
+    });
+
     return result;
-  }, [uploads, search, selectedRoom, selectedUser]);
+  }, [uploads, search, selectedRoom, selectedUser, dateRange, sortBy, sourceFilter]);
 
   const stats = useMemo(() => {
     const totalFiles = uploads.length;
@@ -685,6 +735,11 @@ export default function AdminDashboard() {
         </StatsGrid>
 
          <FilterSection>
+           <div style={{ display: "flex", gap: 8, padding: 4, borderRadius: 12, background: "rgba(255,255,255,.035)", border: "1px solid rgba(255,255,255,.08)" }}>
+             {[['all', 'All'], ['realtime', 'Realtime'], ['cloudinary', 'Cloudinary']].map(([value, label]) => (
+               <button key={value} type="button" onClick={() => setSourceFilter(value)} aria-pressed={sourceFilter === value} style={{ border: 0, borderRadius: 8, cursor: 'pointer', padding: '8px 11px', fontSize: '.78rem', fontWeight: 700, color: sourceFilter === value ? '#fff' : 'var(--chakra-colors-textSecondary)', background: sourceFilter === value ? 'var(--chakra-colors-brandPrimary)' : 'transparent' }}>{label}</button>
+             ))}
+           </div>
            <SearchInputWrapper>
              <FaSearch style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", color: "var(--chakra-colors-textSecondary)" }} />
              <SearchInput
@@ -717,8 +772,29 @@ export default function AdminDashboard() {
              ))}
            </FilterSelect>
 
+           <FilterSelect value={dateRange} onChange={(e) => setDateRange(e.target.value)} title="Filter by upload date">
+             <option value="all">All dates</option>
+             <option value="1">Last 24 hours</option>
+             <option value="5">Last 5 days</option>
+             <option value="30">Last 30 days</option>
+             <option value="60">Last 2 months</option>
+           </FilterSelect>
+
+           <FilterSelect value={sortBy} onChange={(e) => setSortBy(e.target.value)} title="Sort uploads">
+             <option value="newest">Newest first</option>
+             <option value="oldest">Oldest first</option>
+             <option value="name">File name A–Z</option>
+             <option value="room">Room ID A–Z</option>
+           </FilterSelect>
+
            <ActionButton onClick={() => fetchUploads(token)}>Refresh Data</ActionButton>
+           <div style={{ display: "flex", gap: 4, padding: 4, background: "rgba(255,255,255,.035)", border: "1px solid rgba(255,255,255,.08)", borderRadius: 12 }} aria-label="Dashboard layout">
+             <ActionButton type="button" onClick={() => setViewMode("list")} aria-pressed={viewMode === "list"} title="List layout" style={{ padding: "8px 10px", color: viewMode === "list" ? "var(--chakra-colors-brandPrimary)" : undefined }}><FaList /></ActionButton>
+             <ActionButton type="button" onClick={() => setViewMode("grid")} aria-pressed={viewMode === "grid"} title="Grid layout" style={{ padding: "8px 10px", color: viewMode === "grid" ? "var(--chakra-colors-brandPrimary)" : undefined }}><FaThLarge /></ActionButton>
+           </div>
          </FilterSection>
+
+        {!loading && <div style={{ margin: "-8px 0 16px", fontSize: ".82rem", color: "var(--chakra-colors-textSecondary)" }}>{filteredUploads.length} file{filteredUploads.length === 1 ? "" : "s"} shown</div>}
 
         {loading ? (
           <div style={{ textAlign: "center", padding: "60px", color: "var(--chakra-colors-textSecondary)" }}>
@@ -730,10 +806,11 @@ export default function AdminDashboard() {
           </div>
         ) : (
           <>
-            <TableCard>
+            {viewMode === "list" ? <TableCard>
               <GridTable>
                 <thead>
                   <tr>
+                    <th>Preview</th>
                     <th>File Metadata</th>
                     <th>Room ID</th>
                     <th>Uploaded By</th>
@@ -744,11 +821,16 @@ export default function AdminDashboard() {
                 <tbody>
                   {filteredUploads.map((item) => (
                     <tr key={item.id}>
+                      <td>{renderPreview(item)}</td>
                       <td>
                         <FileLink href={item.url} target="_blank" rel="noreferrer">
                           <FaDownload style={{ flexShrink: 0, color: "var(--chakra-colors-brandPrimary)" }} />
                           {item.name}
                         </FileLink>
+                        <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+                          <Badge>{(item.source || "realtime") === "cloudinary" ? "Cloudinary" : "Realtime"}</Badge>
+                          {item.type && <Badge $brand>{item.type.split('/')[0]}</Badge>}
+                        </div>
                       </td>
                       <td>
                         <Badge>{item.roomId}</Badge>
@@ -760,7 +842,7 @@ export default function AdminDashboard() {
                         {new Date(item.timestamp).toLocaleString()}
                       </td>
                       <td style={{ textAlign: "right" }}>
-                        <ActionButton $danger onClick={() => handleDelete(item.roomId, item.id)}>
+                        <ActionButton $danger title="Permanently delete this file" onClick={() => handleDelete(item.roomId, item.id)}>
                           <FaTrash /> Delete
                         </ActionButton>
                       </td>
@@ -768,11 +850,20 @@ export default function AdminDashboard() {
                   ))}
                 </tbody>
               </GridTable>
-            </TableCard>
+            </TableCard> : <UploadGrid>
+              {filteredUploads.map((item) => (
+                <UploadGridCard key={item.id}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>{renderPreview(item)}<div style={{ minWidth: 0, flex: 1 }}><FileLink href={item.url} target="_blank" rel="noreferrer" style={{ padding: 0, border: 0, background: "transparent" }}>{item.name}</FileLink><div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}><Badge>{(item.source || "realtime") === "cloudinary" ? "Cloudinary" : "Realtime"}</Badge>{item.type && <Badge $brand>{item.type.split('/')[0]}</Badge>}</div></div></div>
+                  <div style={{ display: "grid", gap: 5, fontSize: ".78rem", color: "var(--chakra-colors-textSecondary)" }}><span>Room: <strong style={{ color: "var(--chakra-colors-textPrimary)" }}>{item.roomId}</strong></span><span>By: <strong style={{ color: "var(--chakra-colors-textPrimary)" }}>{item.uploadedBy}</strong></span><span>{new Date(item.timestamp).toLocaleString()}</span></div>
+                  <ActionButton $danger onClick={() => handleDelete(item.roomId, item.id)} style={{ justifyContent: "center" }}><FaTrash /> Delete permanently</ActionButton>
+                </UploadGridCard>
+              ))}
+            </UploadGrid>}
 
-            <MobileCardList>
+            {viewMode === "list" && <MobileCardList>
               {filteredUploads.map((item) => (
                 <MobileCard key={item.id}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>{renderPreview(item)}<div style={{ minWidth: 0, flex: 1 }}><div style={{ fontSize: ".72rem", color: "var(--chakra-colors-textSecondary)", textTransform: "uppercase", fontWeight: 700 }}>Preview</div><div style={{ display: "flex", gap: 6, marginTop: 5 }}><Badge>{(item.source || "realtime") === "cloudinary" ? "Cloudinary" : "Realtime"}</Badge>{item.type && <Badge $brand>{item.type.split('/')[0]}</Badge>}</div></div></div>
                   <MobileCardRow>
                     <span>File</span>
                     <FileLink href={item.url} target="_blank" rel="noreferrer">
@@ -800,7 +891,7 @@ export default function AdminDashboard() {
                   </div>
                 </MobileCard>
               ))}
-            </MobileCardList>
+            </MobileCardList>}
           </>
         )}
       </ContentContainer>

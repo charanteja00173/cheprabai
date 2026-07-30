@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, Suspense, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { io } from "socket.io-client";
 import { Link } from "react-router-dom";
 import axios from "axios";
@@ -15,6 +16,8 @@ import {
   FaEye,
   FaEyeSlash,
   FaSignOutAlt,
+  FaReply,
+  FaReplyd
 } from "react-icons/fa";
 import { HiGif } from "react-icons/hi2";
 import { FaVideo, FaPlay } from "react-icons/fa";
@@ -25,12 +28,12 @@ import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import ThemeSwitcher from "./ThemeSwitcher";
 import { ShieldCheck } from "lucide-react";
-import { 
-  generateKeyFromSecret, 
-  encryptMessage, 
-  decryptMessage, 
-  encryptBinary, 
-  decryptBinary 
+import {
+  generateKeyFromSecret,
+  encryptMessage,
+  decryptMessage,
+  encryptBinary,
+  decryptBinary
 } from "../utils/crypto";
 // Lazy-load heavy components
 const Whiteboard = React.lazy(() => import("./Whiteboard"));
@@ -265,9 +268,9 @@ const MessageBubble = styled.div`
     padding: ${(p) => (p.isSystem ? "4px 10px" : p.isFile ? "8px" : "10px 14px")};
     font-size: ${(p) => (p.isSystem ? "0.75rem" : "0.92rem")};
     border-radius: ${(p) =>
-      p.isSystem ? "10px" :
-        p.isSender ? "16px 16px 4px 16px" :
-          "16px 16px 16px 4px"};
+    p.isSystem ? "10px" :
+      p.isSender ? "16px 16px 4px 16px" :
+        "16px 16px 16px 4px"};
   }
 
   @media (max-width: 375px) {
@@ -651,9 +654,9 @@ const PreviewContent = styled.div`
   overflow-y: auto;
   overflow-x: hidden;
   display: grid;
-  grid-template-columns: ${(props) => 
-    props.$singleFile 
-      ? "1fr" 
+  grid-template-columns: ${(props) =>
+    props.$singleFile
+      ? "1fr"
       : "repeat(auto-fit, minmax(240px, 1fr))"
   };
   justify-items: center;
@@ -667,6 +670,11 @@ const PreviewContent = styled.div`
   @media (max-width: 767px) {
     padding: 16px;
     gap: 12px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-content: start;
+  }
+
+  @media (max-width: 380px) {
     grid-template-columns: 1fr;
   }
 `;
@@ -694,6 +702,11 @@ const PreviewCard = styled.div`
       box-shadow: 0 28px 80px rgba(0, 0, 0, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.06);
     }
   }
+
+  @media (max-width: 767px) {
+    min-height: 190px;
+    max-height: none;
+  }
 `;
 
 const PreviewMediaWrapper = styled.div`
@@ -706,6 +719,11 @@ const PreviewMediaWrapper = styled.div`
   justify-content: center;
   background: linear-gradient(135deg, rgba(0, 0, 0, 0.16) 0%, rgba(0, 0, 0, 0.08) 100%);
   overflow: hidden;
+
+  @media (max-width: 767px) {
+    min-height: 180px;
+    max-height: 45vh;
+  }
 `;
 
 const PreviewMedia = styled.img`
@@ -847,6 +865,7 @@ const SendBtn = styled(PreviewButton)`
 `;
 
 const MessageInputContainer = styled.div`
+  position: relative;
   display: flex;
   align-items: center;
   padding: 10px 16px;
@@ -1596,31 +1615,65 @@ const SearchInput = styled.input`
 `;
 
 const RoomInfoDropdown = styled.div`
-  position: absolute;
-  top: 130%;
-  left: 0;
-  width: 290px;
-  background: rgba(12, 12, 16, 0.7);
-  backdrop-filter: blur(40px);
-  -webkit-backdrop-filter: blur(40px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 20px;
-  padding: 20px;
-  z-index: 1000;
+  position: fixed;
+  top: 68px;
+  left: max(16px, env(safe-area-inset-left));
+  width: min(360px, calc(100vw - 32px));
+  max-height: calc(100dvh - 84px);
+  overflow-y: auto;
+  background: #111217;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 18px;
+  padding: 18px;
+  z-index: 9001;
   box-shadow: 
-    0 10px 35px rgba(0, 0, 0, 0.4),
-    0 30px 70px rgba(0, 0, 0, 0.6),
+    0 12px 40px rgba(0, 0, 0, 0.55),
+    0 32px 84px rgba(0, 0, 0, 0.72),
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
   box-sizing: border-box;
   animation: slide-down-fade 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 
-  @media (max-width: 480px) {
-    position: fixed;
-    top: 60px;
-    left: 16px;
-    right: 16px;
-    width: auto;
+  @media (max-width: 600px) {
+    top: calc(54px + env(safe-area-inset-top));
+    left: max(10px, env(safe-area-inset-left));
+    width: min(420px, calc(100vw - 20px));
+    max-height: calc(100dvh - 68px - env(safe-area-inset-top));
+    padding: 16px;
   }
+`;
+
+const RoomInfoBackdrop = styled.button`
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  cursor: default;
+  background: rgba(0, 0, 0, 0.28);
+  z-index: 9000;
+`;
+
+const RoomInfoTrigger = styled.button`
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  padding: 2px 4px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+
+  // &:hover, &:focus-visible {
+  //   background: rgba(255, 255, 255, 0.07);
+  //   outline: none;
+  // }
 `;
 
 // Stateful component to handle downloading, decrypting and displaying E2EE files
@@ -1628,6 +1681,7 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile }) {
   const [decryptedUrl, setDecryptedUrl] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [viewedOnce, setViewedOnce] = useState(false);
 
   const lastDecryptedIvRef = useRef(null);
   const lastDecryptedSourceUrlRef = useRef(null);
@@ -1720,6 +1774,17 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile }) {
       <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "12px", background: "rgba(255, 107, 107, 0.05)", borderRadius: "10px", border: "1px solid rgba(255, 107, 107, 0.2)", color: "#ff6b6b" }}>
         <span style={{ fontSize: "0.85rem" }}>🔒 File decryption failed</span>
       </div>
+    );
+  }
+
+  if (file.viewOnce) {
+    if (viewedOnce) {
+      return <FileAttachmentWrapper style={{ padding: 16, cursor: "default", color: "var(--chakra-colors-textSecondary)", textAlign: "center" }}>🔒 View-once media opened</FileAttachmentWrapper>;
+    }
+    return (
+      <FileAttachmentWrapper onClick={() => { setViewedOnce(true); setFullscreen({ ...file, url: decryptedUrl, viewOnce: true }); }} style={{ minHeight: 150, display: "grid", placeItems: "center", textAlign: "center", padding: 16 }}>
+        <div><div style={{ fontSize: "1.8rem", marginBottom: 8 }}>🔒</div><strong>View once</strong><div style={{ fontSize: ".75rem", opacity: .7, marginTop: 4 }}>Open media · unavailable after viewing</div></div>
+      </FileAttachmentWrapper>
     );
   }
 
@@ -1856,6 +1921,8 @@ export default function ChatRoom() {
   const [typingUsers, setTypingUsers] = useState([]);
 
   const [pendingFiles, setPendingFiles] = useState([]);
+  const [sendAsViewOnce, setSendAsViewOnce] = useState(false);
+  const [replyTo, setReplyTo] = useState(null);
   const [pendingFilesUrls, setPendingFilesUrls] = useState({});
   const [fullscreen, setFullscreen] = useState(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
@@ -1882,6 +1949,7 @@ export default function ChatRoom() {
   const [ephemeralMode, setEphemeralMode] = useState(false);
   const [roomEphemeralDuration, setRoomEphemeralDuration] = useState(0); // 0 means OFF, positive is seconds
   const [showEphemeralMenu, setShowEphemeralMenu] = useState(false);
+  const [confirmation, setConfirmation] = useState(null);
   const DEFAULT_EPHEMERAL_DURATION = 15; // fallback seconds if single message timer fails
 
   // ── Voice Notes ──
@@ -1960,13 +2028,12 @@ export default function ChatRoom() {
     if (loadingGifsRef.current) return;
     loadingGifsRef.current = true;
 
-    const API_KEY = process.env.REACT_APP_GIPHY_API_KEY;
-    const url = query
-      ? `https://api.giphy.com/v1/gifs/search?api_key=${API_KEY}&q=${query}&limit=${GIF_LIMIT}&offset=${offset}`
-      : `https://api.giphy.com/v1/gifs/trending?api_key=${API_KEY}&limit=${GIF_LIMIT}&offset=${offset}`;
+    const backendUrl = process.env.REACT_APP_SOCKET_ENDPOINT || "https://cheprabai-backend.onrender.com";
+    const params = new URLSearchParams({ q: query.trim().slice(0, 100), limit: String(Math.min(GIF_LIMIT, 25)), offset: String(offset) });
 
     try {
-      const res = await fetch(url);
+      const res = await fetch(`${backendUrl}/api/gifs?${params}`);
+      if (!res.ok) throw new Error(`GIF service returned ${res.status}`);
       const data = await res.json();
       if (data.data.length < GIF_LIMIT) setHasMoreGifs(false);
       if (offset === 0) {
@@ -1980,6 +2047,7 @@ export default function ChatRoom() {
       }
     } catch (err) {
       console.error("GIF fetch error:", err);
+      toast.error("GIFs are temporarily unavailable. Please try again.");
     } finally {
       loadingGifsRef.current = false;
     }
@@ -2075,33 +2143,44 @@ export default function ChatRoom() {
         }
       }
 
+      // Vimeo
+      if (u.hostname.includes("vimeo.com")) {
+        const id = u.pathname.split("/").filter(Boolean).pop();
+        if (/^\d+$/.test(id || "")) return { type: "vimeo", src: `https://player.vimeo.com/video/${id}` };
+      }
+
+      // Facebook public videos/posts
+      if (u.hostname.includes("facebook.com") || u.hostname.includes("fb.watch")) {
+        return { type: "facebook", src: `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(u.href)}&show_text=false` };
+      }
+
+      // SoundCloud
+      if (u.hostname.includes("soundcloud.com")) {
+        return { type: "soundcloud", src: `https://w.soundcloud.com/player/?url=${encodeURIComponent(u.href)}&visual=true` };
+      }
+
+      // Loom recordings
+      if (u.hostname.includes("loom.com") && u.pathname.includes("share/")) {
+        const id = u.pathname.split("share/")[1]?.split("/")[0];
+        if (id) return { type: "loom", src: `https://www.loom.com/embed/${id}` };
+      }
+
     } catch { }
     return null;
   };
 
   const handleDestroyRoom = () => {
     if (!roomId || !ownerToken) return;
-
-    // Only the owner gets the confirmation
-    const confirmDestroy = window.confirm(
-      "Destroy this room? All messages will be lost!",
-    );
-    if (!confirmDestroy) return;
-
-    // Emit destroy event to server
-    socketRef.current.emit("destroyRoom", { roomId, token: ownerToken });
-
-    // Owner also clears local state
-    setMessages([]);
-    setJoined(false);
+    setConfirmation({
+      title: "Delete this room?", body: "This permanently removes this room and its available message history for everyone.", confirmLabel: "Delete room", onConfirm: () => {
+        socketRef.current.emit("destroyRoom", { roomId, token: ownerToken });
+        setMessages([]);
+        setJoined(false);
+      }
+    });
   };
 
-  const handleLeaveRoom = () => {
-    const confirmLeave = window.confirm(
-      "Are you sure you want to leave this room? Your session history will be cleared.",
-    );
-    if (!confirmLeave) return;
-
+  const leaveRoomNow = () => {
     if (socketRef.current) {
       socketRef.current.emit("leaveRoom", { roomId, userName });
     }
@@ -2115,12 +2194,12 @@ export default function ChatRoom() {
     setRoomKey(null);
     setOwnerToken(null);
     setPendingFiles([]);
-    setUploadProgress(0);
     setOnlineUsers([]);
     setShowMeeting(false);
     setShowWhiteboard(false);
     setLatency(0);
   };
+  const handleLeaveRoom = () => setConfirmation({ title: "Leave this room?", body: "You can rejoin later with the room credentials.", confirmLabel: "Leave room", onConfirm: leaveRoomNow });
   /* ================= SOCKET ================= */
 
   useEffect(() => {
@@ -2171,6 +2250,7 @@ export default function ChatRoom() {
         return item;
       }));
       setMessages(formatted);
+      formatted.filter((item) => item.id && item.userName !== userName).forEach((item) => socketRef.current.emit("messageViewed", { messageId: item.id }));
     });
 
     socketRef.current.on("hasMoreMessages", () => setHasMoreMessages(true));
@@ -2218,6 +2298,7 @@ export default function ChatRoom() {
         }
       }
       setMessages((m) => [...m, formattedMsg]);
+      if (formattedMsg.id && formattedMsg.userName !== userName) socketRef.current.emit("messageViewed", { messageId: formattedMsg.id });
       if (msg.userName !== userName) audioRef.current.play().catch(() => { });
     });
 
@@ -2229,11 +2310,14 @@ export default function ChatRoom() {
       setTypingUsers(users.filter((u) => u !== userName)),
     );
     socketRef.current.on("roomDestroyed", () => {
-      alert("Room has been destroyed. Reloading...");
-      window.location.reload();
+      toast.info("This room was deleted.");
+      leaveRoomNow();
     });
 
     socketRef.current.on("roomOwner", (token) => setOwnerToken(token));
+    socketRef.current.on("messageViewUpdated", ({ messageId, viewedBy }) => {
+      setMessages((items) => items.map((item) => item.id === messageId ? { ...item, viewedBy } : item));
+    });
 
     socketRef.current.on("connect", () => {
       if (joined && roomId && userName) {
@@ -2309,12 +2393,10 @@ export default function ChatRoom() {
 
   /* ================= FILE HANDLING ================= */
 
-  const [uploadProgress, setUploadProgress] = useState(0);
-
-  const uploadFile = async (file) => {
+  const uploadFile = async (file, viewOnce = false) => {
+    let tempId;
     try {
-      const tempId = `uploading-${Date.now()}`;
-      setUploadProgress(0);
+      tempId = `uploading-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       setMessages(m => [...m, { id: tempId, userName, file: { name: file.name, loading: true }, ts: Date.now() }]);
 
       let fileToUpload = file;
@@ -2339,27 +2421,28 @@ export default function ChatRoom() {
         {
           headers: { "Content-Type": "multipart/form-data" },
           onUploadProgress: (progressEvent) => {
-            const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-            setUploadProgress(percent);
+            // Keep the pending card alive, but deliberately do not expose a
+            // progress bar: a compact activity spinner is clearer on mobile.
           }
         }
       );
 
-      setMessages(m => m.filter(msg => msg.id !== tempId));
-      setUploadProgress(0);
-
-      const fileData = { 
-        url: res.data.secure_url, 
-        name: file.name, 
+      const fileData = {
+        url: res.data.secure_url,
+        name: file.name,
         type: file.type || res.data.format,
+        publicId: res.data.public_id,
+        resourceType: res.data.resource_type,
+        ...(viewOnce && /^(image|video)\//.test(file.type) && { viewOnce: true }),
         ...(ivString && { iv: ivString })
       };
-      handleSend({ file: fileData });
+      await handleSend({ file: fileData });
+      setMessages(m => m.filter(msg => msg.id !== tempId));
     } catch (err) {
       console.error(err);
       const errorMsg = err.response?.data?.error || "File upload failed!";
       toast.error(errorMsg);
-      setMessages(m => m.filter(msg => !msg.id?.startsWith("uploading-")));
+      if (tempId) setMessages(m => m.filter(msg => msg.id !== tempId));
     }
   };
 
@@ -2386,34 +2469,43 @@ export default function ChatRoom() {
       const filesToUpload = [...pendingFiles];
       setPendingFiles([]);
       if (fileInputRef.current) fileInputRef.current.value = "";
-      filesToUpload.forEach((f) => uploadFile(f));
+      filesToUpload.forEach((f) => uploadFile(f, sendAsViewOnce));
+      setSendAsViewOnce(false);
       return;
     }
     if (!customData && !message.trim()) return;
 
-    let payload = customData || { text: message };
+    const plainPayload = { ...(customData || { text: message }), ...(replyTo && { replyTo }) };
+    let payload = plainPayload;
 
     if (roomKey) {
       // Encrypt the entire payload object as a JSON string for complete E2EE (covers text, file metadata, and GIFs)
-      const plainPayload = customData || { text: message };
       const encrypted = await encryptMessage(roomKey, JSON.stringify(plainPayload));
-      payload = { 
+      payload = {
         encryptedPayload: encrypted,
         ...(customData && customData.file && { file: customData.file })
       };
     }
 
     const isEphemeral = ephemeralMode || roomEphemeralDuration > 0;
-    socketRef.current.emit("sendMessage", {
+    const outgoingMessage = {
       payload,
       userName,
       roomId,
       ts: Date.now(),
       ephemeral: isEphemeral,
       ephemeralDuration: roomEphemeralDuration > 0 ? roomEphemeralDuration : DEFAULT_EPHEMERAL_DURATION,
+    };
+
+    await new Promise((resolve, reject) => {
+      socketRef.current.emit("sendMessage", outgoingMessage, (result) => {
+        if (result?.success) resolve(result);
+        else reject(new Error(result?.error || "Message delivery was not confirmed."));
+      });
     });
 
     if (!customData) setMessage("");
+    setReplyTo(null);
   };
 
   const handleTyping = (value) => {
@@ -2547,8 +2639,8 @@ export default function ChatRoom() {
                   }
                 }}
               />
-              <EyeButton 
-                type="button" 
+              <EyeButton
+                type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 title={showPassword ? "Hide security code" : "Show security code"}
               >
@@ -2609,80 +2701,89 @@ export default function ChatRoom() {
       <ChatContainer>
         <Header>
           <Avatar src={image} alt="Logo" />
-          <div
-            style={{ display: "flex", flexDirection: "column", cursor: "pointer", position: "relative", minWidth: 0, flex: "1 1 auto", overflow: "hidden" }}
-            onClick={() => setShowRoomInfo(!showRoomInfo)}
+          <RoomInfoTrigger
+            type="button"
+            aria-label={showRoomInfo ? "Hide room insights" : "Show room insights"}
+            aria-expanded={showRoomInfo}
+            aria-controls="room-insights-panel"
+
           >
-            <div style={{ fontWeight: "bold", fontSize: "clamp(0.85rem, 2.5vw, 1.1rem)", display: "flex", alignItems: "center", gap: 4, minWidth: 0 }}>
+            <div style={{ fontWeight: "bold", fontSize: "clamp(0.85rem, 2.5vw, 1.1rem)", display: "flex", alignItems: "center", gap: 4, minWidth: 0 }} >
               <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "clamp(60px, 25vw, 300px)" }}>{roomId}</span>
-              <span style={{ fontSize: "0.55rem", opacity: 0.5, flexShrink: 0 }}>▼</span>
+              <span aria-hidden="true" style={{ fontSize: "0.65rem", opacity: 0.8, flexShrink: 0, lineHeight: 1 }} onClick={() => setShowRoomInfo((isOpen) => !isOpen)}>
+                {showRoomInfo ? "▲" : "▼"}
+              </span>
             </div>
             <div style={{ fontSize: "clamp(0.65rem, 1.8vw, 0.8rem)", color: "#aaa" }}>
               {onlineUsers.length} online
             </div>
 
-            {showRoomInfo && (
-              <RoomInfoDropdown onClick={(e) => e.stopPropagation()}>
-                <h4 style={{ margin: "0 0 10px 0", fontSize: "0.9rem", color: "#888" }}>Room Insights</h4>
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem" }}>
-                    <span>Active Session</span>
-                    <span style={{ color: (showWhiteboard || showMeeting) ? "#ff4757" : "#4CAF50" }}>
-                      {(showWhiteboard || showMeeting) ? "● Collaborative" : "● Idle"}
-                    </span>
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem" }}>
-                    <span>Network Latency</span>
-                    <span style={{ color: latency < 100 ? "#4CAF50" : "#FFC107" }}>
-                      {latency}ms
-                    </span>
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem" }}>
-                    <span>Security</span>
-                    <span style={{ color: "#2196F3" }}>AES-256 GCM</span>
-                  </div>
-                  <div style={{ borderTop: "1px solid rgba(255, 255, 255, 0.1)", paddingTop: 10 }}>
-                    <div style={{ fontSize: "0.8rem", color: "#666", marginBottom: 5 }}>Participants</div>
-                    <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-                      {onlineUsers.map(u => (
-                        <div key={u.id} style={{ background: "var(--chakra-colors-surfaceHover)", padding: "2px 8px", borderRadius: 20, fontSize: "0.7rem" }}>
-                          {u.name}
-                        </div>
-                      ))}
+            {showRoomInfo && createPortal(
+              <>
+                <RoomInfoBackdrop type="button" aria-label="Close room insights" onClick={(e) => { e.stopPropagation(); setShowRoomInfo(false); }} />
+                <RoomInfoDropdown id="room-insights-panel" role="dialog" aria-label="Room insights" onClick={(e) => e.stopPropagation()}>
+                  <h4 style={{ margin: "0 0 10px 0", fontSize: "0.9rem", color: "#888" }}>Room Insights</h4>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem" }}>
+                      <span>Active Session</span>
+                      <span style={{ color: (showWhiteboard || showMeeting) ? "#ff4757" : "#4CAF50" }}>
+                        {(showWhiteboard || showMeeting) ? "● Collaborative" : "● Idle"}
+                      </span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem" }}>
+                      <span>Network Latency</span>
+                      <span style={{ color: latency < 100 ? "#4CAF50" : "#FFC107" }}>
+                        {latency}ms
+                      </span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem" }}>
+                      <span>Security</span>
+                      <span style={{ color: "#2196F3" }}>AES-256 GCM</span>
+                    </div>
+                    <div style={{ borderTop: "1px solid rgba(255, 255, 255, 0.1)", paddingTop: 10 }}>
+                      <div style={{ fontSize: "0.8rem", color: "#666", marginBottom: 5 }}>Participants</div>
+                      <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                        {onlineUsers.map(u => (
+                          <div key={u.id} style={{ background: "var(--chakra-colors-surfaceHover)", padding: "2px 8px", borderRadius: 20, fontSize: "0.7rem" }}>
+                            {u.name}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div style={{ borderTop: "1px solid rgba(255, 255, 255, 0.1)", paddingTop: 10, marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+                      <button
+                        onClick={exportChat}
+                        style={{
+                          display: "flex", alignItems: "center", gap: 8,
+                          width: "100%", padding: "8px 12px", borderRadius: 10,
+                          background: "rgba(33, 150, 243, 0.1)", border: "1px solid rgba(33, 150, 243, 0.3)",
+                          color: "#2196F3", cursor: "pointer", fontSize: "0.8rem", fontWeight: 600,
+                          transition: "all 0.2s"
+                        }}
+                      >
+                        <FaDownload /> Export Chat History
+                      </button>
+                      <Link
+                        to="/admin"
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{
+                          display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                          width: "100%", padding: "8px 12px", borderRadius: 10,
+                          background: "rgba(255, 63, 94, 0.08)", border: "1px solid rgba(255, 63, 94, 0.25)",
+                          color: "var(--chakra-colors-brandPrimary)", cursor: "pointer", fontSize: "0.8rem", fontWeight: 600,
+                          textDecoration: "none", boxSizing: "border-box", transition: "all 0.2s"
+                        }}
+                      >
+                        🛡️ Super Admin Panel
+                      </Link>
                     </div>
                   </div>
-                  <div style={{ borderTop: "1px solid rgba(255, 255, 255, 0.1)", paddingTop: 10, marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
-                    <button
-                      onClick={exportChat}
-                      style={{
-                        display: "flex", alignItems: "center", gap: 8,
-                        width: "100%", padding: "8px 12px", borderRadius: 10,
-                        background: "rgba(33, 150, 243, 0.1)", border: "1px solid rgba(33, 150, 243, 0.3)",
-                        color: "#2196F3", cursor: "pointer", fontSize: "0.8rem", fontWeight: 600,
-                        transition: "all 0.2s"
-                      }}
-                    >
-                      <FaDownload /> Export Chat History
-                    </button>
-                    <Link
-                      to="/admin"
-                      target="_blank"
-                      rel="noreferrer"
-                      style={{
-                        display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-                        width: "100%", padding: "8px 12px", borderRadius: 10,
-                        background: "rgba(255, 63, 94, 0.08)", border: "1px solid rgba(255, 63, 94, 0.25)",
-                        color: "var(--chakra-colors-brandPrimary)", cursor: "pointer", fontSize: "0.8rem", fontWeight: 600,
-                        textDecoration: "none", boxSizing: "border-box", transition: "all 0.2s"
-                      }}
-                    >
-                      🛡️ Super Admin Panel
-                    </Link>
-                  </div>
-                </div>
-              </RoomInfoDropdown>
+                </RoomInfoDropdown>
+              </>,
+              document.body
             )}
-          </div>
+          </RoomInfoTrigger>
 
           <RoomActions>
             <ThemeSwitcher />
@@ -2773,6 +2874,13 @@ export default function ChatRoom() {
                   <Username color={getColor(m.userName)}>{m.userName}</Username>
                 )}
 
+                {!isSystem && m.replyTo && (
+                  <div style={{ borderLeft: "3px solid var(--chakra-colors-brandPrimary)", background: "rgba(255,255,255,.055)", borderRadius: 8, padding: "7px 9px", marginBottom: 8, fontSize: ".76rem", lineHeight: 1.35 }}>
+                    <div style={{ color: "var(--chakra-colors-brandPrimary)", fontWeight: 700 }}>{m.replyTo.userName || "Message"}</div>
+                    <div style={{ opacity: .78, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.replyTo.preview || "Attachment"}</div>
+                  </div>
+                )}
+
                 {isSystem && (
                   <span>
                     {systemType === "ephemeral-change" ? (
@@ -2796,7 +2904,7 @@ export default function ChatRoom() {
                       let aspectRatio = "16 / 9";
                       let width = "100%";
                       let maxHeight = "none";
-                      
+
                       if (embed.type === "spotify") {
                         aspectRatio = "auto";
                         maxHeight = "152px";
@@ -2836,20 +2944,19 @@ export default function ChatRoom() {
                       );
                     }
 
-                     return (
+                    return (
                       <a
                         key={j}
                         href={part}
                         target="_blank"
                         rel="noreferrer"
                         style={{
-                          color: "var(--chakra-colors-brandPrimary)",
-                          textDecoration: "underline",
-                          fontWeight: "600",
-                          wordBreak: "break-all"
+                          display: "block", margin: "8px 0", padding: "12px", borderRadius: "12px",
+                          color: "var(--chakra-colors-brandPrimary)", textDecoration: "none", fontWeight: "600",
+                          wordBreak: "break-all", background: "rgba(255,255,255,.035)", border: "1px solid rgba(255,255,255,.08)"
                         }}
                       >
-                        {part}
+                        <span style={{ display: "block", fontSize: ".68rem", opacity: .6, marginBottom: 3 }}>Shared link</span>{part}
                       </a>
                     );
                   })}
@@ -2866,33 +2973,29 @@ export default function ChatRoom() {
                 {m.file && (
                   <div style={{ position: "relative" }}>
                     {m.file.loading ? (
-                       <div style={{
-                         width: "100%", padding: "18px", background: "rgba(255, 255, 255, 0.03)", borderRadius: "14px", border: "1px solid rgba(255, 255, 255, 0.06)",
-                         display: "flex", flexDirection: "column", gap: "8px"
-                       }}>
-                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                           <span style={{ fontSize: "0.85rem", fontWeight: "600", color: "var(--chakra-colors-textPrimary)", opacity: 0.8 }}>Uploading: {m.file.name}</span>
-                           <span style={{ fontSize: "0.75rem", color: "var(--chakra-colors-brandPrimary)", fontWeight: "bold" }}>{uploadProgress > 0 ? `${uploadProgress}%` : "Preparing..."}</span>
-                         </div>
-                         <div style={{ width: "100%", height: "4px", background: "rgba(255, 255, 255, 0.08)", borderRadius: "10px", overflow: "hidden" }}>
-                           <div style={{
-                             height: "100%",
-                             width: uploadProgress > 0 ? `${uploadProgress}%` : "30%",
-                             background: "linear-gradient(90deg, var(--chakra-colors-brandPrimary), var(--chakra-colors-brandSecondary))",
-                             borderRadius: "10px",
-                             transition: "width 0.3s ease",
-                             ...(uploadProgress === 0 && { animation: "pulse 1.5s infinite" })
-                           }} />
-                         </div>
-                       </div>
+                      <div style={{
+                        width: "100%", padding: "18px", background: "rgba(255, 255, 255, 0.03)", borderRadius: "14px", border: "1px solid rgba(255, 255, 255, 0.06)",
+                        display: "flex", alignItems: "center", justifyContent: "center", minHeight: "148px"
+                      }}>
+                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, textAlign: "center" }}>
+                          <div style={{ width: 32, height: 32, borderRadius: "50%", border: "3px solid rgba(255,255,255,.15)", borderTopColor: "var(--chakra-colors-brandPrimary)", animation: "spin .8s linear infinite" }} />
+                          <span style={{ fontSize: ".82rem", fontWeight: 600 }}>Sending {m.file.name}</span>
+                          <span style={{ fontSize: ".72rem", opacity: .62 }}>Encrypted and uploading securely…</span>
+                        </div>
+                      </div>
                     ) : (
                       <E2EEFileAttachment file={m.file} roomKey={roomKey} setFullscreen={setFullscreen} isMobile={isMobile} />
                     )}
                   </div>
                 )}
 
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: 'space-between' }}>
                   <Timestamp>{new Date(m.ts).toLocaleTimeString()}</Timestamp>
+                  {m.userName === userName && Object.keys(m.viewedBy || {}).length > 0 && (
+                    <span title={`Viewed by ${Object.values(m.viewedBy).map((view) => view.name).join(", ")}`} style={{ color: "#4fc3f7", fontSize: ".72rem", cursor: "help" }}>
+                      ✓✓ {Object.keys(m.viewedBy).length}
+                    </span>
+                  )}
                   {m.ephemeral && (
                     <span style={{
                       fontSize: "0.6rem", color: "#ff6b6b", fontWeight: 600,
@@ -2902,6 +3005,15 @@ export default function ChatRoom() {
                     </span>
                   )}
                 </div>
+                {!isSystem && (
+                  <span style={{
+                    fontSize: "0.6rem", color: "#ff6b6b", fontWeight: 600,
+                    display: "flex", alignItems: "flex-end", justifyContent: 'flex-end', gap: 3
+                  }}>
+
+                    <button type="button" onClick={() => setReplyTo({ id: m.id, userName: m.userName, preview: m.text || m.file?.name || (m.gif ? "GIF" : "Media"), })} aria-label={`Reply to ${m.userName}`} title="Reply" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "5px", height: "25px", padding: "0 8px", borderRadius: "7px", border: "1px solid rgba(255,255,255,.07)", background: "rgba(255,255,255,.035)", color: "var(--chakra-colors-textSecondary)", cursor: "pointer", fontSize: ".62rem", fontWeight: 600, transition: "background .15s ease, color .15s ease, border-color .15s ease, transform .15s ease", flexShrink: 0, }} onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,.09)"; e.currentTarget.style.borderColor = "rgba(255,255,255,.13)"; e.currentTarget.style.color = "var(--chakra-colors-brandPrimary)"; e.currentTarget.style.transform = "translateY(-1px)"; }} onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,.035)"; e.currentTarget.style.borderColor = "rgba(255,255,255,.07)"; e.currentTarget.style.color = "var(--chakra-colors-textSecondary)"; e.currentTarget.style.transform = "translateY(0)"; }} > <FaReply fontSize=".68rem" /> <span>Reply</span> </button>
+                  </span>
+                )}
               </MessageBubble>
             );
           })}
@@ -2914,7 +3026,7 @@ export default function ChatRoom() {
           <GifPickerOverlay onClick={() => setShowGifPicker(false)}>
             <GifPickerModal $isMobile={isMobile} onClick={(e) => e.stopPropagation()}>
               <GifDrawerHandle />
-              
+
               <GifPickerHeader>
                 <GifPickerTopRow>
                   <GifPickerTitle>
@@ -2943,7 +3055,7 @@ export default function ChatRoom() {
                     }}
                   />
                   {gifQuery && (
-                    <GifSearchClearButton 
+                    <GifSearchClearButton
                       onClick={() => {
                         setGifQuery("");
                         setGifOffset(0);
@@ -2969,7 +3081,7 @@ export default function ChatRoom() {
                     }}
                   />
                 ))}
-                
+
                 {!loadingGifsRef.current && gifs.length === 0 && (
                   <GifEmptyState style={{ gridColumn: "1 / -1" }}>
                     <div className="icon">🔍</div>
@@ -3001,7 +3113,7 @@ export default function ChatRoom() {
         )}
 
         {pendingFiles.length > 0 && (
-          <PreviewOverlay onClick={() => setPendingFiles([])}>
+          <PreviewOverlay onClick={() => { setPendingFiles([]); setSendAsViewOnce(false); }}>
             <PreviewModal $isMobile={isMobile} onClick={(e) => e.stopPropagation()}>
               <PreviewHeader>
                 <PreviewTitleGroup>
@@ -3011,10 +3123,21 @@ export default function ChatRoom() {
                   <PreviewSubtitle>
                     Review your selected files before sending — tap any preview to inspect it in full size.
                   </PreviewSubtitle>
+                  {pendingFiles.some((file) => /^(image|video)\//.test(file.type)) && (
+                    <button
+                      type="button"
+                      aria-pressed={sendAsViewOnce}
+                      onClick={() => setSendAsViewOnce((value) => !value)}
+                      style={{ alignSelf: "flex-start", marginTop: 10, border: `1px solid ${sendAsViewOnce ? "var(--chakra-colors-brandPrimary)" : "rgba(255,255,255,.14)"}`, background: sendAsViewOnce ? "rgba(99,91,255,.18)" : "rgba(255,255,255,.035)", color: "inherit", borderRadius: 999, padding: "7px 11px", cursor: "pointer", fontSize: ".78rem", fontWeight: 700 }}
+                    >
+                      🔒 {sendAsViewOnce ? "View once enabled" : "Enable view once"}
+                    </button>
+                  )}
                 </PreviewTitleGroup>
                 <PreviewCloseButton
                   onClick={() => {
                     setPendingFiles([]);
+                    setSendAsViewOnce(false);
                     if (fileInputRef.current) fileInputRef.current.value = "";
                   }}
                   title="Close preview"
@@ -3069,6 +3192,7 @@ export default function ChatRoom() {
                 <CancelBtn
                   onClick={() => {
                     setPendingFiles([]);
+                    setSendAsViewOnce(false);
                     if (fileInputRef.current) fileInputRef.current.value = "";
                   }}
                 >
@@ -3090,6 +3214,12 @@ export default function ChatRoom() {
         )}
 
         <MessageInputContainer>
+          {replyTo && (
+            <div style={{ position: "absolute", bottom: "calc(100% + 6px)", left: 12, right: 12, zIndex: 3, display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", borderRadius: 12, background: "#1a1d26", borderLeft: "3px solid var(--chakra-colors-brandPrimary)", boxShadow: "0 8px 20px rgba(0,0,0,.28)" }}>
+              <div style={{ minWidth: 0, flex: 1, fontSize: ".78rem" }}><strong style={{ color: "var(--chakra-colors-brandPrimary)" }}>Replying to {replyTo.userName}</strong><div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", opacity: 0.75 }}>{replyTo.preview}</div></div>
+              <button type="button" onClick={() => setReplyTo(null)} style={{ background: "transparent", color: "#fff", border: 0, cursor: "pointer", fontSize: "1rem" }}>×</button>
+            </div>
+          )}
           <InputPill>
             <IconButton as="label" htmlFor="file-input" title="Upload File">
               <FaPaperclip />
@@ -3159,11 +3289,10 @@ export default function ChatRoom() {
                     <div className="options">
                       {[
                         { label: "Off", value: 0 },
-                        { label: "15 Seconds", value: 15 },
-                        { label: "1 Minute", value: 60 },
-                        { label: "5 Minutes", value: 300 },
                         { label: "1 Hour", value: 3600 },
                         { label: "24 Hours", value: 86400 }
+                        , { label: "7 Days", value: 604800 }
+                        , { label: "30 Days", value: 2592000 }
                       ].map((opt) => (
                         <button
                           key={opt.value}
@@ -3179,24 +3308,6 @@ export default function ChatRoom() {
                         </button>
                       ))}
 
-                      <button
-                        type="button"
-                        className="option-btn custom-btn"
-                        onClick={() => {
-                          const val = window.prompt("Enter custom timer in seconds (e.g. 30, 120, 600):");
-                          if (val !== null) {
-                            const parsed = parseInt(val, 10);
-                            if (!isNaN(parsed) && parsed >= 0) {
-                              socketRef.current.emit("updateRoomEphemeral", { roomId, ephemeralDuration: parsed });
-                            } else {
-                              toast.error("Please enter a valid number.");
-                            }
-                          }
-                          setShowEphemeralMenu(false);
-                        }}
-                      >
-                        ⏱ Custom Timer…
-                      </button>
                     </div>
                   </EphemeralMenuCard>
                 </>
@@ -3210,6 +3321,19 @@ export default function ChatRoom() {
         </MessageInputContainer>
 
         <style>{`@keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(255, 71, 87, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0); } }`}</style>
+
+        {confirmation && (
+          <div role="dialog" aria-modal="true" style={{ position: "fixed", inset: 0, zIndex: 21000, background: "rgba(0,0,0,.68)", display: "grid", placeItems: "center", padding: 20 }}>
+            <div style={{ width: "min(420px, 100%)", padding: 24, borderRadius: 18, background: "var(--chakra-colors-surface)", border: "1px solid rgba(255,255,255,.12)", boxShadow: "0 24px 80px rgba(0,0,0,.45)" }}>
+              <h3 style={{ margin: "0 0 8px" }}>{confirmation.title}</h3>
+              <p style={{ margin: "0 0 22px", color: "var(--chakra-colors-textSecondary)", lineHeight: 1.5 }}>{confirmation.body}</p>
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+                <button onClick={() => setConfirmation(null)} style={{ padding: "9px 14px", borderRadius: 10, border: "1px solid rgba(255,255,255,.15)", background: "transparent", color: "inherit", cursor: "pointer" }}>Cancel</button>
+                <button onClick={() => { confirmation.onConfirm(); setConfirmation(null); }} style={{ padding: "9px 14px", borderRadius: 10, border: 0, background: "#e5484d", color: "white", fontWeight: 700, cursor: "pointer" }}>{confirmation.confirmLabel}</button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {fullscreen && (
           <div

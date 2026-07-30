@@ -168,14 +168,12 @@ export default function Whiteboard({ socket, roomId, onClose, isAdmin }) {
 
   const handleClearBoard = useCallback(() => {
     if (!appRef.current) return;
-    if (window.confirm("Are you sure you want to clear the entire whiteboard for everyone?")) {
-      // Create empty state structures required by TLDraw to fully clear the board
-      const emptyState = { shapes: {}, bindings: {}, assets: {} };
-      appRef.current.replacePageContent(emptyState.shapes, emptyState.bindings, emptyState.assets);
+    // Create empty state structures required by TLDraw to fully clear the board
+    const emptyState = { shapes: {}, bindings: {}, assets: {} };
+    appRef.current.replacePageContent(emptyState.shapes, emptyState.bindings, emptyState.assets);
 
-      // Emit the exact same empty state to instantly clear all connected clients
-      socket.emit("excalidrawUpdate", { roomId, elements: emptyState });
-    }
+    // Emit the exact same empty state to instantly clear all connected clients
+    socket.emit("excalidrawUpdate", { roomId, elements: emptyState });
   }, [socket, roomId]);
 
   const handleMount = useCallback(
