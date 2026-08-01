@@ -1708,6 +1708,9 @@ function ReplyAttachmentPreview({ reply, roomKey }) {
     return () => { active = false; if (objectUrl) URL.revokeObjectURL(objectUrl); };
   }, [reply.file, reply.gif, roomKey]);
 
+  if (reply.file?.viewOnce) {
+    return <div aria-label="View-once media" style={{ width: 38, height: 38, borderRadius: 8, display: "grid", placeItems: "center", background: "rgba(5,150,105,.16)", color: "#86efac", flexShrink: 0, fontSize: ".72rem", fontWeight: 800 }}>LOCK</div>;
+  }
   if (url && (reply.gif || reply.file?.type?.startsWith("image/"))) return <img src={url} alt="Replied attachment" style={{ width: 42, height: 42, objectFit: "cover", borderRadius: 7, flexShrink: 0 }} />;
   if (url && reply.file?.type?.startsWith("video/")) return <video src={`${url}#t=0.1`} muted playsInline style={{ width: 42, height: 42, objectFit: "cover", borderRadius: 7, flexShrink: 0 }} />;
   return reply.file ? <div style={{ width: 42, height: 42, borderRadius: 7, flexShrink: 0, display: "grid", placeItems: "center", background: "rgba(255,255,255,.09)", fontSize: ".62rem", fontWeight: 800 }}>FILE</div> : null;
@@ -1952,6 +1955,8 @@ export default function ChatRoom() {
   const [roomKey, setRoomKey] = useState(null);
   const [roomId, setRoomId] = useState("");
   const [userName, setUserName] = useState("");
+  const [userAvatar, setUserAvatar] = useState(() => localStorage.getItem("cheprabai:user-avatar") || "");
+  const [roomBackground, setRoomBackground] = useState(() => localStorage.getItem("cheprabai:room-background") || "");
   const [securityCode, setSecurityCode] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [messages, setMessages] = useState([]);
@@ -1961,6 +1966,8 @@ export default function ChatRoom() {
   const [pendingFiles, setPendingFiles] = useState([]);
   const [sendAsViewOnce, setSendAsViewOnce] = useState(false);
   const [replyTo, setReplyTo] = useState(null);
+  const [reactionPickerFor, setReactionPickerFor] = useState(null);
+  const messageRefs = useRef({});
   const [pendingFilesUrls, setPendingFilesUrls] = useState({});
   const [fullscreen, setFullscreen] = useState(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
@@ -1982,7 +1989,6 @@ export default function ChatRoom() {
   const [hasMoreGifs, setHasMoreGifs] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearch, setShowSearch] = useState(false);
-  const GIF_LIMIT = 30;
 
   // ── Ephemeral Messages ──
   const [ephemeralMode, setEphemeralMode] = useState(false);
@@ -2388,6 +2394,9 @@ export default function ChatRoom() {
     socketRef.current.on("messageViewUpdated", ({ messageId, viewedBy }) => {
       setMessages((items) => items.map((item) => item.id === messageId ? { ...item, viewedBy } : item));
     });
+    socketRef.current.on("messageReactionUpdated", ({ messageId, reactions }) => {
+      setMessages((items) => items.map((item) => item.id === messageId ? { ...item, reactions } : item));
+    });
 
     socketRef.current.on("connect", () => {
       if (joined && roomId && userName) {
@@ -2768,9 +2777,9 @@ export default function ChatRoom() {
 
   return (
     <>
-      <ChatContainer>
+      <ChatContainer style={roomBackground ? { backgroundImage: `linear-gradient(rgba(8,9,13,.78), rgba(8,9,13,.88)), url(${roomBackground})`, backgroundSize: "cover", backgroundPosition: "center", backgroundAttachment: isMobile ? "scroll" : "fixed" } : undefined}>
         <Header>
-          <Avatar src={image} alt="Logo" />
+          <Avatar src={userAvatar || image} alt={userAvatar ? `${userName || "User"} avatar` : "Logo"} />
           <RoomInfoTrigger
             type="button"
             aria-label={showRoomInfo ? "Hide room insights" : "Show room insights"}
@@ -2820,8 +2829,11 @@ export default function ChatRoom() {
                         ))}
                       </div>
                     </div>
-                    <div style={{ borderTop: "1px solid rgba(255, 255, 255, 0.1)", paddingTop: 10, marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
-                      <button
+                  <div style={{ borderTop: "1px solid rgba(255, 255, 255, 0.1)", paddingTop: 10, marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+                    <label style={{ display: "flex", minHeight: 42, alignItems: "center", justifyContent: "center", borderRadius: 10, cursor: "pointer", fontSize: ".8rem", fontWeight: 700, background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.1)" }}>Change avatar<input type="file" accept="image/*" hidden onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = () => { const value = String(reader.result); localStorage.setItem("cheprabai:user-avatar", value); setUserAvatar(value); }; reader.readAsDataURL(file); }} /></label>
+                    <label style={{ display: "flex", minHeight: 42, alignItems: "center", justifyContent: "center", borderRadius: 10, cursor: "pointer", fontSize: ".8rem", fontWeight: 700, background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.1)" }}>Change chat background<input type="file" accept="image/*" hidden onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = () => { const value = String(reader.result); localStorage.setItem("cheprabai:room-background", value); setRoomBackground(value); }; reader.readAsDataURL(file); }} /></label>
+                    {(userAvatar || roomBackground) && <button type="button" onClick={() => { localStorage.removeItem("cheprabai:user-avatar"); localStorage.removeItem("cheprabai:room-background"); setUserAvatar(""); setRoomBackground(""); }} style={{ minHeight: 40, borderRadius: 10, border: "1px solid rgba(255,107,107,.35)", color: "#ff9aa2", background: "rgba(255,71,87,.08)", cursor: "pointer", fontSize: ".8rem", fontWeight: 700 }}>Reset appearance</button>}
+                    <button
                         onClick={exportChat}
                         style={{
                           display: "flex", alignItems: "center", gap: 8,
@@ -2935,20 +2947,24 @@ export default function ChatRoom() {
             return (
               <MessageBubble
                 key={i}
+                ref={(node) => { if (m.id) messageRefs.current[m.id] = node; }}
                 isSender={m.userName === userName}
                 isSystem={isSystem}
                 systemType={systemType}
                 isFile={!!m.file}
               >
                 {m.userName !== userName && !isSystem && (
-                  <Username color={getColor(m.userName)}>{m.userName}</Username>
+                  <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 5 }}>
+                    <div aria-hidden="true" style={{ width: 24, height: 24, borderRadius: "50%", display: "grid", placeItems: "center", flexShrink: 0, background: getColor(m.userName), color: "#fff", fontSize: ".68rem", fontWeight: 800 }}>{m.userName?.slice(0, 1)?.toUpperCase()}</div>
+                    <Username color={getColor(m.userName)}>{m.userName}</Username>
+                  </div>
                 )}
 
                 {!isSystem && m.replyTo && (
-                  <div style={{ borderLeft: "3px solid var(--chakra-colors-brandPrimary)", background: "rgba(255,255,255,.055)", borderRadius: 8, padding: "7px 9px", marginBottom: 8, fontSize: ".76rem", lineHeight: 1.35, display: "flex", gap: 9, alignItems: "center" }}>
+                  <button type="button" aria-label="Jump to replied message" onClick={() => { const target = messageRefs.current[m.replyTo.id]; target?.scrollIntoView({ behavior: "smooth", block: "center" }); target?.animate([{ boxShadow: "0 0 0 0 rgba(5,150,105,0)" }, { boxShadow: "0 0 0 3px rgba(5,150,105,.8)" }, { boxShadow: "0 0 0 0 rgba(5,150,105,0)" }], { duration: 1000 }); }} style={{ width: "100%", textAlign: "left", border: 0, borderLeft: "3px solid var(--chakra-colors-brandPrimary)", background: "rgba(255,255,255,.055)", borderRadius: 8, padding: "7px 9px", marginBottom: 8, fontSize: ".76rem", lineHeight: 1.35, display: "flex", gap: 9, alignItems: "center", color: "inherit", cursor: "pointer" }}>
                     <ReplyAttachmentPreview reply={m.replyTo} roomKey={roomKey} />
-                    <div style={{ minWidth: 0, flex: 1 }}><div style={{ color: "var(--chakra-colors-brandPrimary)", fontWeight: 700 }}>{m.replyTo.userName || "Message"}</div><div style={{ opacity: .78, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.replyTo.preview || "Attachment"}</div></div>
-                  </div>
+                    <div style={{ minWidth: 0, flex: 1 }}><div style={{ color: "var(--chakra-colors-brandPrimary)", fontWeight: 700 }}>{m.replyTo.userName || "Message"}</div><div style={{ opacity: .78, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.replyTo.file?.viewOnce ? "View-once media · unavailable" : (m.replyTo.preview || "Attachment")}</div></div>
+                  </button>
                 )}
 
                 {isSystem && (
@@ -3041,7 +3057,7 @@ export default function ChatRoom() {
                 )}
 
                 {m.file && (
-                  <div style={{ position: "relative" }}>
+                  <div style={{ position: "relative", width: "min(80%, 560px)", minWidth: "min(100%, 220px)" }}>
                     {m.file.loading ? (
                       <div style={{
                         width: "100%", padding: "18px", background: "rgba(255, 255, 255, 0.03)", borderRadius: "14px", border: "1px solid rgba(255, 255, 255, 0.06)",
@@ -3080,7 +3096,9 @@ export default function ChatRoom() {
                     fontSize: "0.6rem", color: "#ff6b6b", fontWeight: 600,
                     display: "flex", alignItems: "center", justifyContent: 'flex-end', gap: 3
                   }}>
-                    <button type="button" onClick={() => setReplyTo({ id: m.id, userName: m.userName, preview: m.text || m.file?.name || (m.gif ? "GIF" : "Media"), file: m.file || null, gif: m.gif || null })} aria-label={`Reply to ${m.userName}`} title="Reply" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "5px", height: "25px", padding: "0 8px", borderRadius: "7px", border: "1px solid rgba(255,255,255,.07)", background: "rgba(255,255,255,.035)", color: "var(--chakra-colors-textSecondary)", cursor: "pointer", fontSize: ".62rem", fontWeight: 600, transition: "background .15s ease, color .15s ease, border-color .15s ease, transform .15s ease", flexShrink: 0, }} onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,.09)"; e.currentTarget.style.borderColor = "rgba(255,255,255,.13)"; e.currentTarget.style.color = "var(--chakra-colors-brandPrimary)"; e.currentTarget.style.transform = "translateY(-1px)"; }} onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,.035)"; e.currentTarget.style.borderColor = "rgba(255,255,255,.07)"; e.currentTarget.style.color = "var(--chakra-colors-textSecondary)"; e.currentTarget.style.transform = "translateY(0)"; }} > <FaReply fontSize=".68rem" /> <span>Reply</span> </button>
+                    <button type="button" onClick={() => setReplyTo({ id: m.id, userName: m.userName, preview: m.file?.viewOnce ? "View-once media" : (m.text || m.file?.name || (m.gif ? "GIF" : "Media")), file: m.file?.viewOnce ? { viewOnce: true } : (m.file || null), gif: m.file?.viewOnce ? null : (m.gif || null) })} aria-label={`Reply to ${m.userName}`} title="Reply" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "5px", height: "25px", padding: "0 8px", borderRadius: "7px", border: "1px solid rgba(255,255,255,.07)", background: "rgba(255,255,255,.035)", color: "var(--chakra-colors-textSecondary)", cursor: "pointer", fontSize: ".62rem", fontWeight: 600, transition: "background .15s ease, color .15s ease, border-color .15s ease, transform .15s ease", flexShrink: 0, }} onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,.09)"; e.currentTarget.style.borderColor = "rgba(255,255,255,.13)"; e.currentTarget.style.color = "var(--chakra-colors-brandPrimary)"; e.currentTarget.style.transform = "translateY(-1px)"; }} onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,.035)"; e.currentTarget.style.borderColor = "rgba(255,255,255,.07)"; e.currentTarget.style.color = "var(--chakra-colors-textSecondary)"; e.currentTarget.style.transform = "translateY(0)"; }} > <FaReply fontSize=".68rem" /> <span>Reply</span> </button>
+                    <button type="button" onClick={() => setReactionPickerFor(reactionPickerFor === m.id ? null : m.id)} aria-label="React to message" style={{ minWidth: 28, minHeight: 28, border: 0, borderRadius: 14, background: "rgba(255,255,255,.06)", color: "inherit", cursor: "pointer" }}>+</button>
+                    {reactionPickerFor === m.id && ["❤️", "👍", "😂", "😮", "🙏"].map((emoji) => <button key={emoji} type="button" onClick={() => { socketRef.current.emit("messageReaction", { messageId: m.id, emoji }); setReactionPickerFor(null); }} style={{ minWidth: 28, minHeight: 28, border: 0, borderRadius: 14, background: "rgba(255,255,255,.06)", cursor: "pointer" }}>{emoji}</button>)}
                   </span>
                 )}
               </MessageBubble>
@@ -3330,8 +3348,8 @@ export default function ChatRoom() {
 
             <div style={{ position: "relative" }}>
               <IconButton type="button" onClick={() => setShowEmojiPicker((value) => !value)} title="Choose an emoji" aria-label="Choose an emoji">😊</IconButton>
-              {showEmojiPicker && <div style={{ position: "absolute", bottom: "calc(100% + 10px)", right: 2, bottom: 50, zIndex: 30, width: "min(300px, calc(100vw - 28px))", padding: 10, borderRadius: 16, background: "#171922", border: "1px solid rgba(255,255,255,.12)", boxShadow: "0 18px 42px rgba(0,0,0,.42)", display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>
-                {["😀", "😂", "🥹", "😍", "❤️", "👍", "👎", "🙏", "👏", "🎉", "🔥", "💯", "✅", "❓", "😢", "😡", "🤝", "✨", "🎈", "👀", "😎"].map((emoji) => <button key={emoji} type="button" onClick={() => { setMessage((current) => `${current}${emoji}`); setShowEmojiPicker(false); }} style={{ border: 0, borderRadius: 9, background: "transparent", color: "inherit", cursor: "pointer", fontSize: "1.25rem", padding: "7px 2px" }}>{emoji}</button>)}
+              {showEmojiPicker && <div role="dialog" aria-label="Emoji and sticker tray" style={{ position: "absolute", bottom: "calc(100% + 10px)", right: isMobile ? -44 : 2, zIndex: 30, width: "min(336px, calc(100vw - 24px))", maxHeight: "min(42dvh, 360px)", overflowY: "auto", padding: 10, borderRadius: 16, background: "#171922", border: "1px solid rgba(255,255,255,.12)", boxShadow: "0 18px 42px rgba(0,0,0,.42)", display: "grid", gridTemplateColumns: isMobile ? "repeat(6, 1fr)" : "repeat(7, 1fr)", gap: 4 }}>
+                {["😀", "😂", "🥹", "😍", "❤️", "👍", "👎", "🙏", "👏", "🎉", "🔥", "💯", "✅", "❓", "😢", "😡", "🤝", "✨", "🎈", "👀", "😎"].map((emoji) => <button key={emoji} type="button" aria-label={`Add ${emoji}`} onClick={() => { setMessage((current) => `${current}${emoji}`); setShowEmojiPicker(false); }} style={{ minWidth: 44, minHeight: 44, border: 0, borderRadius: 10, background: "transparent", color: "inherit", cursor: "pointer", fontSize: "1.25rem", padding: 2 }}>{emoji}</button>)}
               </div>}
             </div>
             <IconButton

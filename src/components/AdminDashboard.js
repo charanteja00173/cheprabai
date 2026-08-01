@@ -3,6 +3,7 @@ import axios from "axios";
 import styled from "styled-components";
 import { FaTrash, FaSearch, FaEye, FaEyeSlash, FaDownload, FaSignOutAlt, FaFolder, FaDatabase, FaLock, FaUsers, FaCog, FaList, FaThLarge } from "react-icons/fa";
 import { toast, ToastContainer } from "react-toastify";
+import { generateKeyFromSecret, decryptBinary } from "../utils/crypto";
 
 const AdminWrapper = styled.div`
   min-height: 100dvh;
@@ -462,6 +463,8 @@ export default function AdminDashboard() {
   const [sortBy, setSortBy] = useState("newest");
   const [sourceFilter, setSourceFilter] = useState("all");
   const [viewMode, setViewMode] = useState("list");
+  const [downloadTarget, setDownloadTarget] = useState(null);
+  const [roomCode, setRoomCode] = useState("");
 
   const backendUrl = process.env.REACT_APP_SOCKET_ENDPOINT || "https://cheprabai-backend.onrender.com";
 
@@ -568,6 +571,24 @@ export default function AdminDashboard() {
     }
   };
 
+  const decryptAndDownload = async () => {
+    if (!downloadTarget) return;
+    try {
+      const response = await fetch(`${backendUrl}/api/proxy-file?url=${encodeURIComponent(downloadTarget.url)}`);
+      if (!response.ok) throw new Error("Download failed");
+      let bytes = await response.arrayBuffer();
+      if (downloadTarget.encrypted) {
+        if (!roomCode.trim()) throw new Error("Enter the room security code to decrypt this file.");
+        const key = await generateKeyFromSecret(`${roomCode}${downloadTarget.roomId}`);
+        const iv = new Uint8Array(atob(downloadTarget.iv).split("").map((char) => char.charCodeAt(0)));
+        bytes = await decryptBinary(key, { iv, data: bytes });
+      }
+      const blob = new Blob([bytes], { type: downloadTarget.type || "application/octet-stream" });
+      const anchor = document.createElement("a"); anchor.href = URL.createObjectURL(blob); anchor.download = downloadTarget.name || "download"; anchor.click(); URL.revokeObjectURL(anchor.href);
+      setDownloadTarget(null); setRoomCode(""); toast.success("File downloaded securely.");
+    } catch (error) { toast.error(error.message || "Unable to decrypt this file."); }
+  };
+
   const uniqueRoomsList = useMemo(() => {
     return Array.from(new Set(uploads.map(item => item.roomId).filter(Boolean))).sort();
   }, [uploads]);
@@ -667,6 +688,14 @@ export default function AdminDashboard() {
   return (
     <AdminWrapper>
       <ToastContainer position="top-center" theme="dark" />
+      {downloadTarget && <div role="dialog" aria-modal="true" aria-label="Secure file download" style={{ position: "fixed", inset: 0, zIndex: 20000, display: "grid", placeItems: "center", padding: 20, background: "rgba(0,0,0,.62)" }}>
+        <div style={{ width: "min(420px, 100%)", padding: 24, borderRadius: 20, background: "#10192e", border: "1px solid rgba(255,255,255,.12)", boxShadow: "0 24px 70px rgba(0,0,0,.55)" }}>
+          <h2 style={{ margin: 0, fontSize: "1.1rem" }}>Secure download</h2>
+          <p style={{ color: "var(--chakra-colors-textSecondary)", fontSize: ".86rem", lineHeight: 1.5 }}>Enter the room security code to decrypt <strong>{downloadTarget.name}</strong> locally. The code is never sent to the server.</p>
+          {downloadTarget.encrypted && <LoginInput value={roomCode} onChange={(e) => setRoomCode(e.target.value)} placeholder="Room security code" autoFocus />}
+          <div style={{ display: "flex", gap: 10, marginTop: 16, justifyContent: "flex-end" }}><ActionButton onClick={() => { setDownloadTarget(null); setRoomCode(""); }}>Cancel</ActionButton><LoginButton type="button" onClick={decryptAndDownload}>Download original</LoginButton></div>
+        </div>
+      </div>}
       <Header>
         <Brand>
           <FaDatabase /> Super Admin Console
@@ -845,7 +874,7 @@ export default function AdminDashboard() {
                     <tr key={item.id}>
                       <td><button type="button" onClick={() => setPreviewItem(item)} title="Preview file" style={{ border: 0, padding: 0, background: "transparent", cursor: "pointer" }}>{renderPreview(item)}</button></td>
                       <td>
-                        <FileLink href={item.url} target="_blank" rel="noreferrer">
+                        <FileLink href={item.url} onClick={(e) => { e.preventDefault(); setDownloadTarget(item); }}>
                           <FaDownload style={{ flexShrink: 0, color: "var(--chakra-colors-brandPrimary)" }} />
                           {item.name}
                         </FileLink>
@@ -876,7 +905,7 @@ export default function AdminDashboard() {
             </TableCard> : <UploadGrid>
               {filteredUploads.map((item) => (
                 <UploadGridCard key={item.id}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}><button type="button" onClick={() => setPreviewItem(item)} title="Preview file" style={{ border: 0, padding: 0, background: "transparent", cursor: "pointer" }}>{renderPreview(item)}</button><div style={{ minWidth: 0, flex: 1 }}><FileLink href={item.url} target="_blank" rel="noreferrer" style={{ padding: 0, border: 0, background: "transparent" }}>{item.name}</FileLink><div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}><Badge>{(item.source || "realtime") === "cloudinary" ? "Cloudinary" : "Realtime"}</Badge>{item.type && <Badge $brand>{item.type.split('/')[0]}</Badge>}</div></div><ActionButton onClick={() => setPreviewItem(item)} title="Preview file"><FaEye /></ActionButton></div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}><button type="button" onClick={() => setPreviewItem(item)} title="Preview file" style={{ border: 0, padding: 0, background: "transparent", cursor: "pointer" }}>{renderPreview(item)}</button><div style={{ minWidth: 0, flex: 1 }}><FileLink href={item.url} onClick={(e) => { e.preventDefault(); setDownloadTarget(item); }} style={{ padding: 0, border: 0, background: "transparent" }}>{item.name}</FileLink><div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}><Badge>{(item.source || "realtime") === "cloudinary" ? "Cloudinary" : "Realtime"}</Badge>{item.type && <Badge $brand>{item.type.split('/')[0]}</Badge>}</div></div><ActionButton onClick={() => setPreviewItem(item)} title="Preview file"><FaEye /></ActionButton></div>
                   <div style={{ display: "grid", gap: 5, fontSize: ".78rem", color: "var(--chakra-colors-textSecondary)" }}><span>Room: <strong style={{ color: "var(--chakra-colors-textPrimary)" }}>{item.roomId}</strong></span><span>By: <strong style={{ color: "var(--chakra-colors-textPrimary)" }}>{item.uploadedBy}</strong></span><span>{new Date(item.timestamp).toLocaleString()}</span></div>
                   <ActionButton $danger onClick={() => handleDelete(item.roomId, item.id)} style={{ justifyContent: "center" }}><FaTrash /> Delete permanently</ActionButton>
                 </UploadGridCard>

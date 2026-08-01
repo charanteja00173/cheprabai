@@ -87,6 +87,11 @@ const MainStage = styled.div`
   box-shadow: 
     0 30px 60px rgba(0, 0, 0, 0.7),
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
+
+  @media (max-width: 768px) {
+    border-radius: 20px;
+    min-height: 0;
+  }
 `;
 
 const ParticipantGrid = styled.div`
@@ -105,6 +110,11 @@ const ParticipantGrid = styled.div`
     max-height: 150px;
     gap: 12px;
     &::-webkit-scrollbar { display: none; }
+  }
+
+  @media (max-width: 768px) {
+    max-height: 106px;
+    padding: 8px 4px 78px;
   }
 `;
 
@@ -226,8 +236,8 @@ const CircleButton = styled.button`
   flex-shrink: 0;
 
   @media (max-width: 768px) {
-    width: 38px;
-    height: 38px;
+    width: 44px;
+    height: 44px;
     font-size: 0.95rem;
     border-radius: 10px;
   }
@@ -304,7 +314,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const [reactions, setReactions] = useState([]);
   const [isFocused, setIsFocused] = useState(true);
   const [watermarkPos, setWatermarkPos] = useState({ x: 10, y: 10 });
-  const [focusedPeerId, setFocusedPeerId] = useState(null);
+  const [focusedPeerId, setFocusedPeerId] = useState("local");
   const [myPeerId, setMyPeerId] = useState(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
