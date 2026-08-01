@@ -24,8 +24,8 @@ const MeetingOverlay = styled.div`
 
   ${p => p.$minimized && `
     inset: auto 18px 18px auto;
-    width: min(360px, calc(100vw - 32px));
-    height: 210px;
+    width: min(336px, calc(100vw - 32px));
+    height: 218px;
     min-height: 0;
     padding: 10px;
     border-radius: 20px;
@@ -57,6 +57,7 @@ const MeetingHeader = styled.div`
   height: 54px;
   flex-shrink: 0;
   padding: 0 12px;
+  ${p => p.$minimized && `height: 38px; margin-bottom: 8px; padding: 0 4px;`}
 `;
 
 const ContentLayout = styled.div`
@@ -69,9 +70,17 @@ const ContentLayout = styled.div`
     -webkit-user-select: none;
     user-select: none;
   `}
+  ${p => p.$minimized && `
+    gap: 0;
+    & > :not(:first-child) { display: none; }
+  `}
   @media (max-width: 1024px) {
     flex-direction: column;
   }
+  ${p => p.$minimized && `
+    flex-direction: column;
+    .participant-strip { display: none; }
+  `}
 `;
 
 const MainStage = styled.div`
@@ -92,6 +101,13 @@ const MainStage = styled.div`
     border-radius: 20px;
     min-height: 0;
   }
+
+  ${p => p.$minimized && `
+    flex: 1;
+    min-height: 0;
+    border-radius: 13px;
+    video { object-fit: cover !important; }
+  `}
 `;
 
 const ParticipantGrid = styled.div`
@@ -195,6 +211,7 @@ const ControlBar = styled.div`
     0 20px 45px rgba(0, 0, 0, 0.5),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  ${p => p.$minimized && `display: none;`}
 
   &:hover {
     background: rgba(15, 15, 20, 0.65);
@@ -267,8 +284,8 @@ const PrivacyGuard = styled.div`
   align-items: center;
   text-align: center;
   color: white;
-  opacity: ${props => props.show ? 1 : 0};
-  pointer-events: ${props => props.show ? "all" : "none"};
+  opacity: ${props => props.$minimized ? 0 : props.show ? 1 : 0};
+  pointer-events: ${props => props.$minimized ? "none" : props.show ? "all" : "none"};
   transition: opacity 0.3s ease;
   user-select: none;
 
@@ -758,12 +775,13 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
   return (
     <MeetingOverlay ref={containerRef} $minimized={isMinimized} onClick={isMinimized ? () => setIsMinimized(false) : undefined}>
-      <MeetingHeader>
+      <MeetingHeader $minimized={isMinimized}>
         <div style={{ display: "flex", alignItems: "center", gap: "12px", minWidth: 0 }}>
           <div className="live-pulse" style={{ width: 8, height: 8, background: "#ff4757", borderRadius: "50%", flexShrink: 0 }} />
           <h2 style={{ margin: 0, fontSize: "1rem", fontWeight: 700, letterSpacing: "-0.5px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Video call</h2>
         </div>
-        <div style={{ display: "flex", gap: "4px", background: "rgba(255,255,255,0.08)", padding: "4px", borderRadius: "14px", border: "1px solid rgba(255,255,255,0.12)", alignItems: "center" }}>
+        <div onClick={(event) => event.stopPropagation()} style={{ display: "flex", gap: "4px", background: "rgba(255,255,255,0.08)", padding: "4px", borderRadius: "14px", border: "1px solid rgba(255,255,255,0.12)", alignItems: "center" }}>
+          {isMinimized ? <CircleButton style={{ width: 32, height: 32, fontSize: ".8rem" }} onClick={() => setIsMinimized(false)} title="Return to call"><FaExpand /></CircleButton> : <>
           <CircleButton 
             style={{ width: 32, height: 32, fontSize: "0.8rem" }}
             onClick={toggleFullscreen} 
@@ -778,24 +796,25 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
           >
             <FaWindowMinimize />
           </CircleButton>
+          </>}
           <div style={{ width: 1, height: 16, background: "rgba(255,255,255,0.1)", margin: "0 4px" }} />
-          <CircleButton $active={true} onClick={onClose} title="Leave Meeting">
+          <CircleButton $active={true} style={isMinimized ? { width: 32, height: 32, fontSize: ".8rem" } : undefined} onClick={onClose} title="Leave Meeting">
             <FaPhoneSlash />
           </CircleButton>
         </div>
       </MeetingHeader>
 
-      <ContentLayout $isAdmin={isAdmin}>
-        <MainStage>
-          {!isAdmin && <PrivacyGuard show={!isFocused}><h3>Privacy watermark active</h3><p>Your name and a live timestamp remain visible during this call.</p></PrivacyGuard>}
-          <div style={{ position: "absolute", top: 10, left: 10, zIndex: 60, fontSize: "0.6rem", opacity: 0.3, color: "var(--chakra-colors-textPrimary)" }}>
+      <ContentLayout $isAdmin={isAdmin} $minimized={isMinimized}>
+        <MainStage $minimized={isMinimized}>
+          {!isAdmin && <PrivacyGuard $minimized={isMinimized} show={!isFocused}><h3>Privacy watermark active</h3><p>Your name and a live timestamp remain visible during this call.</p></PrivacyGuard>}
+          {!isMinimized && <div style={{ position: "absolute", top: 10, left: 10, zIndex: 60, fontSize: "0.6rem", opacity: 0.3, color: "var(--chakra-colors-textPrimary)" }}>
               ID: {myPeerId || "Connecting..."}
-          </div>
-          <Watermark x={watermarkPos.x} y={watermarkPos.y}>{userName} | {new Date().toLocaleTimeString()} | CONFIDENTIAL</Watermark>
+          </div>}
+          {!isMinimized && <Watermark x={watermarkPos.x} y={watermarkPos.y}>{userName} | {new Date().toLocaleTimeString()} | CONFIDENTIAL</Watermark>}
           {reactions.map(r => (
             <div key={r.id} style={{ position: "absolute", bottom: 0, left: `${r.x}%`, fontSize: "2.5rem", animation: "floatUp 3s ease-out forwards", zIndex: 100 }}>{r.emoji}</div>
           ))}
-          {isSyncing && <div style={{ position: "absolute", top: 20, right: 20, color: "#4CAF50", display: "flex", alignItems: "center", gap: 10, background: "rgba(0,0,0,0.6)", padding: "8px 15px", borderRadius: "10px", backdropFilter: "blur(5px)" }}><FaSync style={{ animation: "spin 1s linear infinite" }} /> Real-time Syncing...</div>}
+          {!isMinimized && isSyncing && <div style={{ position: "absolute", top: 20, right: 20, color: "#4CAF50", display: "flex", alignItems: "center", gap: 10, background: "rgba(0,0,0,0.6)", padding: "8px 15px", borderRadius: "10px", backdropFilter: "blur(5px)" }}><FaSync style={{ animation: "spin 1s linear infinite" }} /> Real-time Syncing...</div>}
           
           {focusedPeerId ? (
               <div style={{ width: "100%", height: "100%", position: "relative" }}>
@@ -827,7 +846,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
           )}
         </MainStage>
 
-        <ParticipantGrid>
+        <ParticipantGrid className="participant-strip">
           <VideoTile $isTalking={speakingPeers.local} onClick={() => setFocusedPeerId("local")}>
             <video ref={myVideoRef} autoPlay muted playsInline />
             <NameTag>
@@ -845,7 +864,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         </ParticipantGrid>
       </ContentLayout>
 
-      <ControlBar>
+      <ControlBar $minimized={isMinimized}>
         <CircleButton $active={isMuted} onClick={() => { if (localStream) { localStream.getAudioTracks()[0].enabled = isMuted; setIsMuted(!isMuted); } }} title={isMuted ? "Unmute Microphone" : "Mute Microphone"}><FaMicrophone /></CircleButton>
         <CircleButton $active={isVideoOff} onClick={() => { if (localStream) { localStream.getVideoTracks()[0].enabled = isVideoOff; setIsVideoOff(!isVideoOff); } }} title={isVideoOff ? "Turn Camera On" : "Turn Camera Off"}><FaVideo /></CircleButton>
         <CircleButton onClick={startScreenShare} title="Share Your Screen with Others"><FaDesktop /></CircleButton>
