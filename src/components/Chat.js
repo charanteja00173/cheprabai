@@ -26,7 +26,7 @@ import { AiOutlineClose } from "react-icons/ai";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import ThemeSwitcher from "./ThemeSwitcher";
-import { ShieldCheck } from "lucide-react";
+import { ArrowRight, Hash, KeyRound, LockKeyhole, ShieldCheck, Upload, UserRound } from "lucide-react";
 import {
   generateKeyFromSecret,
   encryptMessage,
@@ -277,6 +277,15 @@ const MessageBubble = styled.div`
     padding: ${(p) => (p.isSystem ? "4px 8px" : p.isFile ? "6px" : "8px 12px")};
     font-size: ${(p) => (p.isSystem ? "0.72rem" : "0.88rem")};
   }
+
+  ${p => p.isFile && `
+    width: min(80vw, 560px);
+    max-width: min(80vw, 560px);
+    display: flex;
+    flex-direction: column;
+    padding: 8px 8px 4px;
+    border-color: rgba(255,255,255,.11);
+  `}
 `;
 
 const Username = styled.div`
@@ -294,7 +303,7 @@ const Timestamp = styled.div`
 `;
 
 const FileAttachmentWrapper = styled.div`
-  width: 280px;
+  width: 100%;
   max-width: 100%;
   box-sizing: border-box;
   border-radius: 16px;
@@ -311,13 +320,6 @@ const FileAttachmentWrapper = styled.div`
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
   }
 
-  @media (max-width: 480px) {
-    width: 230px;
-  }
-
-  @media (max-width: 360px) {
-    width: 200px;
-  }
 `;
 
 const TypingIndicator = styled.div`
@@ -348,11 +350,21 @@ const LandingWrapper = styled.div`
   justify-content: center;
   align-items: center;
   width: 100vw;
-  height: 100dvh;
+  min-height: 100dvh;
+  height: auto;
   position: relative;
   background: var(--chakra-colors-bg);
-  overflow: hidden;
+  overflow: auto;
+  padding: 24px 0;
   box-sizing: border-box;
+
+  @media (max-width: 480px) {
+    align-items: flex-start;
+    padding: 0;
+    overscroll-behavior: contain;
+    background: #090a0f;
+    &::before, &::after { display: none; }
+  }
 
   /* Digital grid pattern overlay */
   &::before {
@@ -397,20 +409,22 @@ const FloatingBlob = styled.div`
   animation: floating-glow-2 18s infinite alternate ease-in-out;
   pointer-events: none;
   z-index: 0;
+
+  @media (max-width: 480px) { display: none; }
 `;
 
 const JoinContainer = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
   width: 100%;
-  max-width: min(420px, calc(100vw - 32px));
-  background: rgba(15, 15, 20, 0.55);
+  max-width: min(460px, calc(100vw - 32px));
+  background: linear-gradient(160deg, rgba(21, 23, 31, .94), rgba(10, 11, 16, .92));
   backdrop-filter: blur(36px);
   -webkit-backdrop-filter: blur(36px);
-  padding: clamp(24px, 5vw, 40px);
-  border-radius: 28px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: clamp(24px, 5vw, 38px);
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
   box-shadow: 
     0 4px 30px rgba(0, 0, 0, 0.4),
     0 25px 60px rgba(0, 0, 0, 0.6),
@@ -421,17 +435,32 @@ const JoinContainer = styled.div`
   position: relative;
 
   @media (max-width: 480px) {
-    padding: 20px;
-    gap: 14px;
-    border-radius: 24px;
+    width: 100vw;
+    max-width: none;
+    min-height: 100dvh;
+    margin: 0;
+    padding: calc(env(safe-area-inset-top) + 28px) 24px calc(env(safe-area-inset-bottom) + 24px);
+    gap: 16px;
+    border: 0;
+    border-radius: 0;
+    background: linear-gradient(180deg, #10121a 0%, #090a0f 74%);
+    box-shadow: none;
+  }
+
+  @media (min-width: 900px) {
+    max-width: 500px;
+    padding: 40px;
   }
 `;
 
 const JoinInput = styled.input`
-  padding: 14px 20px;
-  border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.02);
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 52px;
+  padding: 14px 16px 14px 46px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  background: rgba(255, 255, 255, 0.045);
   color: var(--chakra-colors-textPrimary);
   outline: none;
   font-size: 1rem;
@@ -457,10 +486,48 @@ const JoinInput = styled.input`
   }
 
   @media (max-width: 480px) {
-    padding: 12px 16px;
+    padding: 12px 16px 12px 46px;
     font-size: 0.95rem;
     border-radius: 12px;
   }
+`;
+
+const JoinField = styled.div`
+  position: relative;
+  display: grid;
+  gap: 7px;
+`;
+
+const JoinLabel = styled.label`
+  color: var(--chakra-colors-textSecondary);
+  font-size: .78rem;
+  font-weight: 750;
+  letter-spacing: .015em;
+`;
+
+const FieldIcon = styled.span`
+  position: absolute;
+  left: 15px;
+  bottom: 16px;
+  color: var(--chakra-colors-textSecondary);
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+`;
+
+const AvatarPicker = styled.label`
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 7px 12px;
+  border-radius: 12px;
+  cursor: pointer;
+  color: var(--chakra-colors-textPrimary);
+  background: rgba(255,255,255,.045);
+  border: 1px dashed rgba(255,255,255,.17);
+  transition: border-color .2s ease, background .2s ease;
+  &:hover, &:focus-within { border-color: var(--chakra-colors-brandPrimary); background: rgba(255,255,255,.075); }
 `;
 
 const PasswordInputContainer = styled.div`
@@ -487,6 +554,8 @@ const EyeButton = styled.button`
   align-items: center;
   justify-content: center;
   font-size: 1.15rem;
+  width: 44px;
+  height: 44px;
   padding: 0;
   z-index: 10;
   transition: color 0.2s;
@@ -498,7 +567,7 @@ const EyeButton = styled.button`
 
 const JoinButton = styled.button`
   padding: 14px;
-  border-radius: 14px;
+  border-radius: 12px;
   border: none;
   background: linear-gradient(135deg, var(--chakra-colors-brandPrimary), var(--chakra-colors-brandSecondary));
   color: #fff;
@@ -506,7 +575,7 @@ const JoinButton = styled.button`
   font-weight: 700;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  margin-top: 12px;
+  margin-top: 8px;
   min-height: 52px;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
   position: relative;
@@ -1956,19 +2025,39 @@ export default function ChatRoom() {
   const [roomId, setRoomId] = useState("");
   const [userName, setUserName] = useState("");
   const [userAvatar, setUserAvatar] = useState(() => localStorage.getItem("cheprabai:user-avatar") || "");
+  const [avatarCrop, setAvatarCrop] = useState(null);
+  const userAvatarRef = useRef(userAvatar);
   const [roomBackground, setRoomBackground] = useState(() => localStorage.getItem("cheprabai:room-background") || "");
+  const [backgroundLocked, setBackgroundLocked] = useState(false);
+  const [backgroundTarget, setBackgroundTarget] = useState(null);
   const [securityCode, setSecurityCode] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [messages, setMessages] = useState([]);
   const [message, setMessage] = useState("");
   const [typingUsers, setTypingUsers] = useState([]);
 
+  useEffect(() => {
+    userAvatarRef.current = userAvatar;
+  }, [userAvatar]);
+
+  // Keep the current participant visible immediately while Socket.IO finishes
+  // delivering the authoritative room presence list.
+  useEffect(() => {
+    if (joined && userName) {
+      setOnlineUsers((users) => users.length ? users : [{ id: "local", name: userName }]);
+    }
+  }, [joined, userName]);
+
   const [pendingFiles, setPendingFiles] = useState([]);
   const [sendAsViewOnce, setSendAsViewOnce] = useState(false);
   const [replyTo, setReplyTo] = useState(null);
   const [reactionPickerFor, setReactionPickerFor] = useState(null);
+  const [participantProfiles, setParticipantProfiles] = useState({});
+  const [viewedByTarget, setViewedByTarget] = useState(null);
   const messageRefs = useRef({});
   const [pendingFilesUrls, setPendingFilesUrls] = useState({});
+  const pendingFilesUrlsRef = useRef({});
+  const leaveRoomNowRef = useRef(null);
   const [fullscreen, setFullscreen] = useState(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const typingTimeout = useRef(null);
@@ -2016,18 +2105,20 @@ export default function ChatRoom() {
     const newUrls = {};
     pendingFiles.forEach((file, idx) => {
       const key = `${file.name}-${file.size}-${idx}`;
-      if (!pendingFilesUrls[key]) {
+      if (!pendingFilesUrlsRef.current[key]) {
         newUrls[key] = URL.createObjectURL(file);
       } else {
-        newUrls[key] = pendingFilesUrls[key];
+        newUrls[key] = pendingFilesUrlsRef.current[key];
       }
     });
 
+    const previousUrls = pendingFilesUrlsRef.current;
+    pendingFilesUrlsRef.current = newUrls;
     setPendingFilesUrls(newUrls);
 
     return () => {
       // Only revoke URLs for files that are no longer in pendingFiles
-      Object.entries(pendingFilesUrls).forEach(([key, url]) => {
+      Object.entries(previousUrls).forEach(([key, url]) => {
         if (!newUrls[key]) {
           URL.revokeObjectURL(url);
         }
@@ -2275,12 +2366,15 @@ export default function ChatRoom() {
     setShowWhiteboard(false);
     setLatency(0);
   };
+  leaveRoomNowRef.current = leaveRoomNow;
   const handleLeaveRoom = () => setConfirmation({ title: "Leave this room?", body: "You can rejoin later with the room credentials.", confirmLabel: "Leave room", onConfirm: leaveRoomNow });
   /* ================= SOCKET ================= */
 
   useEffect(() => {
     socketRef.current = io(process.env.REACT_APP_SOCKET_ENDPOINT || "https://cheprabai-backend.onrender.com", {
-      transports: ["polling", "websocket"]
+      transports: ["polling", "websocket"],
+      upgrade: true,
+      rememberUpgrade: false
     });
     return () => socketRef.current.disconnect();
   }, []);
@@ -2303,8 +2397,8 @@ export default function ChatRoom() {
   useEffect(() => {
     if (!joined) return;
 
-    socketRef.current.emit("joinRoom", { roomId, userName, securityCode });
-
+    // Register every room listener before joining: localhost can respond quickly
+    // enough for the initial presence event to otherwise be missed.
     socketRef.current.on("chatHistory", async (history) => {
       const formatted = await Promise.all(history.map(async msg => {
         const item = { ...msg, ...msg.payload };
@@ -2381,13 +2475,22 @@ export default function ChatRoom() {
     socketRef.current.on("presence", ({ online, count }) => {
       setOnlineUsers(online);
     });
+    socketRef.current.on("all-users", (online = []) => {
+      setOnlineUsers(online);
+    });
+    socketRef.current.on("user-joined", ({ id, name }) => {
+      setOnlineUsers((users) => users.some((user) => user.id === id) ? users : [...users, { id, name }]);
+    });
+    socketRef.current.on("user-left", ({ id }) => {
+      setOnlineUsers((users) => users.filter((user) => user.id !== id));
+    });
 
     socketRef.current.on("typing", (users) =>
       setTypingUsers(users.filter((u) => u !== userName)),
     );
     socketRef.current.on("roomDestroyed", () => {
       toast.info("This room was deleted.");
-      leaveRoomNow();
+      leaveRoomNowRef.current?.();
     });
 
     socketRef.current.on("roomOwner", (token) => setOwnerToken(token));
@@ -2397,10 +2500,21 @@ export default function ChatRoom() {
     socketRef.current.on("messageReactionUpdated", ({ messageId, reactions }) => {
       setMessages((items) => items.map((item) => item.id === messageId ? { ...item, reactions } : item));
     });
+    socketRef.current.on("roomBackgroundUpdated", ({ background }) => {
+      localStorage.setItem("cheprabai:room-background", background || "");
+      setRoomBackground(background || "");
+    });
+    socketRef.current.on("roomBackgroundPolicy", ({ locked }) => setBackgroundLocked(Boolean(locked)));
+    socketRef.current.on("profileUpdated", ({ socketId, avatar, name }) => {
+      setParticipantProfiles((profiles) => ({ ...profiles, [socketId]: { avatar, name } }));
+    });
+    socketRef.current.on("roomProfiles", (profiles = {}) => {
+      setParticipantProfiles(profiles);
+    });
 
     socketRef.current.on("connect", () => {
       if (joined && roomId && userName) {
-        socketRef.current.emit("joinRoom", { roomId, userName, securityCode });
+        socketRef.current.emit("joinRoom", { roomId, userName, securityCode, avatar: userAvatarRef.current });
       }
     });
 
@@ -2442,6 +2556,17 @@ export default function ChatRoom() {
         }
       ]);
     });
+
+    socketRef.current.emit("joinRoom", { roomId, userName, securityCode, avatar: userAvatarRef.current }, (result) => {
+      if (result?.error) {
+        toast.error(result.error);
+        setJoined(false);
+      } else if (result?.success) {
+        setOnlineUsers((users) => users.length ? users : [{ id: socketRef.current?.id || "local", name: userName }]);
+      }
+    });
+
+
 
     // Latency Tracking (Ping-Pong)
     const pingInterval = setInterval(() => {
@@ -2570,6 +2695,7 @@ export default function ChatRoom() {
     const outgoingMessage = {
       payload,
       userName,
+      senderAvatar: userAvatar,
       roomId,
       ts: Date.now(),
       ephemeral: isEphemeral,
@@ -2585,6 +2711,23 @@ export default function ChatRoom() {
 
     if (!customData) setMessage("");
     setReplyTo(null);
+  };
+
+  const toggleReaction = (messageId, emoji) => {
+    const localId = socketRef.current?.id || "local";
+    setMessages((items) => items.map((item) => {
+      if (item.id !== messageId) return item;
+      const reactions = { ...(item.reactions || {}) };
+      const users = { ...(reactions[emoji] || {}) };
+      if (users[localId]) delete users[localId];
+      else users[localId] = { name: userName || "You", timestamp: Date.now() };
+      if (Object.keys(users).length) reactions[emoji] = users;
+      else delete reactions[emoji];
+      return { ...item, reactions };
+    }));
+    socketRef.current?.emit("messageReaction", { messageId, emoji }, (result) => {
+      if (!result?.success) toast.error(result?.error || "Could not update reaction.");
+    });
   };
 
   const handleTyping = (value) => {
@@ -2658,6 +2801,100 @@ export default function ChatRoom() {
     toast.success('Chat exported!');
   };
 
+  const requestAvatarChange = (value) => {
+    if (!value) return;
+    setConfirmation({
+      title: "Update your profile photo?",
+      body: "Your new photo will be visible to people currently in this room.",
+      confirmLabel: "Update photo",
+      tone: "primary",
+      onConfirm: () => {
+        try {
+          localStorage.setItem("cheprabai:user-avatar", value);
+          setUserAvatar(value);
+          socketRef.current?.emit("updateProfile", { avatar: value });
+          toast.success("Profile photo updated.");
+        } catch { toast.error("Browser storage is full. Choose a smaller image."); }
+      }
+    });
+  };
+
+  const openAvatarCrop = (file) => {
+    if (!file) return;
+    const previewUrl = URL.createObjectURL(file);
+    setAvatarCrop({ file, previewUrl, zoom: 1 });
+  };
+
+  const confirmAvatarCrop = () => {
+    if (!avatarCrop) return;
+    const imageElement = new Image();
+    imageElement.onload = () => {
+      const sourceSize = Math.min(imageElement.naturalWidth, imageElement.naturalHeight) / avatarCrop.zoom;
+      const startX = (imageElement.naturalWidth - sourceSize) / 2;
+      const startY = (imageElement.naturalHeight - sourceSize) / 2;
+      const canvas = document.createElement("canvas");
+      const renderAvatar = (size, quality) => {
+        canvas.width = canvas.height = size;
+        canvas.getContext("2d").drawImage(imageElement, startX, startY, sourceSize, sourceSize, 0, 0, size, size);
+        return canvas.toDataURL("image/webp", quality);
+      };
+      let avatar = renderAvatar(512, .86);
+      // Optimise automatically for real-time sync; the selected source image is never rejected up-front.
+      if (avatar.length > 1_350_000) avatar = renderAvatar(384, .78);
+      URL.revokeObjectURL(avatarCrop.previewUrl);
+      setAvatarCrop(null);
+      requestAvatarChange(avatar);
+    };
+    imageElement.onerror = () => toast.error("This image could not be prepared. Please choose another one.");
+    imageElement.src = avatarCrop.previewUrl;
+  };
+
+  const renderAvatarCropDialog = () => avatarCrop && (
+    <div role="dialog" aria-modal="true" aria-label="Crop profile photo" style={{ position: "fixed", inset: 0, zIndex: 22000, display: "grid", placeItems: "center", padding: 16, background: "rgba(0,0,0,.72)", backdropFilter: "blur(10px)" }}>
+      <section style={{ width: "min(100%, 400px)", borderRadius: 22, padding: "clamp(18px, 5vw, 26px)", background: "var(--chakra-colors-surface)", border: "1px solid rgba(255,255,255,.13)", boxShadow: "0 24px 80px rgba(0,0,0,.55)" }}>
+        <div style={{ fontSize: ".72rem", letterSpacing: ".1em", textTransform: "uppercase", fontWeight: 800, color: "var(--chakra-colors-brandPrimary)" }}>Profile photo</div>
+        <h2 style={{ margin: "6px 0 5px", fontSize: "1.25rem" }}>Crop your avatar</h2>
+        <p style={{ margin: "0 0 18px", color: "var(--chakra-colors-textSecondary)", lineHeight: 1.45, fontSize: ".87rem" }}>Position the center of your photo inside the circle.</p>
+        <div style={{ width: "min(62vw, 238px)", aspectRatio: "1", margin: "0 auto 20px", overflow: "hidden", borderRadius: "50%", border: "3px solid rgba(255,255,255,.18)", background: "#0b0c10", boxShadow: "0 0 0 8px rgba(255,255,255,.035)" }}><img src={avatarCrop.previewUrl} alt="Avatar crop preview" style={{ width: "100%", height: "100%", objectFit: "cover", transform: `scale(${avatarCrop.zoom})`, transition: "transform .18s ease" }} /></div>
+        <label style={{ display: "grid", gap: 8, fontSize: ".82rem", fontWeight: 700 }}>Zoom<input type="range" min="1" max="2.5" step="0.05" value={avatarCrop.zoom} onChange={(event) => setAvatarCrop((crop) => ({ ...crop, zoom: Number(event.target.value) }))} /></label>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 22 }}><button type="button" onClick={() => { URL.revokeObjectURL(avatarCrop.previewUrl); setAvatarCrop(null); }} style={{ minHeight: 44, padding: "0 15px", borderRadius: 11, border: "1px solid rgba(255,255,255,.15)", background: "transparent", color: "inherit", cursor: "pointer" }}>Cancel</button><button type="button" onClick={confirmAvatarCrop} style={{ minHeight: 44, padding: "0 15px", border: 0, borderRadius: 11, color: "white", background: "var(--chakra-colors-brandPrimary)", fontWeight: 800, cursor: "pointer" }}>Use this photo</button></div>
+      </section>
+    </div>
+  );
+
+  const applyBackgroundChange = (file, scope) => {
+    if (!file) return;
+    setConfirmation({
+      title: scope === "everyone" ? "Set this background for everyone?" : "Change your chat background?",
+      body: scope === "everyone" ? "This also locks background changes for other people in this room." : "This changes the appearance on this device only.",
+      confirmLabel: scope === "everyone" ? "Apply for everyone" : "Apply to my chat",
+      tone: "primary",
+      onConfirm: () => {
+        // Paint the chosen image immediately; the durable data URL is prepared in the background.
+        const localPreview = URL.createObjectURL(file);
+        setRoomBackground(localPreview);
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            const value = String(reader.result);
+            localStorage.setItem("cheprabai:room-background", value);
+            setRoomBackground(value);
+            if (scope === "everyone") socketRef.current?.emit("setRoomBackground", { background: value, scope }, (result) => { if (!result?.success) toast.error(result?.error || "Could not update the shared background."); });
+            URL.revokeObjectURL(localPreview);
+            toast.success("Room background updated.");
+          } catch { URL.revokeObjectURL(localPreview); toast.error("Browser storage is full. Choose a smaller image."); }
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+  };
+
+  const requestBackgroundChange = (file) => {
+    if (!file || (backgroundLocked && !ownerToken)) return;
+    if (ownerToken) { setBackgroundTarget(file); return; }
+    applyBackgroundChange(file, "personal");
+  };
+
   /* ================= UI ================= */
 
   if (!joined) {
@@ -2667,67 +2904,85 @@ export default function ChatRoom() {
         <LandingWrapper>
           <FloatingBlob />
           <JoinContainer>
-            <div style={{ textAlign: "center", marginBottom: "15px" }}>
+            <div style={{ textAlign: "center", marginBottom: 8 }}>
               <div style={{
                 display: "inline-flex",
-                background: "rgba(255, 63, 94, 0.08)",
-                border: "1px solid rgba(255, 63, 94, 0.25)",
-                boxShadow: "0 0 15px rgba(255, 63, 94, 0.15)",
-                padding: "16px",
-                borderRadius: "50%",
-                marginBottom: "20px"
+                background: "rgba(255, 63, 94, 0.10)",
+                border: "1px solid rgba(255, 63, 94, 0.30)",
+                boxShadow: "0 0 0 7px rgba(255,63,94,.045), 0 12px 30px rgba(0,0,0,.22)",
+                padding: 14,
+                borderRadius: 16,
+                marginBottom: 16
               }}>
-                <ShieldCheck size={36} color="var(--chakra-colors-brandPrimary)" />
+                <ShieldCheck size={30} strokeWidth={2.2} color="var(--chakra-colors-brandPrimary)" />
               </div>
-              <h2 style={{ color: "var(--chakra-colors-textPrimary)", margin: 0, fontSize: "clamp(1.5rem, 4vw, 2rem)", fontWeight: 800, letterSpacing: "-0.5px" }}>Secure Session</h2>
-              <p style={{ color: "var(--chakra-colors-textSecondary)", fontSize: "clamp(0.85rem, 2vw, 0.95rem)", marginTop: "8px", opacity: 0.85 }}>Enter details to join the encrypted room</p>
+              <div style={{ color: "var(--chakra-colors-brandPrimary)", fontSize: ".71rem", fontWeight: 850, letterSpacing: ".13em", textTransform: "uppercase", marginBottom: 8 }}>Private workspace</div>
+              <h2 style={{ color: "var(--chakra-colors-textPrimary)", margin: 0, fontSize: "clamp(1.6rem, 4vw, 2.05rem)", fontWeight: 800, letterSpacing: "-.045em" }}>Join a secure room</h2>
+              <p style={{ color: "var(--chakra-colors-textSecondary)", fontSize: "clamp(.86rem, 2vw, .96rem)", margin: "10px auto 0", maxWidth: 310, lineHeight: 1.55 }}>Your messages and files are encrypted before they leave this device.</p>
             </div>
 
-            <JoinInput
-              placeholder="Room ID"
-              value={roomId}
-              onChange={(e) => setRoomId(e.target.value)}
-            />
+            <JoinField>
+              <JoinLabel htmlFor="room-id">Room ID</JoinLabel>
+              <JoinInput id="room-id" autoComplete="off" placeholder="For example, 1000" value={roomId} onChange={(e) => setRoomId(e.target.value)} />
+              <FieldIcon><Hash size={18} /></FieldIcon>
+            </JoinField>
 
-            <JoinInput
-              placeholder="Your Name"
-              value={userName}
-              onChange={(e) => setUserName(e.target.value)}
-            />
+            <JoinField>
+              <JoinLabel htmlFor="display-name">Display name</JoinLabel>
+              <JoinInput id="display-name" autoComplete="name" placeholder="How should people see you?" value={userName} onChange={(e) => setUserName(e.target.value)} />
+              <FieldIcon><UserRound size={18} /></FieldIcon>
+            </JoinField>
 
-            <PasswordInputContainer>
-              <PasswordInput
-                type={showPassword ? "text" : "password"}
-                placeholder="Security Code"
-                value={securityCode}
-                onChange={(e) => setSecurityCode(e.target.value)}
-                onKeyDown={async (e) => {
-                  if (e.key === "Enter") {
-                    const code = securityCode.trim();
-                    if (!SECURITY_CODE.includes(code)) {
-                      toast.error("Invalid security code! Please check and try again.");
-                      return;
+            <JoinField>
+              <JoinLabel>Profile photo <span style={{ opacity: .65, fontWeight: 500 }}>(optional)</span></JoinLabel>
+              <AvatarPicker>
+                {userAvatar ? <img src={userAvatar} alt="Selected profile" style={{ width: 42, height: 42, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(255,255,255,.17)" }} /> : <span style={{ width: 42, height: 42, borderRadius: "50%", display: "grid", placeItems: "center", background: "rgba(255,255,255,.08)", color: "var(--chakra-colors-textSecondary)" }}><UserRound size={20} /></span>}
+                <span style={{ minWidth: 0, flex: 1 }}><span style={{ display: "block", fontWeight: 750, fontSize: ".86rem" }}>{userAvatar ? "Photo selected" : "Add a profile photo"}</span><span style={{ display: "block", marginTop: 2, fontSize: ".74rem", color: "var(--chakra-colors-textSecondary)" }}>Any image · crop and optimise before sharing</span></span>
+                <Upload size={18} aria-hidden="true" color="var(--chakra-colors-brandPrimary)" />
+                <input type="file" accept="image/*" hidden onChange={(e) => openAvatarCrop(e.target.files?.[0])} />
+              </AvatarPicker>
+            </JoinField>
+
+            <JoinField>
+              <JoinLabel htmlFor="security-code">Security code</JoinLabel>
+              <PasswordInputContainer>
+                <PasswordInput
+                  id="security-code"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="current-password"
+                  placeholder="Enter the room security code"
+                  value={securityCode}
+                  onChange={(e) => setSecurityCode(e.target.value)}
+                  onKeyDown={async (e) => {
+                    if (e.key === "Enter") {
+                      const code = securityCode.trim();
+                      if (!SECURITY_CODE.includes(code)) {
+                        toast.error("Invalid security code! Please check and try again.");
+                        return;
+                      }
+                      try {
+                        const key = await generateKeyFromSecret(code + roomId);
+                        setRoomKey(key);
+                        setJoined(true);
+                      } catch (err) {
+                        toast.error("Failed to initialize secure session keys");
+                      }
                     }
-                    try {
-                      const key = await generateKeyFromSecret(code + roomId);
-                      setRoomKey(key);
-                      setJoined(true);
-                    } catch (err) {
-                      toast.error("Failed to initialize secure session keys");
-                    }
-                  }
-                }}
-              />
-              <EyeButton
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                title={showPassword ? "Hide security code" : "Show security code"}
-              >
-                {showPassword ? <FaEyeSlash /> : <FaEye />}
-              </EyeButton>
-            </PasswordInputContainer>
+                  }}
+                />
+                <EyeButton
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? "Hide security code" : "Show security code"}
+                >
+                  {showPassword ? <FaEyeSlash /> : <FaEye />}
+                </EyeButton>
+              </PasswordInputContainer>
+              <FieldIcon><KeyRound size={18} /></FieldIcon>
+            </JoinField>
 
             <JoinButton
+              type="button"
               onClick={async () => {
                 const code = securityCode.trim();
 
@@ -2747,8 +3002,10 @@ export default function ChatRoom() {
                 }
               }}
             >
-              Join Secure Room
+              <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 9 }}>Join secure room <ArrowRight size={18} /></span>
             </JoinButton>
+
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7, color: "var(--chakra-colors-textSecondary)", fontSize: ".75rem", lineHeight: 1.4, textAlign: "center" }}><LockKeyhole size={14} aria-hidden="true" /> End-to-end encrypted session</div>
 
             <Link
               to="/admin"
@@ -2757,7 +3014,7 @@ export default function ChatRoom() {
                 alignItems: "center",
                 justifyContent: "center",
                 gap: "8px",
-                marginTop: "16px",
+                marginTop: "4px",
                 color: "var(--chakra-colors-textSecondary)",
                 fontSize: "0.85rem",
                 textDecoration: "none",
@@ -2767,9 +3024,11 @@ export default function ChatRoom() {
               onMouseEnter={(e) => e.target.style.color = "var(--chakra-colors-brandPrimary)"}
               onMouseLeave={(e) => e.target.style.color = "var(--chakra-colors-textSecondary)"}
             >
-              🛡️ Super Admin Console
+              <ShieldCheck size={16} aria-hidden="true" /> Super Admin Console
             </Link>
           </JoinContainer>
+          {renderAvatarCropDialog()}
+          {confirmation && <div role="dialog" aria-modal="true" style={{ position: "fixed", inset: 0, zIndex: 23000, background: "rgba(0,0,0,.68)", display: "grid", placeItems: "center", padding: 20 }}><div style={{ width: "min(420px, 100%)", padding: 24, borderRadius: 18, background: "var(--chakra-colors-surface)", border: "1px solid rgba(255,255,255,.12)" }}><h3 style={{ margin: "0 0 8px" }}>{confirmation.title}</h3><p style={{ margin: "0 0 22px", color: "var(--chakra-colors-textSecondary)", lineHeight: 1.5 }}>{confirmation.body}</p><div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}><button type="button" onClick={() => setConfirmation(null)} style={{ minHeight: 44, padding: "9px 14px", borderRadius: 10, border: "1px solid rgba(255,255,255,.15)", background: "transparent", color: "inherit", cursor: "pointer" }}>Cancel</button><button type="button" onClick={() => { confirmation.onConfirm(); setConfirmation(null); }} style={{ minHeight: 44, padding: "9px 14px", borderRadius: 10, border: 0, background: "var(--chakra-colors-brandPrimary)", color: "white", fontWeight: 700, cursor: "pointer" }}>{confirmation.confirmLabel}</button></div></div></div>}
         </LandingWrapper>
       </>
     );
@@ -2829,11 +3088,11 @@ export default function ChatRoom() {
                         ))}
                       </div>
                     </div>
-                  <div style={{ borderTop: "1px solid rgba(255, 255, 255, 0.1)", paddingTop: 10, marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
-                    <label style={{ display: "flex", minHeight: 42, alignItems: "center", justifyContent: "center", borderRadius: 10, cursor: "pointer", fontSize: ".8rem", fontWeight: 700, background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.1)" }}>Change avatar<input type="file" accept="image/*" hidden onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = () => { const value = String(reader.result); localStorage.setItem("cheprabai:user-avatar", value); setUserAvatar(value); }; reader.readAsDataURL(file); }} /></label>
-                    <label style={{ display: "flex", minHeight: 42, alignItems: "center", justifyContent: "center", borderRadius: 10, cursor: "pointer", fontSize: ".8rem", fontWeight: 700, background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.1)" }}>Change chat background<input type="file" accept="image/*" hidden onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = () => { const value = String(reader.result); localStorage.setItem("cheprabai:room-background", value); setRoomBackground(value); }; reader.readAsDataURL(file); }} /></label>
-                    {(userAvatar || roomBackground) && <button type="button" onClick={() => { localStorage.removeItem("cheprabai:user-avatar"); localStorage.removeItem("cheprabai:room-background"); setUserAvatar(""); setRoomBackground(""); }} style={{ minHeight: 40, borderRadius: 10, border: "1px solid rgba(255,107,107,.35)", color: "#ff9aa2", background: "rgba(255,71,87,.08)", cursor: "pointer", fontSize: ".8rem", fontWeight: 700 }}>Reset appearance</button>}
-                    <button
+                    <div style={{ borderTop: "1px solid rgba(255, 255, 255, 0.1)", paddingTop: 10, marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+                      <label onClick={(e) => e.stopPropagation()} style={{ display: "flex", minHeight: 44, alignItems: "center", justifyContent: "center", borderRadius: 10, cursor: "pointer", fontSize: ".8rem", fontWeight: 700, background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.1)" }}>Change avatar<input type="file" accept="image/*" hidden onChange={(e) => openAvatarCrop(e.target.files?.[0])} /></label>
+                      <label onClick={(e) => e.stopPropagation()} style={{ display: "flex", minHeight: 44, alignItems: "center", justifyContent: "center", borderRadius: 10, cursor: backgroundLocked && !ownerToken ? "not-allowed" : "pointer", opacity: backgroundLocked && !ownerToken ? .45 : 1, fontSize: ".8rem", fontWeight: 700, background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.1)" }}>{backgroundLocked && !ownerToken ? "Background managed by owner" : "Change chat background"}<input type="file" disabled={backgroundLocked && !ownerToken} accept="image/*" hidden onChange={(e) => requestBackgroundChange(e.target.files?.[0])} /></label>
+                      {(userAvatar || roomBackground) && <button type="button" onClick={() => setConfirmation({ title: "Reset your appearance?", body: ownerToken ? "Your profile photo and the owner-managed room background will be removed." : "Your profile photo and local chat background will be removed from this device.", confirmLabel: "Reset appearance", onConfirm: () => { localStorage.removeItem("cheprabai:user-avatar"); localStorage.removeItem("cheprabai:room-background"); setUserAvatar(""); setRoomBackground(""); socketRef.current?.emit("updateProfile", { avatar: "" }); if (ownerToken) socketRef.current?.emit("setRoomBackground", { background: "", scope: "everyone" }); toast.success("Appearance reset."); } })} style={{ minHeight: 44, borderRadius: 10, border: "1px solid rgba(255,107,107,.35)", color: "#ff9aa2", background: "rgba(255,71,87,.08)", cursor: "pointer", fontSize: ".8rem", fontWeight: 700 }}>Reset appearance</button>}
+                      <button
                         onClick={exportChat}
                         style={{
                           display: "flex", alignItems: "center", gap: 8,
@@ -2941,6 +3200,8 @@ export default function ChatRoom() {
           }).map((m, i) => {
             const isSystem = m.type === "system";
             const systemType = isSystem ? m.action : null;
+            const senderAvatar = m.senderAvatar || participantProfiles[m.senderSocketId]?.avatar || Object.values(participantProfiles).find((profile) => profile.name?.trim().toLocaleLowerCase() === m.userName?.trim().toLocaleLowerCase())?.avatar;
+            const isVisualMedia = Boolean(m.file && (m.file.viewOnce || m.file.type?.startsWith("image/") || m.file.type?.startsWith("video/")));
 
             if (isSystem && m.userName === userName) return null;
 
@@ -2955,13 +3216,13 @@ export default function ChatRoom() {
               >
                 {m.userName !== userName && !isSystem && (
                   <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 5 }}>
-                    <div aria-hidden="true" style={{ width: 24, height: 24, borderRadius: "50%", display: "grid", placeItems: "center", flexShrink: 0, background: getColor(m.userName), color: "#fff", fontSize: ".68rem", fontWeight: 800 }}>{m.userName?.slice(0, 1)?.toUpperCase()}</div>
+                    {senderAvatar ? <img src={senderAvatar} alt={`${m.userName} avatar`} style={{ width: 24, height: 24, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} /> : <div aria-hidden="true" style={{ width: 24, height: 24, borderRadius: "50%", display: "grid", placeItems: "center", flexShrink: 0, background: getColor(m.userName), color: "#fff", fontSize: ".68rem", fontWeight: 800 }}>{m.userName?.slice(0, 1)?.toUpperCase()}</div>}
                     <Username color={getColor(m.userName)}>{m.userName}</Username>
                   </div>
                 )}
 
                 {!isSystem && m.replyTo && (
-                  <button type="button" aria-label="Jump to replied message" onClick={() => { const target = messageRefs.current[m.replyTo.id]; target?.scrollIntoView({ behavior: "smooth", block: "center" }); target?.animate([{ boxShadow: "0 0 0 0 rgba(5,150,105,0)" }, { boxShadow: "0 0 0 3px rgba(5,150,105,.8)" }, { boxShadow: "0 0 0 0 rgba(5,150,105,0)" }], { duration: 1000 }); }} style={{ width: "100%", textAlign: "left", border: 0, borderLeft: "3px solid var(--chakra-colors-brandPrimary)", background: "rgba(255,255,255,.055)", borderRadius: 8, padding: "7px 9px", marginBottom: 8, fontSize: ".76rem", lineHeight: 1.35, display: "flex", gap: 9, alignItems: "center", color: "inherit", cursor: "pointer" }}>
+                  <button type="button" aria-label="Jump to replied message" onClick={() => { const target = messageRefs.current[m.replyTo.id]; target?.scrollIntoView({ behavior: "smooth", block: "center" }); target?.animate([{ boxShadow: "0 0 0 0 rgba(5,150,105,0)", backgroundColor: "transparent" }, { boxShadow: "0 0 0 4px rgba(5,150,105,.9)", backgroundColor: "rgba(5,150,105,.16)", offset: 0.12 }, { boxShadow: "0 0 0 4px rgba(5,150,105,.7)", backgroundColor: "rgba(5,150,105,.12)", offset: 0.82 }, { boxShadow: "0 0 0 0 rgba(5,150,105,0)", backgroundColor: "transparent" }], { duration: 2600, easing: "ease-in-out" }); }} style={{ width: "100%", textAlign: "left", border: 0, borderLeft: "3px solid var(--chakra-colors-brandPrimary)", background: "rgba(255,255,255,.055)", borderRadius: 8, padding: "7px 9px", marginBottom: 8, fontSize: ".76rem", lineHeight: 1.35, display: "flex", gap: 9, alignItems: "center", color: "inherit", cursor: "pointer" }}>
                     <ReplyAttachmentPreview reply={m.replyTo} roomKey={roomKey} />
                     <div style={{ minWidth: 0, flex: 1 }}><div style={{ color: "var(--chakra-colors-brandPrimary)", fontWeight: 700 }}>{m.replyTo.userName || "Message"}</div><div style={{ opacity: .78, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.replyTo.file?.viewOnce ? "View-once media · unavailable" : (m.replyTo.preview || "Attachment")}</div></div>
                   </button>
@@ -3057,7 +3318,7 @@ export default function ChatRoom() {
                 )}
 
                 {m.file && (
-                  <div style={{ position: "relative", width: "min(80%, 560px)", minWidth: "min(100%, 220px)" }}>
+                  <div style={{ position: "relative", width: "100%", minWidth: 0, minHeight: isVisualMedia ? "min(52vw, 340px)" : undefined, borderRadius: 14, overflow: "hidden", border: "1px solid rgba(255,255,255,.08)" }}>
                     {m.file.loading ? (
                       <div style={{
                         width: "100%", padding: "18px", background: "rgba(255, 255, 255, 0.03)", borderRadius: "14px", border: "1px solid rgba(255, 255, 255, 0.06)",
@@ -3075,32 +3336,181 @@ export default function ChatRoom() {
                   </div>
                 )}
 
-                <div style={{ display: "flex", alignItems: "center", justifyContent: 'space-between' }}>
-                  <Timestamp>{new Date(m.ts).toLocaleTimeString()}</Timestamp>
-                  {m.userName === userName && Object.keys(m.viewedBy || {}).length > 0 && (
-                    <span title={`Viewed by ${Object.values(m.viewedBy).map((view) => view.name).join(", ")}`} style={{ color: "#4fc3f7", fontSize: ".72rem", cursor: "help" }}>
-                      ✓✓ {Object.keys(m.viewedBy).length}
-                    </span>
+                <div style={m.file ? { margin: "8px -8px -4px", padding: "9px 10px 8px", borderTop: "1px solid rgba(255,255,255,.08)", background: "rgba(0,0,0,.08)" } : undefined}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: 'space-between' }}>
+                    <Timestamp>{new Date(m.ts).toLocaleTimeString()}</Timestamp>
+                    {m.userName === userName && Object.keys(m.viewedBy || {}).length > 0 && (
+                      <button type="button" onClick={() => setViewedByTarget(m)} aria-label={`See who viewed this message`} style={{ color: "#4fc3f7", fontSize: ".72rem", cursor: "pointer", border: 0, background: "transparent", padding: 0, minHeight: 32, fontWeight: 750 }}>
+                        ✓✓ {Object.keys(m.viewedBy).length}
+                      </button>
+                    )}
+                    {m.ephemeral && (
+                      <span style={{
+                        fontSize: "0.6rem", color: "#ff6b6b", fontWeight: 600,
+                        display: "flex", alignItems: "center", gap: 3
+                      }}>
+                        💨 {Math.max(0, (m.ephemeralDuration || DEFAULT_EPHEMERAL_DURATION) - Math.floor((Date.now() - m.ts) / 1000))}s
+                      </span>
+                    )}
+                  </div>
+                  {!isSystem && (
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: 6,
+                        marginTop: 6,
+                        flexWrap: "wrap",
+                        position: "relative",
+                      }}
+                    >
+                      {Object.keys(m.reactions || {}).length > 0 && (
+                        <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                          {Object.entries(m.reactions).map(([emoji, users]) => (
+                            <button
+                              key={emoji}
+                              title={Object.values(users).map((u) => u.name).join(", ")}
+                              onClick={() => toggleReaction(m.id, emoji)}
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 4,
+                                padding: "3px 10px",
+                                borderRadius: 20,
+                                border: "1px solid rgba(255,255,255,.12)",
+                                background: "rgba(255,255,255,.08)",
+                                color: "inherit",
+                                cursor: "pointer",
+                                fontSize: ".75rem",
+                                transition: ".2s",
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.background = "rgba(255,255,255,.15)";
+                                e.currentTarget.style.transform = "scale(1.05)";
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.background = "rgba(255,255,255,.08)";
+                                e.currentTarget.style.transform = "scale(1)";
+                              }}
+                            >
+                              {emoji} {Object.keys(users).length}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      <div style={{ display: "flex", gap: 5 }}>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setReplyTo({
+                              id: m.id,
+                              userName: m.userName,
+                              preview: m.file?.viewOnce
+                                ? "View-once media"
+                                : m.text || m.file?.name || (m.gif ? "GIF" : "Media"),
+                              file: m.file?.viewOnce ? { viewOnce: true } : m.file || null,
+                              gif: m.file?.viewOnce ? null : m.gif || null,
+                            })
+                          }
+                          title="Reply"
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 5,
+                            height: 30,
+                            padding: "0 10px",
+                            borderRadius: 8,
+                            border: "1px solid rgba(255,255,255,.08)",
+                            background: "rgba(255,255,255,.05)",
+                            color: "var(--chakra-colors-textSecondary)",
+                            cursor: "pointer",
+                            transition: ".2s",
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = "rgba(255,255,255,.1)";
+                            e.currentTarget.style.color = "var(--chakra-colors-brandPrimary)";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = "rgba(255,255,255,.05)";
+                            e.currentTarget.style.color = "var(--chakra-colors-textSecondary)";
+                          }}
+                        >
+                          <FaReply size={12} />
+                          Reply
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setReactionPickerFor(reactionPickerFor === m.id ? null : m.id)
+                          }
+                          title="Add reaction"
+                          style={{
+                            width: 30,
+                            height: 30,
+                            borderRadius: "50%",
+                            border: "1px solid rgba(255,255,255,.08)",
+                            background: "rgba(255,255,255,.05)",
+                            cursor: "pointer",
+                            fontSize: "1rem",
+                          }}
+                        >
+                          😊
+                        </button>
+                      </div>
+
+                      {reactionPickerFor === m.id && (
+                        <div
+                          style={{
+                            position: "absolute",
+                            bottom: "110%",
+                            right: 0,
+                            display: "flex",
+                            gap: 5,
+                            padding: 8,
+                            borderRadius: 14,
+                            background: "#23272f",
+                            boxShadow: "0 8px 24px rgba(0,0,0,.35)",
+                            zIndex: 100,
+                            animation: "fadeIn .15s ease",
+                          }}
+                        >
+                          {["❤️", "👍", "😂", "😮", "🙏"].map((emoji) => (
+                            <button
+                              key={emoji}
+                              onClick={() => {
+                                toggleReaction(m.id, emoji);
+                                setReactionPickerFor(null);
+                              }}
+                              style={{
+                                width: 34,
+                                height: 34,
+                                borderRadius: "50%",
+                                border: 0,
+                                background: "transparent",
+                                cursor: "pointer",
+                                fontSize: "1.1rem",
+                                transition: ".15s",
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.background = "rgba(255,255,255,.12)";
+                                e.currentTarget.style.transform = "scale(1.2)";
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.background = "transparent";
+                                e.currentTarget.style.transform = "scale(1)";
+                              }}
+                            >
+                              {emoji}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   )}
-                  {m.ephemeral && (
-                    <span style={{
-                      fontSize: "0.6rem", color: "#ff6b6b", fontWeight: 600,
-                      display: "flex", alignItems: "center", gap: 3
-                    }}>
-                      💨 {Math.max(0, (m.ephemeralDuration || DEFAULT_EPHEMERAL_DURATION) - Math.floor((Date.now() - m.ts) / 1000))}s
-                    </span>
-                  )}
+
                 </div>
-                {!isSystem && (
-                  <span style={{
-                    fontSize: "0.6rem", color: "#ff6b6b", fontWeight: 600,
-                    display: "flex", alignItems: "center", justifyContent: 'flex-end', gap: 3
-                  }}>
-                    <button type="button" onClick={() => setReplyTo({ id: m.id, userName: m.userName, preview: m.file?.viewOnce ? "View-once media" : (m.text || m.file?.name || (m.gif ? "GIF" : "Media")), file: m.file?.viewOnce ? { viewOnce: true } : (m.file || null), gif: m.file?.viewOnce ? null : (m.gif || null) })} aria-label={`Reply to ${m.userName}`} title="Reply" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "5px", height: "25px", padding: "0 8px", borderRadius: "7px", border: "1px solid rgba(255,255,255,.07)", background: "rgba(255,255,255,.035)", color: "var(--chakra-colors-textSecondary)", cursor: "pointer", fontSize: ".62rem", fontWeight: 600, transition: "background .15s ease, color .15s ease, border-color .15s ease, transform .15s ease", flexShrink: 0, }} onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,.09)"; e.currentTarget.style.borderColor = "rgba(255,255,255,.13)"; e.currentTarget.style.color = "var(--chakra-colors-brandPrimary)"; e.currentTarget.style.transform = "translateY(-1px)"; }} onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,.035)"; e.currentTarget.style.borderColor = "rgba(255,255,255,.07)"; e.currentTarget.style.color = "var(--chakra-colors-textSecondary)"; e.currentTarget.style.transform = "translateY(0)"; }} > <FaReply fontSize=".68rem" /> <span>Reply</span> </button>
-                    <button type="button" onClick={() => setReactionPickerFor(reactionPickerFor === m.id ? null : m.id)} aria-label="React to message" style={{ minWidth: 28, minHeight: 28, border: 0, borderRadius: 14, background: "rgba(255,255,255,.06)", color: "inherit", cursor: "pointer" }}>+</button>
-                    {reactionPickerFor === m.id && ["❤️", "👍", "😂", "😮", "🙏"].map((emoji) => <button key={emoji} type="button" onClick={() => { socketRef.current.emit("messageReaction", { messageId: m.id, emoji }); setReactionPickerFor(null); }} style={{ minWidth: 28, minHeight: 28, border: 0, borderRadius: 14, background: "rgba(255,255,255,.06)", cursor: "pointer" }}>{emoji}</button>)}
-                  </span>
-                )}
               </MessageBubble>
             );
           })}
@@ -3414,14 +3824,16 @@ export default function ChatRoom() {
 
         <style>{`@keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(255, 71, 87, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0); } }`}</style>
 
+        {renderAvatarCropDialog()}
+        {backgroundTarget && <div role="dialog" aria-modal="true" aria-label="Choose background audience" style={{ position: "fixed", inset: 0, zIndex: 21500, display: "grid", placeItems: "center", padding: 20, background: "rgba(0,0,0,.68)", backdropFilter: "blur(8px)" }}><section style={{ width: "min(100%, 420px)", padding: 24, borderRadius: 18, background: "var(--chakra-colors-surface)", border: "1px solid rgba(255,255,255,.12)" }}><h3 style={{ margin: "0 0 8px" }}>Where should this background apply?</h3><p style={{ margin: "0 0 20px", color: "var(--chakra-colors-textSecondary)", lineHeight: 1.5 }}>Choose a personal background, or enforce one for the whole room.</p><div style={{ display: "grid", gap: 10 }}><button type="button" onClick={() => { const file = backgroundTarget; setBackgroundTarget(null); applyBackgroundChange(file, "personal"); }} style={{ minHeight: 48, borderRadius: 11, border: "1px solid rgba(255,255,255,.15)", background: "rgba(255,255,255,.06)", color: "inherit", cursor: "pointer", fontWeight: 750 }}>Only me</button><button type="button" onClick={() => { const file = backgroundTarget; setBackgroundTarget(null); applyBackgroundChange(file, "everyone"); }} style={{ minHeight: 48, borderRadius: 11, border: 0, background: "var(--chakra-colors-brandPrimary)", color: "white", cursor: "pointer", fontWeight: 800 }}>Everyone in this room</button><button type="button" onClick={() => setBackgroundTarget(null)} style={{ minHeight: 40, border: 0, background: "transparent", color: "var(--chakra-colors-textSecondary)", cursor: "pointer" }}>Cancel</button></div></section></div>}
         {confirmation && (
           <div role="dialog" aria-modal="true" style={{ position: "fixed", inset: 0, zIndex: 21000, background: "rgba(0,0,0,.68)", display: "grid", placeItems: "center", padding: 20 }}>
             <div style={{ width: "min(420px, 100%)", padding: 24, borderRadius: 18, background: "var(--chakra-colors-surface)", border: "1px solid rgba(255,255,255,.12)", boxShadow: "0 24px 80px rgba(0,0,0,.45)" }}>
               <h3 style={{ margin: "0 0 8px" }}>{confirmation.title}</h3>
               <p style={{ margin: "0 0 22px", color: "var(--chakra-colors-textSecondary)", lineHeight: 1.5 }}>{confirmation.body}</p>
               <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
-                <button onClick={() => setConfirmation(null)} style={{ padding: "9px 14px", borderRadius: 10, border: "1px solid rgba(255,255,255,.15)", background: "transparent", color: "inherit", cursor: "pointer" }}>Cancel</button>
-                <button onClick={() => { confirmation.onConfirm(); setConfirmation(null); }} style={{ padding: "9px 14px", borderRadius: 10, border: 0, background: "#e5484d", color: "white", fontWeight: 700, cursor: "pointer" }}>{confirmation.confirmLabel}</button>
+                <button type="button" onClick={() => setConfirmation(null)} style={{ minHeight: 44, padding: "9px 14px", borderRadius: 10, border: "1px solid rgba(255,255,255,.15)", background: "transparent", color: "inherit", cursor: "pointer" }}>Cancel</button>
+                <button type="button" onClick={() => { confirmation.onConfirm(); setConfirmation(null); }} style={{ minHeight: 44, padding: "9px 14px", borderRadius: 10, border: 0, background: confirmation.tone === "primary" ? "var(--chakra-colors-brandPrimary)" : "#e5484d", color: "white", fontWeight: 700, cursor: "pointer" }}>{confirmation.confirmLabel}</button>
               </div>
             </div>
           </div>
@@ -3528,6 +3940,25 @@ export default function ChatRoom() {
           </div>
         )}
       </ChatContainer>
+
+      {viewedByTarget && (
+        <div role="presentation" onClick={() => setViewedByTarget(null)} style={{ position: "fixed", inset: 0, zIndex: 10050, display: "grid", placeItems: "center", padding: 16, background: "rgba(0,0,0,.62)", backdropFilter: "blur(8px)" }}>
+          <section role="dialog" aria-modal="true" aria-label="Message view details" onClick={(event) => event.stopPropagation()} style={{ width: "min(100%, 390px)", maxHeight: "min(76vh, 560px)", overflow: "auto", borderRadius: 20, border: "1px solid rgba(255,255,255,.13)", background: "#12151d", boxShadow: "0 22px 70px rgba(0,0,0,.56)", padding: 20, color: "var(--chakra-colors-textPrimary)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 14 }}>
+              <div><div style={{ fontSize: ".72rem", color: "var(--chakra-colors-textSecondary)", textTransform: "uppercase", letterSpacing: ".08em", fontWeight: 800 }}>Message details</div><h2 style={{ margin: "4px 0 0", fontSize: "1.1rem" }}>Read by {Object.keys(viewedByTarget.viewedBy || {}).length}</h2></div>
+              <button type="button" onClick={() => setViewedByTarget(null)} aria-label="Close message details" style={{ minWidth: 40, minHeight: 40, borderRadius: 12, border: "1px solid rgba(255,255,255,.1)", background: "rgba(255,255,255,.06)", color: "inherit", cursor: "pointer", fontSize: "1.2rem" }}>×</button>
+            </div>
+            <div style={{ borderTop: "1px solid rgba(255,255,255,.08)" }}>
+              {Object.values(viewedByTarget.viewedBy || {}).map((viewer, index) => (
+                <div key={`${viewer.name}-${index}`} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "13px 0", borderBottom: "1px solid rgba(255,255,255,.06)" }}>
+                  <div style={{ minWidth: 0 }}><div style={{ fontWeight: 750, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{viewer.name || "Guest"}</div><div style={{ marginTop: 3, color: "var(--chakra-colors-textSecondary)", fontSize: ".78rem" }}>Seen {viewer.timestamp ? new Date(viewer.timestamp).toLocaleString() : "just now"}</div></div>
+                  <span aria-hidden="true" style={{ color: "#4fc3f7", fontWeight: 900 }}>✓✓</span>
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
+      )}
 
       {showWhiteboard && (
         <Suspense fallback={<div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.8)', zIndex: 9999, color: '#fff' }}>Loading Whiteboard…</div>}>
