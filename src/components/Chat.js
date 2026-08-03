@@ -3435,7 +3435,7 @@ export default function ChatRoom() {
             const isSystem = m.type === "system";
             const systemType = isSystem ? m.action : null;
             const senderAvatar = m.senderAvatar || participantProfiles[m.senderSocketId]?.avatar || Object.values(participantProfiles).find((profile) => profile.name?.trim().toLocaleLowerCase() === m.userName?.trim().toLocaleLowerCase())?.avatar;
-            const isVisualMedia = Boolean(m.file && (m.file.viewOnce || m.file.type?.startsWith("image/") || m.file.type?.startsWith("video/")));
+            // const isVisualMedia = Boolean(m.file && (m.file.viewOnce || m.file.type?.startsWith("image/") || m.file.type?.startsWith("video/")));
 
             if (isSystem && m.userName === userName) return null;
 
