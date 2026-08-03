@@ -34,6 +34,8 @@ import {
   encryptBinary,
   decryptBinary
 } from "../utils/crypto";
+import { ImNewTab } from "react-icons/im";
+import { AiFillCloseSquare } from "react-icons/ai";
 // Lazy-load heavy components
 const Whiteboard = React.lazy(() => import("./Whiteboard"));
 const LiveMeeting = React.lazy(() => import("./LiveMeeting"));
@@ -231,8 +233,8 @@ const MessageBubble = styled.div`
 
   border: ${(p) =>
     p.isSystem ? "none" :
-      p.isSender ? "1px solid rgba(255, 255, 255, 0.08)" :
-        "1px solid rgba(255, 255, 255, 0.06)"};
+      p.isSender ? "0.5px solid rgba(255, 255, 255, 0.05)" :
+        "0.5px solid rgba(255, 255, 255, 0.035)"};
 
   border-radius: ${(p) =>
     p.isSystem ? "12px" :
@@ -284,7 +286,7 @@ const MessageBubble = styled.div`
     display: flex;
     flex-direction: column;
     padding: 8px 8px 4px;
-    border-color: rgba(255,255,255,.11);
+    border-color: rgba(255,255,255,.05);
   `}
 `;
 
@@ -2035,6 +2037,7 @@ export default function ChatRoom() {
   const [messages, setMessages] = useState([]);
   const [message, setMessage] = useState("");
   const [typingUsers, setTypingUsers] = useState([]);
+  const [viewer, setViewer] = useState(null);
 
   useEffect(() => {
     userAvatarRef.current = userAvatar;
@@ -3034,6 +3037,164 @@ export default function ChatRoom() {
     );
   }
 
+  const renderSmartMessage = (text) => {
+    return text.split(urlRegex).map((part, i) => {
+      if (!part.startsWith("http")) {
+        return <React.Fragment key={i}>{part}</React.Fragment>;
+      }
+
+      // Images
+      if (/\.(png|jpe?g|gif|webp|svg)$/i.test(part)) {
+        return (
+          <div key={i} style={{ marginTop: 10 }}>
+            <img
+              src={part}
+              style={{
+                width: "100%",
+                maxHeight: 450,
+                objectFit: "cover",
+                borderRadius: 12
+              }}
+            />
+
+            {renderLinkActions(part)}
+          </div>
+        );
+      }
+
+      // Videos
+      if (/\.(mp4|mov|webm|mkv)$/i.test(part)) {
+        return (
+          <div key={i} style={{ marginTop: 10 }}>
+            <video
+              src={part}
+              controls
+              playsInline
+              style={{
+                width: "100%",
+                borderRadius: 12
+              }}
+            />
+
+            {renderLinkActions(part)}
+          </div>
+        );
+      }
+
+      // Audio
+      if (/\.(mp3|wav|ogg)$/i.test(part)) {
+        return (
+          <div key={i}>
+            <audio controls src={part} />
+
+            {renderLinkActions(part)}
+          </div>
+        );
+      }
+
+      // PDF
+      if (/\.pdf$/i.test(part)) {
+        return (
+          <div key={i}>
+            <iframe
+              src={part}
+              width="100%"
+              height="550"
+              style={{
+                border: 0,
+                borderRadius: 12
+              }}
+            />
+
+            {renderLinkActions(part)}
+          </div>
+        );
+      }
+
+      // Existing embeds
+      const embed = getEmbedData(part);
+
+      if (embed) {
+        return (
+          <div key={i}>
+            <iframe
+              src={embed.src}
+              allowFullScreen
+              style={{
+                width: "100%",
+                aspectRatio: "16/9",
+                border: 0,
+                borderRadius: 12
+              }}
+            />
+
+            {/* {renderLinkActions(part)} */}
+          </div>
+        );
+      }
+
+      // Generic link card
+      return (
+        <div
+          key={i}
+          style={{
+            marginTop: 10,
+            padding: 14,
+            borderRadius: 12,
+            background: "rgba(255,255,255,.04)",
+            border: "1px solid rgba(255,255,255,.08)"
+          }}
+        >
+          <div
+            style={{
+              fontWeight: 600,
+              wordBreak: "break-all"
+            }}
+          >
+            {part}
+          </div>
+
+          {renderLinkActions(part)}
+        </div>
+      );
+    });
+  };
+
+  const renderLinkActions = (url) => (
+    <div
+      style={{
+        display: "flex",
+        gap: 8,
+        marginTop: 10,
+        flexWrap: "wrap"
+      }}
+    >
+      <button
+        onClick={() => navigator.clipboard.writeText(url)}
+        style={actionBtnStyle}
+      >
+        📋 Copy Link
+      </button>
+
+      <button
+        onClick={() => setViewer(url)}
+        style={actionBtnStyle}
+      >
+        ↗ Open
+      </button>
+    </div>
+  );
+
+  const actionBtnStyle = {
+    padding: "7px 12px",
+    borderRadius: 8,
+    border: "1px solid rgba(255,255,255,.1)",
+    background: "rgba(255,255,255,.06)",
+    color: "inherit",
+    cursor: "pointer"
+  };
+
+
   return (
     <>
       <ChatContainer style={roomBackground ? { backgroundImage: `linear-gradient(rgba(8,9,13,.78), rgba(8,9,13,.88)), url(${roomBackground})`, backgroundSize: "cover", backgroundPosition: "center", backgroundAttachment: isMobile ? "scroll" : "fixed" } : undefined}>
@@ -3176,6 +3337,75 @@ export default function ChatRoom() {
             )}
           </RoomActions>
         </Header>
+        {viewer && (
+          <div
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "#000",
+              zIndex: 999999,
+              display: "flex",
+              flexDirection: "column"
+            }}
+          >
+            <div
+              style={{
+                height: 56,
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                padding: "0 16px",
+                background: "#111",
+                borderBottom: "1px solid #222"
+              }}
+            >
+              <div
+                style={{
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {viewer}
+                <button
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(viewer);
+                      toast.success("Link copied!");
+                    } catch {
+                      toast.error("Failed to copy link");
+                    }
+                  }}
+                  style={{
+                    marginLeft: "8px"
+                  }}
+                >
+                  📋
+                </button>
+              </div>
+
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={() => window.open(viewer, "_blank")} size='sm'>
+                  <ImNewTab />
+                </button>
+
+                <button onClick={() => setViewer(null)}>
+                  <AiFillCloseSquare />
+                </button>
+              </div>
+            </div>
+
+            <iframe
+              src={viewer}
+              title="viewer"
+              style={{
+                flex: 1,
+                border: 0,
+                width: "100%"
+              }}
+            />
+          </div>
+        )}
 
         <MessageContainer ref={messagesContainerRef}>
           {hasMoreMessages && (
@@ -3240,73 +3470,7 @@ export default function ChatRoom() {
                   </span>
                 )}
 
-                {!isSystem &&
-                  m.text &&
-                  m.text.split(urlRegex).map((part, j) => {
-                    if (!part.startsWith("http")) return part;
-
-                    const embed = getEmbedData(part);
-
-                    if (embed) {
-                      let aspectRatio = "16 / 9";
-                      let width = "100%";
-                      let maxHeight = "none";
-
-                      if (embed.type === "spotify") {
-                        aspectRatio = "auto";
-                        maxHeight = "152px";
-                      } else if (embed.type === "tiktok") {
-                        aspectRatio = "9 / 16";
-                        maxHeight = "500px";
-                        width = "min(100%, 320px)";
-                      } else if (embed.type === "instagram") {
-                        aspectRatio = "1 / 1";
-                        maxHeight = "450px";
-                        width = "min(100%, 400px)";
-                      } else if (embed.type === "twitter") {
-                        aspectRatio = "auto";
-                        maxHeight = "350px";
-                      }
-
-                      return (
-                        <div style={{ display: "flex", justifyContent: "center", width: "100%" }} key={j}>
-                          <iframe
-                            src={embed.src}
-                            style={{
-                              border: "0px",
-                              padding: 0,
-                              margin: "8px 0",
-                              width: width,
-                              height: "auto",
-                              aspectRatio: aspectRatio,
-                              maxHeight: maxHeight,
-                              borderRadius: "12px",
-                              background: embed.type === "twitter" ? "#fff" : "transparent"
-                            }}
-                            title={`${embed.type} embed`}
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                            allowFullScreen
-                          />
-                        </div>
-                      );
-                    }
-
-                    return (
-                      <a
-                        key={j}
-                        href={part}
-                        target="_blank"
-                        rel="noreferrer"
-                        style={{
-                          display: "block", margin: "8px 0", padding: "12px", borderRadius: "12px",
-                          color: "var(--chakra-colors-brandPrimary)", textDecoration: "none", fontWeight: "600",
-                          wordBreak: "break-all", background: "rgba(255,255,255,.035)", border: "1px solid rgba(255,255,255,.08)"
-                        }}
-                      >
-                        <span style={{ display: "block", fontSize: ".68rem", opacity: .6, marginBottom: 3 }}>Shared link</span>{part}
-                      </a>
-                    );
-                  })}
+                {!isSystem && m.text && renderSmartMessage(m.text)}
 
                 {m.gif && (
                   <img
