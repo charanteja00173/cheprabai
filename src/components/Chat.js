@@ -1893,7 +1893,7 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile }) {
       return <FileAttachmentWrapper style={{ padding: 16, cursor: "default", color: "var(--chakra-colors-textSecondary)", textAlign: "center" }}>🔒 View-once media opened</FileAttachmentWrapper>;
     }
     return (
-      <FileAttachmentWrapper onClick={() => { setViewedOnce(true); setFullscreen({ ...file, url: decryptedUrl, viewOnce: true }); }} style={{ minHeight: 150, display: "grid", placeItems: "center", textAlign: "center", padding: 16 }}>
+      <FileAttachmentWrapper onClick={() => { setViewedOnce(true); setFullscreen({ ...file, url: decryptedUrl, viewOnce: true }); }} style={{ display: "grid", placeItems: "center", textAlign: "center", padding: 16 }}>
         <div><div style={{ fontSize: "1.8rem", marginBottom: 8 }}>🔒</div><strong>View once</strong><div style={{ fontSize: ".75rem", opacity: .7, marginTop: 4 }}>Open media · unavailable after viewing</div></div>
       </FileAttachmentWrapper>
     );
@@ -3490,7 +3490,7 @@ export default function ChatRoom() {
                     {m.file.loading ? (
                       <div style={{
                         width: "100%", padding: "18px", background: "rgba(255, 255, 255, 0.03)", borderRadius: "14px", border: "1px solid rgba(255, 255, 255, 0.06)",
-                        display: "flex", alignItems: "center", justifyContent: "center", minHeight: "148px"
+                        display: "flex", alignItems: "center", justifyContent: "center"
                       }}>
                         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, textAlign: "center" }}>
                           <div style={{ width: 32, height: 32, borderRadius: "50%", border: "3px solid rgba(255,255,255,.15)", borderTopColor: "var(--chakra-colors-brandPrimary)", animation: "spin .8s linear infinite" }} />
