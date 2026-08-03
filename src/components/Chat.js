@@ -221,7 +221,7 @@ const MessageContainer = styled.div`
 
 const MessageBubble = styled.div`
   max-width: ${(p) => (p.isSystem ? "80%" : "clamp(70%, 80vw, 80%)")};
-  padding: ${(p) => (p.isSystem ? "6px 14px" : p.isFile ? "10px" : "12px 20px")};
+  padding: ${(p) => (p.isSystem ? "6px 14px" : p.isFile ? "10px" : "5px 5px")};
 
   background: ${(p) =>
     p.isSystem ? "transparent" :
@@ -3049,6 +3049,7 @@ export default function ChatRoom() {
           <div key={i} style={{ marginTop: 10 }}>
             <img
               src={part}
+              alt={part}
               style={{
                 width: "100%",
                 maxHeight: 450,
@@ -3097,6 +3098,7 @@ export default function ChatRoom() {
         return (
           <div key={i}>
             <iframe
+              title={i}
               src={part}
               width="100%"
               height="550"
@@ -3118,11 +3120,13 @@ export default function ChatRoom() {
         return (
           <div key={i}>
             <iframe
+              title={i}
               src={embed.src}
               allowFullScreen
               style={{
                 width: "100%",
                 aspectRatio: "16/9",
+                minHeight: "300px",
                 border: 0,
                 borderRadius: 12
               }}
