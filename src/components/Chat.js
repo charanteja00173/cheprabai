@@ -1926,7 +1926,7 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile }) {
           </div>
         </div>
       ) : file.type && file.type.startsWith("video") ? (
-        <div style={{ position: "relative", borderRadius: 10, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 4px 15px rgba(0,0,0,0.2)" }}>
+        <div style={{ position: "relative", borderRadius: 10, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 4px 15px rgba(0,0,0,0.2)", minHeight: 0 }}>
           <video src={decryptedUrl} style={{ width: "100%", maxHeight: "240px", objectFit: "cover", display: "block" }} />
           <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.4)" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 44, height: 44, borderRadius: "50%", background: "var(--chakra-colors-brandPrimary)", boxShadow: "0 4px 15px rgba(0,0,0,0.35)" }}>
