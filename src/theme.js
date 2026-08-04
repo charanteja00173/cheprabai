@@ -4,42 +4,47 @@ import { extendTheme } from "@chakra-ui/react";
    PREMIUM THEMES CONFIG
 ----------------------------------- */
 export const THEMES = {
-  executiveLight: {
-    name: "Executive Light (Professional)",
-    isLightOnly: true,
-    colors: {
-      primary: "#2563EB",      // Professional Royal Blue
-      secondary: "#1D4ED8",    // Indigo Blue
-      accent: "#10B981",       // Active Mint Emerald
-      hover: "#1E40AF",
-      glow: "rgba(37, 99, 235, 0.12)",
-      lightBg: "#F8FAFC",      // Clean light slate
-      darkBg: "#F8FAFC",
-      lightSurface: "#FFFFFF", // Pure white card surfaces
-      darkSurface: "#FFFFFF",
-      lightSurfaceHover: "#F1F5F9",
-      darkSurfaceHover: "#F1F5F9",
-    }
-  },
+  // executiveLight: {
+  //   name: "Executive Light",
+  //   isLightOnly: true,
+  //   colors: {
+  //     primary: "#2563EB",      // Professional Royal Blue
+  //     secondary: "#1D4ED8",    // Indigo Blue
+  //     accent: "#10B981",       // Active Mint Emerald
+  //     hover: "#1E40AF",
+  //     glow: "rgba(37, 99, 235, 0.12)",
+  //     lightBg: "#F8FAFC",      // Clean light slate
+  //     darkBg: "#F8FAFC",
+  //     lightSurface: "#FFFFFF", // Pure white card surfaces
+  //     darkSurface: "#FFFFFF",
+  //     lightSurfaceHover: "#F1F5F9",
+  //     darkSurfaceHover: "#F1F5F9",
+  //   }
+  // },
   pitchBlack: {
-    name: "Pitch Black (Professional E2EE)",
+    name: "Pitch Black",
     isDarkOnly: true,
     colors: {
-      primary: "#00bfa5",      // Modern Brand Teal
-      secondary: "#0EA5E9",    // Vibrant Blue
-      accent: "#6366F1",       // Cool Violet
-      hover: "#00a891",
-      glow: "rgba(0, 191, 165, 0.2)",
-      lightBg: "#000000",      // Absolute Pitch Dark OLED
+      primary: "#4F8CFF",      // Royal Electric Blue
+      secondary: "#00E5FF",    // Neon Cyan
+      accent: "#9D5CFF",       // Imperial Violet
+
+      hover: "#6AA3FF",
+
+      glow: "rgba(79, 140, 255, 0.22)",
+
+      lightBg: "#000000",      // Absolute OLED Black
       darkBg: "#000000",
-      lightSurface: "#08080C", // Sleek dark surfaces
-      darkSurface: "#08080C",
-      lightSurfaceHover: "#121218",
-      darkSurfaceHover: "#121218",
+
+      lightSurface: "#040405", // Premium elevated surface
+      darkSurface: "#040405",
+
+      lightSurfaceHover: "#0A0A0F",
+      darkSurfaceHover: "#0A0A0F",
     }
   },
   default: {
-      name: "OLED Midnight (Void)",
+    name: "OLED Midnight (Void)",
     colors: {
       primary: "#F43F5E",      // Crimson Red
       secondary: "#E11D48",    // Intense Rose
@@ -333,8 +338,8 @@ export function createAppTheme(themeKey = "default", fontKey = "inter") {
   const getCard = (mode) => {
     if (isLightOnly) return activeTheme.colors.lightSurface;
     if (isDarkOnly) return `rgba(${hexToRgb(activeTheme.colors.darkSurface)}, 0.65)`;
-    return mode === "light" 
-      ? activeTheme.colors.lightSurface 
+    return mode === "light"
+      ? activeTheme.colors.lightSurface
       : `rgba(${hexToRgb(activeTheme.colors.darkSurface)}, 0.65)`;
   };
 
