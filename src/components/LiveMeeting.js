@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import styled from "styled-components";
-import { FaMicrophone, FaVideo, FaPhoneSlash, FaSync, FaDesktop, FaFolderOpen, FaRecordVinyl, FaCompress, FaExpand, FaWindowMinimize } from "react-icons/fa";
+import { FaMicrophone, FaVideo, FaPhoneSlash, FaSync, FaDesktop, FaFolderOpen, FaRecordVinyl, FaCompress, FaExpand, FaWindowMinimize, FaExchangeAlt } from "react-icons/fa";
 import { Peer } from "peerjs";
 import { toast } from "react-toastify";
 
@@ -273,6 +273,41 @@ const CircleButton = styled.button`
 
 
 
+const FloatingPiP = styled.div`
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 120px;
+  height: 170px;
+  border-radius: 18px;
+  overflow: hidden;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+  z-index: 100;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+  &:hover {
+    transform: scale(1.05);
+    border-color: var(--chakra-colors-brandPrimary);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6), 0 0 15px var(--chakra-colors-brandGlow);
+  }
+
+  video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  @media (max-width: 768px) {
+    width: 100px;
+    height: 140px;
+    top: 12px;
+    right: 12px;
+    border-radius: 14px;
+  }
+`;
+
 const PrivacyGuard = styled.div`
   position: absolute;
   inset: 0;
@@ -340,9 +375,18 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       setFocusedPeerId(activeTalker[0]);
     }
   }, [speakingPeers]);
+
+  // PiP: auto-focus the single remote peer
+  useEffect(() => {
+    const entries = Object.entries(remoteStreams);
+    if (entries.length === 1 && !activeMedia) {
+      setFocusedPeerId(entries[0][0]);
+    }
+  }, [remoteStreams, activeMedia]);
   const [myPeerId, setMyPeerId] = useState(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
+  const [isFrontCamera, setIsFrontCamera] = useState(true);
   
   const containerRef = useRef();
   const peerRef = useRef(null);
@@ -516,7 +560,10 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     document.addEventListener("contextmenu", handleContextMenu);
     const wmInterval = setInterval(() => setWatermarkPos({ x: Math.random() * 80, y: Math.random() * 80 }), 8000);
 
-    return () => {
+    const remoteEntries = Object.entries(remoteStreams);
+  const isPiPMode = remoteEntries.length === 1 && !activeMedia && !isMinimized;
+
+  return () => {
       if (localStreamRef.current) {
         localStreamRef.current.getTracks().forEach(t => t.stop());
       }
@@ -702,6 +749,38 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     }
   };
 
+  const flipCamera = async () => {
+    try {
+      const newFacing = isFrontCamera ? "environment" : "user";
+      const newStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: newFacing },
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
+      });
+      const newVideoTrack = newStream.getVideoTracks()[0];
+
+      // Update local video display
+      if (myVideoRef.current) myVideoRef.current.srcObject = newStream;
+      setLocalStream(newStream);
+      localStreamRef.current = newStream;
+
+      // Replace track on all peer connections
+      Object.values(peers.current).forEach(call => {
+        if (call.peerConnection) {
+          const sender = call.peerConnection.getSenders().find(s => s.track?.kind === "video");
+          if (sender) sender.replaceTrack(newVideoTrack);
+        }
+      });
+
+      setIsFrontCamera(!isFrontCamera);
+    } catch (err) {
+      toast.error("Unable to switch camera.");
+    }
+  };
+
   const toggleRecording = async () => {
     if (!isAdmin) {
         toast.error("Only the room admin can record this meeting.");
@@ -838,6 +917,14 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
               ID: {myPeerId || "Connecting..."}
           </div>}
           {!isMinimized && <Watermark x={watermarkPos.x} y={watermarkPos.y}>{userName} | {new Date().toLocaleTimeString()} | CONFIDENTIAL</Watermark>}
+          {isPiPMode && (
+            <FloatingPiP onClick={flipCamera} title="Tap to flip camera">
+              <video ref={el => { if (el && localStream) el.srcObject = localStream; }} autoPlay muted playsInline />
+              <div style={{ position: "absolute", bottom: 6, right: 6, background: "rgba(0,0,0,0.5)", borderRadius: 8, padding: "2px 6px", fontSize: "0.6rem", fontWeight: 600, display: "flex", alignItems: "center", gap: 3 }}>
+                <FaExchangeAlt size={8} /> Flip
+              </div>
+            </FloatingPiP>
+          )}
           {reactions.map(r => (
             <div key={r.id} style={{ position: "absolute", bottom: 0, left: `${r.x}%`, fontSize: "2.5rem", animation: "floatUp 3s ease-out forwards", zIndex: 100 }}>{r.emoji}</div>
           ))}
@@ -873,7 +960,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
           )}
         </MainStage>
 
-        <ParticipantGrid className="participant-strip">
+        {!isPiPMode && <ParticipantGrid className="participant-strip">
           <VideoTile $isTalking={speakingPeers.local} onClick={() => setFocusedPeerId("local")}>
             <video ref={myVideoRef} autoPlay muted playsInline />
             <NameTag>
@@ -888,12 +975,13 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
               </NameTag>
             </VideoTile>
           ))}
-        </ParticipantGrid>
+        </ParticipantGrid>}
       </ContentLayout>
 
       <ControlBar $minimized={isMinimized}>
         <CircleButton $active={isMuted} onClick={() => { if (localStream) { localStream.getAudioTracks()[0].enabled = isMuted; setIsMuted(!isMuted); } }} title={isMuted ? "Unmute Microphone" : "Mute Microphone"}><FaMicrophone /></CircleButton>
         <CircleButton $active={isVideoOff} onClick={() => { if (localStream) { localStream.getVideoTracks()[0].enabled = isVideoOff; setIsVideoOff(!isVideoOff); } }} title={isVideoOff ? "Turn Camera On" : "Turn Camera Off"}><FaVideo /></CircleButton>
+        <CircleButton onClick={flipCamera} title="Flip Camera"><FaExchangeAlt /></CircleButton>
         <CircleButton onClick={startScreenShare} title="Share Your Screen with Others"><FaDesktop /></CircleButton>
         
         {isAdmin && (

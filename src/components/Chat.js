@@ -2653,6 +2653,8 @@ export default function ChatRoom() {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showWhiteboard, setShowWhiteboard] = useState(false);
   const [showMeeting, setShowMeeting] = useState(false);
+  const [incomingCall, setIncomingCall] = useState(null);
+  const ringtoneRef = useRef(null);
   const [showRoomInfo, setShowRoomInfo] = useState(false);
   const [latency, setLatency] = useState(0);
   const [gifQuery, setGifQuery] = useState("");
@@ -3078,6 +3080,8 @@ export default function ChatRoom() {
     setOnlineUsers([]);
     setShowMeeting(false);
     setShowWhiteboard(false);
+    setIncomingCall(null);
+    if (ringtoneRef.current) { ringtoneRef.current.stop(); ringtoneRef.current = null; }
     setLatency(0);
   };
   leaveRoomNowRef.current = leaveRoomNow;
@@ -3399,6 +3403,51 @@ export default function ChatRoom() {
 
 
 
+    // ── Incoming Call Signaling ──
+    socketRef.current.on("incoming-call", ({ callerName, callerAvatar }) => {
+      if (showMeeting) return; // already in a call
+      setIncomingCall({ callerName, callerAvatar });
+      // Start ringtone
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc1 = ctx.createOscillator();
+        const osc2 = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc1.type = "sine";
+        osc2.type = "sine";
+        osc1.frequency.setValueAtTime(440, ctx.currentTime);
+        osc2.frequency.setValueAtTime(480, ctx.currentTime);
+        gain.gain.setValueAtTime(0, ctx.currentTime);
+        osc1.connect(gain);
+        osc2.connect(gain);
+        gain.connect(ctx.destination);
+        osc1.start();
+        osc2.start();
+        // Ring cadence: 2s on, 3s off
+        const ringCadence = () => {
+          const t = ctx.currentTime;
+          gain.gain.cancelScheduledValues(t);
+          gain.gain.setValueAtTime(0, t);
+          gain.gain.linearRampToValueAtTime(0.3, t + 0.05);
+          gain.gain.setValueAtTime(0.3, t + 2.0);
+          gain.gain.linearRampToValueAtTime(0, t + 2.05);
+        };
+        ringCadence();
+        const ringInterval = setInterval(ringCadence, 5000);
+        ringtoneRef.current = {
+          stop: () => {
+            clearInterval(ringInterval);
+            try { osc1.stop(); osc2.stop(); ctx.close(); } catch {}
+          }
+        };
+      } catch {}
+    });
+
+    socketRef.current.on("call-ended", () => {
+      setIncomingCall(null);
+      if (ringtoneRef.current) { ringtoneRef.current.stop(); ringtoneRef.current = null; }
+    });
+
     // Latency Tracking (Ping-Pong)
     const pingInterval = setInterval(() => {
       if (socketRef.current && socketRef.current.connected) {
@@ -3412,6 +3461,7 @@ export default function ChatRoom() {
     return () => {
       socketRef.current.off();
       clearInterval(pingInterval);
+      if (ringtoneRef.current) { ringtoneRef.current.stop(); ringtoneRef.current = null; }
     };
   }, [joined, roomId, userName, roomKey, securityCode]);
 
@@ -4899,7 +4949,10 @@ export default function ChatRoom() {
               </LiveBadge>
             )}
 
-            <ActionButton onClick={() => setShowMeeting(true)} title="Start Video Call">
+            <ActionButton onClick={() => {
+              socketRef.current.emit("start-call", { roomId, userName, avatar: userAvatar });
+              setShowMeeting(true);
+            }} title="Start Video Call">
               <FaVideo />
             </ActionButton>
 
@@ -6249,6 +6302,97 @@ export default function ChatRoom() {
             onClose={() => setShowWhiteboard(false)}
           />
         </Suspense>
+      )}
+
+      {incomingCall && !showMeeting && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 25000,
+          background: "linear-gradient(180deg, rgba(10,10,18,0.97) 0%, rgba(20,20,30,0.99) 100%)",
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+          gap: 32, color: "#fff", fontFamily: "inherit"
+        }}>
+          {/* Caller Avatar */}
+          <div style={{
+            width: 110, height: 110, borderRadius: "50%",
+            background: "linear-gradient(135deg, var(--chakra-colors-brandPrimary), #ff6b81)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: "2.8rem", fontWeight: 800, color: "#fff",
+            boxShadow: "0 0 0 0 rgba(0,191,165,0.4)",
+            animation: "callPulse 2s ease-in-out infinite"
+          }}>
+            {incomingCall.callerAvatar ? (
+              <img src={incomingCall.callerAvatar} alt="" style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} />
+            ) : (
+              incomingCall.callerName?.charAt(0)?.toUpperCase() || "?"
+            )}
+          </div>
+
+          {/* Caller Name */}
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontSize: "1.6rem", fontWeight: 800, letterSpacing: "-0.5px", marginBottom: 6 }}>
+              {incomingCall.callerName}
+            </div>
+            <div style={{ fontSize: "0.9rem", opacity: 0.6, fontWeight: 500 }}>
+              Incoming video call…
+            </div>
+          </div>
+
+          {/* Accept / Decline Buttons */}
+          <div style={{ display: "flex", gap: 48, marginTop: 20 }}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setIncomingCall(null);
+                  if (ringtoneRef.current) { ringtoneRef.current.stop(); ringtoneRef.current = null; }
+                  socketRef.current.emit("decline-call", { roomId });
+                }}
+                style={{
+                  width: 64, height: 64, borderRadius: "50%",
+                  background: "#ff4757", border: "none",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  cursor: "pointer", fontSize: "1.5rem", color: "#fff",
+                  boxShadow: "0 4px 24px rgba(255,71,87,0.4)",
+                  transition: "transform 0.2s"
+                }}
+              >
+                📵
+              </button>
+              <span style={{ fontSize: "0.75rem", opacity: 0.7, fontWeight: 600 }}>Decline</span>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setIncomingCall(null);
+                  if (ringtoneRef.current) { ringtoneRef.current.stop(); ringtoneRef.current = null; }
+                  setShowMeeting(true);
+                }}
+                style={{
+                  width: 64, height: 64, borderRadius: "50%",
+                  background: "#2ed573", border: "none",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  cursor: "pointer", fontSize: "1.5rem", color: "#fff",
+                  boxShadow: "0 4px 24px rgba(46,213,115,0.4)",
+                  transition: "transform 0.2s",
+                  animation: "callPulse 1.5s ease-in-out infinite"
+                }}
+              >
+                📞
+              </button>
+              <span style={{ fontSize: "0.75rem", opacity: 0.7, fontWeight: 600 }}>Accept</span>
+            </div>
+          </div>
+
+          <style>{`
+            @keyframes callPulse {
+              0% { box-shadow: 0 0 0 0 rgba(0,191,165,0.4); }
+              50% { box-shadow: 0 0 0 20px rgba(0,191,165,0); }
+              100% { box-shadow: 0 0 0 0 rgba(0,191,165,0); }
+            }
+          `}</style>
+        </div>
       )}
 
       {showMeeting && (
