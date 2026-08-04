@@ -332,6 +332,14 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const [isFocused, setIsFocused] = useState(true);
   const [watermarkPos, setWatermarkPos] = useState({ x: 10, y: 10 });
   const [focusedPeerId, setFocusedPeerId] = useState("local");
+
+  // Automatically focus talking user if a remote user starts speaking
+  useEffect(() => {
+    const activeTalker = Object.entries(speakingPeers).find(([id, isTalking]) => isTalking && id !== "local");
+    if (activeTalker) {
+      setFocusedPeerId(activeTalker[0]);
+    }
+  }, [speakingPeers]);
   const [myPeerId, setMyPeerId] = useState(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
@@ -351,7 +359,14 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
     const init = async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          }
+        });
         localStreamRef.current = stream;
         setLocalStream(stream);
         if (myVideoRef.current) myVideoRef.current.srcObject = stream;
@@ -437,6 +452,10 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
             const isTalking = volume > 30; // Threshold
             setSpeakingPeers(p => {
                 if (p.local === isTalking) return p;
+                const currentPeerId = peerRef.current?.id;
+                if (currentPeerId) {
+                  socket.emit("talking-state-change", { peerId: currentPeerId, isTalking });
+                }
                 return { ...p, local: isTalking };
             });
             requestAnimationFrame(checkVolume);
@@ -475,6 +494,13 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
           setTimeout(() => setReactions(p => p.filter(r => r.id !== id)), 3000);
         });
 
+        socket.on("user-talking-change", ({ peerId, isTalking }) => {
+          setSpeakingPeers(p => {
+            if (p[peerId] === isTalking) return p;
+            return { ...p, [peerId]: isTalking };
+          });
+        });
+
         socket.emit("getMediaState", roomId);
       } catch (err) {
       }
@@ -502,6 +528,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       socket.off("syncMedia");
       socket.off("meeting-control-denied");
       socket.off("reaction");
+      socket.off("user-talking-change");
       window.removeEventListener("blur", handleBlur);
       window.removeEventListener("focus", handleFocus);
       document.removeEventListener("contextmenu", handleContextMenu);

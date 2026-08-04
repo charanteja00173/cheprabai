@@ -2425,17 +2425,56 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile }) {
   }
 
   if (file.type && file.type.startsWith("audio")) {
+    const PlaybackSpeedAudio = () => {
+      const audioElRef = React.useRef(null);
+      const [speed, setSpeed] = React.useState(1);
+
+      const cycleSpeed = () => {
+        const nextSpeed = speed === 1 ? 1.5 : speed === 1.5 ? 2 : 1;
+        setSpeed(nextSpeed);
+        if (audioElRef.current) {
+          audioElRef.current.playbackRate = nextSpeed;
+        }
+      };
+
+      return (
+        <div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+              <span style={{ fontSize: "1.1rem" }}>🎵</span>
+              <span style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--chakra-colors-textPrimary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.name}</span>
+            </div>
+            <button
+              type="button"
+              onClick={cycleSpeed}
+              style={{
+                background: "rgba(255,255,255,0.06)",
+                border: "1px solid rgba(255,255,255,0.1)",
+                borderRadius: "12px",
+                color: "var(--chakra-colors-brandPrimary)",
+                fontSize: "0.72rem",
+                fontWeight: 750,
+                padding: "2px 8px",
+                cursor: "pointer",
+                transition: "all 0.2s"
+              }}
+            >
+              {speed}x
+            </button>
+          </div>
+          <audio
+            ref={audioElRef}
+            src={decryptedUrl}
+            controls
+            style={{ width: "100%", height: 32, display: "block" }}
+          />
+        </div>
+      );
+    };
+
     return (
       <FileAttachmentWrapper ref={containerRef} style={{ padding: "10px 12px", background: "rgba(255, 255, 255, 0.02)", cursor: "default" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-          <span style={{ fontSize: "1.1rem" }}>🎵</span>
-          <span style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--chakra-colors-textPrimary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.name}</span>
-        </div>
-        <audio
-          src={decryptedUrl}
-          controls
-          style={{ width: "100%", height: 32, display: "block" }}
-        />
+        <PlaybackSpeedAudio />
       </FileAttachmentWrapper>
     );
   }
@@ -3047,7 +3086,7 @@ export default function ChatRoom() {
 
   useEffect(() => {
     socketRef.current = io(process.env.REACT_APP_SOCKET_ENDPOINT || "https://cheprabai-backend.onrender.com", {
-      transports: ["websocket", "polling"],
+      transports: ["polling", "websocket"],
       upgrade: true,
       rememberUpgrade: false
     });
