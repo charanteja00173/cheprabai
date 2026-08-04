@@ -1,7 +1,8 @@
 import React, { useCallback, useRef, useEffect } from "react";
 import { Tldraw } from "@tldraw/tldraw";
 import styled from "styled-components";
-import { FaTimes, FaExpand, FaCompress, FaTrash, FaPaintBrush } from "react-icons/fa";
+import { FaTimes, FaExpand, FaCompress, FaTrash, FaPaintBrush, FaDownload } from "react-icons/fa";
+import { toast } from "react-toastify";
 
 const Overlay = styled.div`
   position: fixed;
@@ -157,6 +158,26 @@ export default function Whiteboard({ socket, roomId, onClose, isAdmin }) {
   const isInteracting = useRef(false);
   const [isFullScreen, setIsFullScreen] = React.useState(false);
   const [isMobile, setIsMobile] = React.useState(window.innerWidth <= 768);
+  const [showExportMenu, setShowExportMenu] = React.useState(false);
+
+  const handleExport = useCallback(async (format) => {
+    if (!appRef.current) return;
+    try {
+      const shapeIds = appRef.current.shapes.map(s => s.id);
+      if (shapeIds.length === 0) {
+        toast.info("Whiteboard is empty.");
+        return;
+      }
+      await appRef.current.exportImage(format, {
+        ids: shapeIds,
+        scale: 2
+      });
+      toast.success(`Exported as ${format.toUpperCase()}`);
+    } catch (e) {
+      toast.error("Failed to export image.");
+    }
+    setShowExportMenu(false);
+  }, []);
 
   React.useEffect(() => {
     const handleResize = () => {
@@ -285,6 +306,68 @@ export default function Whiteboard({ socket, roomId, onClose, isAdmin }) {
                   <FaTrash />
                 </IconButton>
               )}
+              <div style={{ position: "relative" }}>
+                <IconButton onClick={() => setShowExportMenu(prev => !prev)} title="Export Board">
+                  <FaDownload />
+                </IconButton>
+                {showExportMenu && (
+                  <div style={{
+                    position: "absolute",
+                    top: "100%",
+                    right: 0,
+                    marginTop: 8,
+                    background: "rgba(20, 20, 20, 0.95)",
+                    border: "1px solid rgba(255, 255, 255, 0.15)",
+                    borderRadius: 12,
+                    boxShadow: "0 8px 30px rgba(0,0,0,0.6)",
+                    zIndex: 20000,
+                    overflow: "hidden",
+                    display: "flex",
+                    flexDirection: "column",
+                    backdropFilter: "blur(10px)"
+                  }}>
+                    <button
+                      onClick={() => handleExport("png")}
+                      style={{
+                        padding: "10px 16px",
+                        background: "none",
+                        border: "none",
+                        color: "#fff",
+                        fontSize: "0.85rem",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        textAlign: "left",
+                        transition: "background 0.2s",
+                        whiteSpace: "nowrap"
+                      }}
+                      onMouseEnter={e => e.target.style.background = "rgba(255,255,255,0.08)"}
+                      onMouseLeave={e => e.target.style.background = "none"}
+                    >
+                      Export as PNG
+                    </button>
+                    <button
+                      onClick={() => handleExport("svg")}
+                      style={{
+                        padding: "10px 16px",
+                        background: "none",
+                        border: "none",
+                        color: "#fff",
+                        fontSize: "0.85rem",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        textAlign: "left",
+                        transition: "background 0.2s",
+                        whiteSpace: "nowrap",
+                        borderTop: "1px solid rgba(255,255,255,0.08)"
+                      }}
+                      onMouseEnter={e => e.target.style.background = "rgba(255,255,255,0.08)"}
+                      onMouseLeave={e => e.target.style.background = "none"}
+                    >
+                      Export as SVG
+                    </button>
+                  </div>
+                )}
+              </div>
               {isMobile && (
                 <IconButton onClick={() => setIsFullScreen(true)} title="Expand to Fullscreen">
                   <FaExpand />
@@ -319,6 +402,69 @@ export default function Whiteboard({ socket, roomId, onClose, isAdmin }) {
                 <FaTrash />
               </IconButton>
             )}
+            <div style={{ position: "relative" }}>
+              <IconButton onClick={() => setShowExportMenu(prev => !prev)} title="Export Board">
+                <FaDownload />
+              </IconButton>
+              {showExportMenu && (
+                <div style={{
+                  position: "absolute",
+                  top: "100%",
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                  marginTop: 8,
+                  background: "rgba(20, 20, 20, 0.95)",
+                  border: "1px solid rgba(255, 255, 255, 0.15)",
+                  borderRadius: 12,
+                  boxShadow: "0 8px 30px rgba(0,0,0,0.6)",
+                  zIndex: 20000,
+                  overflow: "hidden",
+                  display: "flex",
+                  flexDirection: "column",
+                  backdropFilter: "blur(10px)"
+                }}>
+                  <button
+                    onClick={() => handleExport("png")}
+                    style={{
+                      padding: "10px 16px",
+                      background: "none",
+                      border: "none",
+                      color: "#fff",
+                      fontSize: "0.85rem",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      textAlign: "left",
+                      transition: "background 0.2s",
+                      whiteSpace: "nowrap"
+                    }}
+                    onMouseEnter={e => e.target.style.background = "rgba(255,255,255,0.08)"}
+                    onMouseLeave={e => e.target.style.background = "none"}
+                  >
+                    Export as PNG
+                  </button>
+                  <button
+                    onClick={() => handleExport("svg")}
+                    style={{
+                      padding: "10px 16px",
+                      background: "none",
+                      border: "none",
+                      color: "#fff",
+                      fontSize: "0.85rem",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      textAlign: "left",
+                      transition: "background 0.2s",
+                      whiteSpace: "nowrap",
+                      borderTop: "1px solid rgba(255,255,255,0.08)"
+                    }}
+                    onMouseEnter={e => e.target.style.background = "rgba(255,255,255,0.08)"}
+                    onMouseLeave={e => e.target.style.background = "none"}
+                  >
+                    Export as SVG
+                  </button>
+                </div>
+              )}
+            </div>
             <IconButton onClick={() => setIsFullScreen(false)} title="Exit Fullscreen">
               <FaCompress />
             </IconButton>

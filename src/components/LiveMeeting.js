@@ -367,6 +367,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const [isFocused, setIsFocused] = useState(true);
   const [watermarkPos, setWatermarkPos] = useState({ x: 10, y: 10 });
   const [focusedPeerId, setFocusedPeerId] = useState("local");
+  const [networkStatus, setNetworkStatus] = useState("good"); // good, poor, fallback
 
   // Automatically focus talking user if a remote user starts speaking
   useEffect(() => {
@@ -383,6 +384,91 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       setFocusedPeerId(entries[0][0]);
     }
   }, [remoteStreams, activeMedia]);
+
+  // Adaptive Bitrate Control (ABR) & Audio-Only Fallback
+  useEffect(() => {
+    if (!localStream) return;
+
+    const interval = setInterval(async () => {
+      let totalPacketsLost = 0;
+      let totalRTT = 0;
+      let rttCount = 0;
+
+      // Query WebRTC stats on all active peer connections
+      const promises = Object.values(peers.current).map(async (call) => {
+        if (!call.peerConnection) return;
+        try {
+          const stats = await call.peerConnection.getStats();
+          stats.forEach((report) => {
+            if (report.type === "candidate-pair" && report.state === "succeeded") {
+              if (report.currentRoundTripTime !== undefined) {
+                totalRTT += report.currentRoundTripTime;
+                rttCount++;
+              }
+            }
+            if (report.type === "inbound-rtp" && report.kind === "video") {
+              if (report.packetsLost !== undefined) {
+                totalPacketsLost += report.packetsLost;
+              }
+            }
+          });
+        } catch (e) {
+          // ignore stats retrieval errors
+        }
+      });
+
+      await Promise.all(promises);
+
+      const avgRTT = rttCount > 0 ? (totalRTT / rttCount) * 1000 : 0; // ms
+
+      let nextStatus = "good";
+      if (avgRTT > 300 || totalPacketsLost > 50) {
+        nextStatus = "poor";
+      }
+      if (avgRTT > 600 || totalPacketsLost > 150) {
+        nextStatus = "fallback";
+      }
+
+      setNetworkStatus(nextStatus);
+
+      // Apply dynamic bitrate restrictions (ABR)
+      Object.values(peers.current).forEach((call) => {
+        if (!call.peerConnection) return;
+        const senders = call.peerConnection.getSenders();
+        const videoSender = senders.find(s => s.track && s.track.kind === "video");
+        if (videoSender) {
+          try {
+            const params = videoSender.getParameters();
+            if (params && params.encodings && params.encodings[0]) {
+              let maxBitrate = 1500000; // 1.5 Mbps default
+              if (nextStatus === "poor") {
+                maxBitrate = 300000; // 300 kbps (SD video)
+              } else if (nextStatus === "fallback") {
+                maxBitrate = 50000; // 50 kbps (extremely low quality)
+              }
+              params.encodings[0].maxBitrate = maxBitrate;
+              videoSender.setParameters(params);
+            }
+          } catch (err) {
+            // ignore parameter updates on closed senders
+          }
+        }
+      });
+
+      // Automatically trigger Audio-Only Fallback if connection drops severely
+      if (nextStatus === "fallback") {
+        const videoTrack = localStream.getVideoTracks()[0];
+        if (videoTrack && videoTrack.enabled) {
+          videoTrack.enabled = false;
+          setIsVideoOff(true);
+          toast.warning("Low bandwidth detected. Automatic audio-only fallback enabled.");
+        }
+      }
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [localStream]);
+
   const [myPeerId, setMyPeerId] = useState(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
@@ -560,10 +646,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     document.addEventListener("contextmenu", handleContextMenu);
     const wmInterval = setInterval(() => setWatermarkPos({ x: Math.random() * 80, y: Math.random() * 80 }), 8000);
 
-    const remoteEntries = Object.entries(remoteStreams);
-  const isPiPMode = remoteEntries.length === 1 && !activeMedia && !isMinimized;
-
-  return () => {
+    return () => {
       if (localStreamRef.current) {
         localStreamRef.current.getTracks().forEach(t => t.stop());
       }
@@ -879,12 +962,22 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     setTimeout(() => setReactions(p => p.filter(r => r.id !== id)), 3000);
   };
 
+  const remoteEntries = Object.entries(remoteStreams);
+  const isPiPMode = remoteEntries.length === 1 && !activeMedia && !isMinimized;
+
   return (
     <MeetingOverlay ref={containerRef} $minimized={isMinimized} onClick={isMinimized ? () => setIsMinimized(false) : undefined}>
       <MeetingHeader $minimized={isMinimized}>
         <div style={{ display: "flex", alignItems: "center", gap: "12px", minWidth: 0 }}>
           <div className="live-pulse" style={{ width: 8, height: 8, background: "#ff4757", borderRadius: "50%", flexShrink: 0 }} />
           <h2 style={{ margin: 0, fontSize: "1rem", fontWeight: 700, letterSpacing: "-0.5px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Video call</h2>
+          {!isMinimized && (
+            <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "rgba(255,255,255,0.06)", padding: "4px 8px", borderRadius: "10px", fontSize: "0.72rem", fontWeight: 650 }}>
+              {networkStatus === "good" && <span style={{ color: "#2ed573" }}>● Good Connection</span>}
+              {networkStatus === "poor" && <span style={{ color: "#ffa502" }}>● Weak Connection</span>}
+              {networkStatus === "fallback" && <span style={{ color: "#ff4757" }}>● Low Bandwidth Fallback</span>}
+            </div>
+          )}
         </div>
         <div onClick={(event) => event.stopPropagation()} style={{ display: "flex", gap: "4px", background: "rgba(255,255,255,0.08)", padding: "4px", borderRadius: "14px", border: "1px solid rgba(255,255,255,0.12)", alignItems: "center" }}>
           {isMinimized ? <CircleButton style={{ width: 32, height: 32, fontSize: ".8rem" }} onClick={() => setIsMinimized(false)} title="Return to call"><FaExpand /></CircleButton> : <>

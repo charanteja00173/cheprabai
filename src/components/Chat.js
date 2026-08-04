@@ -2427,7 +2427,119 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile }) {
   if (file.type && file.type.startsWith("audio")) {
     const PlaybackSpeedAudio = () => {
       const audioElRef = React.useRef(null);
+      const canvasRef = React.useRef(null);
       const [speed, setSpeed] = React.useState(1);
+      const [isPlaying, setIsPlaying] = React.useState(false);
+      const [currentTime, setCurrentTime] = React.useState(0);
+      const [duration, setDuration] = React.useState(0);
+      const [peaks, setPeaks] = React.useState([]);
+
+      // Fetch and decode audio to generate peaks
+      React.useEffect(() => {
+        if (!decryptedUrl) return;
+        const generatePeaks = async () => {
+          try {
+            const response = await fetch(decryptedUrl);
+            const arrayBuffer = await response.arrayBuffer();
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+            const channelData = audioBuffer.getChannelData(0);
+            const step = Math.floor(channelData.length / 50);
+            const generatedPeaks = [];
+            for (let i = 0; i < 50; i++) {
+              let max = 0;
+              for (let j = 0; j < step; j++) {
+                const val = Math.abs(channelData[i * step + j]);
+                if (val > max) max = val;
+              }
+              generatedPeaks.push(max);
+            }
+            setPeaks(generatedPeaks);
+            setDuration(audioBuffer.duration);
+            audioCtx.close();
+          } catch (err) {
+            // Fallback peaks if decoding fails
+            const fallback = Array.from({ length: 50 }, () => 0.1 + Math.random() * 0.8);
+            setPeaks(fallback);
+          }
+        };
+        generatePeaks();
+      }, []);
+
+      // Sync canvas redraw with currentTime
+      React.useEffect(() => {
+        const canvas = canvasRef.current;
+        if (!canvas || peaks.length === 0) return;
+        const ctx = canvas.getContext("2d");
+        const width = canvas.width;
+        const height = canvas.height;
+        ctx.clearRect(0, 0, width, height);
+
+        const progress = duration > 0 ? currentTime / duration : 0;
+        const activeColor = "#00bfa5"; // var(--chakra-colors-brandPrimary)
+        const inactiveColor = "rgba(255, 255, 255, 0.25)";
+
+        const barWidth = 3;
+        const gap = 2;
+        const totalBars = peaks.length;
+
+        for (let i = 0; i < totalBars; i++) {
+          const x = i * (barWidth + gap);
+          const peakVal = peaks[i];
+          // Normalize peak height to fit canvas height
+          const barHeight = Math.max(3, peakVal * height * 0.9);
+          const y = (height - barHeight) / 2;
+
+          ctx.fillStyle = (i / totalBars) <= progress ? activeColor : inactiveColor;
+          // Draw rounded rectangle for bars
+          ctx.beginPath();
+          if (ctx.roundRect) {
+            ctx.roundRect(x, y, barWidth, barHeight, 1.5);
+          } else {
+            ctx.rect(x, y, barWidth, barHeight);
+          }
+          ctx.fill();
+        }
+      }, [peaks, currentTime, duration]);
+
+      const togglePlay = () => {
+        if (!audioElRef.current) return;
+        if (isPlaying) {
+          audioElRef.current.pause();
+        } else {
+          audioElRef.current.play().catch(() => {});
+        }
+      };
+
+      const handleTimeUpdate = () => {
+        if (audioElRef.current) {
+          setCurrentTime(audioElRef.current.currentTime);
+        }
+      };
+
+      const handleLoadedMetadata = () => {
+        if (audioElRef.current) {
+          setDuration(audioElRef.current.duration);
+        }
+      };
+
+      const handleCanvasClick = (e) => {
+        const canvas = canvasRef.current;
+        if (!canvas || !audioElRef.current || duration === 0) return;
+        const rect = canvas.getBoundingClientRect();
+        const clickX = e.clientX - rect.left;
+        const percentage = clickX / rect.width;
+        const targetTime = percentage * duration;
+        audioElRef.current.currentTime = targetTime;
+        setCurrentTime(targetTime);
+      };
+
+      const formatTime = (time) => {
+        if (isNaN(time)) return "00:00";
+        const minutes = Math.floor(time / 60);
+        const seconds = Math.floor(time % 60);
+        return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+      };
 
       const cycleSpeed = () => {
         const nextSpeed = speed === 1 ? 1.5 : speed === 1.5 ? 2 : 1;
@@ -2438,10 +2550,20 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile }) {
       };
 
       return (
-        <div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
+        <div style={{ background: "rgba(20, 20, 30, 0.35)", borderRadius: "14px", padding: "12px", border: "1px solid rgba(255,255,255,0.06)", width: "100%", boxSizing: "border-box" }}>
+          <audio
+            ref={audioElRef}
+            src={decryptedUrl}
+            onPlay={() => setIsPlaying(true)}
+            onPause={() => setIsPlaying(false)}
+            onTimeUpdate={handleTimeUpdate}
+            onLoadedMetadata={handleLoadedMetadata}
+            onEnded={() => setIsPlaying(false)}
+            style={{ display: "none" }}
+          />
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 10 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-              <span style={{ fontSize: "1.1rem" }}>🎵</span>
+              <span style={{ fontSize: "1.1rem" }}>🎙️</span>
               <span style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--chakra-colors-textPrimary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.name}</span>
             </div>
             <button
@@ -2462,18 +2584,51 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile }) {
               {speed}x
             </button>
           </div>
-          <audio
-            ref={audioElRef}
-            src={decryptedUrl}
-            controls
-            style={{ width: "100%", height: 32, display: "block" }}
-          />
+
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <button
+              type="button"
+              onClick={togglePlay}
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: "50%",
+                background: "var(--chakra-colors-brandPrimary)",
+                border: "none",
+                color: "#fff",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+                fontSize: "1rem",
+                boxShadow: "0 4px 10px rgba(0, 191, 165, 0.3)",
+                transition: "transform 0.1s"
+              }}
+            >
+              {isPlaying ? "⏸" : "▶"}
+            </button>
+
+            <div style={{ flex: 1, position: "relative", cursor: "pointer" }}>
+              <canvas
+                ref={canvasRef}
+                width={250}
+                height={32}
+                onClick={handleCanvasClick}
+                style={{ width: "100%", height: 32, display: "block" }}
+              />
+            </div>
+          </div>
+
+          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: "0.7rem", opacity: 0.6, fontWeight: 500 }}>
+            <span>{formatTime(currentTime)}</span>
+            <span>{formatTime(duration)}</span>
+          </div>
         </div>
       );
     };
 
     return (
-      <FileAttachmentWrapper ref={containerRef} style={{ padding: "10px 12px", background: "rgba(255, 255, 255, 0.02)", cursor: "default" }}>
+      <FileAttachmentWrapper ref={containerRef} style={{ padding: "10px 12px", background: "rgba(255, 255, 255, 0.02)", cursor: "default", width: "100%", maxWidth: 320, boxSizing: "border-box" }}>
         <PlaybackSpeedAudio />
       </FileAttachmentWrapper>
     );
