@@ -4,6 +4,40 @@ import { extendTheme } from "@chakra-ui/react";
    PREMIUM THEMES CONFIG
 ----------------------------------- */
 export const THEMES = {
+  executiveLight: {
+    name: "Executive Light (Professional)",
+    isLightOnly: true,
+    colors: {
+      primary: "#2563EB",      // Professional Royal Blue
+      secondary: "#1D4ED8",    // Indigo Blue
+      accent: "#10B981",       // Active Mint Emerald
+      hover: "#1E40AF",
+      glow: "rgba(37, 99, 235, 0.12)",
+      lightBg: "#F8FAFC",      // Clean light slate
+      darkBg: "#F8FAFC",
+      lightSurface: "#FFFFFF", // Pure white card surfaces
+      darkSurface: "#FFFFFF",
+      lightSurfaceHover: "#F1F5F9",
+      darkSurfaceHover: "#F1F5F9",
+    }
+  },
+  pitchBlack: {
+    name: "Pitch Black (Professional E2EE)",
+    isDarkOnly: true,
+    colors: {
+      primary: "#00bfa5",      // Modern Brand Teal
+      secondary: "#0EA5E9",    // Vibrant Blue
+      accent: "#6366F1",       // Cool Violet
+      hover: "#00a891",
+      glow: "rgba(0, 191, 165, 0.2)",
+      lightBg: "#000000",      // Absolute Pitch Dark OLED
+      darkBg: "#000000",
+      lightSurface: "#08080C", // Sleek dark surfaces
+      darkSurface: "#08080C",
+      lightSurfaceHover: "#121218",
+      darkSurfaceHover: "#121218",
+    }
+  },
   default: {
       name: "OLED Midnight (Void)",
     colors: {
@@ -200,7 +234,7 @@ export const THEMES = {
 
 /* ----------------------------------
    PREMIUM FONTS CONFIG
------------------------------------ */
+   ----------------------------------- */
 export const FONTS = {
   inter: {
     name: "Inter (Modern Clean)",
@@ -266,15 +300,69 @@ export const FONTS = {
 
 /* ----------------------------------
    DYNAMIC THEME CREATOR
------------------------------------ */
+   ----------------------------------- */
 export function createAppTheme(themeKey = "default", fontKey = "inter") {
   const activeTheme = THEMES[themeKey] || THEMES.default;
   const activeFont = FONTS[fontKey] || FONTS.inter;
   const isDarkOnly = activeTheme.isDarkOnly || false;
+  const isLightOnly = activeTheme.isLightOnly || false;
 
   const config = {
-    initialColorMode: isDarkOnly ? "dark" : "dark",
-    useSystemColorMode: isDarkOnly ? false : true,
+    initialColorMode: isLightOnly ? "light" : "dark",
+    useSystemColorMode: !(isLightOnly || isDarkOnly),
+  };
+
+  const getBg = (mode) => {
+    if (isLightOnly) return activeTheme.colors.lightBg;
+    if (isDarkOnly) return activeTheme.colors.darkBg;
+    return mode === "light" ? activeTheme.colors.lightBg : activeTheme.colors.darkBg;
+  };
+
+  const getSurface = (mode) => {
+    if (isLightOnly) return activeTheme.colors.lightSurface;
+    if (isDarkOnly) return activeTheme.colors.darkSurface;
+    return mode === "light" ? activeTheme.colors.lightSurface : activeTheme.colors.darkSurface;
+  };
+
+  const getSurfaceHover = (mode) => {
+    if (isLightOnly) return activeTheme.colors.lightSurfaceHover;
+    if (isDarkOnly) return activeTheme.colors.darkSurfaceHover;
+    return mode === "light" ? activeTheme.colors.lightSurfaceHover : activeTheme.colors.darkSurfaceHover;
+  };
+
+  const getCard = (mode) => {
+    if (isLightOnly) return activeTheme.colors.lightSurface;
+    if (isDarkOnly) return `rgba(${hexToRgb(activeTheme.colors.darkSurface)}, 0.65)`;
+    return mode === "light" 
+      ? activeTheme.colors.lightSurface 
+      : `rgba(${hexToRgb(activeTheme.colors.darkSurface)}, 0.65)`;
+  };
+
+  const getBorder = (mode) => {
+    const opacity = (isDarkOnly || (mode === "dark" && !isLightOnly)) ? "0.09" : "0.08";
+    return `rgba(${hexToRgb(activeTheme.colors.primary)}, ${opacity})`;
+  };
+
+  const getBorderSubtle = (mode) => {
+    return `rgba(${hexToRgb(activeTheme.colors.primary)}, 0.04)`;
+  };
+
+  const getTextPrimary = (mode) => {
+    if (isLightOnly) return "#0F172A";
+    if (isDarkOnly) return "#F9FAFB";
+    return mode === "light" ? "#0F172A" : "#F9FAFB";
+  };
+
+  const getTextSecondary = (mode) => {
+    if (isLightOnly) return "#475569";
+    if (isDarkOnly) return "#E5E7EB";
+    return mode === "light" ? "#475569" : "#E5E7EB";
+  };
+
+  const getTextMuted = (mode) => {
+    if (isLightOnly) return "#64748B";
+    if (isDarkOnly) return "#9CA3AF";
+    return mode === "light" ? "#64748B" : "#9CA3AF";
   };
 
   const colors = {
@@ -286,26 +374,26 @@ export function createAppTheme(themeKey = "default", fontKey = "inter") {
       glow: activeTheme.colors.glow,
     },
     light: {
-      bg: isDarkOnly ? activeTheme.colors.darkBg : activeTheme.colors.lightBg,
-      surface: isDarkOnly ? activeTheme.colors.darkSurface : activeTheme.colors.lightSurface,
-      surfaceHover: isDarkOnly ? activeTheme.colors.darkSurfaceHover : activeTheme.colors.lightSurfaceHover,
-      card: isDarkOnly ? `rgba(${hexToRgb(activeTheme.colors.darkSurface)}, 0.65)` : activeTheme.colors.lightSurface,
-      border: isDarkOnly ? `rgba(${hexToRgb(activeTheme.colors.primary)}, 0.09)` : `rgba(${hexToRgb(activeTheme.colors.primary)}, 0.08)`,
-      borderSubtle: isDarkOnly ? `rgba(${hexToRgb(activeTheme.colors.primary)}, 0.04)` : `rgba(${hexToRgb(activeTheme.colors.primary)}, 0.04)`,
-      textPrimary: isDarkOnly ? "#F9FAFB" : "#0F172A",
-      textSecondary: isDarkOnly ? "#E5E7EB" : "#475569",
-      textMuted: isDarkOnly ? "#9CA3AF" : "#64748B",
+      bg: getBg("light"),
+      surface: getSurface("light"),
+      surfaceHover: getSurfaceHover("light"),
+      card: getCard("light"),
+      border: getBorder("light"),
+      borderSubtle: getBorderSubtle("light"),
+      textPrimary: getTextPrimary("light"),
+      textSecondary: getTextSecondary("light"),
+      textMuted: getTextMuted("light"),
     },
     dark: {
-      bg: activeTheme.colors.darkBg,
-      surface: activeTheme.colors.darkSurface,
-      surfaceHover: activeTheme.colors.darkSurfaceHover,
-      card: `rgba(${hexToRgb(activeTheme.colors.darkSurface)}, 0.65)`,
-      border: `rgba(${hexToRgb(activeTheme.colors.primary)}, 0.09)`,
-      borderSubtle: `rgba(${hexToRgb(activeTheme.colors.primary)}, 0.04)`,
-      textPrimary: "#F9FAFB",
-      textSecondary: "#E5E7EB",
-      textMuted: "#9CA3AF",
+      bg: getBg("dark"),
+      surface: getSurface("dark"),
+      surfaceHover: getSurfaceHover("dark"),
+      card: getCard("dark"),
+      border: getBorder("dark"),
+      borderSubtle: getBorderSubtle("dark"),
+      textPrimary: getTextPrimary("dark"),
+      textSecondary: getTextSecondary("dark"),
+      textMuted: getTextMuted("dark"),
     },
   };
 
