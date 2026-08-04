@@ -2578,6 +2578,7 @@ export default function ChatRoom() {
 
     window.addEventListener("keydown", handleShortcuts);
     return () => window.removeEventListener("keydown", handleShortcuts);
+    // eslint-disable-next-line react-hooks/exhaustive-deps, no-use-before-define
   }, [ephemeralMode, showGifPicker, fetchGifs]);
 
   // Keep the current participant visible immediately while Socket.IO finishes
@@ -2743,7 +2744,7 @@ export default function ChatRoom() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  const fetchGifs = async (query = "", offset = 0) => {
+  const fetchGifs = useCallback(async (query = "", offset = 0) => {
     const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
     const limit = connection?.saveData || /(^|-)2g/.test(connection?.effectiveType || "") ? 12 : 20;
     gifPageSizeRef.current = limit;
@@ -2788,7 +2789,7 @@ export default function ChatRoom() {
     } finally {
       loadingGifsRef.current = false;
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (!showGifPicker) return undefined;
@@ -2798,7 +2799,7 @@ export default function ChatRoom() {
       fetchGifs(gifQuery, 0);
     }, gifQuery ? 280 : 0);
     return () => clearTimeout(timer);
-  }, [showGifPicker, gifQuery]);
+  }, [showGifPicker, gifQuery, fetchGifs]);
 
   useEffect(() => {
     if (showGifPicker) {
@@ -2831,7 +2832,7 @@ export default function ChatRoom() {
 
     grid.addEventListener("scroll", handleScroll, { passive: true });
     return () => grid.removeEventListener("scroll", handleScroll);
-  }, [showGifPicker, gifOffset, gifQuery, hasMoreGifs]);
+  }, [showGifPicker, gifOffset, gifQuery, hasMoreGifs, fetchGifs]);
 
   /* ================= HELPERS ================= */
 
@@ -3505,20 +3506,6 @@ export default function ChatRoom() {
     }
   }, [message, draftKey, roomId]);
 
-  /* ================= MARKDOWN RENDERING ================= */
-  const renderMarkdownText = (text) => {
-    if (!text || typeof text !== "string") return text;
-    // Bold: *text* or **text**
-    let html = text.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-    html = html.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, "<strong>$1</strong>");
-    // Italic: _text_
-    html = html.replace(/(?<![\\w])_(.+?)_(?![\\w])/g, "<em>$1</em>");
-    // Strikethrough: ~text~
-    html = html.replace(/~(.+?)~/g, "<del>$1</del>");
-    // Inline code: `code`
-    html = html.replace(/`([^`]+)`/g, '<code style="background:rgba(255,255,255,.08);padding:2px 5px;border-radius:4px;font-family:monospace;font-size:.85em">$1</code>');
-    return html;
-  };
 
   /* ================= SCHEDULED MESSAGES ================= */
   const handleScheduleMessage = () => {
@@ -4526,6 +4513,7 @@ export default function ChatRoom() {
     // 1. Search Query Highlighting
     if (searchQuery && searchQuery.trim()) {
       try {
+        // eslint-disable-next-line no-useless-escape
         const regex = new RegExp(`(${searchQuery.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')})`, "gi");
         escaped = escaped.replace(regex, `<mark style="background: #ffa500; color: #000; padding: 0 2px; border-radius: 2px; font-weight: bold">$1</mark>`);
       } catch (e) {}
