@@ -38,7 +38,9 @@ import {
   encryptMessage,
   decryptMessage,
   encryptBinary,
-  decryptBinary
+  decryptBinary,
+  exportKey,
+  importKey
 } from "../utils/crypto";
 import { ImNewTab } from "react-icons/im";
 import { AiFillCloseSquare } from "react-icons/ai";
@@ -1899,10 +1901,14 @@ function ReplyAttachmentPreview({ reply, roomKey }) {
         const response = await fetch(source);
         if (!response.ok) throw new Error("Preview download failed");
         let blob;
-        if (file.iv && roomKey) {
+        let decryptionKey = roomKey;
+        if (file.keyB64) {
+          decryptionKey = await importKey(file.keyB64);
+        }
+        if (file.iv && decryptionKey) {
           const encrypted = await response.arrayBuffer();
           const iv = new Uint8Array(atob(file.iv).split("").map((char) => char.charCodeAt(0)));
-          const decrypted = await decryptBinary(roomKey, { iv, data: encrypted });
+          const decrypted = await decryptBinary(decryptionKey, { iv, data: encrypted });
           blob = new Blob([decrypted], { type: file.type || "application/octet-stream" });
         } else {
           blob = await response.blob();
@@ -2093,11 +2099,14 @@ function PremiumEmojiPicker({ onSelect, onClose, isMobile }) {
   }, [search, activeCategory]);
 
   return (
-    <div style={{
-      position: "absolute",
-      bottom: "calc(100% + 10px)",
-      right: isMobile ? -80 : 0,
-      width: 320,
+    <div className="emoji-picker-container" style={{
+      position: isMobile ? "fixed" : "absolute",
+      bottom: isMobile ? "calc(env(safe-area-inset-bottom, 0px) + 90px)" : "calc(100% + 10px)",
+      left: isMobile ? "50%" : "auto",
+      right: isMobile ? "auto" : 0,
+      transform: isMobile ? "translateX(-50%)" : "none",
+      width: isMobile ? "calc(100% - 32px)" : 320,
+      maxWidth: isMobile ? 360 : "none",
       height: 380,
       background: "#171922",
       border: "1px solid rgba(255,255,255,.12)",
@@ -2105,7 +2114,7 @@ function PremiumEmojiPicker({ onSelect, onClose, isMobile }) {
       boxShadow: "0 20px 50px rgba(0,0,0,.5)",
       display: "flex",
       flexDirection: "column",
-      zIndex: 100,
+      zIndex: 22000,
       overflow: "hidden"
     }}>
       <div style={{ padding: 10, borderBottom: "1px solid rgba(255,255,255,.06)" }}>
@@ -2354,7 +2363,7 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile }) {
 
   useEffect(() => {
     if (!isInView) return;
-    if (!file.iv || !roomKey) {
+    if (!file.iv || (!roomKey && !file.keyB64)) {
       setDecryptedUrl(file.url);
       setLoading(false);
       return;
@@ -2387,7 +2396,16 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile }) {
             .map(c => c.charCodeAt(0))
         );
 
-        const decryptedBuffer = await decryptBinary(roomKey, {
+        let decryptionKey = roomKey;
+        if (file.keyB64) {
+          decryptionKey = await importKey(file.keyB64);
+        }
+
+        if (!decryptionKey) {
+          throw new Error("No decryption key available.");
+        }
+
+        const decryptedBuffer = await decryptBinary(decryptionKey, {
           iv: ivBytes,
           data: encryptedBuffer
         });
@@ -2416,7 +2434,7 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile }) {
       active = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isInView, file.url, file.iv, roomKey]);
+  }, [isInView, file.url, file.iv, roomKey, file.keyB64]);
 
   if (loading) {
     return (
@@ -2909,6 +2927,35 @@ export default function ChatRoom() {
   const [isDragOver, setIsDragOver] = useState(false);
   const dragCounterRef = useRef(0);
 
+
+  useEffect(() => {
+    const handleOutsideClick = (e) => {
+      // 1. Close emoji picker
+      if (showEmojiPicker) {
+        const isPicker = e.target.closest(".emoji-picker-container");
+        const isToggle = e.target.closest(".emoji-picker-toggle-btn");
+        if (!isPicker && !isToggle) {
+          setShowEmojiPicker(false);
+        }
+      }
+
+      // 2. Close message reaction picker
+      if (reactionPickerFor !== null) {
+        const isReactionPicker = e.target.closest(`.reaction-picker-${reactionPickerFor}`);
+        const isReactionToggle = e.target.closest(`.reaction-btn-${reactionPickerFor}`);
+        if (!isReactionPicker && !isReactionToggle) {
+          setReactionPickerFor(null);
+        }
+      }
+    };
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    document.addEventListener("touchstart", handleOutsideClick);
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+      document.removeEventListener("touchstart", handleOutsideClick);
+    };
+  }, [showEmojiPicker, reactionPickerFor]);
 
   useEffect(() => {
     if (joined && roomId) {
@@ -3668,6 +3715,7 @@ export default function ChatRoom() {
 
       let fileToUpload = file;
       let ivString = null;
+      let keyB64 = null;
 
       if (roomKey) {
         const fileBuffer = await file.arrayBuffer();
@@ -3675,6 +3723,7 @@ export default function ChatRoom() {
         const encryptedBlob = new Blob([encrypted.data], { type: "application/octet-stream" });
         fileToUpload = new File([encryptedBlob], file.name + ".enc", { type: "application/octet-stream" });
         ivString = btoa(String.fromCharCode(...new Uint8Array(encrypted.iv)));
+        keyB64 = await exportKey(roomKey);
       }
 
       const backendUrl = process.env.REACT_APP_SOCKET_ENDPOINT || "https://cheprabai-backend.onrender.com";
@@ -3704,7 +3753,10 @@ export default function ChatRoom() {
         ...(ivString && { iv: ivString })
       };
       if (scheduleTime) {
-        const plainPayload = { file: fileData, ...(replyTo && { replyTo }) };
+        const plainPayload = {
+          file: { ...fileData, ...(keyB64 && { keyB64 }) },
+          ...(replyTo && { replyTo })
+        };
         let payload = plainPayload;
         if (roomKey) {
           const encrypted = await encryptMessage(roomKey, JSON.stringify(plainPayload));
@@ -3728,7 +3780,7 @@ export default function ChatRoom() {
           });
         });
       } else {
-        await handleSend({ file: fileData });
+        await handleSend({ file: fileData }, keyB64);
       }
       setMessages(m => m.filter(msg => msg.id !== tempId));
     } catch (err) {
@@ -3757,7 +3809,7 @@ export default function ChatRoom() {
 
   /* ================= SEND ================= */
 
-  const handleSend = async (customData = null) => {
+  const handleSend = async (customData = null, keyB64 = null) => {
     if (!customData && pendingFiles.length > 0) {
       const filesToUpload = [...pendingFiles];
       setPendingFiles([]);
@@ -3768,7 +3820,16 @@ export default function ChatRoom() {
     }
     if (!customData && !message.trim()) return;
 
-    const plainPayload = { ...(customData || { text: message }), ...(replyTo && { replyTo }) };
+    let plainPayload = { ...(customData || { text: message }), ...(replyTo && { replyTo }) };
+    if (plainPayload.file && keyB64) {
+      plainPayload = {
+        ...plainPayload,
+        file: {
+          ...plainPayload.file,
+          keyB64
+        }
+      };
+    }
     let payload = plainPayload;
 
     if (roomKey) {
@@ -4169,12 +4230,29 @@ export default function ChatRoom() {
   };
 
   const handleForwardMessage = async () => {
-    if (!forwardRoomId.trim() || !forwardSecurityCode.trim()) return toast.warn("Please enter target Room ID and Security Code.");
+    const targetRoomId = forwardRoomId.trim();
+    const code = forwardSecurityCode.trim();
+    if (!targetRoomId || !code) return toast.warn("Please enter target Room ID and Security Code.");
+    if (!SECURITY_CODE.includes(code)) {
+      return toast.error("Invalid security code! Please check and try again.");
+    }
 
     try {
+      let fileData = null;
+      if (forwardTarget.file) {
+        let keyB64 = forwardTarget.file.keyB64;
+        if (!keyB64 && roomKey) {
+          keyB64 = await exportKey(roomKey);
+        }
+        fileData = {
+          ...forwardTarget.file,
+          ...(keyB64 && { keyB64 })
+        };
+      }
+
       const plainPayload = {
         text: forwardTarget.text || "",
-        ...(forwardTarget.file && { file: forwardTarget.file }),
+        ...(fileData && { file: fileData }),
         ...(forwardTarget.gif && { gif: forwardTarget.gif }),
         forwarded: true,
         forwardedFrom: forwardTarget.userName
@@ -4183,10 +4261,16 @@ export default function ChatRoom() {
       const targetKey = await generateKeyFromSecret(forwardSecurityCode.trim() + forwardRoomId.trim());
       const encrypted = await encryptMessage(targetKey, JSON.stringify(plainPayload));
 
+      let outerFile = null;
+      if (fileData) {
+        const { keyB64: _, ...rest } = fileData;
+        outerFile = rest;
+      }
+
       const outgoingMessage = {
         payload: {
           encryptedPayload: encrypted,
-          ...(forwardTarget.file && { file: forwardTarget.file })
+          ...(outerFile && { file: outerFile })
         },
         userName: userName,
         senderAvatar: userAvatar,
@@ -4972,7 +5056,25 @@ export default function ChatRoom() {
     escaped = escaped.replace(/~(.+?)~/g, "<del>$1</del>");
     escaped = escaped.replace(/`([^`]+)`/g, '<code style="background:rgba(255,255,255,.08);padding:2px 5px;border-radius:4px;font-family:monospace;font-size:.85em">$1</code>');
 
-    const mentionRegex = /@(\w+)/g;
+    const uniqueNames = new Set();
+    if (userName) uniqueNames.add(userName);
+    if (onlineUsers) {
+      onlineUsers.forEach(u => {
+        if (u.name) uniqueNames.add(u.name);
+      });
+    }
+    if (participantProfiles) {
+      Object.values(participantProfiles).forEach(p => {
+        if (p.name) uniqueNames.add(p.name);
+      });
+    }
+    const sortedNames = Array.from(uniqueNames).sort((a, b) => b.length - a.length);
+    const escapedNames = sortedNames.map(name => name.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'));
+    const pattern = escapedNames.length > 0 
+      ? `@(${escapedNames.join("|")}|\\w+)`
+      : `@(\\w+)`;
+    const mentionRegex = new RegExp(pattern, "gi");
+
     escaped = escaped.replace(mentionRegex, (match, mentioned) => {
       const isMe = mentioned.toLowerCase() === userName?.toLowerCase();
       const style = isMe 
@@ -5589,6 +5691,7 @@ export default function ChatRoom() {
 
                         <BubbleActionButton
                           type="button"
+                          className={`reaction-btn-${m.id}`}
                           onClick={() =>
                             setReactionPickerFor(reactionPickerFor === m.id ? null : m.id)
                           }
@@ -5600,6 +5703,7 @@ export default function ChatRoom() {
 
                       {reactionPickerFor === m.id && (
                         <div
+                          className={`reaction-picker-${m.id}`}
                           style={{
                             position: "absolute",
                             bottom: "110%",
@@ -5887,7 +5991,7 @@ export default function ChatRoom() {
           {showMobileActions && isMobile && (
             <AccessoryRow>
               <div style={{ position: "relative" }}>
-                <IconButton type="button" onClick={() => setShowEmojiPicker((value) => !value)} title="Choose an emoji" aria-label="Choose an emoji">😊</IconButton>
+                <IconButton type="button" className="emoji-picker-toggle-btn" onClick={() => setShowEmojiPicker((value) => !value)} title="Choose an emoji" aria-label="Choose an emoji">😊</IconButton>
                 {showEmojiPicker && (
                   <PremiumEmojiPicker
                     onSelect={(emoji) => {
@@ -5964,6 +6068,75 @@ export default function ChatRoom() {
             </AccessoryRow>
           )}
 
+          {showMentionSuggestions && mentionSuggestions.length > 0 && (
+            <div 
+              className="mention-suggestions"
+              style={{
+                position: "absolute",
+                bottom: "calc(100% + 4px)",
+                left: isMobile ? 12 : 24,
+                right: isMobile ? 12 : 24,
+                background: "rgba(20, 20, 25, 0.95)",
+                backdropFilter: "blur(20px)",
+                border: "1px solid rgba(255, 255, 255, 0.08)",
+                borderRadius: "14px",
+                boxShadow: "0 -8px 24px rgba(0, 0, 0, 0.4), 0 10px 30px rgba(0, 0, 0, 0.3)",
+                maxHeight: "200px",
+                overflowY: "auto",
+                zIndex: 21000,
+                display: "flex",
+                flexDirection: "column",
+                padding: "6px"
+              }}
+            >
+              {mentionSuggestions.map((user, idx) => {
+                const profile = participantProfiles[user.id] || Object.values(participantProfiles).find(p => p.name === user.name);
+                const avatar = profile?.avatar;
+                return (
+                  <div
+                    key={user.id}
+                    onClick={() => selectMention(idx)}
+                    style={{
+                      padding: "8px 12px",
+                      borderRadius: "8px",
+                      cursor: "pointer",
+                      background: idx === mentionIndex ? "rgba(255, 63, 94, 0.15)" : "transparent",
+                      color: idx === mentionIndex ? "var(--chakra-colors-brandPrimary)" : "var(--chakra-colors-textPrimary)",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "10px",
+                      transition: "all 0.2s ease",
+                      fontWeight: idx === mentionIndex ? "bold" : "normal"
+                    }}
+                  >
+                    {avatar ? (
+                      <img 
+                        src={avatar} 
+                        alt={user.name} 
+                        style={{ width: "24px", height: "24px", borderRadius: "50%", objectFit: "cover" }} 
+                      />
+                    ) : (
+                      <div style={{
+                        width: "24px",
+                        height: "24px",
+                        borderRadius: "50%",
+                        background: "rgba(255, 255, 255, 0.1)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: "0.75rem",
+                        fontWeight: "bold"
+                      }}>
+                        {user.name ? user.name.slice(0, 2).toUpperCase() : "?"}
+                      </div>
+                    )}
+                    <span style={{ fontSize: "0.9rem" }}>{user.name}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
           <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 12, width: "100%" }}>
             <InputPill>
               {isMobile && (
@@ -6016,7 +6189,7 @@ export default function ChatRoom() {
               {!isMobile && (
                 <>
                   <div style={{ position: "relative" }}>
-                    <IconButton type="button" onClick={() => setShowEmojiPicker((value) => !value)} title="Choose an emoji" aria-label="Choose an emoji">😊</IconButton>
+                    <IconButton type="button" className="emoji-picker-toggle-btn" onClick={() => setShowEmojiPicker((value) => !value)} title="Choose an emoji" aria-label="Choose an emoji">😊</IconButton>
                     {showEmojiPicker && (
                       <PremiumEmojiPicker
                         onSelect={(emoji) => {

@@ -47,7 +47,7 @@ export async function generateKeyFromSecret(secret) {
     },
     baseKey,
     { name: "AES-GCM", length: 256 },
-    false,
+    true,
     ["encrypt", "decrypt"]
   );
 }
