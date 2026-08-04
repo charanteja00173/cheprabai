@@ -16,10 +16,11 @@ import {
   FaEye,
   FaEyeSlash,
   FaSignOutAlt,
-  FaReply
+  FaReply,
+  FaTrash
 } from "react-icons/fa";
 import { HiGif } from "react-icons/hi2";
-import { FaVideo, FaPlay } from "react-icons/fa";
+import { FaVideo } from "react-icons/fa";
 import image from "../logo192.png";
 import notificationSound from "../assets/iphone-sms.mp3";
 import { AiOutlineClose } from "react-icons/ai";
@@ -221,7 +222,7 @@ const MessageContainer = styled.div`
 
 const MessageBubble = styled.div`
   max-width: ${(p) => (p.isSystem ? "80%" : "clamp(70%, 80vw, 80%)")};
-  padding: ${(p) => (p.isSystem ? "6px 14px" : p.isFile ? "10px" : "5px 5px")};
+  padding: ${(p) => (p.isSystem ? "6px 14px" : p.isFile ? "0" : "10px 14px")};
 
   background: ${(p) =>
     p.isSystem ? "transparent" :
@@ -276,7 +277,7 @@ const MessageBubble = styled.div`
 
   @media (max-width: 375px) {
     max-width: ${(p) => (p.isSystem ? "95%" : "92%")};
-    padding: ${(p) => (p.isSystem ? "4px 8px" : p.isFile ? "6px" : "8px 12px")};
+    padding: ${(p) => (p.isSystem ? "4px 8px" : p.isFile ? "0" : "8px 12px")};
     font-size: ${(p) => (p.isSystem ? "0.72rem" : "0.88rem")};
   }
 
@@ -285,8 +286,9 @@ const MessageBubble = styled.div`
     max-width: min(80vw, 560px);
     display: flex;
     flex-direction: column;
-    padding: 8px 8px 4px;
+    padding: 0 !important;
     border-color: rgba(255,255,255,.05);
+    overflow: hidden;
   `}
 `;
 
@@ -320,6 +322,24 @@ const FileAttachmentWrapper = styled.div`
     border-color: var(--chakra-colors-brandPrimary);
     transform: translateY(-1px);
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+  }
+
+  .expand-btn {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+  
+  &:hover .expand-btn, &:focus-within .expand-btn {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  @media (max-width: 768px) {
+    .expand-btn {
+      opacity: 0.75 !important;
+      pointer-events: auto !important;
+    }
   }
 
 `;
@@ -1793,18 +1813,40 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [viewedOnce, setViewedOnce] = useState(false);
+  const containerRef = useRef(null);
+  const [isInView, setIsInView] = useState(false);
 
   const lastDecryptedIvRef = useRef(null);
   const lastDecryptedSourceUrlRef = useRef(null);
 
   useEffect(() => {
+    if (typeof IntersectionObserver === "undefined") {
+      setIsInView(true);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsInView(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "300px" }
+    );
+    if (containerRef.current) {
+      observer.observe(containerRef.current);
+    }
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!isInView) return;
     if (!file.iv || !roomKey) {
       setDecryptedUrl(file.url);
       setLoading(false);
       return;
     }
 
-    // Optimization: If we already decrypted this exact payload (matching IV), reuse the blob URL
     if (decryptedUrl && lastDecryptedIvRef.current === file.iv) {
       lastDecryptedSourceUrlRef.current = file.url;
       return;
@@ -1816,7 +1858,6 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile }) {
         setLoading(true);
         setError(false);
 
-        // If the URL is external (e.g. Cloudinary), fetch via our backend proxy to avoid client-side CORS blocks
         let fetchUrl = file.url;
         if (!file.url.startsWith(window.location.origin) && !file.url.includes("/uploads/")) {
           const backendUrl = process.env.REACT_APP_SOCKET_ENDPOINT || "https://cheprabai-backend.onrender.com";
@@ -1860,21 +1901,19 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile }) {
 
     return () => {
       active = false;
-      // Note: Only revoke if the source URL actually changed or we unmount
-      // Since we want to preserve blob during local-to-cloud transition, do not revoke if the IV matches
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [file.url, file.iv, roomKey]);
+  }, [isInView, file.url, file.iv, roomKey]);
 
   if (loading) {
     return (
-      <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "12px", background: "rgba(255,255,255,0.02)", borderRadius: "10px" }}>
+      <div ref={containerRef} style={{ display: "flex", alignItems: "center", gap: "10px", padding: "12px", background: "rgba(255,255,255,0.02)", borderRadius: "10px" }}>
         <div style={{
           width: 16, height: 16, border: "2px solid rgba(255,255,255,0.1)",
           borderTop: "2px solid var(--chakra-colors-brandPrimary)",
           borderRadius: "50%", animation: "spin 0.8s linear infinite"
         }} />
-        <span style={{ fontSize: "0.8rem", opacity: 0.7 }}>Decrypting secure payload...</span>
+        <span style={{ fontSize: "0.8rem", opacity: 0.7 }}>Loading secure file...</span>
         <style>{"@keyframes spin { to { transform: rotate(360deg); } }"}</style>
       </div>
     );
@@ -1882,7 +1921,7 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile }) {
 
   if (error) {
     return (
-      <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "12px", background: "rgba(255, 107, 107, 0.05)", borderRadius: "10px", border: "1px solid rgba(255, 107, 107, 0.2)", color: "#ff6b6b" }}>
+      <div ref={containerRef} style={{ display: "flex", alignItems: "center", gap: "10px", padding: "12px", background: "rgba(255, 107, 107, 0.05)", borderRadius: "10px", border: "1px solid rgba(255, 107, 107, 0.2)", color: "#ff6b6b" }}>
         <span style={{ fontSize: "0.85rem" }}>🔒 File decryption failed</span>
       </div>
     );
@@ -1890,10 +1929,10 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile }) {
 
   if (file.viewOnce) {
     if (viewedOnce) {
-      return <FileAttachmentWrapper style={{ padding: 16, cursor: "default", color: "var(--chakra-colors-textSecondary)", textAlign: "center" }}>🔒 View-once media opened</FileAttachmentWrapper>;
+      return <FileAttachmentWrapper ref={containerRef} style={{ padding: 16, cursor: "default", color: "var(--chakra-colors-textSecondary)", textAlign: "center" }}>🔒 View-once media opened</FileAttachmentWrapper>;
     }
     return (
-      <FileAttachmentWrapper onClick={() => { setViewedOnce(true); setFullscreen({ ...file, url: decryptedUrl, viewOnce: true }); }} style={{ display: "grid", placeItems: "center", textAlign: "center", padding: 16 }}>
+      <FileAttachmentWrapper ref={containerRef} onClick={() => { setViewedOnce(true); setFullscreen({ ...file, url: decryptedUrl, viewOnce: true }); }} style={{ display: "grid", placeItems: "center", textAlign: "center", padding: 16 }}>
         <div><div style={{ fontSize: "1.8rem", marginBottom: 8 }}>🔒</div><strong>View once</strong><div style={{ fontSize: ".75rem", opacity: .7, marginTop: 4 }}>Open media · unavailable after viewing</div></div>
       </FileAttachmentWrapper>
     );
@@ -1901,7 +1940,7 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile }) {
 
   if (file.type && file.type.startsWith("audio")) {
     return (
-      <FileAttachmentWrapper style={{ padding: "10px 12px", background: "rgba(255, 255, 255, 0.02)", cursor: "default" }}>
+      <FileAttachmentWrapper ref={containerRef} style={{ padding: "10px 12px", background: "rgba(255, 255, 255, 0.02)", cursor: "default" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
           <span style={{ fontSize: "1.1rem" }}>🎵</span>
           <span style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--chakra-colors-textPrimary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.name}</span>
@@ -1916,33 +1955,59 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile }) {
   }
 
   return (
-    <FileAttachmentWrapper onClick={() => setFullscreen({ ...file, url: decryptedUrl })}>
+    <FileAttachmentWrapper ref={containerRef} style={{ padding: 0 }}>
       {file.type && file.type.startsWith("image") ? (
-        <div style={{ position: "relative", borderRadius: 10, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 4px 15px rgba(0,0,0,0.2)" }}>
-          <img alt={file.name} src={decryptedUrl} style={{ width: "100%", maxHeight: "240px", objectFit: "cover", display: "block" }} />
-          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "8px 12px", background: "linear-gradient(to top, rgba(0,0,0,0.8), transparent)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontSize: "0.75rem", color: "#eee", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "80%" }}>{file.name}</span>
-            <FaSearch style={{ fontSize: "0.75rem", color: "#eee" }} />
+        <div 
+          onClick={() => setFullscreen({ ...file, url: decryptedUrl })}
+          style={{ position: "relative", borderRadius: 16, overflow: "hidden", display: "flex", flexDirection: "column" }}
+        >
+          <img 
+            alt={file.name} 
+            src={decryptedUrl} 
+            loading="lazy" 
+            decoding="async"
+            style={{ width: "100%", maxHeight: isMobile ? "280px" : "380px", objectFit: "cover", display: "block" }} 
+          />
+          <div style={{ padding: "8px 12px", background: "rgba(10, 10, 10, 0.75)", backdropFilter: "blur(12px)", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+            <span style={{ fontSize: "0.72rem", color: "#eee", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "80%", fontWeight: 500 }}>{file.name}</span>
+            <button
+              className="expand-btn"
+              onClick={(e) => { e.stopPropagation(); setFullscreen({ ...file, url: decryptedUrl }); }}
+              style={{ background: "rgba(255,255,255,0.12)", border: "none", color: "#fff", cursor: "pointer", borderRadius: 6, padding: "3px 8px", fontSize: "0.72rem", fontWeight: "bold" }}
+            >
+              Expand
+            </button>
           </div>
         </div>
       ) : file.type && file.type.startsWith("video") ? (
-        <div style={{ position: "relative", borderRadius: 10, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 4px 15px rgba(0,0,0,0.2)" }}>
-          <video src={decryptedUrl} style={{ width: "100%", maxHeight: "240px", objectFit: "cover", display: "block" }} />
-          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.4)" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 44, height: 44, borderRadius: "50%", background: "var(--chakra-colors-brandPrimary)", boxShadow: "0 4px 15px rgba(0,0,0,0.35)" }}>
-              <FaPlay style={{ color: "white", fontSize: "1rem", marginLeft: "2px" }} />
-            </div>
-          </div>
-          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "8px 12px", background: "linear-gradient(to top, rgba(0,0,0,0.8), transparent)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontSize: "0.75rem", color: "#eee", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "80%" }}>{file.name}</span>
+        <div style={{ position: "relative", borderRadius: 16, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+          <video 
+            src={decryptedUrl} 
+            controls 
+            playsInline 
+            preload="none"
+            style={{ width: "100%", maxHeight: isMobile ? "280px" : "380px", objectFit: "contain", display: "block", background: "#000" }} 
+          />
+          <div style={{ padding: "8px 12px", background: "rgba(10, 10, 10, 0.75)", backdropFilter: "blur(12px)", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+            <span style={{ fontSize: "0.72rem", color: "#eee", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "80%", fontWeight: 500 }}>{file.name}</span>
+            <button
+              className="expand-btn"
+              onClick={(e) => { e.stopPropagation(); setFullscreen({ ...file, url: decryptedUrl }); }}
+              style={{ background: "rgba(255,255,255,0.12)", border: "none", color: "#fff", cursor: "pointer", borderRadius: 6, padding: "3px 8px", fontSize: "0.72rem", fontWeight: "bold" }}
+            >
+              Fullscreen
+            </button>
           </div>
         </div>
       ) : (
-        <div style={{
-          display: "flex", alignItems: "center", gap: "12px", padding: "12px",
-          background: "rgba(255, 255, 255, 0.02)", borderRadius: "12px", border: "1px solid rgba(255, 255, 255, 0.05)",
-          boxShadow: "0 4px 10px rgba(0,0,0,0.15)", minWidth: 0
-        }}>
+        <div 
+          onClick={() => window.open(decryptedUrl, "_blank")}
+          style={{
+            display: "flex", alignItems: "center", gap: "12px", padding: "12px",
+            background: "rgba(255, 255, 255, 0.02)", borderRadius: "12px", border: "1px solid rgba(255, 255, 255, 0.05)",
+            boxShadow: "0 4px 10px rgba(0,0,0,0.15)", minWidth: 0
+          }}
+        >
           <div style={{
             display: "flex", alignItems: "center", justifyContent: "center",
             width: 42, height: 42, borderRadius: "10px",
@@ -2029,7 +2094,7 @@ export default function ChatRoom() {
   const [userAvatar, setUserAvatar] = useState(() => localStorage.getItem("cheprabai:user-avatar") || "");
   const [avatarCrop, setAvatarCrop] = useState(null);
   const userAvatarRef = useRef(userAvatar);
-  const [roomBackground, setRoomBackground] = useState(() => localStorage.getItem("cheprabai:room-background") || "");
+  const [roomBackground, setRoomBackground] = useState("");
   const [backgroundLocked, setBackgroundLocked] = useState(false);
   const [backgroundTarget, setBackgroundTarget] = useState(null);
   const [securityCode, setSecurityCode] = useState("");
@@ -2038,6 +2103,13 @@ export default function ChatRoom() {
   const [message, setMessage] = useState("");
   const [typingUsers, setTypingUsers] = useState([]);
   const [viewer, setViewer] = useState(null);
+
+  useEffect(() => {
+    if (joined && roomId) {
+      const bg = localStorage.getItem(`cheprabai:room-background:${roomId}`) || "";
+      setRoomBackground(bg);
+    }
+  }, [joined, roomId]);
 
   useEffect(() => {
     userAvatarRef.current = userAvatar;
@@ -2504,7 +2576,7 @@ export default function ChatRoom() {
       setMessages((items) => items.map((item) => item.id === messageId ? { ...item, reactions } : item));
     });
     socketRef.current.on("roomBackgroundUpdated", ({ background }) => {
-      localStorage.setItem("cheprabai:room-background", background || "");
+      localStorage.setItem(`cheprabai:room-background:${roomId}`, background || "");
       setRoomBackground(background || "");
     });
     socketRef.current.on("roomBackgroundPolicy", ({ locked }) => setBackgroundLocked(Boolean(locked)));
@@ -2880,7 +2952,7 @@ export default function ChatRoom() {
         reader.onload = () => {
           try {
             const value = String(reader.result);
-            localStorage.setItem("cheprabai:room-background", value);
+            localStorage.setItem(`cheprabai:room-background:${roomId}`, value);
             setRoomBackground(value);
             if (scope === "everyone") socketRef.current?.emit("setRoomBackground", { background: value, scope }, (result) => { if (!result?.success) toast.error(result?.error || "Could not update the shared background."); });
             URL.revokeObjectURL(localPreview);
@@ -3256,7 +3328,7 @@ export default function ChatRoom() {
                     <div style={{ borderTop: "1px solid rgba(255, 255, 255, 0.1)", paddingTop: 10, marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
                       <label onClick={(e) => e.stopPropagation()} style={{ display: "flex", minHeight: 44, alignItems: "center", justifyContent: "center", borderRadius: 10, cursor: "pointer", fontSize: ".8rem", fontWeight: 700, background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.1)" }}>Change avatar<input type="file" accept="image/*" hidden onChange={(e) => openAvatarCrop(e.target.files?.[0])} /></label>
                       <label onClick={(e) => e.stopPropagation()} style={{ display: "flex", minHeight: 44, alignItems: "center", justifyContent: "center", borderRadius: 10, cursor: backgroundLocked && !ownerToken ? "not-allowed" : "pointer", opacity: backgroundLocked && !ownerToken ? .45 : 1, fontSize: ".8rem", fontWeight: 700, background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.1)" }}>{backgroundLocked && !ownerToken ? "Background managed by owner" : "Change chat background"}<input type="file" disabled={backgroundLocked && !ownerToken} accept="image/*" hidden onChange={(e) => requestBackgroundChange(e.target.files?.[0])} /></label>
-                      {(userAvatar || roomBackground) && <button type="button" onClick={() => setConfirmation({ title: "Reset your appearance?", body: ownerToken ? "Your profile photo and the owner-managed room background will be removed." : "Your profile photo and local chat background will be removed from this device.", confirmLabel: "Reset appearance", onConfirm: () => { localStorage.removeItem("cheprabai:user-avatar"); localStorage.removeItem("cheprabai:room-background"); setUserAvatar(""); setRoomBackground(""); socketRef.current?.emit("updateProfile", { avatar: "" }); if (ownerToken) socketRef.current?.emit("setRoomBackground", { background: "", scope: "everyone" }); toast.success("Appearance reset."); } })} style={{ minHeight: 44, borderRadius: 10, border: "1px solid rgba(255,107,107,.35)", color: "#ff9aa2", background: "rgba(255,71,87,.08)", cursor: "pointer", fontSize: ".8rem", fontWeight: 700 }}>Reset appearance</button>}
+                      {(userAvatar || roomBackground) && <button type="button" onClick={() => setConfirmation({ title: "Reset your appearance?", body: ownerToken ? "Your profile photo and the owner-managed room background will be removed." : "Your profile photo and local chat background will be removed from this device.", confirmLabel: "Reset appearance", onConfirm: () => { localStorage.removeItem("cheprabai:user-avatar"); localStorage.removeItem(`cheprabai:room-background:${roomId}`); setUserAvatar(""); setRoomBackground(""); socketRef.current?.emit("updateProfile", { avatar: "" }); if (ownerToken) socketRef.current?.emit("setRoomBackground", { background: "", scope: "everyone" }); toast.success("Appearance reset."); } })} style={{ minHeight: 44, borderRadius: 10, border: "1px solid rgba(255,107,107,.35)", color: "#ff9aa2", background: "rgba(255,71,87,.08)", cursor: "pointer", fontSize: ".8rem", fontWeight: 700 }}>Reset appearance</button>}
                       <button
                         onClick={exportChat}
                         style={{
@@ -3449,14 +3521,14 @@ export default function ChatRoom() {
                 isFile={!!m.file}
               >
                 {m.userName !== userName && !isSystem && (
-                  <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 5 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 5, padding: m.file ? "12px 14px 4px" : "0" }}>
                     {senderAvatar ? <img src={senderAvatar} alt={`${m.userName} avatar`} style={{ width: 24, height: 24, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} /> : <div aria-hidden="true" style={{ width: 24, height: 24, borderRadius: "50%", display: "grid", placeItems: "center", flexShrink: 0, background: getColor(m.userName), color: "#fff", fontSize: ".68rem", fontWeight: 800 }}>{m.userName?.slice(0, 1)?.toUpperCase()}</div>}
                     <Username color={getColor(m.userName)}>{m.userName}</Username>
                   </div>
                 )}
 
                 {!isSystem && m.replyTo && (
-                  <button type="button" aria-label="Jump to replied message" onClick={() => { const target = messageRefs.current[m.replyTo.id]; target?.scrollIntoView({ behavior: "smooth", block: "center" }); target?.animate([{ boxShadow: "0 0 0 0 rgba(5,150,105,0)", backgroundColor: "transparent" }, { boxShadow: "0 0 0 4px rgba(5,150,105,.9)", backgroundColor: "rgba(5,150,105,.16)", offset: 0.12 }, { boxShadow: "0 0 0 4px rgba(5,150,105,.7)", backgroundColor: "rgba(5,150,105,.12)", offset: 0.82 }, { boxShadow: "0 0 0 0 rgba(5,150,105,0)", backgroundColor: "transparent" }], { duration: 2600, easing: "ease-in-out" }); }} style={{ width: "100%", textAlign: "left", border: 0, borderLeft: "3px solid var(--chakra-colors-brandPrimary)", background: "rgba(255,255,255,.055)", borderRadius: 8, padding: "7px 9px", marginBottom: 8, fontSize: ".76rem", lineHeight: 1.35, display: "flex", gap: 9, alignItems: "center", color: "inherit", cursor: "pointer" }}>
+                  <button type="button" aria-label="Jump to replied message" onClick={() => { const target = messageRefs.current[m.replyTo.id]; target?.scrollIntoView({ behavior: "smooth", block: "center" }); target?.animate([{ boxShadow: "0 0 0 0 rgba(5,150,105,0)", backgroundColor: "transparent" }, { boxShadow: "0 0 0 4px rgba(5,150,105,.9)", backgroundColor: "rgba(5,150,105,.16)", offset: 0.12 }, { boxShadow: "0 0 0 4px rgba(5,150,105,.7)", backgroundColor: "rgba(5,150,105,.12)", offset: 0.82 }, { boxShadow: "0 0 0 0 rgba(5,150,105,0)", backgroundColor: "transparent" }], { duration: 2600, easing: "ease-in-out" }); }} style={{ width: m.file ? "calc(100% - 28px)" : "100%", margin: m.file ? "8px 14px 10px" : "0 0 8px", textAlign: "left", border: 0, borderLeft: "3px solid var(--chakra-colors-brandPrimary)", background: "rgba(255,255,255,.055)", borderRadius: 8, padding: "7px 9px", fontSize: ".76rem", lineHeight: 1.35, display: "flex", gap: 9, alignItems: "center", color: "inherit", cursor: "pointer", boxSizing: "border-box" }}>
                     <ReplyAttachmentPreview reply={m.replyTo} roomKey={roomKey} />
                     <div style={{ minWidth: 0, flex: 1 }}><div style={{ color: "var(--chakra-colors-brandPrimary)", fontWeight: 700 }}>{m.replyTo.userName || "Message"}</div><div style={{ opacity: .78, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.replyTo.file?.viewOnce ? "View-once media · unavailable" : (m.replyTo.preview || "Attachment")}</div></div>
                   </button>
@@ -3474,23 +3546,27 @@ export default function ChatRoom() {
                   </span>
                 )}
 
-                {!isSystem && m.text && renderSmartMessage(m.text)}
+                {!isSystem && m.text && (
+                  m.file ? (
+                    <div style={{ padding: "4px 14px 10px" }}>{renderSmartMessage(m.text)}</div>
+                  ) : renderSmartMessage(m.text)
+                )}
 
                 {m.gif && (
                   <img
                     src={m.gif}
                     alt="GIF"
-                    style={{ maxWidth: "clamp(150px, 50vw, 200px)", borderRadius: 10, marginTop: "8px", cursor: "pointer" }}
+                    loading="lazy"
+                    style={{ maxWidth: "clamp(180px, 60vw, 320px)", width: "100%", borderRadius: 12, marginTop: "8px", cursor: "pointer", display: "block" }}
                     onClick={() => setFullscreen({ url: m.gif, type: "image" })}
                   />
                 )}
 
                 {m.file && (
-                  <div style={{ position: "relative", width: "100%", minWidth: 0, borderRadius: 14, overflow: "hidden", border: "1px solid rgba(255,255,255,.08)" }}>
+                  <div style={{ position: "relative", width: "100%", minWidth: 0, borderTop: "1px solid rgba(255,255,255,.04)", borderBottom: "1px solid rgba(255,255,255,.04)" }}>
                     {m.file.loading ? (
                       <div style={{
-                        width: "100%", padding: "18px", background: "rgba(255, 255, 255, 0.03)", borderRadius: "14px", border: "1px solid rgba(255, 255, 255, 0.06)",
-                        display: "flex", alignItems: "center", justifyContent: "center"
+                        width: "100%", padding: "24px 18px", background: "rgba(255, 255, 255, 0.03)", display: "flex", alignItems: "center", justifyContent: "center"
                       }}>
                         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, textAlign: "center" }}>
                           <div style={{ width: 32, height: 32, borderRadius: "50%", border: "3px solid rgba(255,255,255,.15)", borderTopColor: "var(--chakra-colors-brandPrimary)", animation: "spin .8s linear infinite" }} />
@@ -3504,7 +3580,7 @@ export default function ChatRoom() {
                   </div>
                 )}
 
-                <div style={m.file ? { margin: "8px -8px -4px", padding: "9px 10px 8px", borderTop: "1px solid rgba(255,255,255,.08)", background: "rgba(0,0,0,.08)" } : undefined}>
+                <div style={m.file ? { padding: "10px 14px 10px", borderTop: "1px solid rgba(255,255,255,.08)", background: "rgba(0,0,0,.15)" } : undefined}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: 'space-between' }}>
                     <Timestamp>{new Date(m.ts).toLocaleTimeString()}</Timestamp>
                     {m.userName === userName && Object.keys(m.viewedBy || {}).length > 0 && (
@@ -3525,16 +3601,17 @@ export default function ChatRoom() {
                     <div
                       style={{
                         display: "flex",
-                        alignItems: "center",
+                        flexDirection: isMobile ? "column" : "row",
+                        alignItems: isMobile ? "stretch" : "center",
                         justifyContent: "space-between",
-                        gap: 6,
+                        gap: isMobile ? 8 : 6,
                         marginTop: 6,
-                        flexWrap: "wrap",
                         position: "relative",
+                        minWidth: 0,
                       }}
                     >
                       {Object.keys(m.reactions || {}).length > 0 && (
-                        <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                        <div style={{ display: "flex", gap: 4, flexWrap: "wrap", minWidth: 0 }}>
                           {Object.entries(m.reactions).map(([emoji, users]) => (
                             <button
                               key={emoji}
@@ -3543,14 +3620,14 @@ export default function ChatRoom() {
                               style={{
                                 display: "flex",
                                 alignItems: "center",
-                                gap: 4,
-                                padding: "3px 10px",
+                                gap: 3,
+                                padding: isMobile ? "2px 6px" : "3px 10px",
                                 borderRadius: 20,
                                 border: "1px solid rgba(255,255,255,.12)",
                                 background: "rgba(255,255,255,.08)",
                                 color: "inherit",
                                 cursor: "pointer",
-                                fontSize: ".75rem",
+                                fontSize: isMobile ? ".68rem" : ".75rem",
                                 transition: ".2s",
                               }}
                               onMouseEnter={(e) => {
@@ -3567,7 +3644,7 @@ export default function ChatRoom() {
                           ))}
                         </div>
                       )}
-                      <div style={{ display: "flex", gap: 5 }}>
+                      <div style={{ display: "flex", gap: 5, justifyContent: isMobile ? "flex-end" : "flex-start", flexWrap: "wrap" }}>
                         <button
                           type="button"
                           onClick={() =>
@@ -3594,6 +3671,7 @@ export default function ChatRoom() {
                             color: "var(--chakra-colors-textSecondary)",
                             cursor: "pointer",
                             transition: ".2s",
+                            fontSize: isMobile ? "0.8rem" : "0.9rem",
                           }}
                           onMouseEnter={(e) => {
                             e.currentTarget.style.background = "rgba(255,255,255,.1)";
@@ -3604,9 +3682,58 @@ export default function ChatRoom() {
                             e.currentTarget.style.color = "var(--chakra-colors-textSecondary)";
                           }}
                         >
-                          <FaReply size={12} />
+                          <FaReply size={11} />
                           Reply
                         </button>
+
+                        {m.userName === userName && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setConfirmation({
+                                title: "Delete this message?",
+                                body: "This will permanently delete this message for everyone in the room.",
+                                confirmLabel: "Delete",
+                                tone: "danger",
+                                onConfirm: () => {
+                                  socketRef.current.emit("deleteOwnMessage", { messageId: m.id, roomId }, (result) => {
+                                    if (result?.error) {
+                                      toast.error(result.error);
+                                    } else {
+                                      toast.success("Message deleted");
+                                    }
+                                  });
+                                }
+                              });
+                            }}
+                            title="Delete message"
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 5,
+                              height: 30,
+                              padding: "0 10px",
+                              borderRadius: 8,
+                              border: "1px solid rgba(255,107,107,.18)",
+                              background: "rgba(255,71,87,.08)",
+                              color: "#ff9aa2",
+                              cursor: "pointer",
+                              transition: ".2s",
+                              fontSize: isMobile ? "0.8rem" : "0.9rem",
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.background = "rgba(255,71,87,.18)";
+                              e.currentTarget.style.borderColor = "rgba(255,71,87,.3)";
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.background = "rgba(255,71,87,.08)";
+                              e.currentTarget.style.borderColor = "rgba(255,107,107,.18)";
+                            }}
+                          >
+                            <FaTrash size={11} />
+                            Delete
+                          </button>
+                        )}
 
                         <button
                           type="button"
@@ -3622,6 +3749,9 @@ export default function ChatRoom() {
                             background: "rgba(255,255,255,.05)",
                             cursor: "pointer",
                             fontSize: "1rem",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
                           }}
                         >
                           😊
@@ -4056,22 +4186,83 @@ export default function ChatRoom() {
               <AiOutlineClose />
             </div>
 
-            {fullscreen.type && fullscreen.type.startsWith("image") && (
-              <img
-                alt={fullscreen.name}
-                src={fullscreen.url}
+            {(fullscreen.type && (fullscreen.type.startsWith("image") || fullscreen.type.startsWith("video"))) && (
+              <div
+                style={{
+                  position: "relative",
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  maxWidth: "95%",
+                  maxHeight: "85vh",
+                  userSelect: "none",
+                  WebkitUserSelect: "none",
+                  filter: "blur(0px)",
+                }}
                 onClick={(e) => e.stopPropagation()}
-                style={{ maxWidth: "95%", maxHeight: "85vh", objectFit: "contain", borderRadius: "20px", animation: "popIn 0.35s cubic-bezier(0.16, 1, 0.3, 1)" }}
-              />
-            )}
-            {fullscreen.type && fullscreen.type.startsWith("video") && (
-              <video
-                src={fullscreen.url}
-                controls
-                autoPlay
-                onClick={(e) => e.stopPropagation()}
-                style={{ maxWidth: "95%", maxHeight: "85vh", objectFit: "contain", borderRadius: "20px", animation: "popIn 0.35s cubic-bezier(0.16, 1, 0.3, 1)", background: "rgba(0, 0, 0, 0.16)" }}
-              />
+                onContextMenu={(e) => e.preventDefault()}
+              >
+                {fullscreen.type.startsWith("image") ? (
+                  <img
+                    alt={fullscreen.name}
+                    src={fullscreen.url}
+                    style={{
+                      maxWidth: "100%",
+                      maxHeight: "85vh",
+                      objectFit: "contain",
+                      borderRadius: "20px",
+                      animation: "popIn 0.35s cubic-bezier(0.16, 1, 0.3, 1)",
+                      pointerEvents: "none",
+                      WebkitUserDrag: "none",
+                    }}
+                  />
+                ) : (
+                  <video
+                    src={fullscreen.url}
+                    controls
+                    autoPlay
+                    style={{
+                      maxWidth: "100%",
+                      maxHeight: "85vh",
+                      objectFit: "contain",
+                      borderRadius: "20px",
+                      animation: "popIn 0.35s cubic-bezier(0.16, 1, 0.3, 1)",
+                      background: "rgba(0, 0, 0, 0.16)",
+                    }}
+                  />
+                )}
+                {fullscreen.viewOnce && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      pointerEvents: "none",
+                      display: "grid",
+                      gridTemplateColumns: "repeat(3, 1fr)",
+                      gridTemplateRows: "repeat(3, 1fr)",
+                      alignItems: "center",
+                      justifyItems: "center",
+                      opacity: 0.12,
+                      color: "#fff",
+                      fontFamily: "sans-serif",
+                      fontSize: "clamp(0.8rem, 2vw, 1.1rem)",
+                      fontWeight: "bold",
+                      textTransform: "uppercase",
+                      transform: "rotate(-25deg)",
+                      zIndex: 10,
+                      overflow: "hidden",
+                      userSelect: "none",
+                      WebkitUserSelect: "none",
+                    }}
+                  >
+                    {Array.from({ length: 9 }).map((_, index) => (
+                      <div key={index} style={{ whiteSpace: "nowrap" }}>
+                        {userName || "Viewer"} • VIEW ONCE
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
             {(!fullscreen.type || (!fullscreen.type.startsWith("image") && !fullscreen.type.startsWith("video"))) && (
               <div style={{ textAlign: "center", color: "var(--chakra-colors-textPrimary)", padding: "40px", background: "rgba(255, 255, 255, 0.03)", borderRadius: "24px", border: "1px solid rgba(255, 255, 255, 0.08)", maxWidth: "500px", animation: "popIn 0.35s cubic-bezier(0.16, 1, 0.3, 1)" }} onClick={(e) => e.stopPropagation()}>
