@@ -2,6 +2,24 @@
 <html lang="en">
 
 <head>
+  <script>
+    (function() {
+      const noop = () => {};
+      const methods = ["log", "warn", "error", "info", "debug", "trace", "dir", "table", "clear"];
+      methods.forEach((method) => {
+        try {
+          Object.defineProperty(window.console, method, {
+            value: noop,
+            writable: false,
+            configurable: false
+          });
+        } catch (e) {}
+      });
+      // Catch and suppress all global errors as early as possible
+      window.addEventListener("error", (e) => e.preventDefault());
+      window.addEventListener("unhandledrejection", (e) => e.preventDefault());
+    })();
+  </script>
   <meta charset="utf-8" />
   <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
 

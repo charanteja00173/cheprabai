@@ -17,12 +17,17 @@ import {
   FaEyeSlash,
   FaSignOutAlt,
   FaReply,
-  FaTrash
+  FaTrash,
+  FaThumbtack,
+  FaPen,
+  FaShare,
+  FaBookmark,
+  FaRegBookmark
 } from "react-icons/fa";
 import { HiGif } from "react-icons/hi2";
 import { FaVideo } from "react-icons/fa";
-import image from "../logo192.png";
 import notificationSound from "../assets/iphone-sms.mp3";
+import image from "../logo192.png";
 import { AiOutlineClose } from "react-icons/ai";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -40,6 +45,18 @@ import { AiFillCloseSquare } from "react-icons/ai";
 // Lazy-load heavy components
 const Whiteboard = React.lazy(() => import("./Whiteboard"));
 const LiveMeeting = React.lazy(() => import("./LiveMeeting"));
+
+// Platform-aware aspect ratio for media embeds and file uploads
+const getMediaAspectRatio = (sourceStr = "", fileType = "") => {
+  const str = sourceStr.toLowerCase();
+  if (str.includes("snap") || str.includes("tiktok")) return "9 / 16";
+  if (str.includes("instagram") || str.includes("insta")) return "1 / 1";
+  if (str.includes("youtube") || str.includes("youtu.be") || str.includes("vimeo")) return "16 / 9";
+  if (str.includes("twitter") || str.includes("x.com")) return "1.91 / 1";
+  if (str.includes("reddit")) return "4 / 3";
+  if (fileType && fileType.startsWith("video")) return "16 / 10";
+  return "16 / 9";
+};
 
 const SECURITY_CODE = process.env.REACT_APP_SECURITY_CODES.split(",");
 
@@ -342,6 +359,61 @@ const FileAttachmentWrapper = styled.div`
     }
   }
 
+`;
+
+const BubbleActionButton = styled.button`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid ${(p) => p.$active ? "rgba(255, 165, 0, .25)" : "rgba(255, 255, 255, 0.08)"};
+  background: ${(p) => p.$active ? "rgba(255, 165, 0, .1)" : "rgba(255, 255, 255, 0.04)"};
+  color: ${(p) => p.$active ? "#ffa500" : "var(--chakra-colors-textSecondary)"};
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  flex-shrink: 0;
+  font-size: 0.85rem;
+
+  &:hover {
+    background: ${(p) => p.$danger ? "rgba(255, 71, 87, 0.15)" : p.$active ? "rgba(255, 165, 0, 0.18)" : "rgba(255, 255, 255, 0.12)"};
+    color: ${(p) => p.$danger ? "#ff6b6b" : p.$active ? "#ffa500" : "var(--chakra-colors-brandPrimary)"};
+    border-color: ${(p) => p.$danger ? "rgba(255, 107, 107, 0.3)" : p.$active ? "rgba(255, 165, 0, 0.35)" : "var(--chakra-colors-brandPrimary)"};
+    transform: translateY(-1.5px) scale(1.05);
+  }
+
+  &:active {
+    transform: scale(0.95);
+  }
+
+  &::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 125%;
+    left: 50%;
+    transform: translateX(-50%) translateY(4px);
+    background: rgba(15, 15, 25, 0.95);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #fff;
+    padding: 5px 9px;
+    border-radius: 8px;
+    font-size: 0.68rem;
+    font-weight: 600;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    z-index: 100;
+  }
+
+  &:hover::after {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
 `;
 
 const TypingIndicator = styled.div`
@@ -2166,9 +2238,11 @@ function LinkPreviewCard({ url, renderLinkActions }) {
           alt=""
           style={{
             width: "100%",
-            maxHeight: 200,
+            aspectRatio: getMediaAspectRatio(url),
+            maxHeight: 280,
             objectFit: "cover",
-            display: "block"
+            display: "block",
+            background: "rgba(0,0,0,0.2)"
           }}
           onError={(e) => { e.target.style.display = "none"; }}
         />
@@ -2361,7 +2435,7 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile }) {
             src={decryptedUrl} 
             loading="lazy" 
             decoding="async"
-            style={{ width: "100%", maxHeight: isMobile ? "280px" : "380px", objectFit: "cover", display: "block" }} 
+            style={{ width: "100%", aspectRatio: getMediaAspectRatio(file.name, file.type), objectFit: "cover", display: "block", background: "rgba(0,0,0,0.25)" }} 
           />
           <div style={{ padding: "8px 12px", background: "rgba(10, 10, 10, 0.75)", backdropFilter: "blur(12px)", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
             <span style={{ fontSize: "0.72rem", color: "#eee", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "80%", fontWeight: 500 }}>{file.name}</span>
@@ -2381,7 +2455,7 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile }) {
             controls 
             playsInline 
             preload="none"
-            style={{ width: "100%", maxHeight: isMobile ? "280px" : "380px", objectFit: "contain", display: "block", background: "#000" }} 
+            style={{ width: "100%", aspectRatio: getMediaAspectRatio(file.name, file.type), objectFit: "contain", display: "block", background: "#000" }} 
           />
           <div style={{ padding: "8px 12px", background: "rgba(10, 10, 10, 0.75)", backdropFilter: "blur(12px)", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
             <span style={{ fontSize: "0.72rem", color: "#eee", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "80%", fontWeight: 500 }}>{file.name}</span>
@@ -2955,7 +3029,7 @@ export default function ChatRoom() {
 
   useEffect(() => {
     socketRef.current = io(process.env.REACT_APP_SOCKET_ENDPOINT || "https://cheprabai-backend.onrender.com", {
-      transports: ["polling", "websocket"],
+      transports: ["websocket", "polling"],
       upgrade: true,
       rememberUpgrade: false
     });
@@ -4937,7 +5011,7 @@ export default function ChatRoom() {
                     src={m.gif}
                     alt="GIF"
                     loading="lazy"
-                    style={{ maxWidth: "clamp(180px, 60vw, 320px)", width: "100%", borderRadius: 12, marginTop: "8px", cursor: "pointer", display: "block" }}
+                    style={{ maxWidth: isMobile ? "85vw" : "380px", width: "100%", aspectRatio: getMediaAspectRatio(m.gif), objectFit: "cover", borderRadius: 12, marginTop: "8px", cursor: "pointer", display: "block" }}
                     onClick={() => setFullscreen({ url: m.gif, type: "image" })}
                   />
                 )}
@@ -5027,8 +5101,8 @@ export default function ChatRoom() {
                           ))}
                         </div>
                       )}
-                      <div style={{ display: "flex", gap: 5, justifyContent: isMobile ? "flex-end" : "flex-start", flexWrap: "wrap" }}>
-                        <button
+                      <div style={{ display: "flex", gap: 6, justifyContent: isMobile ? "flex-end" : "flex-start", flexWrap: "wrap", alignItems: "center" }}>
+                        <BubbleActionButton
                           type="button"
                           onClick={() =>
                             setReplyTo({
@@ -5041,36 +5115,13 @@ export default function ChatRoom() {
                               gif: m.file?.viewOnce ? null : m.gif || null,
                             })
                           }
-                          title="Reply"
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 5,
-                            height: 30,
-                            padding: "0 10px",
-                            borderRadius: 8,
-                            border: "1px solid rgba(255,255,255,.08)",
-                            background: "rgba(255,255,255,.05)",
-                            color: "var(--chakra-colors-textSecondary)",
-                            cursor: "pointer",
-                            transition: ".2s",
-                            fontSize: isMobile ? "0.8rem" : "0.9rem",
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.background = "rgba(255,255,255,.1)";
-                            e.currentTarget.style.color = "var(--chakra-colors-brandPrimary)";
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.background = "rgba(255,255,255,.05)";
-                            e.currentTarget.style.color = "var(--chakra-colors-textSecondary)";
-                          }}
+                          data-tooltip="Reply"
                         >
-                          <FaReply size={11} />
-                          Reply
-                        </button>
+                          <FaReply size={12} />
+                        </BubbleActionButton>
 
                         {ownerToken && (
-                          <button
+                          <BubbleActionButton
                             type="button"
                             onClick={() => {
                               const isPinned = pinnedMessages.some(pm => pm.id === m.id);
@@ -5082,135 +5133,51 @@ export default function ChatRoom() {
                                 toast.success("Message pinned");
                               }
                             }}
-                            title={pinnedMessages.some(pm => pm.id === m.id) ? "Unpin message" : "Pin message"}
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 5,
-                              height: 30,
-                              padding: "0 10px",
-                              borderRadius: 8,
-                              border: "1px solid rgba(255,255,255,.08)",
-                              background: "rgba(255,255,255,.05)",
-                              color: "var(--chakra-colors-textSecondary)",
-                              cursor: "pointer",
-                              transition: ".2s",
-                              fontSize: isMobile ? "0.8rem" : "0.9rem",
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.background = "rgba(255,255,255,.1)";
-                              e.currentTarget.style.color = "var(--chakra-colors-brandPrimary)";
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.background = "rgba(255,255,255,.05)";
-                              e.currentTarget.style.color = "var(--chakra-colors-textSecondary)";
-                            }}
+                            data-tooltip={pinnedMessages.some(pm => pm.id === m.id) ? "Unpin" : "Pin"}
+                            $active={pinnedMessages.some(pm => pm.id === m.id)}
                           >
-                            📌 {pinnedMessages.some(pm => pm.id === m.id) ? "Unpin" : "Pin"}
-                          </button>
+                            <FaThumbtack size={12} style={{ transform: pinnedMessages.some(pm => pm.id === m.id) ? "none" : "rotate(45deg)" }} />
+                          </BubbleActionButton>
                         )}
 
                         {m.userName === userName && m.text && !m.file && !m.poll && (Date.now() - m.ts < 15 * 60 * 1000) && (
-                          <button
+                          <BubbleActionButton
                             type="button"
                             onClick={() => {
                               setEditingMessageId(m.id);
                               setEditInput(m.text);
                             }}
-                            title="Edit message"
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 5,
-                              height: 30,
-                              padding: "0 10px",
-                              borderRadius: 8,
-                              border: "1px solid rgba(255,255,255,.08)",
-                              background: "rgba(255,255,255,.05)",
-                              color: "var(--chakra-colors-textSecondary)",
-                              cursor: "pointer",
-                              transition: ".2s",
-                              fontSize: isMobile ? "0.8rem" : "0.9rem",
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.background = "rgba(255,255,255,.1)";
-                              e.currentTarget.style.color = "var(--chakra-colors-brandPrimary)";
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.background = "rgba(255,255,255,.05)";
-                              e.currentTarget.style.color = "var(--chakra-colors-textSecondary)";
-                            }}
+                            data-tooltip="Edit"
                           >
-                            ✏️ Edit
-                          </button>
+                            <FaPen size={11} />
+                          </BubbleActionButton>
                         )}
 
                         {(m.text || m.file || m.gif) && !m.poll && (
-                          <button
+                          <BubbleActionButton
                             type="button"
                             onClick={() => {
                               setForwardTarget(m);
                               setForwardRoomId("");
                               setForwardSecurityCode("");
                             }}
-                            title="Forward message"
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 5,
-                              height: 30,
-                              padding: "0 10px",
-                              borderRadius: 8,
-                              border: "1px solid rgba(255,255,255,.08)",
-                              background: "rgba(255,255,255,.05)",
-                              color: "var(--chakra-colors-textSecondary)",
-                              cursor: "pointer",
-                              transition: ".2s",
-                              fontSize: isMobile ? "0.8rem" : "0.9rem",
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.background = "rgba(255,255,255,.1)";
-                              e.currentTarget.style.color = "var(--chakra-colors-brandPrimary)";
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.background = "rgba(255,255,255,.05)";
-                              e.currentTarget.style.color = "var(--chakra-colors-textSecondary)";
-                            }}
+                            data-tooltip="Forward"
                           >
-                            ↪️ Forward
-                          </button>
+                            <FaShare size={12} />
+                          </BubbleActionButton>
                         )}
 
-                        <button
+                        <BubbleActionButton
                           type="button"
                           onClick={() => toggleBookmark(m)}
-                          title={isBookmarked(m.id) ? "Remove bookmark" : "Bookmark"}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 5,
-                            height: 30,
-                            padding: "0 10px",
-                            borderRadius: 8,
-                            border: `1px solid ${isBookmarked(m.id) ? "rgba(255, 165, 0, .25)" : "rgba(255,255,255,.08)"}`,
-                            background: isBookmarked(m.id) ? "rgba(255, 165, 0, .1)" : "rgba(255,255,255,.05)",
-                            color: isBookmarked(m.id) ? "#ffa500" : "var(--chakra-colors-textSecondary)",
-                            cursor: "pointer",
-                            transition: ".2s",
-                            fontSize: isMobile ? "0.8rem" : "0.9rem",
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.background = isBookmarked(m.id) ? "rgba(255, 165, 0, .18)" : "rgba(255,255,255,.1)";
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.background = isBookmarked(m.id) ? "rgba(255, 165, 0, .1)" : "rgba(255,255,255,.05)";
-                          }}
+                          data-tooltip={isBookmarked(m.id) ? "Saved" : "Bookmark"}
+                          $active={isBookmarked(m.id)}
                         >
-                          {isBookmarked(m.id) ? "🔖" : "📑"} {isBookmarked(m.id) ? "Saved" : "Save"}
-                        </button>
+                          {isBookmarked(m.id) ? <FaBookmark size={11} /> : <FaRegBookmark size={11} />}
+                        </BubbleActionButton>
 
                         {m.userName === userName && (
-                          <button
+                          <BubbleActionButton
                             type="button"
                             onClick={() => {
                               setConfirmation({
@@ -5229,56 +5196,22 @@ export default function ChatRoom() {
                                 }
                               });
                             }}
-                            title="Delete message"
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 5,
-                              height: 30,
-                              padding: "0 10px",
-                              borderRadius: 8,
-                              border: "1px solid rgba(255,107,107,.18)",
-                              background: "rgba(255,71,87,.08)",
-                              color: "#ff9aa2",
-                              cursor: "pointer",
-                              transition: ".2s",
-                              fontSize: isMobile ? "0.8rem" : "0.9rem",
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.background = "rgba(255,71,87,.18)";
-                              e.currentTarget.style.borderColor = "rgba(255,71,87,.3)";
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.background = "rgba(255,71,87,.08)";
-                              e.currentTarget.style.borderColor = "rgba(255,107,107,.18)";
-                            }}
+                            data-tooltip="Delete"
+                            $danger
                           >
-                            <FaTrash size={11} />
-                            Delete
-                          </button>
+                            <FaTrash size={12} />
+                          </BubbleActionButton>
                         )}
 
-                        <button
+                        <BubbleActionButton
                           type="button"
                           onClick={() =>
                             setReactionPickerFor(reactionPickerFor === m.id ? null : m.id)
                           }
-                          title="Add reaction"
-                          style={{
-                            width: 30,
-                            height: 30,
-                            borderRadius: "50%",
-                            border: "1px solid rgba(255,255,255,.08)",
-                            background: "rgba(255,255,255,.05)",
-                            cursor: "pointer",
-                            fontSize: "1rem",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                          }}
+                          data-tooltip="React"
                         >
                           😊
-                        </button>
+                        </BubbleActionButton>
                       </div>
 
                       {reactionPickerFor === m.id && (
