@@ -1081,6 +1081,24 @@ const InputPill = styled.div`
   }
 `;
 
+const AccessoryRow = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 16px;
+  padding: 6px 12px;
+  margin-bottom: 4px;
+  gap: 8px;
+  animation: slideDown 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+
+  @keyframes slideDown {
+    from { transform: translateY(8px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+`;
+
 const IconButton = styled.button`
   background: transparent;
   border: none;
@@ -2238,8 +2256,7 @@ function LinkPreviewCard({ url, renderLinkActions }) {
           alt=""
           style={{
             width: "100%",
-            aspectRatio: getMediaAspectRatio(url),
-            maxHeight: 280,
+            maxHeight: 260,
             objectFit: "cover",
             display: "block",
             background: "rgba(0,0,0,0.2)"
@@ -2428,14 +2445,14 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile }) {
       {file.type && file.type.startsWith("image") ? (
         <div 
           onClick={() => setFullscreen({ ...file, url: decryptedUrl })}
-          style={{ position: "relative", borderRadius: 16, overflow: "hidden", display: "flex", flexDirection: "column" }}
+          style={{ position: "relative", borderRadius: 16, overflow: "hidden" }}
         >
           <img 
             alt={file.name} 
             src={decryptedUrl} 
             loading="lazy" 
             decoding="async"
-            style={{ width: "100%", aspectRatio: getMediaAspectRatio(file.name, file.type), objectFit: "cover", display: "block", background: "rgba(0,0,0,0.25)" }} 
+            style={{ width: "100%", maxHeight: isMobile ? "320px" : "420px", objectFit: "cover", display: "block", borderRadius: 0, background: "rgba(0,0,0,0.25)" }} 
           />
           <div style={{ padding: "8px 12px", background: "rgba(10, 10, 10, 0.75)", backdropFilter: "blur(12px)", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
             <span style={{ fontSize: "0.72rem", color: "#eee", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "80%", fontWeight: 500 }}>{file.name}</span>
@@ -2449,13 +2466,13 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile }) {
           </div>
         </div>
       ) : file.type && file.type.startsWith("video") ? (
-        <div style={{ position: "relative", borderRadius: 16, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+        <div style={{ position: "relative", borderRadius: 16, overflow: "hidden" }}>
           <video 
             src={decryptedUrl} 
             controls 
             playsInline 
             preload="none"
-            style={{ width: "100%", aspectRatio: getMediaAspectRatio(file.name, file.type), objectFit: "contain", display: "block", background: "#000" }} 
+            style={{ width: "100%", maxHeight: isMobile ? "320px" : "420px", objectFit: "contain", display: "block", background: "#000" }} 
           />
           <div style={{ padding: "8px 12px", background: "rgba(10, 10, 10, 0.75)", backdropFilter: "blur(12px)", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
             <span style={{ fontSize: "0.72rem", color: "#eee", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "80%", fontWeight: 500 }}>{file.name}</span>
@@ -2654,6 +2671,7 @@ export default function ChatRoom() {
   // ── Scheduled Messages ──
   const [scheduledMessages, setScheduledMessages] = useState([]);
   const [showScheduler, setShowScheduler] = useState(false);
+  const [showMobileActions, setShowMobileActions] = useState(false);
   const [scheduleDateTime, setScheduleDateTime] = useState("");
 
   // ── Bookmarks / Saved Messages ──
@@ -3268,8 +3286,26 @@ export default function ChatRoom() {
       setPinnedMessages(formatted);
     });
 
-    socketRef.current.on("scheduledMessagesUpdated", (scheduledMsgs) => {
-      setScheduledMessages(scheduledMsgs || []);
+    socketRef.current.on("scheduledMessagesUpdated", async (scheduledMsgs) => {
+      const formatted = await Promise.all((scheduledMsgs || []).map(async msg => {
+        const item = { ...msg, ...msg.payload };
+        if (item.encryptedPayload && roomKey) {
+          try {
+            const decryptedText = await decryptMessage(roomKey, item.encryptedPayload);
+            try {
+              const decryptedPayload = JSON.parse(decryptedText);
+              Object.assign(item, decryptedPayload);
+            } catch {
+              item.text = decryptedText;
+            }
+          } catch (e) {
+            item.text = "🔒 Decryption failed";
+            item.decryptionError = true;
+          }
+        }
+        return item;
+      }));
+      setScheduledMessages(formatted);
     });
 
     socketRef.current.on("messageEdited", async ({ messageId, payload: newPayload, editedAt }) => {
@@ -3353,7 +3389,7 @@ export default function ChatRoom() {
 
   /* ================= FILE HANDLING ================= */
 
-  const uploadFile = async (file, viewOnce = false) => {
+  const uploadFile = async (file, viewOnce = false, scheduleTime = null) => {
     let tempId;
     try {
       tempId = `uploading-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -3396,7 +3432,33 @@ export default function ChatRoom() {
         ...(viewOnce && /^(image|video)\//.test(file.type) && { viewOnce: true }),
         ...(ivString && { iv: ivString })
       };
-      await handleSend({ file: fileData });
+      if (scheduleTime) {
+        const plainPayload = { file: fileData, ...(replyTo && { replyTo }) };
+        let payload = plainPayload;
+        if (roomKey) {
+          const encrypted = await encryptMessage(roomKey, JSON.stringify(plainPayload));
+          payload = {
+            encryptedPayload: encrypted,
+            file: fileData
+          };
+        }
+        await new Promise((resolve, reject) => {
+          socketRef.current.emit("scheduleMessage", {
+            roomId,
+            userName,
+            senderAvatar: userAvatar,
+            payload,
+            sendAt: scheduleTime,
+            ephemeral: ephemeralMode,
+            ephemeralDuration: roomEphemeralDuration
+          }, (res) => {
+            if (res?.error) reject(new Error(res.error));
+            else resolve(res);
+          });
+        });
+      } else {
+        await handleSend({ file: fileData });
+      }
       setMessages(m => m.filter(msg => msg.id !== tempId));
     } catch (err) {
       console.error(err);
@@ -3584,9 +3646,9 @@ export default function ChatRoom() {
 
 
   /* ================= SCHEDULED MESSAGES ================= */
-  const handleScheduleMessage = () => {
+  const handleScheduleMessage = async () => {
     if (!message.trim() && !pendingFiles.length) {
-      toast.error("Type a message to schedule");
+      toast.error("Type a message or select files to schedule");
       return;
     }
     if (!scheduleDateTime) {
@@ -3599,23 +3661,52 @@ export default function ChatRoom() {
       return;
     }
 
-    socketRef.current.emit("scheduleMessage", {
-      roomId,
-      userName,
-      payload: { text: message.trim() },
-      sendAt,
-      ephemeral: ephemeralMode,
-      ephemeralDuration: roomEphemeralDuration
-    }, (res) => {
-      if (res?.error) {
-        toast.error(res.error);
-      } else {
-        toast.success(`⏰ Message scheduled for ${new Date(sendAt).toLocaleString()}`);
-        setMessage("");
-        setScheduleDateTime("");
-        setShowScheduler(false);
+    const filesToUpload = [...pendingFiles];
+    const textMsg = message.trim();
+
+    // Clear input states
+    setPendingFiles([]);
+    setMessage("");
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    setShowScheduler(false);
+
+    // 1. If there are files, upload and schedule each
+    if (filesToUpload.length > 0) {
+      filesToUpload.forEach((f) => {
+        uploadFile(f, sendAsViewOnce, sendAt);
+      });
+      setSendAsViewOnce(false);
+      toast.success(`⏰ Scheduling ${filesToUpload.length} file(s) for ${new Date(sendAt).toLocaleString()}`);
+    }
+
+    // 2. If there is text, schedule it
+    if (textMsg) {
+      const plainPayload = { text: textMsg, ...(replyTo && { replyTo }) };
+      let payload = plainPayload;
+      if (roomKey) {
+        const encrypted = await encryptMessage(roomKey, JSON.stringify(plainPayload));
+        payload = { encryptedPayload: encrypted };
       }
-    });
+
+      socketRef.current.emit("scheduleMessage", {
+        roomId,
+        userName,
+        senderAvatar: userAvatar,
+        payload,
+        sendAt,
+        ephemeral: ephemeralMode,
+        ephemeralDuration: roomEphemeralDuration
+      }, (res) => {
+        if (res?.error) {
+          toast.error(res.error);
+        } else {
+          toast.success(`⏰ Message scheduled for ${new Date(sendAt).toLocaleString()}`);
+        }
+      });
+      setReplyTo(null);
+    }
+
+    setScheduleDateTime("");
   };
 
   const handleCancelScheduled = (messageId) => {
@@ -5011,7 +5102,7 @@ export default function ChatRoom() {
                     src={m.gif}
                     alt="GIF"
                     loading="lazy"
-                    style={{ maxWidth: isMobile ? "85vw" : "380px", width: "100%", aspectRatio: getMediaAspectRatio(m.gif), objectFit: "cover", borderRadius: 12, marginTop: "8px", cursor: "pointer", display: "block" }}
+                    style={{ maxWidth: isMobile ? "85vw" : "380px", width: "100%", maxHeight: "400px", objectFit: "cover", borderRadius: 12, marginTop: "8px", cursor: "pointer", display: "block" }}
                     onClick={() => setFullscreen({ url: m.gif, type: "image" })}
                   />
                 )}
@@ -5499,172 +5590,224 @@ export default function ChatRoom() {
           </PreviewOverlay>
         )}
 
-        <MessageInputContainer>
-          {replyTo && (
-            <div style={{ position: "absolute", bottom: "calc(100% + 6px)", left: 12, right: 12, zIndex: 3, display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", borderRadius: 12, background: "#1a1d26", borderLeft: "3px solid var(--chakra-colors-brandPrimary)", boxShadow: "0 8px 20px rgba(0,0,0,.28)" }}>
-              <div style={{ minWidth: 0, flex: 1, fontSize: ".78rem" }}><strong style={{ color: "var(--chakra-colors-brandPrimary)" }}>Replying to {replyTo.userName}</strong><div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", opacity: 0.75 }}>{replyTo.preview}</div></div>
-              <button type="button" onClick={() => setReplyTo(null)} style={{ background: "transparent", color: "#fff", border: 0, cursor: "pointer", fontSize: "1rem" }}>×</button>
-            </div>
-          )}
-
-          {showMentionSuggestions && (
-            <div style={{
-              position: "absolute",
-              bottom: "calc(100% + 10px)",
-              left: 12,
-              right: 12,
-              zIndex: 10,
-              background: "#171922",
-              border: "1px solid rgba(255,255,255,.12)",
-              borderRadius: 14,
-              boxShadow: "0 12px 30px rgba(0,0,0,.4)",
-              maxHeight: 200,
-              overflowY: "auto",
-              padding: "6px 0"
-            }}>
-              {mentionSuggestions.map((user, idx) => (
-                <div
-                  key={user.id}
-                  onClick={() => selectMention(idx)}
-                  style={{
-                    padding: "8px 14px",
-                    cursor: "pointer",
-                    background: idx === mentionIndex ? "rgba(255, 63, 94, 0.15)" : "transparent",
-                    color: idx === mentionIndex ? "var(--chakra-colors-brandPrimary)" : "inherit",
-                    fontWeight: idx === mentionIndex ? 700 : 500,
-                    transition: "all 0.1s ease"
-                  }}
-                  onMouseEnter={() => setMentionIndex(idx)}
-                >
-                  @{user.name}
-                </div>
-              ))}
-            </div>
-          )}
-
-          <InputPill>
-            <IconButton as="label" htmlFor="file-input" title="Upload File">
-              <FaPaperclip />
-            </IconButton>
-
-            <FileInput
-              ref={fileInputRef}
-              id="file-input"
-              type="file"
-              multiple
-              onChange={(e) => {
-                const files = Array.from(e.target.files);
-                if (files.length === 0) return;
-                setPendingFiles((prev) => [...prev, ...files]);
-              }}
-            />
-
-            {isRecording ? (
-              <RecordingIndicator onClick={stopVoiceRecording} title="Stop recording">
-                <span className="dot" />
-                <span className="timer">
-                  {Math.floor(recordingTime / 60)}:{String(recordingTime % 60).padStart(2, '0')}
-                </span>
-              </RecordingIndicator>
-            ) : (
-              <IconButton onClick={startVoiceRecording} title="Record voice note">
-                <FaMicrophone />
-              </IconButton>
-            )}
-
-            <MessageInput
-              placeholder={ephemeralMode ? "💨 Ephemeral message..." : "Type a message..."}
-              value={message}
-              onChange={handleInputChange}
-              onKeyDown={handleInputKeyDown}
-            />
-
-            <div style={{ position: "relative" }}>
-              <IconButton type="button" onClick={() => setShowEmojiPicker((value) => !value)} title="Choose an emoji" aria-label="Choose an emoji">😊</IconButton>
-              {showEmojiPicker && (
-                <PremiumEmojiPicker
-                  onSelect={(emoji) => {
-                    setMessage((current) => `${current}${emoji}`);
-                    setShowEmojiPicker(false);
-                  }}
-                  onClose={() => setShowEmojiPicker(false)}
-                  isMobile={isMobile}
-                />
-              )}
-            </div>
-            <IconButton
-              onClick={() => {
-                setShowGifPicker(true);
-                fetchGifs();
-              }}
-              title="Send GIF"
-            >
-              <HiGif />
-            </IconButton>
-
-            <IconButton
-              onClick={() => setShowPollCreator(true)}
-              title="Create Poll"
-            >
-              📊
-            </IconButton>
-
-            <IconButton
-              onClick={() => setShowScheduler(!showScheduler)}
-              title="Schedule Message"
-              style={{ color: showScheduler ? "var(--chakra-colors-brandPrimary)" : "inherit" }}
-            >
-              ⏰
-            </IconButton>
-
-            <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
-              <EphemeralToggle
-                $active={roomEphemeralDuration > 0}
-                onClick={() => setShowEphemeralMenu(!showEphemeralMenu)}
-                title={roomEphemeralDuration > 0 ? `Disappearing messages ON (${roomEphemeralDuration >= 3600 ? `${Math.floor(roomEphemeralDuration / 3600)}h` : roomEphemeralDuration >= 60 ? `${Math.floor(roomEphemeralDuration / 60)}m` : `${roomEphemeralDuration}s`})` : "Disappearing messages OFF"}
+        <MessageInputContainer style={{ flexDirection: "column", alignItems: "stretch", gap: 8 }}>
+          {showMobileActions && isMobile && (
+            <AccessoryRow>
+              <div style={{ position: "relative" }}>
+                <IconButton type="button" onClick={() => setShowEmojiPicker((value) => !value)} title="Choose an emoji" aria-label="Choose an emoji">😊</IconButton>
+                {showEmojiPicker && (
+                  <PremiumEmojiPicker
+                    onSelect={(emoji) => {
+                      setMessage((current) => `${current}${emoji}`);
+                      setShowEmojiPicker(false);
+                    }}
+                    onClose={() => setShowEmojiPicker(false)}
+                    isMobile={isMobile}
+                  />
+                )}
+              </div>
+              <IconButton
+                onClick={() => {
+                  setShowGifPicker(true);
+                  fetchGifs();
+                }}
+                title="Send GIF"
               >
-                <FaClock />
-              </EphemeralToggle>
+                <HiGif />
+              </IconButton>
+              <IconButton
+                onClick={() => setShowPollCreator(true)}
+                title="Create Poll"
+              >
+                📊
+              </IconButton>
+              <IconButton
+                onClick={() => setShowScheduler(!showScheduler)}
+                title="Schedule Message"
+                style={{ color: showScheduler ? "var(--chakra-colors-brandPrimary)" : "inherit" }}
+              >
+                ⏰
+              </IconButton>
+              <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                <EphemeralToggle
+                  $active={roomEphemeralDuration > 0}
+                  onClick={() => setShowEphemeralMenu(!showEphemeralMenu)}
+                  title={roomEphemeralDuration > 0 ? `Disappearing messages ON` : "Disappearing messages OFF"}
+                >
+                  <FaClock />
+                </EphemeralToggle>
+                {showEphemeralMenu && (
+                  <>
+                    <EphemeralMenuOverlay onClick={() => setShowEphemeralMenu(false)} />
+                    <EphemeralMenuCard onClick={(e) => e.stopPropagation()}>
+                      <div className="title">💨 Disappearing Messages</div>
+                      <div className="subtitle">All new messages in this room will vanish after the selected time.</div>
+                      <div className="options">
+                        {[
+                          { label: "Off", value: 0 },
+                          { label: "1 Hour", value: 3600 },
+                          { label: "24 Hours", value: 86400 },
+                          { label: "7 Days", value: 604800 },
+                          { label: "30 Days", value: 2592000 }
+                        ].map((opt) => (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            className={`option-btn ${roomEphemeralDuration === opt.value ? 'active' : ''}`}
+                            onClick={() => {
+                              socketRef.current.emit("updateRoomEphemeral", { roomId, ephemeralDuration: opt.value });
+                              setShowEphemeralMenu(false);
+                            }}
+                          >
+                            <span>{opt.label}</span>
+                            {roomEphemeralDuration === opt.value && <span className="check">✓</span>}
+                          </button>
+                        ))}
+                      </div>
+                    </EphemeralMenuCard>
+                  </>
+                )}
+              </div>
+            </AccessoryRow>
+          )}
 
-              {showEphemeralMenu && (
+          <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 12, width: "100%" }}>
+            <InputPill>
+              {isMobile && (
+                <IconButton 
+                  type="button" 
+                  onClick={() => setShowMobileActions(!showMobileActions)}
+                  title="More Actions"
+                  style={{ color: showMobileActions ? "var(--chakra-colors-brandPrimary)" : "inherit", transform: showMobileActions ? "rotate(45deg)" : "none", transition: "transform 0.2s" }}
+                >
+                  ➕
+                </IconButton>
+              )}
+
+              <IconButton as="label" htmlFor="file-input" title="Upload File">
+                <FaPaperclip />
+              </IconButton>
+
+              <FileInput
+                ref={fileInputRef}
+                id="file-input"
+                type="file"
+                multiple
+                onChange={(e) => {
+                  const files = Array.from(e.target.files);
+                  if (files.length === 0) return;
+                  setPendingFiles((prev) => [...prev, ...files]);
+                }}
+              />
+
+              {isRecording ? (
+                <RecordingIndicator onClick={stopVoiceRecording} title="Stop recording">
+                  <span className="dot" />
+                  <span className="timer">
+                    {Math.floor(recordingTime / 60)}:{String(recordingTime % 60).padStart(2, '0')}
+                  </span>
+                </RecordingIndicator>
+              ) : (
+                <IconButton onClick={startVoiceRecording} title="Record voice note">
+                  <FaMicrophone />
+                </IconButton>
+              )}
+
+              <MessageInput
+                placeholder={ephemeralMode ? "💨 Ephemeral message..." : "Type a message..."}
+                value={message}
+                onChange={handleInputChange}
+                onKeyDown={handleInputKeyDown}
+              />
+
+              {!isMobile && (
                 <>
-                  <EphemeralMenuOverlay onClick={() => setShowEphemeralMenu(false)} />
-                  <EphemeralMenuCard onClick={(e) => e.stopPropagation()}>
-                    <div className="title">💨 Disappearing Messages</div>
-                    <div className="subtitle">All new messages in this room will vanish after the selected time.</div>
+                  <div style={{ position: "relative" }}>
+                    <IconButton type="button" onClick={() => setShowEmojiPicker((value) => !value)} title="Choose an emoji" aria-label="Choose an emoji">😊</IconButton>
+                    {showEmojiPicker && (
+                      <PremiumEmojiPicker
+                        onSelect={(emoji) => {
+                          setMessage((current) => `${current}${emoji}`);
+                          setShowEmojiPicker(false);
+                        }}
+                        onClose={() => setShowEmojiPicker(false)}
+                        isMobile={isMobile}
+                      />
+                    )}
+                  </div>
+                  <IconButton
+                    onClick={() => {
+                      setShowGifPicker(true);
+                      fetchGifs();
+                    }}
+                    title="Send GIF"
+                  >
+                    <HiGif />
+                  </IconButton>
 
-                    <div className="options">
-                      {[
-                        { label: "Off", value: 0 },
-                        { label: "1 Hour", value: 3600 },
-                        { label: "24 Hours", value: 86400 }
-                        , { label: "7 Days", value: 604800 }
-                        , { label: "30 Days", value: 2592000 }
-                      ].map((opt) => (
-                        <button
-                          key={opt.value}
-                          type="button"
-                          className={`option-btn ${roomEphemeralDuration === opt.value ? 'active' : ''}`}
-                          onClick={() => {
-                            socketRef.current.emit("updateRoomEphemeral", { roomId, ephemeralDuration: opt.value });
-                            setShowEphemeralMenu(false);
-                          }}
-                        >
-                          <span>{opt.label}</span>
-                          {roomEphemeralDuration === opt.value && <span className="check">✓</span>}
-                        </button>
-                      ))}
+                  <IconButton
+                    onClick={() => setShowPollCreator(true)}
+                    title="Create Poll"
+                  >
+                    📊
+                  </IconButton>
 
-                    </div>
-                  </EphemeralMenuCard>
+                  <IconButton
+                    onClick={() => setShowScheduler(!showScheduler)}
+                    title="Schedule Message"
+                    style={{ color: showScheduler ? "var(--chakra-colors-brandPrimary)" : "inherit" }}
+                  >
+                    ⏰
+                  </IconButton>
+
+                  <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                    <EphemeralToggle
+                      $active={roomEphemeralDuration > 0}
+                      onClick={() => setShowEphemeralMenu(!showEphemeralMenu)}
+                      title={roomEphemeralDuration > 0 ? `Disappearing messages ON` : "Disappearing messages OFF"}
+                    >
+                      <FaClock />
+                    </EphemeralToggle>
+                    {showEphemeralMenu && (
+                      <>
+                        <EphemeralMenuOverlay onClick={() => setShowEphemeralMenu(false)} />
+                        <EphemeralMenuCard onClick={(e) => e.stopPropagation()}>
+                          <div className="title">💨 Disappearing Messages</div>
+                          <div className="subtitle">All new messages in this room will vanish after the selected time.</div>
+                          <div className="options">
+                            {[
+                              { label: "Off", value: 0 },
+                              { label: "1 Hour", value: 3600 },
+                              { label: "24 Hours", value: 86400 },
+                              { label: "7 Days", value: 604800 },
+                              { label: "30 Days", value: 2592000 }
+                            ].map((opt) => (
+                              <button
+                                key={opt.value}
+                                type="button"
+                                className={`option-btn ${roomEphemeralDuration === opt.value ? 'active' : ''}`}
+                                onClick={() => {
+                                  socketRef.current.emit("updateRoomEphemeral", { roomId, ephemeralDuration: opt.value });
+                                  setShowEphemeralMenu(false);
+                                }}
+                              >
+                                <span>{opt.label}</span>
+                                {roomEphemeralDuration === opt.value && <span className="check">✓</span>}
+                              </button>
+                            ))}
+                          </div>
+                        </EphemeralMenuCard>
+                      </>
+                    )}
+                  </div>
                 </>
               )}
-            </div>
-          </InputPill>
+            </InputPill>
 
-          <SendButton onClick={() => handleSend()} disabled={!message.trim()}>
-            <FaPaperPlane />
-          </SendButton>
+            <SendButton onClick={() => handleSend()} disabled={!message.trim()}>
+              <FaPaperPlane />
+            </SendButton>
+          </div>
         </MessageInputContainer>
 
         <style>{`
@@ -5680,8 +5823,26 @@ export default function ChatRoom() {
                 Choose when to send your composed message.
               </p>
               
-              <div style={{ background: "rgba(255,255,255,0.03)", padding: "10px 14px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.06)", marginBottom: 16, fontSize: "0.9rem", color: "var(--chakra-colors-textPrimary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {message.trim() ? `"${message.trim()}"` : <em>Compose a message first...</em>}
+              <div style={{ background: "rgba(255,255,255,0.03)", padding: "12px 14px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.06)", marginBottom: 16, fontSize: "0.9rem", color: "var(--chakra-colors-textPrimary)" }}>
+                {pendingFiles.length > 0 && (
+                  <div style={{ marginBottom: message.trim() ? 8 : 0, display: "flex", flexDirection: "column", gap: 4 }}>
+                    <span style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--chakra-colors-brandPrimary)", fontWeight: 700 }}>Files to Schedule:</span>
+                    {pendingFiles.map((f, i) => (
+                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.8rem", opacity: 0.85 }}>
+                        📎 <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {message.trim() && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    <span style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--chakra-colors-brandPrimary)", fontWeight: 700 }}>Text to Schedule:</span>
+                    <div style={{ fontStyle: "italic", opacity: 0.9 }}>"{message.trim()}"</div>
+                  </div>
+                )}
+                {!message.trim() && pendingFiles.length === 0 && (
+                  <em style={{ opacity: 0.5 }}>No text or files to schedule...</em>
+                )}
               </div>
 
               <input
@@ -5717,7 +5878,9 @@ export default function ChatRoom() {
                     {scheduledMessages.map((m) => (
                       <div key={m.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(255,255,255,0.03)", padding: 8, borderRadius: 6, fontSize: "0.8rem" }}>
                         <div style={{ minWidth: 0, flex: 1 }}>
-                          <div style={{ textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap", fontWeight: 600 }}>{m.payload?.text}</div>
+                          <div style={{ textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap", fontWeight: 600 }}>
+                            {m.file ? `📎 File: ${m.file.name}` : m.text || "Scheduled message"}
+                          </div>
                           <div style={{ opacity: 0.6, fontSize: "0.7rem" }}>{new Date(m.sendAt).toLocaleString()}</div>
                         </div>
                         <button type="button" onClick={() => handleCancelScheduled(m.id)} style={{ border: 0, background: "transparent", color: "#ff4757", cursor: "pointer", fontSize: "0.9rem" }}>
