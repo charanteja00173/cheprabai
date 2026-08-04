@@ -58,6 +58,24 @@ const getMediaAspectRatio = (sourceStr = "", fileType = "") => {
   return "16 / 9";
 };
 
+const getFileType = (file) => {
+  if (!file) return "";
+  let type = (file.type || "").toLowerCase();
+  if (!type || type === "application/octet-stream" || type === "binary/oct-stream") {
+    const ext = (file.name || "").split(".").pop().toLowerCase();
+    if (["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg", "heic", "heif"].includes(ext)) {
+      return "image/" + (ext === "jpg" ? "jpeg" : ext);
+    }
+    if (["mp4", "webm", "ogg", "mov", "avi", "mkv", "flv", "3gp"].includes(ext)) {
+      return "video/" + (ext === "mov" ? "quicktime" : ext);
+    }
+    if (["mp3", "wav", "ogg", "m4a", "aac", "flac", "webm"].includes(ext)) {
+      return "audio/" + (ext === "m4a" ? "mp4" : ext);
+    }
+  }
+  return type;
+};
+
 const SECURITY_CODE = process.env.REACT_APP_SECURITY_CODES.split(",");
 
 const urlRegex = /(https?:\/\/[^\s]+)/g;
@@ -301,6 +319,7 @@ const MessageBubble = styled.div`
   ${p => p.isFile && `
     width: min(80vw, 560px);
     max-width: min(80vw, 560px);
+    flex-shrink: 0;
     display: flex;
     flex-direction: column;
     padding: 0 !important;
@@ -1096,6 +1115,13 @@ const AccessoryRow = styled.div`
   @keyframes slideDown {
     from { transform: translateY(8px); opacity: 0; }
     to { transform: translateY(0); opacity: 1; }
+  }
+
+  @media (max-width: 480px) {
+    justify-content: center;
+    gap: 14px;
+    padding: 8px 12px;
+    flex-wrap: wrap;
   }
 `;
 
@@ -2295,6 +2321,7 @@ function LinkPreviewCard({ url, renderLinkActions }) {
 
 // Stateful component to handle downloading, decrypting and displaying E2EE files
 function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile }) {
+  const fileType = getFileType(file);
   const [decryptedUrl, setDecryptedUrl] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -2424,7 +2451,7 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile }) {
     );
   }
 
-  if (file.type && file.type.startsWith("audio")) {
+  if (fileType && fileType.startsWith("audio")) {
     const PlaybackSpeedAudio = () => {
       const audioElRef = React.useRef(null);
       const canvasRef = React.useRef(null);
@@ -2636,7 +2663,7 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile }) {
 
   return (
     <FileAttachmentWrapper ref={containerRef} style={{ padding: 0 }}>
-      {file.type && file.type.startsWith("image") ? (
+      {fileType && fileType.startsWith("image") ? (
         <div 
           onClick={() => setFullscreen({ ...file, url: decryptedUrl })}
           style={{ position: "relative", borderRadius: 16, overflow: "hidden" }}
@@ -2646,7 +2673,7 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile }) {
             src={decryptedUrl} 
             loading="lazy" 
             decoding="async"
-            style={{ width: "100%", maxHeight: isMobile ? "320px" : "420px", objectFit: "cover", display: "block", borderRadius: 0, background: "rgba(0,0,0,0.25)" }} 
+            style={{ width: "100%", height: "auto", maxHeight: isMobile ? "320px" : "420px", objectFit: "cover", display: "block", borderRadius: 0, background: "rgba(0,0,0,0.25)" }} 
           />
           <div style={{ padding: "8px 12px", background: "rgba(10, 10, 10, 0.75)", backdropFilter: "blur(12px)", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
             <span style={{ fontSize: "0.72rem", color: "#eee", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "80%", fontWeight: 500 }}>{file.name}</span>
@@ -2659,14 +2686,14 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile }) {
             </button>
           </div>
         </div>
-      ) : file.type && file.type.startsWith("video") ? (
+      ) : fileType && fileType.startsWith("video") ? (
         <div style={{ position: "relative", borderRadius: 16, overflow: "hidden" }}>
           <video 
             src={decryptedUrl} 
             controls 
             playsInline 
             preload="none"
-            style={{ width: "100%", maxHeight: isMobile ? "320px" : "420px", objectFit: "contain", display: "block", background: "#000" }} 
+            style={{ width: "100%", height: "auto", maxHeight: isMobile ? "320px" : "420px", objectFit: "contain", display: "block", background: "#000" }} 
           />
           <div style={{ padding: "8px 12px", background: "rgba(10, 10, 10, 0.75)", backdropFilter: "blur(12px)", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
             <span style={{ fontSize: "0.72rem", color: "#eee", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "80%", fontWeight: 500 }}>{file.name}</span>
@@ -4919,31 +4946,32 @@ export default function ChatRoom() {
 
   const formatTextHtml = (rawText) => {
     if (!rawText) return "";
-    let escaped = escapeHtml(rawText);
 
-    // 1. Search Query Highlighting
+    // 1. Extract triple-backtick code blocks first to protect them from other formatting
+    const codeBlocks = [];
+    let textWithPlaceholders = rawText.replace(/```(\w*)\r?\n?([\s\S]+?)\r?\n?```/g, (match, lang, code) => {
+      const placeholder = `___CHEPRABAI_CODE_BLOCK_${codeBlocks.length}___`;
+      codeBlocks.push({ placeholder, lang: lang ? lang.trim().toLowerCase() : "", code });
+      return placeholder;
+    });
+
+    // 2. Escape HTML for the rest of the text
+    let escaped = escapeHtml(textWithPlaceholders);
+
+    // 3. Apply standard search query highlighting and markdown formatting to the escaped text
     if (searchQuery && searchQuery.trim()) {
       try {
-        // eslint-disable-next-line no-useless-escape
         const regex = new RegExp(`(${searchQuery.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')})`, "gi");
         escaped = escaped.replace(regex, `<mark style="background: #ffa500; color: #000; padding: 0 2px; border-radius: 2px; font-weight: bold">$1</mark>`);
       } catch (e) {}
     }
 
-    // 2. Markdown Bold: **text** or *text*
     escaped = escaped.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
     escaped = escaped.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, "<strong>$1</strong>");
-    
-    // Italic: _text_
     escaped = escaped.replace(/(?<!\w)_(.+?)_(?!\w)/g, "<em>$1</em>");
-    
-    // Strikethrough: ~text~
     escaped = escaped.replace(/~(.+?)~/g, "<del>$1</del>");
-    
-    // Inline code: `code`
     escaped = escaped.replace(/`([^`]+)`/g, '<code style="background:rgba(255,255,255,.08);padding:2px 5px;border-radius:4px;font-family:monospace;font-size:.85em">$1</code>');
 
-    // 3. Mention replacement
     const mentionRegex = /@(\w+)/g;
     escaped = escaped.replace(mentionRegex, (match, mentioned) => {
       const isMe = mentioned.toLowerCase() === userName?.toLowerCase();
@@ -4951,6 +4979,24 @@ export default function ChatRoom() {
         ? "background:rgba(255, 63, 94, 0.2);color:var(--chakra-colors-brandPrimary);font-weight:700;padding:1px 5px;border-radius:4px"
         : "background:rgba(100, 181, 246, 0.15);color:#64b5f6;font-weight:700;padding:1px 5px;border-radius:4px";
       return `<span style="${style}">@${mentioned}</span>`;
+    });
+
+    // 4. Re-insert the protected code blocks with beautiful styling
+    codeBlocks.forEach((block) => {
+      const escapedCodeForHtml = escapeHtml(block.code);
+      const escapedCodeForClipboard = encodeURIComponent(block.code);
+      const copyCodeJs = `navigator.clipboard.writeText(decodeURIComponent('${escapedCodeForClipboard}')); this.innerText = '✓ Copied'; this.style.color = '#00bfa5'; setTimeout(() => { this.innerText = 'Copy'; this.style.color = 'inherit'; }, 2000);`;
+
+      const blockHtml = `
+<div style="background:#0b0c10; border:1px solid rgba(255,255,255,0.08); border-radius:12px; margin:12px 0; overflow:hidden; font-family:monospace; font-size:0.88rem; box-shadow:0 8px 24px rgba(0,0,0,0.3); max-width: 100%; text-align: left; box-sizing: border-box;">
+  <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.03); padding:8px 14px; border-bottom:1px solid rgba(255,255,255,0.06); box-sizing: border-box;">
+    <span style="font-size:0.72rem; color:var(--chakra-colors-brandPrimary); text-transform:uppercase; font-weight:bold; letter-spacing:0.05em;">💻 ${block.lang || 'code'}</span>
+    <button onclick="${copyCodeJs}" style="background:transparent; border:none; color:rgba(255,255,255,0.4); cursor:pointer; font-size:0.75rem; font-weight:bold; padding: 4px 8px; outline:none; transition:color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,0.4)'">Copy</button>
+  </div>
+  <pre style="margin:0; padding:14px; overflow-x:auto; line-height:1.5; color:#c9d1d9; background:#0d0e15; font-family:inherit; box-sizing: border-box;"><code style="font-family:inherit; white-space:pre; word-break: normal; word-wrap: normal;">${escapedCodeForHtml}</code></pre>
+</div>`.trim();
+
+      escaped = escaped.replace(block.placeholder, blockHtml);
     });
 
     return escaped;
@@ -5355,7 +5401,7 @@ export default function ChatRoom() {
                 )}
 
                 {m.file && (
-                  <div style={{ position: "relative", width: "100%", minWidth: 0, borderTop: "1px solid rgba(255,255,255,.04)", borderBottom: "1px solid rgba(255,255,255,.04)" }}>
+                  <div style={{ position: "relative", width: "100%", minWidth: 0, flexShrink: 0, borderTop: "1px solid rgba(255,255,255,.04)", borderBottom: "1px solid rgba(255,255,255,.04)" }}>
                     {m.file.loading ? (
                       <div style={{
                         width: "100%", padding: "24px 18px", background: "rgba(255, 255, 255, 0.03)", display: "flex", alignItems: "center", justifyContent: "center"
