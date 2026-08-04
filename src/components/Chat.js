@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, Suspense, useCallback } from "react";
+import React, { useState, useEffect, useRef, Suspense, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { io } from "socket.io-client";
 import { Link } from "react-router-dom";
@@ -802,8 +802,7 @@ const PreviewCard = styled.div`
 const PreviewMediaWrapper = styled.div`
   position: relative;
   width: 100%;
-  flex: ${(props) => (props.$singleFile ? "1 1 auto" : "0 0 auto")};
-  min-height: ${(props) => (props.$singleFile ? "360px" : "180px")};
+  height: ${(props) => (props.$singleFile ? "360px" : "160px")};
   display: flex;
   align-items: center;
   justify-content: center;
@@ -811,8 +810,7 @@ const PreviewMediaWrapper = styled.div`
   overflow: hidden;
 
   @media (max-width: 767px) {
-    min-height: 180px;
-    max-height: 45vh;
+    height: ${(props) => (props.$singleFile ? "260px" : "130px")};
   }
 `;
 
@@ -838,15 +836,16 @@ const PreviewVideo = styled.video`
 
 const PreviewFilePlaceholder = styled.div`
   width: 100%;
-  min-height: 180px;
+  height: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 24px;
+  padding: 16px;
   background: rgba(255, 255, 255, 0.02);
   color: rgba(255, 255, 255, 0.75);
   text-align: center;
+  box-sizing: border-box;
 `;
 
 const PreviewFileInfo = styled.div`
@@ -1807,6 +1806,402 @@ function ReplyAttachmentPreview({ reply, roomKey }) {
   return reply.file ? <div style={{ width: 42, height: 42, borderRadius: 7, flexShrink: 0, display: "grid", placeItems: "center", background: "rgba(255,255,255,.09)", fontSize: ".62rem", fontWeight: 800 }}>FILE</div> : null;
 }
 
+const EMOJI_DATA = [
+  {
+    category: "Smileys",
+    icon: "😀",
+    emojis: ["😀", "😁", "😂", "🤣", "😃", "😄", "😅", "😆", "😉", "😊", "😋", "😎", "😍", "😘", "🥰", "😗", "😙", "😚", "🙂", "🤗", "🤩", "🤔", "🤨", "😐", "😑", "😶", "🙄", "😏", "😣", "😥", "😮", "🤐", "😪", "😫", "🥱", "😴", "😌", "😛", "😜", "🤪", "😝", "🤤", "😒", "😓", "😔", "😕", "🙃", "🤑", "😲", "☹️", "🙁", "😖", "😞", "😟", "😤", "😢", "😭", "😦", "😧", "😨", "😩", "🤯", "😬", "😰", "😱", "🥵", "🥶", "😳", "😵", "🥴", "😠", "😡", "🤬", "😷", "🤒", "🤕", "🤢", "🤮", "🤧", "😇", "🤠", "🤡", "🥳", "🥺", "🤫", "🤭", "🧐", "🤓", "😈", "👿", "💀", "☠️", "👻", "👽", "👾", "🤖", "💩"]
+  },
+  {
+    category: "Nature",
+    icon: "🌸",
+    emojis: ["🐶", "🐱", "🐭", "🐹", "🐰", "🦊", "🐻", "🐼", "🐨", "🐯", "🦁", "🐮", "🐷", "🐸", "🐵", "🐔", "Penguin", "Bird", "Duck", "Eagle", "Owl", "Bat", "Wolf", "Boar", "Horse", "Unicorn", "Bee", "Bug", "Butterfly", "Snail", "Ladybug", "Ant", "Mosquito", "Cricket", "Spider", "Scorpion", "Turtle", "Snake", "Lizard", "Octopus", "Squid", "Lobster", "Crab", "Fish", "Dolphin", "Whale", "Shark", "Crocodile", "Tiger", "Leopard", "Zebra", "Gorilla", "Elephant", "Camel", "Giraffe", "Kangaroo", "Sheep", "Goat", "Deer", "Dog", "Cat", "Rabbit", "Dragon", "Cactus", "🌲", "Tree", "Palm", "Seedling", "Herb", "Clover", "Maple", "Mushroom", "Shell", "Bouquet", "Tulip", "Rose", "Hibiscus", "🌸", "Sunflower", "Sun", "Moon", "Star", "Sparkles", "Lightning", "Fire", "Rainbow", "Cloud", "Rain", "Snowflake", "Wind", "Water Drop", "Wave"]
+  },
+  {
+    category: "Food",
+    icon: "🍔",
+    emojis: ["🍏", "🍎", "🍐", "🍊", "Lemon", "Banana", "Watermelon", "Grapes", "Strawberry", "Melon", "Cherry", "Peach", "Pineapple", "Coconut", "Kiwi", "Tomato", "Eggplant", "Avocado", "Broccoli", "Pepper", "Corn", "Carrot", "Potato", "Croissant", "Bread", "Cheese", "Egg", "Frying Pan", "Pancake", "Bacon", "Meat", "Chicken", "Hot Dog", "Hamburger", "Fries", "Pizza", "Sandwich", "Taco", "Burrito", "Salad", "Spaghetti", "Ramen", "Sushi", "Bento", "Dumpling", "Fried Shrimp", "Rice", "Ice Cream", "Cake", "Cupcake", "Pie", "Chocolate", "Candy", "Lollipop", "Honey", "Milk", "Coffee", "Tea", "Wine", "Cocktail", "Beer", "Whiskey", "Soda"]
+  },
+  {
+    category: "Travel",
+    icon: "✈️",
+    emojis: ["🚗", "Taxi", "🚙", "Bus", "🚓", "Ambulance", "Fire Engine", "Motorcycle", "Bicycle", "Scooter", "Skateboard", "Train", "Rocket", "Airplane", "Helicopter", "Sailboat", "Speedboat", "Ship", "Anchor", "Fuel Pump", "Stop Sign", "Map", "Statue of Liberty", "Eiffel Tower", "Castle", "Stadium", "Ferris Wheel", "Roller Coaster", "Carousel", "Fountain", "Beach", "Island", "Desert", "Volcano", "Mountain", "Tent", "House", "Office", "Hospital", "Bank", "Hotel", "School", "Church", "Sunrise", "Sunset", "Bridge", "Milky Way"]
+  },
+  {
+    category: "Activities",
+    icon: "⚽️",
+    emojis: ["⚽️", "🏀", "🏈", "Baseball", "Tennis", "Volleyball", "Rugby", "8 Ball", "Ping Pong", "Badminton", "Golf", "Archery", "Fishing", "Boxing Glove", "Skate", "Sled", "Ski", "Snowboard", "Weightlifter", "Fencer", "Gymnast", "Cyclist", "Yoga", "Trophy", "Medal", "Ticket", "Circus Tent", "Performing Arts", "Artist Palette", "Clapperboard", "Microphone", "Headphones", "Musical Keyboard", "Drum", "Guitar", "Violin", "Game Die", "Puzzle", "Bowling", "Video Game", "Slot Machine", "Dart"]
+  },
+  {
+    category: "Objects",
+    icon: "💡",
+    emojis: ["⌚️", "Mobile Phone", "Laptop", "Keyboard", "Desktop", "Printer", "Mouse", "Camera", "Video Camera", "TV", "Radio", "Clock", "Hourglass", "Battery", "Plug", "Light Bulb", "Flashlight", "Candle", "Money Bag", "Dollar Banknote", "Credit Card", "Gem Stone", "Balance Scale", "Wrench", "Hammer", "Gear", "Shield", "Cigarette", "Coffin", "Crystal Ball", "Magnet", "Balloon", "Party Popper", "Confetti Ball", "Gift", "Envelope", "Postbox", "File Folder", "Calendar", "Bar Chart", "Paperclip", "Scissors", "Lock", "Key", "Shopping Cart", "Trash Can"]
+  },
+  {
+    category: "Symbols",
+    icon: "❤️",
+    emojis: ["❤️", "🧡", "💛", "💚", "💙", "Purple Heart", "Black Heart", "White Heart", "Broken Heart", "Exclamation Heart", "Two Hearts", "Sparkling Heart", "Heart Aflutter", "Growing Heart", "Heart With Ribbon", "Peace Symbol", "Latin Cross", "Star and Crescent", "Star of David", "Yin Yang", "Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces", "Biohazard", "Warning", "Prohibited", "Check Mark", "Cross Mark", "Question Mark", "Exclamation Mark", "Arrow Up", "Arrow Right", "Arrow Down", "Arrow Left", "Reload", "Play Button", "Pause Button", "Stop Button"]
+  }
+];
+
+const EMOJI_NAMES = {
+  "😀": "smiley face grin smile happy",
+  "😁": "beaming face smile happy",
+  "😂": "tears of joy laugh crying lol lmao",
+  "🤣": "rofl laughing floor rolling lol lmao",
+  "😃": "grinning face big eyes open mouth happy",
+  "😄": "grinning face smiling eyes happy",
+  "😅": "sweat smile relief nervous",
+  "😆": "laughing face squinting eyes happy",
+  "😉": "wink winking face",
+  "😊": "smiling face rosy cheeks blush warm nice",
+  "😋": "yum delicious food tasty hungry",
+  "😎": "cool sunglasses smart swag",
+  "😍": "heart eyes love adore crush romantic",
+  "😘": "kiss blow kiss love romantic",
+  "🥰": "smiling face hearts in love warm romantic",
+  "😗": "kissing face",
+  "😙": "kissing face smiling eyes",
+  "😚": "kissing face closed eyes",
+  "🙂": "slightly smiling face",
+  "🤗": "hug hugging face",
+  "🤩": "star struck amazed wow",
+  "🤔": "thinking pondering wonder question",
+  "🤨": "raised eyebrow skeptical suspicious",
+  "😐": "neutral face meh",
+  "😑": "expressionless face flat line",
+  "😶": "no mouth speech silent",
+  "🙄": "roll eyes rolling bored annoyed",
+  "😏": "smirk smirking sly cool",
+  "😣": "persevere struggling frustrated",
+  "😥": "sad relieved sweat tear cry",
+  "😮": "gasp wow surprise open mouth",
+  "🤐": "zipper mouth secret quiet silent",
+  "😪": "sleepy tear yawn tired",
+  "😫": "tired exhausted groan",
+  "🥱": "yawn yawning tired bored",
+  "😴": "sleep sleeping zzz tired",
+  "😌": "relieved peaceful calm",
+  "😛": "tongue out playful",
+  "😜": "tongue out wink playful cheeky",
+  "🤪": "zany goofy crazy silly",
+  "😝": "tongue squint playful",
+  "🤤": "drool drooling delicious hungry",
+  "😒": "unamused unimpressed annoyed bored",
+  "😓": "downcast sweat sad tired",
+  "😔": "pensive sad regretful",
+  "😟": "worried anxious",
+  "😤": "steam from nose angry win proud",
+  "😢": "cry crying tear sad",
+  "😭": "loud crying sob tear sad broken",
+  "😦": "frowning mouth open shocked",
+  "😧": "anguished sad worried",
+  "😨": "fear fearful scared",
+  "😩": "weary tired crying",
+  "🤯": "exploding head mind blown wow surprise",
+  "😬": "grimace awkward tense",
+  "😰": "anxious blue forehead sweat scared",
+  "😱": "scream screaming fear shocked scared",
+  "🥵": "hot sweat red temperature summer",
+  "🥶": "cold blue freeze ice winter",
+  "😳": "flushed embarrassed shocked surprise blush",
+  "😵": "dizzy cross eyes dead shocked",
+  "🥴": "woozy drunk dizzy sick",
+  "😠": "angry mad annoyed",
+  "😡": "pout angry mad red",
+  "🤬": "swearing curse mad angry",
+  "😷": "mask medical doctor sick",
+  "🤒": "thermometer sick flu fever temperature",
+  "🤕": "bandage head hurt injured sick",
+  "🤢": "nausea throw up green disgust sick",
+  "🤮": "vomit throwing up sick disgust",
+  "🤧": "sneeze tissue sick cold flu",
+  "😇": "halo angel holy good innocent",
+  "🤠": "cowboy hat west country",
+  "🤡": "clown face circus silly goofy",
+  "🥳": "party blower hat celebrate birthday cheers",
+  "🥺": "pleading begging puppy eyes sad cute",
+  "🤫": "shh quiet silent whisper",
+  "🤭": "giggle hand over mouth oops",
+  "🧐": "monocle class fancy smart",
+  "🤓": "nerd geek smart glasses",
+  "😈": "smiling devil purple evil mischievous",
+  "👿": "angry devil purple evil demon",
+  "💀": "skull skeleton death dead spooky",
+  "☠️": "skull crossbones poison danger death",
+  "👻": "ghost spooky halloween",
+  "👽": "alien outer space ufo",
+  "👾": "alien monster retro video game space invader",
+  "🤖": "robot android technology mechanical",
+  "💩": "poop turd brown piece of",
+  "❤️": "heart love red romantic like favourite",
+  "🧡": "orange heart love",
+  "💛": "yellow heart love",
+  "💚": "green heart love",
+  "💙": "blue heart love",
+  "💜": "purple heart love",
+  "🖤": "black heart love",
+  "🤍": "white heart love",
+  "🤎": "brown heart love",
+  "💔": "broken heart sad split break up",
+  "👍": "thumbs up ok yes agree good check like",
+  "👎": "thumbs down no disagree bad dislike",
+  "🙏": "please pray thanks gratitude appreciate hope fold hands",
+  "🔥": "fire hot lit flame match warm burn",
+  "🎉": "tada party popper celebrate birthday congrats",
+  "✨": "sparkles shiny clean magic new bright",
+  "💯": "hundred percent perfect core A+ score check",
+  "✅": "check mark green select pass correct tick",
+  "❌": "cross mark red delete cancel close wrong fail"
+};
+
+function PremiumEmojiPicker({ onSelect, onClose, isMobile }) {
+  const [activeCategory, setActiveCategory] = useState("Smileys");
+  const [search, setSearch] = useState("");
+
+  const filteredEmojis = useMemo(() => {
+    if (!search.trim()) {
+      return EMOJI_DATA.find(c => c.category === activeCategory)?.emojis || [];
+    }
+    const query = search.toLowerCase();
+    const results = [];
+    EMOJI_DATA.forEach(cat => {
+      cat.emojis.forEach(emoji => {
+        const desc = EMOJI_NAMES[emoji] || cat.category.toLowerCase();
+        if (desc.includes(query)) {
+          results.push(emoji);
+        }
+      });
+    });
+    return results;
+  }, [search, activeCategory]);
+
+  return (
+    <div style={{
+      position: "absolute",
+      bottom: "calc(100% + 10px)",
+      right: isMobile ? -80 : 0,
+      width: 320,
+      height: 380,
+      background: "#171922",
+      border: "1px solid rgba(255,255,255,.12)",
+      borderRadius: 16,
+      boxShadow: "0 20px 50px rgba(0,0,0,.5)",
+      display: "flex",
+      flexDirection: "column",
+      zIndex: 100,
+      overflow: "hidden"
+    }}>
+      <div style={{ padding: 10, borderBottom: "1px solid rgba(255,255,255,.06)" }}>
+        <input
+          type="text"
+          placeholder="Search emojis..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          style={{
+            width: "100%",
+            padding: "8px 12px",
+            background: "rgba(255,255,255,.05)",
+            border: "1px solid rgba(255,255,255,.08)",
+            borderRadius: 8,
+            color: "#fff",
+            fontSize: "0.85rem",
+            outline: "none",
+            boxSizing: "border-box"
+          }}
+          autoFocus
+        />
+      </div>
+
+      {!search.trim() && (
+        <div style={{
+          display: "flex",
+          padding: "6px 10px",
+          background: "rgba(0,0,0,.15)",
+          borderBottom: "1px solid rgba(255,255,255,.04)",
+          justifyContent: "space-between"
+        }}>
+          {EMOJI_DATA.map(cat => (
+            <button
+              key={cat.category}
+              onClick={() => setActiveCategory(cat.category)}
+              style={{
+                background: "transparent",
+                border: "none",
+                fontSize: "1.1rem",
+                padding: "4px 6px",
+                cursor: "pointer",
+                borderRadius: 6,
+                backgroundColor: activeCategory === cat.category ? "rgba(255,255,255,.08)" : "transparent",
+                transition: "all 0.15s ease"
+              }}
+              title={cat.category}
+            >
+              {cat.icon}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div style={{
+        flex: 1,
+        overflowY: "auto",
+        padding: 10,
+        display: "grid",
+        gridTemplateColumns: "repeat(7, 1fr)",
+        gap: 6,
+        alignContent: "start"
+      }}>
+        {filteredEmojis.map(emoji => (
+          <button
+            key={emoji}
+            onClick={() => {
+              onSelect(emoji);
+              if (search.trim()) setSearch("");
+            }}
+            style={{
+              background: "transparent",
+              border: "none",
+              fontSize: "1.4rem",
+              padding: 4,
+              cursor: "pointer",
+              borderRadius: 8,
+              transition: "transform 0.1s ease",
+              display: "grid",
+              placeItems: "center"
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.2)"; e.currentTarget.style.backgroundColor = "rgba(255,255,255,.05)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.backgroundColor = "transparent"; }}
+          >
+            {emoji}
+          </button>
+        ))}
+        {filteredEmojis.length === 0 && (
+          <div style={{ gridColumn: "span 7", textAlign: "center", padding: "40px 10px", fontSize: "0.85rem", opacity: 0.5 }}>
+            No emojis found 😢
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Rich link preview card that fetches OG metadata from backend
+function LinkPreviewCard({ url, renderLinkActions }) {
+  const [preview, setPreview] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchPreview = async () => {
+      try {
+        const backendUrl = process.env.REACT_APP_SOCKET_ENDPOINT || "https://cheprabai-backend.onrender.com";
+        const res = await fetch(`${backendUrl}/api/link-preview?url=${encodeURIComponent(url)}`);
+        if (!res.ok) throw new Error("Preview fetch failed");
+        const data = await res.json();
+        if (!cancelled) setPreview(data);
+      } catch {
+        // Silently fail — we'll show a basic link card
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    fetchPreview();
+    return () => { cancelled = true; };
+  }, [url]);
+
+  if (loading) {
+    return (
+      <div style={{
+        marginTop: 10,
+        padding: 14,
+        borderRadius: 12,
+        background: "rgba(255,255,255,.04)",
+        border: "1px solid rgba(255,255,255,.08)"
+      }}>
+        <div style={{ fontWeight: 600, wordBreak: "break-all", fontSize: "0.9rem" }}>{url}</div>
+        <div style={{ marginTop: 8, fontSize: "0.75rem", opacity: 0.5 }}>Loading preview…</div>
+      </div>
+    );
+  }
+
+  if (!preview || (!preview.title && !preview.description)) {
+    return (
+      <div style={{
+        marginTop: 10,
+        padding: 14,
+        borderRadius: 12,
+        background: "rgba(255,255,255,.04)",
+        border: "1px solid rgba(255,255,255,.08)"
+      }}>
+        <div style={{ fontWeight: 600, wordBreak: "break-all" }}>{url}</div>
+        {renderLinkActions(url)}
+      </div>
+    );
+  }
+
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      style={{
+        display: "block",
+        marginTop: 10,
+        borderRadius: 14,
+        background: "rgba(255,255,255,.03)",
+        border: "1px solid rgba(255,255,255,.08)",
+        overflow: "hidden",
+        textDecoration: "none",
+        color: "inherit",
+        transition: "border-color 0.2s ease",
+        cursor: "pointer"
+      }}
+      onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,.2)"; }}
+      onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,.08)"; }}
+    >
+      {preview.image && (
+        <img
+          src={preview.image}
+          alt=""
+          style={{
+            width: "100%",
+            maxHeight: 200,
+            objectFit: "cover",
+            display: "block"
+          }}
+          onError={(e) => { e.target.style.display = "none"; }}
+        />
+      )}
+      <div style={{ padding: "12px 14px" }}>
+        {preview.siteName && (
+          <div style={{ fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: ".06em", fontWeight: 700, opacity: 0.5, marginBottom: 4 }}>
+            {preview.siteName}
+          </div>
+        )}
+        {preview.title && (
+          <div style={{ fontWeight: 700, fontSize: "0.95rem", lineHeight: 1.35, marginBottom: 4 }}>
+            {preview.title}
+          </div>
+        )}
+        {preview.description && (
+          <div style={{
+            fontSize: "0.82rem",
+            opacity: 0.7,
+            lineHeight: 1.4,
+            overflow: "hidden",
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical"
+          }}>
+            {preview.description}
+          </div>
+        )}
+      </div>
+    </a>
+  );
+}
+
 // Stateful component to handle downloading, decrypting and displaying E2EE files
 function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile }) {
   const [decryptedUrl, setDecryptedUrl] = useState(null);
@@ -2103,17 +2498,87 @@ export default function ChatRoom() {
   const [message, setMessage] = useState("");
   const [typingUsers, setTypingUsers] = useState([]);
   const [viewer, setViewer] = useState(null);
+  const [isConnected, setIsConnected] = useState(true);
+  const [showScrollPill, setShowScrollPill] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     if (joined && roomId) {
       const bg = localStorage.getItem(`cheprabai:room-background:${roomId}`) || "";
       setRoomBackground(bg);
+      if ("Notification" in window && Notification.permission === "default") {
+        Notification.requestPermission();
+      }
     }
   }, [joined, roomId]);
 
   useEffect(() => {
     userAvatarRef.current = userAvatar;
   }, [userAvatar]);
+
+  useEffect(() => {
+    const handleOnline = () => setIsConnected(true);
+    const handleOffline = () => setIsConnected(false);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleShortcuts = (e) => {
+      const isInput = e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA";
+      
+      if (e.key === "Escape") {
+        setShowEmojiPicker(false);
+        setShowGifPicker(false);
+        setShowRoomInfo(false);
+        setReplyTo(null);
+        setForwardTarget(null);
+        setConfirmation(null);
+        setShowEphemeralMenu(false);
+        setShowShortcutsHelp(false);
+        return;
+      }
+
+      if (isInput) return;
+
+      if (e.key === "?") {
+        e.preventDefault();
+        setShowShortcutsHelp(prev => !prev);
+        return;
+      }
+
+      const hasMeta = e.metaKey || e.ctrlKey;
+
+      if (hasMeta && e.key.toLowerCase() === "p") {
+        e.preventDefault();
+        setEphemeralMode(prev => !prev);
+        toast.info(!ephemeralMode ? "💨 Disappearing messages enabled" : "💨 Disappearing messages disabled");
+      }
+
+      if (hasMeta && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        setShowSearch(prev => !prev);
+      }
+
+      if (e.altKey && e.key.toLowerCase() === "g") {
+        e.preventDefault();
+        setShowGifPicker(prev => !prev);
+        if (!showGifPicker) fetchGifs();
+      }
+
+      if (e.altKey && e.key.toLowerCase() === "e") {
+        e.preventDefault();
+        setShowEmojiPicker(prev => !prev);
+      }
+    };
+
+    window.addEventListener("keydown", handleShortcuts);
+    return () => window.removeEventListener("keydown", handleShortcuts);
+  }, [ephemeralMode, showGifPicker, fetchGifs]);
 
   // Keep the current participant visible immediately while Socket.IO finishes
   // delivering the authoritative room presence list.
@@ -2154,6 +2619,29 @@ export default function ChatRoom() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearch, setShowSearch] = useState(false);
 
+  // ── Pinned Messages ──
+  const [pinnedMessages, setPinnedMessages] = useState([]);
+
+  // ── Message Editing ──
+  const [editingMessageId, setEditingMessageId] = useState(null);
+  const [editInput, setEditInput] = useState("");
+
+  // ── Polls ──
+  const [showPollCreator, setShowPollCreator] = useState(false);
+  const [pollQuestion, setPollQuestion] = useState("");
+  const [pollOptions, setPollOptions] = useState(["", ""]);
+
+  // ── Mentions & Notifications ──
+  const [mentionSuggestions, setMentionSuggestions] = useState([]);
+  const [mentionIndex, setMentionIndex] = useState(-1);
+  const [showMentionSuggestions, setShowMentionSuggestions] = useState(false);
+  const [cursorPosition, setCursorPosition] = useState(0);
+
+  // ── Message Forwarding ──
+  const [forwardTarget, setForwardTarget] = useState(null);
+  const [forwardRoomId, setForwardRoomId] = useState("");
+  const [forwardSecurityCode, setForwardSecurityCode] = useState("");
+
   // ── Ephemeral Messages ──
   const [ephemeralMode, setEphemeralMode] = useState(false);
   const [roomEphemeralDuration, setRoomEphemeralDuration] = useState(0); // 0 means OFF, positive is seconds
@@ -2174,6 +2662,23 @@ export default function ChatRoom() {
   const messagesContainerRef = useRef(null);
 
   const lastMessageIdRef = useRef(null);
+
+  // ── Scheduled Messages ──
+  const [scheduledMessages, setScheduledMessages] = useState([]);
+  const [showScheduler, setShowScheduler] = useState(false);
+  const [scheduleDateTime, setScheduleDateTime] = useState("");
+
+  // ── Bookmarks / Saved Messages ──
+  const [bookmarks, setBookmarks] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("cheprabai:bookmarks") || "[]"); } catch { return []; }
+  });
+  const [showBookmarks, setShowBookmarks] = useState(false);
+  const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
+  const isScrollingRef = useRef(false);
+
+  // ── Drag & Drop ──
+  const [isDragOver, setIsDragOver] = useState(false);
+  const dragCounterRef = useRef(0);
 
   // ── Manage blob URLs for pending files to prevent flickering ──
   useEffect(() => {
@@ -2544,7 +3049,31 @@ export default function ChatRoom() {
       }
       setMessages((m) => [...m, formattedMsg]);
       if (formattedMsg.id && formattedMsg.userName !== userName) socketRef.current.emit("messageViewed", { messageId: formattedMsg.id });
-      if (msg.userName !== userName) audioRef.current.play().catch(() => { });
+      if (msg.userName !== userName) {
+        audioRef.current.play().catch(() => { });
+
+        // Update unread count if scrolled up
+        const container = messagesContainerRef.current;
+        if (container) {
+          const isNearBottom = container.scrollHeight - container.clientHeight - container.scrollTop < 250;
+          if (!isNearBottom) {
+            setUnreadCount(prev => prev + 1);
+          }
+        }
+
+        if (document.hidden && "Notification" in window && Notification.permission === "granted") {
+          const bodyText = formattedMsg.file 
+            ? `📎 File: ${formattedMsg.file.name}` 
+            : formattedMsg.poll 
+              ? `📊 Poll: ${formattedMsg.poll.question}` 
+              : formattedMsg.text;
+          new Notification(formattedMsg.userName || "New Message", {
+            body: bodyText,
+            tag: "cheprabai-message",
+            renotify: true
+          });
+        }
+      }
     });
 
     socketRef.current.on("presence", ({ online, count }) => {
@@ -2588,12 +3117,15 @@ export default function ChatRoom() {
     });
 
     socketRef.current.on("connect", () => {
+      setIsConnected(true);
       if (joined && roomId && userName) {
         socketRef.current.emit("joinRoom", { roomId, userName, securityCode, avatar: userAvatarRef.current });
       }
     });
 
-    socketRef.current.on("disconnect", () => { });
+    socketRef.current.on("disconnect", () => {
+      setIsConnected(false);
+    });
 
     socketRef.current.on("fileUrlUpdated", ({ localUrl, newUrl }) => {
       setMessages(prev => prev.map(msg => {
@@ -2608,12 +3140,84 @@ export default function ChatRoom() {
       setMessages(prev => prev.filter(msg => msg.id !== messageId));
     });
 
-    // ── Disappearing Messages Sync ──
-    socketRef.current.on("syncRoomMetadata", ({ ephemeralDuration }) => {
+    // ── Disappearing Messages & Pinned Messages Sync ──
+    socketRef.current.on("syncRoomMetadata", async ({ ephemeralDuration, pinnedMessages: rawPinned }) => {
       if (ephemeralDuration !== undefined) {
         setRoomEphemeralDuration(ephemeralDuration);
         setEphemeralMode(ephemeralDuration > 0);
       }
+      if (rawPinned) {
+        const formatted = await Promise.all(rawPinned.map(async msg => {
+          const item = { ...msg, ...msg.payload };
+          if (item.encryptedPayload && roomKey) {
+            try {
+              const decryptedText = await decryptMessage(roomKey, item.encryptedPayload);
+              try {
+                const decryptedPayload = JSON.parse(decryptedText);
+                Object.assign(item, decryptedPayload);
+              } catch {
+                item.text = decryptedText;
+              }
+            } catch (e) {
+              item.text = "🔒 Decryption failed";
+              item.decryptionError = true;
+            }
+          }
+          return item;
+        }));
+        setPinnedMessages(formatted);
+      }
+    });
+
+    socketRef.current.on("pinnedMessagesUpdated", async ({ pinnedMessages: rawPinned }) => {
+      const formatted = await Promise.all((rawPinned || []).map(async msg => {
+        const item = { ...msg, ...msg.payload };
+        if (item.encryptedPayload && roomKey) {
+          try {
+            const decryptedText = await decryptMessage(roomKey, item.encryptedPayload);
+            try {
+              const decryptedPayload = JSON.parse(decryptedText);
+              Object.assign(item, decryptedPayload);
+            } catch {
+              item.text = decryptedText;
+            }
+          } catch (e) {
+            item.text = "🔒 Decryption failed";
+            item.decryptionError = true;
+          }
+        }
+        return item;
+      }));
+      setPinnedMessages(formatted);
+    });
+
+    socketRef.current.on("scheduledMessagesUpdated", (scheduledMsgs) => {
+      setScheduledMessages(scheduledMsgs || []);
+    });
+
+    socketRef.current.on("messageEdited", async ({ messageId, payload: newPayload, editedAt }) => {
+      let formatted = { ...newPayload };
+      if (newPayload.encryptedPayload && roomKey) {
+        try {
+          const decryptedText = await decryptMessage(roomKey, newPayload.encryptedPayload);
+          try {
+            const decryptedPayload = JSON.parse(decryptedText);
+            Object.assign(formatted, decryptedPayload);
+          } catch {
+            formatted.text = decryptedText;
+          }
+        } catch (e) {
+          formatted.text = "🔒 Decryption failed (invalid key or corrupted)";
+          formatted.decryptionError = true;
+        }
+      }
+      setMessages(prev => prev.map(msg => msg.id === messageId ? { ...msg, ...formatted, editedAt } : msg));
+      setPinnedMessages(prev => prev.map(msg => msg.id === messageId ? { ...msg, ...formatted, editedAt } : msg));
+    });
+
+    socketRef.current.on("pollVotesUpdated", ({ messageId, pollVotes }) => {
+      setMessages(prev => prev.map(msg => msg.id === messageId ? { ...msg, pollVotes } : msg));
+      setPinnedMessages(prev => prev.map(msg => msg.id === messageId ? { ...msg, pollVotes } : msg));
     });
 
     socketRef.current.on("roomEphemeralUpdated", ({ ephemeralDuration, userName: settingUser }) => {
@@ -2786,6 +3390,7 @@ export default function ChatRoom() {
 
     if (!customData) setMessage("");
     setReplyTo(null);
+    localStorage.removeItem(`cheprabai:draft:${roomId}`);
   };
 
   const toggleReaction = (messageId, emoji) => {
@@ -2820,6 +3425,161 @@ export default function ChatRoom() {
     setLoadingMore(true);
     socketRef.current.emit("loadMoreMessages", { offset: messages.length });
   }, [loadingMore, hasMoreMessages, messages.length]);
+
+  const handleScroll = () => {
+    if (isScrollingRef.current) return;
+    isScrollingRef.current = true;
+    requestAnimationFrame(() => {
+      isScrollingRef.current = false;
+      const container = messagesContainerRef.current;
+      if (!container) return;
+      const isNearBottom = container.scrollHeight - container.clientHeight - container.scrollTop < 250;
+      
+      setShowScrollPill(prev => {
+        if (isNearBottom && prev) return false;
+        if (!isNearBottom && !prev) return true;
+        return prev;
+      });
+      
+      if (isNearBottom) {
+        setUnreadCount(0);
+      }
+    });
+  };
+
+  /* ================= DRAG & DROP FILE UPLOAD ================= */
+  const handleDragEnter = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current++;
+    if (e.dataTransfer?.items?.length > 0) {
+      setIsDragOver(true);
+    }
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current--;
+    if (dragCounterRef.current === 0) {
+      setIsDragOver(false);
+    }
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+    dragCounterRef.current = 0;
+    const files = Array.from(e.dataTransfer?.files || []);
+    if (files.length > 0) {
+      setPendingFiles((prev) => [...prev, ...files]);
+    }
+  };
+
+  /* ================= LOCAL DRAFT RETENTION ================= */
+  const draftKey = `cheprabai:draft:${roomId}`;
+
+  // Restore draft on mount
+  useEffect(() => {
+    if (!roomId) return;
+    const savedDraft = localStorage.getItem(draftKey);
+    if (savedDraft) {
+      setMessage(savedDraft);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomId]);
+
+  // Auto-save draft as user types
+  useEffect(() => {
+    if (!roomId) return;
+    if (message.trim()) {
+      localStorage.setItem(draftKey, message);
+    } else {
+      localStorage.removeItem(draftKey);
+    }
+  }, [message, draftKey, roomId]);
+
+  /* ================= MARKDOWN RENDERING ================= */
+  const renderMarkdownText = (text) => {
+    if (!text || typeof text !== "string") return text;
+    // Bold: *text* or **text**
+    let html = text.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+    html = html.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, "<strong>$1</strong>");
+    // Italic: _text_
+    html = html.replace(/(?<![\\w])_(.+?)_(?![\\w])/g, "<em>$1</em>");
+    // Strikethrough: ~text~
+    html = html.replace(/~(.+?)~/g, "<del>$1</del>");
+    // Inline code: `code`
+    html = html.replace(/`([^`]+)`/g, '<code style="background:rgba(255,255,255,.08);padding:2px 5px;border-radius:4px;font-family:monospace;font-size:.85em">$1</code>');
+    return html;
+  };
+
+  /* ================= SCHEDULED MESSAGES ================= */
+  const handleScheduleMessage = () => {
+    if (!message.trim() && !pendingFiles.length) {
+      toast.error("Type a message to schedule");
+      return;
+    }
+    if (!scheduleDateTime) {
+      toast.error("Pick a date and time");
+      return;
+    }
+    const sendAt = new Date(scheduleDateTime).getTime();
+    if (sendAt <= Date.now()) {
+      toast.error("Schedule time must be in the future");
+      return;
+    }
+
+    socketRef.current.emit("scheduleMessage", {
+      roomId,
+      userName,
+      payload: { text: message.trim() },
+      sendAt,
+      ephemeral: ephemeralMode,
+      ephemeralDuration: roomEphemeralDuration
+    }, (res) => {
+      if (res?.error) {
+        toast.error(res.error);
+      } else {
+        toast.success(`⏰ Message scheduled for ${new Date(sendAt).toLocaleString()}`);
+        setMessage("");
+        setScheduleDateTime("");
+        setShowScheduler(false);
+      }
+    });
+  };
+
+  const handleCancelScheduled = (messageId) => {
+    socketRef.current.emit("cancelScheduledMessage", { roomId, messageId }, (res) => {
+      if (res?.error) toast.error(res.error);
+      else toast.success("Scheduled message cancelled");
+    });
+  };
+
+  /* ================= BOOKMARKS / SAVED MESSAGES ================= */
+  const toggleBookmark = (msg) => {
+    setBookmarks(prev => {
+      const exists = prev.some(b => b.id === msg.id);
+      let next;
+      if (exists) {
+        next = prev.filter(b => b.id !== msg.id);
+        toast.info("🔖 Bookmark removed");
+      } else {
+        next = [...prev, { id: msg.id, text: msg.text, userName: msg.userName, ts: msg.ts, roomId }];
+        toast.success("🔖 Message bookmarked!");
+      }
+      localStorage.setItem("cheprabai:bookmarks", JSON.stringify(next));
+      return next;
+    });
+  };
+
+  const isBookmarked = (msgId) => bookmarks.some(b => b.id === msgId);
 
   /* ================= VOICE NOTES ================= */
   const startVoiceRecording = async () => {
@@ -2964,10 +3724,544 @@ export default function ChatRoom() {
     });
   };
 
+  const handleSaveEdit = async (messageId) => {
+    if (!editInput.trim()) return;
+
+    let payload = { text: editInput.trim() };
+    if (roomKey) {
+      const encrypted = await encryptMessage(roomKey, JSON.stringify(payload));
+      payload = { encryptedPayload: encrypted };
+    }
+
+    socketRef.current?.emit("editMessage", { messageId, newPayload: payload }, (res) => {
+      if (res.error) {
+        toast.error(res.error);
+      } else {
+        setEditingMessageId(null);
+        toast.success("Message edited");
+      }
+    });
+  };
+
+  const handleForwardMessage = async () => {
+    if (!forwardRoomId.trim() || !forwardSecurityCode.trim()) return toast.warn("Please enter target Room ID and Security Code.");
+
+    try {
+      const plainPayload = {
+        text: forwardTarget.text || "",
+        ...(forwardTarget.file && { file: forwardTarget.file }),
+        ...(forwardTarget.gif && { gif: forwardTarget.gif }),
+        forwarded: true,
+        forwardedFrom: forwardTarget.userName
+      };
+
+      const targetKey = await generateKeyFromSecret(forwardSecurityCode.trim() + forwardRoomId.trim());
+      const encrypted = await encryptMessage(targetKey, JSON.stringify(plainPayload));
+
+      const outgoingMessage = {
+        payload: {
+          encryptedPayload: encrypted,
+          ...(forwardTarget.file && { file: forwardTarget.file })
+        },
+        userName: userName,
+        senderAvatar: userAvatar,
+        roomId: forwardRoomId.trim(),
+        ts: Date.now(),
+        ephemeral: false
+      };
+
+      socketRef.current.emit("sendMessage", outgoingMessage, (result) => {
+        if (result?.success) {
+          toast.success(`Message forwarded to room ${forwardRoomId}!`);
+          setForwardTarget(null);
+          setForwardRoomId("");
+          setForwardSecurityCode("");
+        } else {
+          toast.error(result?.error || "Forwarding failed.");
+        }
+      });
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to forward securely.");
+    }
+  };
+
+  const renderPoll = (m) => {
+    if (!m.poll) return null;
+    const totalVotes = Object.values(m.pollVotes || {}).reduce((acc, optVotes) => acc + Object.keys(optVotes || {}).length, 0);
+
+    return (
+      <div style={{
+        background: "rgba(255, 255, 255, 0.02)",
+        border: "1px solid rgba(255, 255, 255, 0.08)",
+        borderRadius: 16,
+        padding: 16,
+        margin: "8px 0",
+        minWidth: 260,
+        maxWidth: 400
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+          <span style={{ fontSize: "1.2rem" }}>📊</span>
+          <strong style={{ color: "var(--chakra-colors-textPrimary)", fontSize: "1.05rem" }}>{m.poll.question}</strong>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {m.poll.options.map((opt, idx) => {
+            const votes = m.pollVotes?.[idx] ? Object.keys(m.pollVotes[idx]).length : 0;
+            const pct = totalVotes > 0 ? Math.round((votes / totalVotes) * 100) : 0;
+            const hasVoted = m.pollVotes?.[idx]?.[socketRef.current?.id] !== undefined;
+
+            return (
+              <div
+                key={idx}
+                onClick={() => {
+                  socketRef.current?.emit("votePoll", { messageId: m.id, optionIndex: idx }, (res) => {
+                    if (res?.error) toast.error(res.error);
+                  });
+                }}
+                style={{
+                  position: "relative",
+                  background: "rgba(255, 255, 255, 0.03)",
+                  border: hasVoted ? "1px solid var(--chakra-colors-brandPrimary)" : "1px solid rgba(255, 255, 255, 0.06)",
+                  borderRadius: 10,
+                  padding: "10px 14px",
+                  cursor: "pointer",
+                  overflow: "hidden",
+                  transition: "all 0.2s ease"
+                }}
+              >
+                <div style={{
+                  position: "absolute",
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: `${pct}%`,
+                  background: hasVoted ? "rgba(255, 63, 94, 0.12)" : "rgba(255, 255, 255, 0.04)",
+                  transition: "width 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
+                  zIndex: 0
+                }} />
+
+                <div style={{ position: "relative", zIndex: 1, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontWeight: hasVoted ? 700 : 500, color: "var(--chakra-colors-textPrimary)" }}>{opt}</span>
+                  <span style={{ fontSize: "0.85rem", opacity: 0.8, fontWeight: 700, color: "var(--chakra-colors-textSecondary)" }}>
+                    {votes} {votes === 1 ? "vote" : "votes"} ({pct}%)
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div style={{ marginTop: 12, fontSize: "0.75rem", opacity: 0.6, textAlign: "right", color: "var(--chakra-colors-textSecondary)" }}>
+          Total: {totalVotes} {totalVotes === 1 ? "vote" : "votes"}
+        </div>
+      </div>
+    );
+  };
+
+  const renderPollCreator = () => {
+    if (!showPollCreator) return null;
+
+    return (
+      <div style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 22000,
+        display: "grid",
+        placeItems: "center",
+        padding: 16,
+        background: "rgba(0,0,0,.75)",
+        backdropFilter: "blur(12px)"
+      }}>
+        <div style={{
+          width: "min(100%, 450px)",
+          borderRadius: 22,
+          padding: 24,
+          background: "var(--chakra-colors-surface)",
+          border: "1px solid rgba(255,255,255,.13)",
+          boxShadow: "0 24px 80px rgba(0,0,0,.55)",
+          display: "flex",
+          flexDirection: "column",
+          gap: 16
+        }}>
+          <h3 style={{ margin: 0, fontSize: "1.3rem", fontWeight: 800 }}>Create group poll</h3>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <label style={{ fontSize: "0.8rem", fontWeight: 700, opacity: 0.8 }}>Question</label>
+            <input
+              type="text"
+              placeholder="What are we deciding?"
+              value={pollQuestion}
+              onChange={(e) => setPollQuestion(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "12px 16px",
+                borderRadius: 12,
+                border: "1px solid rgba(255, 255, 255, 0.1)",
+                background: "rgba(255, 255, 255, 0.05)",
+                color: "#fff",
+                outline: "none"
+              }}
+            />
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <label style={{ fontSize: "0.8rem", fontWeight: 700, opacity: 0.8 }}>Options</label>
+            {pollOptions.map((opt, idx) => (
+              <div key={idx} style={{ display: "flex", gap: 8 }}>
+                <input
+                  type="text"
+                  placeholder={`Option ${idx + 1}`}
+                  value={opt}
+                  onChange={(e) => {
+                    const newOpts = [...pollOptions];
+                    newOpts[idx] = e.target.value;
+                    setPollOptions(newOpts);
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: "10px 14px",
+                    borderRadius: 10,
+                    border: "1px solid rgba(255, 255, 255, 0.08)",
+                    background: "rgba(255, 255, 255, 0.04)",
+                    color: "#fff",
+                    outline: "none"
+                  }}
+                />
+                {pollOptions.length > 2 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPollOptions(pollOptions.filter((_, i) => i !== idx));
+                    }}
+                    style={{
+                      background: "rgba(255, 71, 87, 0.1)",
+                      border: "none",
+                      borderRadius: 10,
+                      color: "#ff4757",
+                      width: 40,
+                      cursor: "pointer"
+                    }}
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            ))}
+            {pollOptions.length < 6 && (
+              <button
+                type="button"
+                onClick={() => setPollOptions([...pollOptions, ""])}
+                style={{
+                  alignSelf: "flex-start",
+                  background: "transparent",
+                  border: "none",
+                  color: "var(--chakra-colors-brandPrimary)",
+                  fontSize: "0.85rem",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  padding: 4
+                }}
+              >
+                + Add Option
+              </button>
+            )}
+          </div>
+
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 10 }}>
+            <button
+              type="button"
+              onClick={() => {
+                setShowPollCreator(false);
+                setPollQuestion("");
+                setPollOptions(["", ""]);
+              }}
+              style={{
+                minHeight: 44,
+                padding: "0 20px",
+                borderRadius: 11,
+                border: "1px solid rgba(255,255,255,.15)",
+                background: "transparent",
+                color: "inherit",
+                cursor: "pointer"
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                if (!pollQuestion.trim()) return toast.warn("Please enter a question.");
+                const activeOpts = pollOptions.filter(o => o.trim());
+                if (activeOpts.length < 2) return toast.warn("Please add at least 2 options.");
+
+                await handleSend({
+                  poll: {
+                    question: pollQuestion.trim(),
+                    options: activeOpts
+                  }
+                });
+
+                setShowPollCreator(false);
+                setPollQuestion("");
+                setPollOptions(["", ""]);
+                toast.success("Poll created!");
+              }}
+              style={{
+                minHeight: 44,
+                padding: "0 20px",
+                border: 0,
+                borderRadius: 11,
+                color: "white",
+                background: "var(--chakra-colors-brandPrimary)",
+                fontWeight: 800,
+                cursor: "pointer"
+              }}
+            >
+              Launch Poll
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderPinnedMessagesBanner = () => {
+    if (!pinnedMessages || pinnedMessages.length === 0) return null;
+    const latestPin = pinnedMessages[pinnedMessages.length - 1];
+
+    return (
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        padding: "10px 16px",
+        background: "rgba(255, 255, 255, 0.02)",
+        backdropFilter: "blur(12px)",
+        borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+        color: "var(--chakra-colors-textPrimary)",
+        fontSize: "0.85rem",
+        zIndex: 5,
+        gap: 12
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, overflow: "hidden", cursor: "pointer" }} onClick={() => {
+          const target = messageRefs.current[latestPin.id];
+          target?.scrollIntoView({ behavior: "smooth", block: "center" });
+        }}>
+          <span style={{ fontSize: "1.1rem", color: "var(--chakra-colors-brandPrimary)" }}>📌</span>
+          <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <strong>Pinned: </strong>
+            {latestPin.poll ? `Poll: ${latestPin.poll.question}` : (latestPin.text || "Attachment")}
+          </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {pinnedMessages.length > 1 && (
+            <span style={{ fontSize: "0.75rem", opacity: 0.6, color: "var(--chakra-colors-textSecondary)" }}>
+              (+{pinnedMessages.length - 1} more)
+            </span>
+          )}
+          {ownerToken && (
+            <button
+              onClick={() => {
+                socketRef.current?.emit("unpinMessage", { messageId: latestPin.id });
+              }}
+              style={{
+                background: "transparent",
+                border: "none",
+                color: "#ff4757",
+                cursor: "pointer",
+                padding: "2px 6px",
+                fontSize: "0.8rem",
+                fontWeight: 700
+              }}
+            >
+              Unpin
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderForwardDialog = () => {
+    if (!forwardTarget) return null;
+
+    return (
+      <div style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 22000,
+        display: "grid",
+        placeItems: "center",
+        padding: 16,
+        background: "rgba(0,0,0,.75)",
+        backdropFilter: "blur(12px)"
+      }}>
+        <div style={{
+          width: "min(100%, 420px)",
+          borderRadius: 20,
+          padding: 24,
+          background: "var(--chakra-colors-surface)",
+          border: "1px solid rgba(255,255,255,.12)",
+          boxShadow: "0 24px 70px rgba(0,0,0,.55)",
+          display: "flex",
+          flexDirection: "column",
+          gap: 16
+        }}>
+          <div>
+            <h3 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 800 }}>Forward Message</h3>
+            <p style={{ margin: "4px 0 0 0", color: "var(--chakra-colors-textSecondary)", fontSize: "0.85rem" }}>
+              Decrypt and forward this payload to another room.
+            </p>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <label style={{ fontSize: "0.8rem", fontWeight: 700, opacity: 0.8 }}>Target Room ID</label>
+              <input
+                type="text"
+                placeholder="Target Room, e.g. 1000"
+                value={forwardRoomId}
+                onChange={(e) => setForwardRoomId(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "10px 14px",
+                  borderRadius: 10,
+                  border: "1px solid rgba(255, 255, 255, 0.1)",
+                  background: "rgba(255, 255, 255, 0.05)",
+                  color: "#fff",
+                  outline: "none",
+                  boxSizing: "border-box"
+                }}
+              />
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <label style={{ fontSize: "0.8rem", fontWeight: 700, opacity: 0.8 }}>Target Security Code</label>
+              <input
+                type="password"
+                placeholder="Target security code"
+                value={forwardSecurityCode}
+                onChange={(e) => setForwardSecurityCode(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "10px 14px",
+                  borderRadius: 10,
+                  border: "1px solid rgba(255, 255, 255, 0.1)",
+                  background: "rgba(255, 255, 255, 0.05)",
+                  color: "#fff",
+                  outline: "none",
+                  boxSizing: "border-box"
+                }}
+              />
+            </div>
+          </div>
+
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 10 }}>
+            <button
+              type="button"
+              onClick={() => {
+                setForwardTarget(null);
+                setForwardRoomId("");
+                setForwardSecurityCode("");
+              }}
+              style={{
+                minHeight: 44,
+                padding: "0 20px",
+                borderRadius: 11,
+                border: "1px solid rgba(255,255,255,.15)",
+                background: "transparent",
+                color: "inherit",
+                cursor: "pointer"
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleForwardMessage}
+              style={{
+                minHeight: 44,
+                padding: "0 20px",
+                border: 0,
+                borderRadius: 11,
+                color: "white",
+                background: "var(--chakra-colors-brandPrimary)",
+                fontWeight: 800,
+                cursor: "pointer"
+              }}
+            >
+              Forward Securely
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const requestBackgroundChange = (file) => {
     if (!file || (backgroundLocked && !ownerToken)) return;
     if (ownerToken) { setBackgroundTarget(file); return; }
     applyBackgroundChange(file, "personal");
+  };
+
+  const handleInputChange = (e) => {
+    const value = e.target.value;
+    const selectionStart = e.target.selectionStart;
+    setMessage(value);
+    handleTyping?.(value);
+
+    // Check for @mention trigger
+    const textBeforeCursor = value.slice(0, selectionStart);
+    const words = textBeforeCursor.split(/\s/);
+    const lastWord = words[words.length - 1];
+
+    if (lastWord.startsWith("@")) {
+      const query = lastWord.slice(1).toLowerCase();
+      setCursorPosition(selectionStart);
+      
+      const matches = onlineUsers.filter(u => u.name && u.name.toLowerCase().startsWith(query) && u.name !== userName);
+      setMentionSuggestions(matches);
+      setShowMentionSuggestions(matches.length > 0);
+      setMentionIndex(0);
+    } else {
+      setShowMentionSuggestions(false);
+    }
+  };
+
+  const handleInputKeyDown = (e) => {
+    if (showMentionSuggestions) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setMentionIndex(prev => (prev + 1) % mentionSuggestions.length);
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setMentionIndex(prev => (prev - 1 + mentionSuggestions.length) % mentionSuggestions.length);
+      } else if (e.key === "Enter" || e.key === "Tab") {
+        e.preventDefault();
+        selectMention(mentionIndex);
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        setShowMentionSuggestions(false);
+      }
+    } else {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        handleSend();
+      }
+    }
+  };
+
+  const selectMention = (index) => {
+    if (index < 0 || index >= mentionSuggestions.length) return;
+    const selectedUser = mentionSuggestions[index];
+    
+    const textBeforeCursor = message.slice(0, cursorPosition);
+    const textAfterCursor = message.slice(cursorPosition);
+    
+    const lastAtIndex = textBeforeCursor.lastIndexOf("@");
+    
+    const newText = textBeforeCursor.slice(0, lastAtIndex) + "@" + selectedUser.name + " " + textAfterCursor;
+    setMessage(newText);
+    setShowMentionSuggestions(false);
   };
 
   /* ================= UI ================= */
@@ -3110,9 +4404,10 @@ export default function ChatRoom() {
   }
 
   const renderSmartMessage = (text) => {
+    // First, split by URLs and process each part
     return text.split(urlRegex).map((part, i) => {
       if (!part.startsWith("http")) {
-        return <React.Fragment key={i}>{part}</React.Fragment>;
+        return <React.Fragment key={i}>{renderTextContent(part)}</React.Fragment>;
       }
 
       // Images
@@ -3209,31 +4504,62 @@ export default function ChatRoom() {
         );
       }
 
-      // Generic link card
-      return (
-        <div
-          key={i}
-          style={{
-            marginTop: 10,
-            padding: 14,
-            borderRadius: 12,
-            background: "rgba(255,255,255,.04)",
-            border: "1px solid rgba(255,255,255,.08)"
-          }}
-        >
-          <div
-            style={{
-              fontWeight: 600,
-              wordBreak: "break-all"
-            }}
-          >
-            {part}
-          </div>
-
-          {renderLinkActions(part)}
-        </div>
-      );
+      // Generic link card with rich preview
+      return <LinkPreviewCard key={i} url={part} renderLinkActions={renderLinkActions} />;
     });
+  };
+
+  const escapeHtml = (str) => {
+    if (!str) return "";
+    return str
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  };
+
+  const formatTextHtml = (rawText) => {
+    if (!rawText) return "";
+    let escaped = escapeHtml(rawText);
+
+    // 1. Search Query Highlighting
+    if (searchQuery && searchQuery.trim()) {
+      try {
+        const regex = new RegExp(`(${searchQuery.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')})`, "gi");
+        escaped = escaped.replace(regex, `<mark style="background: #ffa500; color: #000; padding: 0 2px; border-radius: 2px; font-weight: bold">$1</mark>`);
+      } catch (e) {}
+    }
+
+    // 2. Markdown Bold: **text** or *text*
+    escaped = escaped.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+    escaped = escaped.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, "<strong>$1</strong>");
+    
+    // Italic: _text_
+    escaped = escaped.replace(/(?<!\w)_(.+?)_(?!\w)/g, "<em>$1</em>");
+    
+    // Strikethrough: ~text~
+    escaped = escaped.replace(/~(.+?)~/g, "<del>$1</del>");
+    
+    // Inline code: `code`
+    escaped = escaped.replace(/`([^`]+)`/g, '<code style="background:rgba(255,255,255,.08);padding:2px 5px;border-radius:4px;font-family:monospace;font-size:.85em">$1</code>');
+
+    // 3. Mention replacement
+    const mentionRegex = /@(\w+)/g;
+    escaped = escaped.replace(mentionRegex, (match, mentioned) => {
+      const isMe = mentioned.toLowerCase() === userName?.toLowerCase();
+      const style = isMe 
+        ? "background:rgba(255, 63, 94, 0.2);color:var(--chakra-colors-brandPrimary);font-weight:700;padding:1px 5px;border-radius:4px"
+        : "background:rgba(100, 181, 246, 0.15);color:#64b5f6;font-weight:700;padding:1px 5px;border-radius:4px";
+      return `<span style="${style}">@${mentioned}</span>`;
+    });
+
+    return escaped;
+  };
+
+  const renderTextContent = (text) => {
+    const formattedHtml = formatTextHtml(text);
+    return <span dangerouslySetInnerHTML={{ __html: formattedHtml }} />;
   };
 
   const renderLinkActions = (url) => (
@@ -3273,7 +4599,13 @@ export default function ChatRoom() {
 
   return (
     <>
-      <ChatContainer style={roomBackground ? { backgroundImage: `linear-gradient(rgba(8,9,13,.78), rgba(8,9,13,.88)), url(${roomBackground})`, backgroundSize: "cover", backgroundPosition: "center", backgroundAttachment: isMobile ? "scroll" : "fixed" } : undefined}>
+      <ChatContainer
+        onDragEnter={handleDragEnter}
+        onDragLeave={handleDragLeave}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+        style={roomBackground ? { backgroundImage: `linear-gradient(rgba(8,9,13,.78), rgba(8,9,13,.88)), url(${roomBackground})`, backgroundSize: "cover", backgroundPosition: "center", backgroundAttachment: isMobile ? "scroll" : "fixed" } : undefined}
+      >
         <Header>
           <Avatar src={userAvatar || image} alt={userAvatar ? `${userName || "User"} avatar` : "Logo"} />
           <RoomInfoTrigger
@@ -3289,8 +4621,9 @@ export default function ChatRoom() {
                 {showRoomInfo ? "▲" : "▼"}
               </span>
             </div>
-            <div style={{ fontSize: "clamp(0.65rem, 1.8vw, 0.8rem)", color: "#aaa" }}>
-              {onlineUsers.length} online
+            <div style={{ fontSize: "clamp(0.65rem, 1.8vw, 0.8rem)", color: isConnected ? "#aaa" : "#ff4757", display: "flex", alignItems: "center", gap: 5, justifyContent: isMobile ? "center" : "flex-start" }}>
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: isConnected ? "#2ed573" : "#ff4757", display: "inline-block" }} />
+              {isConnected ? `${onlineUsers.length} online` : "Connecting…"}
             </div>
 
             {showRoomInfo && createPortal(
@@ -3388,6 +4721,14 @@ export default function ChatRoom() {
               <FaSignOutAlt />
             </ActionButton>
 
+            <ActionButton onClick={() => setShowBookmarks(!showBookmarks)} title="Saved messages / Bookmarks" style={{ color: showBookmarks ? "var(--chakra-colors-brandPrimary)" : "inherit" }}>
+              🔖
+            </ActionButton>
+
+            <ActionButton onClick={() => setShowShortcutsHelp(true)} title="Keyboard Shortcuts Guide" style={{ fontSize: "1.1rem" }}>
+              ⌨️
+            </ActionButton>
+
             {showSearch && (
               <SearchPopup onClick={(e) => e.stopPropagation()}>
                 <FaSearch style={{ opacity: 0.5 }} />
@@ -3413,6 +4754,7 @@ export default function ChatRoom() {
             )}
           </RoomActions>
         </Header>
+        {renderPinnedMessagesBanner()}
         {viewer && (
           <div
             style={{
@@ -3483,7 +4825,7 @@ export default function ChatRoom() {
           </div>
         )}
 
-        <MessageContainer ref={messagesContainerRef}>
+        <MessageContainer ref={messagesContainerRef} onScroll={handleScroll}>
           {hasMoreMessages && (
             <div style={{ textAlign: "center", padding: "8px 0" }}>
               <button
@@ -3503,11 +4845,15 @@ export default function ChatRoom() {
             if (!searchQuery) return true;
             if (m.type === "system") return false;
             return m.text?.toLowerCase().includes(searchQuery.toLowerCase());
-          }).map((m, i) => {
+          }).map((m, i, filteredArr) => {
             const isSystem = m.type === "system";
             const systemType = isSystem ? m.action : null;
             const senderAvatar = m.senderAvatar || participantProfiles[m.senderSocketId]?.avatar || Object.values(participantProfiles).find((profile) => profile.name?.trim().toLocaleLowerCase() === m.userName?.trim().toLocaleLowerCase())?.avatar;
             // const isVisualMedia = Boolean(m.file && (m.file.viewOnce || m.file.type?.startsWith("image/") || m.file.type?.startsWith("video/")));
+
+            // Message grouping: hide avatar/name if same sender within 2 minutes
+            const prevMsg = i > 0 ? filteredArr[i - 1] : null;
+            const isGrouped = !isSystem && prevMsg && prevMsg.type !== "system" && prevMsg.userName === m.userName && m.ts && prevMsg.ts && (m.ts - prevMsg.ts < 120000);
 
             if (isSystem && m.userName === userName) return null;
 
@@ -3520,7 +4866,13 @@ export default function ChatRoom() {
                 systemType={systemType}
                 isFile={!!m.file}
               >
-                {m.userName !== userName && !isSystem && (
+                {!isSystem && m.forwarded && (
+                  <div style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: "0.72rem", opacity: 0.6, marginBottom: 4, fontStyle: "italic", padding: m.file ? "12px 14px 0px" : "0" }}>
+                    <span>↪️</span> Forwarded {m.forwardedFrom ? `from ${m.forwardedFrom}` : ""}
+                  </div>
+                )}
+
+                {m.userName !== userName && !isSystem && !isGrouped && (
                   <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 5, padding: m.file ? "12px 14px 4px" : "0" }}>
                     {senderAvatar ? <img src={senderAvatar} alt={`${m.userName} avatar`} style={{ width: 24, height: 24, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} /> : <div aria-hidden="true" style={{ width: 24, height: 24, borderRadius: "50%", display: "grid", placeItems: "center", flexShrink: 0, background: getColor(m.userName), color: "#fff", fontSize: ".68rem", fontWeight: 800 }}>{m.userName?.slice(0, 1)?.toUpperCase()}</div>}
                     <Username color={getColor(m.userName)}>{m.userName}</Username>
@@ -3546,10 +4898,48 @@ export default function ChatRoom() {
                   </span>
                 )}
 
+                {!isSystem && m.poll && renderPoll(m)}
+
                 {!isSystem && m.text && (
-                  m.file ? (
-                    <div style={{ padding: "4px 14px 10px" }}>{renderSmartMessage(m.text)}</div>
-                  ) : renderSmartMessage(m.text)
+                  editingMessageId === m.id ? (
+                    <div style={{ display: "flex", gap: 8, width: "100%", marginTop: 4, minWidth: 200, padding: m.file ? "4px 14px 10px" : "0" }}>
+                      <input
+                        type="text"
+                        value={editInput}
+                        onChange={(e) => setEditInput(e.target.value)}
+                        style={{
+                          flex: 1,
+                          padding: "6px 12px",
+                          borderRadius: 8,
+                          border: "1px solid var(--chakra-colors-brandPrimary)",
+                          background: "rgba(0,0,0,0.2)",
+                          color: "#fff",
+                          outline: "none"
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleSaveEdit(m.id);
+                          if (e.key === "Escape") setEditingMessageId(null);
+                        }}
+                        autoFocus
+                      />
+                      <button
+                        onClick={() => handleSaveEdit(m.id)}
+                        style={{ background: "var(--chakra-colors-brandPrimary)", border: "none", color: "#fff", padding: "0 10px", borderRadius: 8, cursor: "pointer", fontWeight: 700 }}
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={() => setEditingMessageId(null)}
+                        style={{ background: "rgba(255,255,255,0.1)", border: "none", color: "inherit", padding: "0 10px", borderRadius: 8, cursor: "pointer" }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    m.file ? (
+                      <div style={{ padding: "4px 14px 10px" }}>{renderSmartMessage(m.text)}</div>
+                    ) : renderSmartMessage(m.text)
+                  )
                 )}
 
                 {m.gif && (
@@ -3581,8 +4971,11 @@ export default function ChatRoom() {
                 )}
 
                 <div style={m.file ? { padding: "10px 14px 10px", borderTop: "1px solid rgba(255,255,255,.08)", background: "rgba(0,0,0,.15)" } : undefined}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: 'space-between' }}>
-                    <Timestamp>{new Date(m.ts).toLocaleTimeString()}</Timestamp>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: 'space-between', width: "100%", gap: 6 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      {m.editedAt && <span style={{ fontSize: "0.65rem", opacity: 0.6, fontStyle: "italic", color: "var(--chakra-colors-textSecondary)" }}>(edited)</span>}
+                      <Timestamp>{new Date(m.ts).toLocaleTimeString()}</Timestamp>
+                    </div>
                     {m.userName === userName && Object.keys(m.viewedBy || {}).length > 0 && (
                       <button type="button" onClick={() => setViewedByTarget(m)} aria-label={`See who viewed this message`} style={{ color: "#4fc3f7", fontSize: ".72rem", cursor: "pointer", border: 0, background: "transparent", padding: 0, minHeight: 32, fontWeight: 750 }}>
                         ✓✓ {Object.keys(m.viewedBy).length}
@@ -3684,6 +5077,146 @@ export default function ChatRoom() {
                         >
                           <FaReply size={11} />
                           Reply
+                        </button>
+
+                        {ownerToken && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const isPinned = pinnedMessages.some(pm => pm.id === m.id);
+                              if (isPinned) {
+                                socketRef.current?.emit("unpinMessage", { messageId: m.id });
+                                toast.success("Message unpinned");
+                              } else {
+                                socketRef.current?.emit("pinMessage", { messageId: m.id });
+                                toast.success("Message pinned");
+                              }
+                            }}
+                            title={pinnedMessages.some(pm => pm.id === m.id) ? "Unpin message" : "Pin message"}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 5,
+                              height: 30,
+                              padding: "0 10px",
+                              borderRadius: 8,
+                              border: "1px solid rgba(255,255,255,.08)",
+                              background: "rgba(255,255,255,.05)",
+                              color: "var(--chakra-colors-textSecondary)",
+                              cursor: "pointer",
+                              transition: ".2s",
+                              fontSize: isMobile ? "0.8rem" : "0.9rem",
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.background = "rgba(255,255,255,.1)";
+                              e.currentTarget.style.color = "var(--chakra-colors-brandPrimary)";
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.background = "rgba(255,255,255,.05)";
+                              e.currentTarget.style.color = "var(--chakra-colors-textSecondary)";
+                            }}
+                          >
+                            📌 {pinnedMessages.some(pm => pm.id === m.id) ? "Unpin" : "Pin"}
+                          </button>
+                        )}
+
+                        {m.userName === userName && m.text && !m.file && !m.poll && (Date.now() - m.ts < 15 * 60 * 1000) && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingMessageId(m.id);
+                              setEditInput(m.text);
+                            }}
+                            title="Edit message"
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 5,
+                              height: 30,
+                              padding: "0 10px",
+                              borderRadius: 8,
+                              border: "1px solid rgba(255,255,255,.08)",
+                              background: "rgba(255,255,255,.05)",
+                              color: "var(--chakra-colors-textSecondary)",
+                              cursor: "pointer",
+                              transition: ".2s",
+                              fontSize: isMobile ? "0.8rem" : "0.9rem",
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.background = "rgba(255,255,255,.1)";
+                              e.currentTarget.style.color = "var(--chakra-colors-brandPrimary)";
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.background = "rgba(255,255,255,.05)";
+                              e.currentTarget.style.color = "var(--chakra-colors-textSecondary)";
+                            }}
+                          >
+                            ✏️ Edit
+                          </button>
+                        )}
+
+                        {(m.text || m.file || m.gif) && !m.poll && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setForwardTarget(m);
+                              setForwardRoomId("");
+                              setForwardSecurityCode("");
+                            }}
+                            title="Forward message"
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 5,
+                              height: 30,
+                              padding: "0 10px",
+                              borderRadius: 8,
+                              border: "1px solid rgba(255,255,255,.08)",
+                              background: "rgba(255,255,255,.05)",
+                              color: "var(--chakra-colors-textSecondary)",
+                              cursor: "pointer",
+                              transition: ".2s",
+                              fontSize: isMobile ? "0.8rem" : "0.9rem",
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.background = "rgba(255,255,255,.1)";
+                              e.currentTarget.style.color = "var(--chakra-colors-brandPrimary)";
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.background = "rgba(255,255,255,.05)";
+                              e.currentTarget.style.color = "var(--chakra-colors-textSecondary)";
+                            }}
+                          >
+                            ↪️ Forward
+                          </button>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => toggleBookmark(m)}
+                          title={isBookmarked(m.id) ? "Remove bookmark" : "Bookmark"}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 5,
+                            height: 30,
+                            padding: "0 10px",
+                            borderRadius: 8,
+                            border: `1px solid ${isBookmarked(m.id) ? "rgba(255, 165, 0, .25)" : "rgba(255,255,255,.08)"}`,
+                            background: isBookmarked(m.id) ? "rgba(255, 165, 0, .1)" : "rgba(255,255,255,.05)",
+                            color: isBookmarked(m.id) ? "#ffa500" : "var(--chakra-colors-textSecondary)",
+                            cursor: "pointer",
+                            transition: ".2s",
+                            fontSize: isMobile ? "0.8rem" : "0.9rem",
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = isBookmarked(m.id) ? "rgba(255, 165, 0, .18)" : "rgba(255,255,255,.1)";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = isBookmarked(m.id) ? "rgba(255, 165, 0, .1)" : "rgba(255,255,255,.05)";
+                          }}
+                        >
+                          {isBookmarked(m.id) ? "🔖" : "📑"} {isBookmarked(m.id) ? "Saved" : "Save"}
                         </button>
 
                         {m.userName === userName && (
@@ -3816,6 +5349,42 @@ export default function ChatRoom() {
             <TypingIndicator>{typingUsers.join(", ")} typing…</TypingIndicator>
           )}
         </MessageContainer>
+
+        {showScrollPill && (
+          <button
+            type="button"
+            onClick={() => {
+              if (messagesContainerRef.current) {
+                messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+              }
+              setShowScrollPill(false);
+              setUnreadCount(0);
+            }}
+            style={{
+              position: "absolute",
+              bottom: "90px",
+              left: "50%",
+              transform: "translateX(-50%)",
+              background: "linear-gradient(135deg, var(--chakra-colors-brandPrimary), var(--chakra-colors-brandSecondary))",
+              color: "#fff",
+              border: "none",
+              borderRadius: "20px",
+              padding: "10px 18px",
+              fontSize: "0.85rem",
+              fontWeight: 700,
+              cursor: "pointer",
+              boxShadow: "0 8px 24px rgba(0, 0, 0, 0.35)",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              zIndex: 99,
+              transition: "transform 0.2s, opacity 0.2s"
+            }}
+          >
+            <span>👇</span>
+            {unreadCount > 0 ? `${unreadCount} new message${unreadCount > 1 ? "s" : ""}` : "Scroll to bottom"}
+          </button>
+        )}
 
         {showGifPicker && (
           <GifPickerOverlay onClick={() => setShowGifPicker(false)}>
@@ -4014,6 +5583,42 @@ export default function ChatRoom() {
               <button type="button" onClick={() => setReplyTo(null)} style={{ background: "transparent", color: "#fff", border: 0, cursor: "pointer", fontSize: "1rem" }}>×</button>
             </div>
           )}
+
+          {showMentionSuggestions && (
+            <div style={{
+              position: "absolute",
+              bottom: "calc(100% + 10px)",
+              left: 12,
+              right: 12,
+              zIndex: 10,
+              background: "#171922",
+              border: "1px solid rgba(255,255,255,.12)",
+              borderRadius: 14,
+              boxShadow: "0 12px 30px rgba(0,0,0,.4)",
+              maxHeight: 200,
+              overflowY: "auto",
+              padding: "6px 0"
+            }}>
+              {mentionSuggestions.map((user, idx) => (
+                <div
+                  key={user.id}
+                  onClick={() => selectMention(idx)}
+                  style={{
+                    padding: "8px 14px",
+                    cursor: "pointer",
+                    background: idx === mentionIndex ? "rgba(255, 63, 94, 0.15)" : "transparent",
+                    color: idx === mentionIndex ? "var(--chakra-colors-brandPrimary)" : "inherit",
+                    fontWeight: idx === mentionIndex ? 700 : 500,
+                    transition: "all 0.1s ease"
+                  }}
+                  onMouseEnter={() => setMentionIndex(idx)}
+                >
+                  @{user.name}
+                </div>
+              ))}
+            </div>
+          )}
+
           <InputPill>
             <IconButton as="label" htmlFor="file-input" title="Upload File">
               <FaPaperclip />
@@ -4047,18 +5652,22 @@ export default function ChatRoom() {
             <MessageInput
               placeholder={ephemeralMode ? "💨 Ephemeral message..." : "Type a message..."}
               value={message}
-              onChange={(e) => {
-                setMessage(e.target.value);
-                handleTyping?.(e.target.value);
-              }}
-              onKeyDown={(e) => e.key === "Enter" && handleSend?.()}
+              onChange={handleInputChange}
+              onKeyDown={handleInputKeyDown}
             />
 
             <div style={{ position: "relative" }}>
               <IconButton type="button" onClick={() => setShowEmojiPicker((value) => !value)} title="Choose an emoji" aria-label="Choose an emoji">😊</IconButton>
-              {showEmojiPicker && <div role="dialog" aria-label="Emoji and sticker tray" style={{ position: "absolute", bottom: "calc(100% + 10px)", right: isMobile ? -44 : 2, zIndex: 30, width: "min(336px, calc(100vw - 24px))", maxHeight: "min(42dvh, 360px)", overflowY: "auto", padding: 10, borderRadius: 16, background: "#171922", border: "1px solid rgba(255,255,255,.12)", boxShadow: "0 18px 42px rgba(0,0,0,.42)", display: "grid", gridTemplateColumns: isMobile ? "repeat(6, 1fr)" : "repeat(7, 1fr)", gap: 4 }}>
-                {["😀", "😂", "🥹", "😍", "❤️", "👍", "👎", "🙏", "👏", "🎉", "🔥", "💯", "✅", "❓", "😢", "😡", "🤝", "✨", "🎈", "👀", "😎"].map((emoji) => <button key={emoji} type="button" aria-label={`Add ${emoji}`} onClick={() => { setMessage((current) => `${current}${emoji}`); setShowEmojiPicker(false); }} style={{ minWidth: 44, minHeight: 44, border: 0, borderRadius: 10, background: "transparent", color: "inherit", cursor: "pointer", fontSize: "1.25rem", padding: 2 }}>{emoji}</button>)}
-              </div>}
+              {showEmojiPicker && (
+                <PremiumEmojiPicker
+                  onSelect={(emoji) => {
+                    setMessage((current) => `${current}${emoji}`);
+                    setShowEmojiPicker(false);
+                  }}
+                  onClose={() => setShowEmojiPicker(false)}
+                  isMobile={isMobile}
+                />
+              )}
             </div>
             <IconButton
               onClick={() => {
@@ -4068,6 +5677,21 @@ export default function ChatRoom() {
               title="Send GIF"
             >
               <HiGif />
+            </IconButton>
+
+            <IconButton
+              onClick={() => setShowPollCreator(true)}
+              title="Create Poll"
+            >
+              📊
+            </IconButton>
+
+            <IconButton
+              onClick={() => setShowScheduler(!showScheduler)}
+              title="Schedule Message"
+              style={{ color: showScheduler ? "var(--chakra-colors-brandPrimary)" : "inherit" }}
+            >
+              ⏰
             </IconButton>
 
             <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
@@ -4120,7 +5744,179 @@ export default function ChatRoom() {
           </SendButton>
         </MessageInputContainer>
 
-        <style>{`@keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(255, 71, 87, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0); } }`}</style>
+        <style>{`
+          @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(255, 71, 87, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0); } }
+          @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+        `}</style>
+
+        {showScheduler && (
+          <div role="dialog" aria-modal="true" style={{ position: "fixed", inset: 0, zIndex: 22000, background: "rgba(0,0,0,.68)", display: "grid", placeItems: "center", padding: 20 }}>
+            <div style={{ width: "min(400px, 100%)", padding: 24, borderRadius: 18, background: "var(--chakra-colors-surface)", border: "1px solid rgba(255,255,255,.12)", boxShadow: "0 24px 80px rgba(0,0,0,.45)" }}>
+              <h3 style={{ margin: "0 0 8px" }}>⏰ Schedule Message</h3>
+              <p style={{ margin: "0 0 16px", color: "var(--chakra-colors-textSecondary)", fontSize: "0.85rem" }}>
+                Choose when to send your composed message.
+              </p>
+              
+              <div style={{ background: "rgba(255,255,255,0.03)", padding: "10px 14px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.06)", marginBottom: 16, fontSize: "0.9rem", color: "var(--chakra-colors-textPrimary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {message.trim() ? `"${message.trim()}"` : <em>Compose a message first...</em>}
+              </div>
+
+              <input
+                type="datetime-local"
+                value={scheduleDateTime}
+                onChange={(e) => setScheduleDateTime(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "10px 12px",
+                  borderRadius: 8,
+                  border: "1px solid rgba(255,255,255,.15)",
+                  background: "rgba(0,0,0,.2)",
+                  color: "#fff",
+                  marginBottom: 20,
+                  fontSize: "1rem",
+                  boxSizing: "border-box"
+                }}
+              />
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+                <button type="button" onClick={() => setShowScheduler(false)} style={{ border: 0, padding: "8px 16px", borderRadius: 8, cursor: "pointer", background: "rgba(255,255,255,.08)", color: "#fff", fontWeight: 700 }}>
+                  Cancel
+                </button>
+                <button type="button" onClick={handleScheduleMessage} style={{ border: 0, padding: "8px 16px", borderRadius: 8, cursor: "pointer", background: "var(--chakra-colors-brandPrimary)", color: "#fff", fontWeight: 800 }}>
+                  Schedule
+                </button>
+              </div>
+
+              {scheduledMessages.length > 0 && (
+                <div style={{ marginTop: 24, borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 16 }}>
+                  <h4 style={{ margin: "0 0 10px", fontSize: "0.9rem" }}>Pending Scheduled</h4>
+                  <div style={{ display: "grid", gap: 8, maxHeight: 150, overflowY: "auto" }}>
+                    {scheduledMessages.map((m) => (
+                      <div key={m.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(255,255,255,0.03)", padding: 8, borderRadius: 6, fontSize: "0.8rem" }}>
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div style={{ textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap", fontWeight: 600 }}>{m.payload?.text}</div>
+                          <div style={{ opacity: 0.6, fontSize: "0.7rem" }}>{new Date(m.sendAt).toLocaleString()}</div>
+                        </div>
+                        <button type="button" onClick={() => handleCancelScheduled(m.id)} style={{ border: 0, background: "transparent", color: "#ff4757", cursor: "pointer", fontSize: "0.9rem" }}>
+                          Cancel
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {showBookmarks && (
+          <div role="dialog" aria-modal="true" style={{ position: "fixed", top: 0, bottom: 0, right: 0, width: "min(380px, 100vw)", zIndex: 20000, background: "var(--chakra-colors-surface)", borderLeft: "1px solid rgba(255,255,255,0.12)", boxShadow: "-10px 0 40px rgba(0,0,0,0.5)", display: "flex", flexDirection: "column" }}>
+            <div style={{ padding: "20px 24px", borderBottom: "1px solid rgba(255,255,255,0.1)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <h3 style={{ margin: 0 }}>Saved Messages 🔖</h3>
+              <button type="button" onClick={() => setShowBookmarks(false)} style={{ border: 0, background: "transparent", color: "inherit", cursor: "pointer", fontSize: "1.2rem" }}>✕</button>
+            </div>
+            
+            <div style={{ flex: 1, overflowY: "auto", padding: 24, display: "grid", gap: 16 }}>
+              {bookmarks.length === 0 ? (
+                <div style={{ textAlign: "center", color: "var(--chakra-colors-textSecondary)", paddingTop: 40 }}>
+                  No saved messages yet. Save a message to view it here!
+                </div>
+              ) : (
+                bookmarks.map((b) => (
+                  <div key={b.id} style={{ background: "rgba(255,255,255,0.03)", padding: 14, borderRadius: 12, border: "1px solid rgba(255,255,255,0.06)", position: "relative" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
+                      <span style={{ fontWeight: 700, fontSize: "0.85rem", color: "var(--chakra-colors-brandPrimary)" }}>{b.userName}</span>
+                      <span style={{ fontSize: "0.7rem", opacity: 0.5 }}>{new Date(b.ts).toLocaleDateString()}</span>
+                    </div>
+                    <div style={{ fontSize: "0.9rem", color: "var(--chakra-colors-textPrimary)", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                      {b.text}
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 10 }}>
+                      <button type="button" onClick={() => {
+                        const target = messageRefs.current[b.id];
+                        if (target) {
+                          target.scrollIntoView({ behavior: "smooth", block: "center" });
+                          target?.animate([{ boxShadow: "0 0 0 0 rgba(5,150,105,0)", backgroundColor: "transparent" }, { boxShadow: "0 0 0 4px rgba(5,150,105,.9)", backgroundColor: "rgba(5,150,105,.16)", offset: 0.12 }, { boxShadow: "0 0 0 4px rgba(5,150,105,.7)", backgroundColor: "rgba(5,150,105,.12)", offset: 0.82 }, { boxShadow: "0 0 0 0 rgba(5,150,105,0)", backgroundColor: "transparent" }], { duration: 2600, easing: "ease-in-out" });
+                          setShowBookmarks(false);
+                        } else {
+                          toast.error("Message not loaded in current view");
+                        }
+                      }} style={{ border: 0, background: "transparent", color: "var(--chakra-colors-brandPrimary)", cursor: "pointer", fontSize: "0.75rem", fontWeight: 700 }}>
+                        Jump
+                      </button>
+                      <button type="button" onClick={() => toggleBookmark(b)} style={{ border: 0, background: "transparent", color: "#ff4757", cursor: "pointer", fontSize: "0.75rem", fontWeight: 700 }}>
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
+        {showShortcutsHelp && (
+          <div role="dialog" aria-modal="true" style={{ position: "fixed", inset: 0, zIndex: 22000, background: "rgba(0,0,0,.68)", display: "grid", placeItems: "center", padding: 20 }}>
+            <div style={{ width: "min(400px, 100%)", padding: 24, borderRadius: 18, background: "var(--chakra-colors-surface)", border: "1px solid rgba(255,255,255,.12)", boxShadow: "0 24px 80px rgba(0,0,0,.45)" }}>
+              <h3 style={{ margin: "0 0 16px", display: "flex", alignItems: "center", gap: 8 }}>
+                <span>⌨️</span> Keyboard Shortcuts
+              </h3>
+              
+              <div style={{ display: "grid", gap: 14, marginBottom: 24 }}>
+                {[
+                  { keys: ["?", "or Esc"], desc: "Toggle / close this guide" },
+                  { keys: ["Ctrl/Cmd", "P"], desc: "Toggle Ephemeral Mode" },
+                  { keys: ["Ctrl/Cmd", "F"], desc: "Filter/Search Messages" },
+                  { keys: ["Alt", "G"], desc: "Toggle GIF Drawer" },
+                  { keys: ["Alt", "E"], desc: "Toggle Emoji Tray" },
+                  { keys: ["Escape"], desc: "Close any modal/active popup" }
+                ].map((item, idx) => (
+                  <div key={idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.9rem" }}>
+                    <span style={{ color: "var(--chakra-colors-textSecondary)" }}>{item.desc}</span>
+                    <div style={{ display: "flex", gap: 4 }}>
+                      {item.keys.map((k, i) => (
+                        <kbd key={i} style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, padding: "2px 6px", fontSize: "0.75rem", fontWeight: 700, fontFamily: "monospace" }}>{k}</kbd>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                <button type="button" onClick={() => setShowShortcutsHelp(false)} style={{ border: 0, padding: "8px 20px", borderRadius: 8, cursor: "pointer", background: "var(--chakra-colors-brandPrimary)", color: "#fff", fontWeight: 800 }}>
+                  Done
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {isDragOver && (
+          <div
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 35000,
+              background: "rgba(8, 9, 13, 0.88)",
+              backdropFilter: "blur(12px)",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              border: "3px dashed var(--chakra-colors-brandPrimary)",
+              margin: 16,
+              borderRadius: 24,
+              pointerEvents: "none",
+              boxSizing: "border-box"
+            }}
+          >
+            <div style={{ fontSize: "5rem", marginBottom: 20, animation: "bounce 2s infinite" }}>📥</div>
+            <h2 style={{ fontSize: "2.2rem", fontWeight: 850, margin: "0 0 10px 0", color: "#fff", letterSpacing: "-0.5px" }}>Drop files to send securely</h2>
+            <p style={{ color: "var(--chakra-colors-textSecondary)", fontSize: "1.05rem", margin: 0 }}>
+              Files will be fully end-to-end encrypted locally in your browser.
+            </p>
+          </div>
+        )}
 
         {renderAvatarCropDialog()}
         {backgroundTarget && <div role="dialog" aria-modal="true" aria-label="Choose background audience" style={{ position: "fixed", inset: 0, zIndex: 21500, display: "grid", placeItems: "center", padding: 20, background: "rgba(0,0,0,.68)", backdropFilter: "blur(8px)" }}><section style={{ width: "min(100%, 420px)", padding: 24, borderRadius: 18, background: "var(--chakra-colors-surface)", border: "1px solid rgba(255,255,255,.12)" }}><h3 style={{ margin: "0 0 8px" }}>Where should this background apply?</h3><p style={{ margin: "0 0 20px", color: "var(--chakra-colors-textSecondary)", lineHeight: 1.5 }}>Choose a personal background, or enforce one for the whole room.</p><div style={{ display: "grid", gap: 10 }}><button type="button" onClick={() => { const file = backgroundTarget; setBackgroundTarget(null); applyBackgroundChange(file, "personal"); }} style={{ minHeight: 48, borderRadius: 11, border: "1px solid rgba(255,255,255,.15)", background: "rgba(255,255,255,.06)", color: "inherit", cursor: "pointer", fontWeight: 750 }}>Only me</button><button type="button" onClick={() => { const file = backgroundTarget; setBackgroundTarget(null); applyBackgroundChange(file, "everyone"); }} style={{ minHeight: 48, borderRadius: 11, border: 0, background: "var(--chakra-colors-brandPrimary)", color: "white", cursor: "pointer", fontWeight: 800 }}>Everyone in this room</button><button type="button" onClick={() => setBackgroundTarget(null)} style={{ minHeight: 40, border: 0, background: "transparent", color: "var(--chakra-colors-textSecondary)", cursor: "pointer" }}>Cancel</button></div></section></div>}
@@ -4341,6 +6137,8 @@ export default function ChatRoom() {
           />
         </Suspense>
       )}
+      {renderPollCreator()}
+      {renderForwardDialog()}
     </>
   );
 }

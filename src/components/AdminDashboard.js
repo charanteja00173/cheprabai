@@ -639,7 +639,16 @@ export default function AdminDashboard() {
     const totalFiles = uploads.length;
     const uniqueRooms = new Set(uploads.map(item => item.roomId)).size;
     const uniqueUsers = new Set(uploads.map(item => item.uploadedBy)).size;
-    return { totalFiles, uniqueRooms, uniqueUsers };
+    const totalBytes = uploads.reduce((acc, item) => acc + (Number(item.size) || 0), 0);
+    
+    let storageStr = "0 B";
+    if (totalBytes > 0) {
+      const k = 1024;
+      const sizes = ['B', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(totalBytes) / Math.log(k));
+      storageStr = parseFloat((totalBytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+    return { totalFiles, uniqueRooms, uniqueUsers, storageStr };
   }, [uploads]);
 
   if (!token) {
@@ -781,6 +790,13 @@ export default function AdminDashboard() {
               <span>{stats.uniqueUsers}</span>
             </StatInfo>
           </StatCard>
+          <StatCard style={{ minWidth: 200 }}>
+            <StatIcon style={{ background: "rgba(46, 213, 115, 0.08)", border: "1px solid rgba(46, 213, 115, 0.15)", color: "#2ed573" }}><FaDatabase /></StatIcon>
+            <StatInfo>
+              <span>Total Storage</span>
+              <span>{stats.storageStr}</span>
+            </StatInfo>
+          </StatCard>
         </StatsGrid>
 
         <FilterSection>
@@ -881,6 +897,16 @@ export default function AdminDashboard() {
                         <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
                           <Badge>{(item.source || "realtime") === "cloudinary" ? "Cloudinary" : "Realtime"}</Badge>
                           {item.type && <Badge $brand>{item.type.split('/')[0]}</Badge>}
+                          {item.size && (
+                            <Badge style={{ background: "rgba(46, 213, 115, 0.08)", color: "#2ed573", borderColor: "rgba(46, 213, 115, 0.15)" }}>
+                              {(() => {
+                                const k = 1024;
+                                const sizes = ['B', 'KB', 'MB', 'GB'];
+                                const i = Math.floor(Math.log(item.size) / Math.log(k));
+                                return parseFloat((item.size / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+                              })()}
+                            </Badge>
+                          )}
                         </div>
                       </td>
                       <td>
