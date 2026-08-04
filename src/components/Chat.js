@@ -2502,93 +2502,6 @@ export default function ChatRoom() {
   const [showScrollPill, setShowScrollPill] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  useEffect(() => {
-    if (joined && roomId) {
-      const bg = localStorage.getItem(`cheprabai:room-background:${roomId}`) || "";
-      setRoomBackground(bg);
-      if ("Notification" in window && Notification.permission === "default") {
-        Notification.requestPermission();
-      }
-    }
-  }, [joined, roomId]);
-
-  useEffect(() => {
-    userAvatarRef.current = userAvatar;
-  }, [userAvatar]);
-
-  useEffect(() => {
-    const handleOnline = () => setIsConnected(true);
-    const handleOffline = () => setIsConnected(false);
-    window.addEventListener("online", handleOnline);
-    window.addEventListener("offline", handleOffline);
-    return () => {
-      window.removeEventListener("online", handleOnline);
-      window.removeEventListener("offline", handleOffline);
-    };
-  }, []);
-
-  useEffect(() => {
-    const handleShortcuts = (e) => {
-      const isInput = e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA";
-      
-      if (e.key === "Escape") {
-        setShowEmojiPicker(false);
-        setShowGifPicker(false);
-        setShowRoomInfo(false);
-        setReplyTo(null);
-        setForwardTarget(null);
-        setConfirmation(null);
-        setShowEphemeralMenu(false);
-        setShowShortcutsHelp(false);
-        return;
-      }
-
-      if (isInput) return;
-
-      if (e.key === "?") {
-        e.preventDefault();
-        setShowShortcutsHelp(prev => !prev);
-        return;
-      }
-
-      const hasMeta = e.metaKey || e.ctrlKey;
-
-      if (hasMeta && e.key.toLowerCase() === "p") {
-        e.preventDefault();
-        setEphemeralMode(prev => !prev);
-        toast.info(!ephemeralMode ? "💨 Disappearing messages enabled" : "💨 Disappearing messages disabled");
-      }
-
-      if (hasMeta && e.key.toLowerCase() === "f") {
-        e.preventDefault();
-        setShowSearch(prev => !prev);
-      }
-
-      if (e.altKey && e.key.toLowerCase() === "g") {
-        e.preventDefault();
-        setShowGifPicker(prev => !prev);
-        if (!showGifPicker) fetchGifs();
-      }
-
-      if (e.altKey && e.key.toLowerCase() === "e") {
-        e.preventDefault();
-        setShowEmojiPicker(prev => !prev);
-      }
-    };
-
-    window.addEventListener("keydown", handleShortcuts);
-    return () => window.removeEventListener("keydown", handleShortcuts);
-    // eslint-disable-next-line react-hooks/exhaustive-deps, no-use-before-define
-  }, [ephemeralMode, showGifPicker, fetchGifs]);
-
-  // Keep the current participant visible immediately while Socket.IO finishes
-  // delivering the authoritative room presence list.
-  useEffect(() => {
-    if (joined && userName) {
-      setOnlineUsers((users) => users.length ? users : [{ id: "local", name: userName }]);
-    }
-  }, [joined, userName]);
-
   const [pendingFiles, setPendingFiles] = useState([]);
   const [sendAsViewOnce, setSendAsViewOnce] = useState(false);
   const [replyTo, setReplyTo] = useState(null);
@@ -2680,6 +2593,42 @@ export default function ChatRoom() {
   // ── Drag & Drop ──
   const [isDragOver, setIsDragOver] = useState(false);
   const dragCounterRef = useRef(0);
+
+
+  useEffect(() => {
+    if (joined && roomId) {
+      const bg = localStorage.getItem(`cheprabai:room-background:${roomId}`) || "";
+      setRoomBackground(bg);
+      if ("Notification" in window && Notification.permission === "default") {
+        Notification.requestPermission();
+      }
+    }
+  }, [joined, roomId]);
+
+  useEffect(() => {
+    userAvatarRef.current = userAvatar;
+  }, [userAvatar]);
+
+  useEffect(() => {
+    const handleOnline = () => setIsConnected(true);
+    const handleOffline = () => setIsConnected(false);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
+
+
+  // Keep the current participant visible immediately while Socket.IO finishes
+  // delivering the authoritative room presence list.
+  useEffect(() => {
+    if (joined && userName) {
+      setOnlineUsers((users) => users.length ? users : [{ id: "local", name: userName }]);
+    }
+  }, [joined, userName]);
+
 
   // ── Manage blob URLs for pending files to prevent flickering ──
   useEffect(() => {
@@ -2790,6 +2739,59 @@ export default function ChatRoom() {
       loadingGifsRef.current = false;
     }
   }, []);
+
+  useEffect(() => {
+    const handleShortcuts = (e) => {
+      const isInput = e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA";
+      
+      if (e.key === "Escape") {
+        setShowEmojiPicker(false);
+        setShowGifPicker(false);
+        setShowRoomInfo(false);
+        setReplyTo(null);
+        setForwardTarget(null);
+        setConfirmation(null);
+        setShowEphemeralMenu(false);
+        setShowShortcutsHelp(false);
+        return;
+      }
+
+      if (isInput) return;
+
+      if (e.key === "?") {
+        e.preventDefault();
+        setShowShortcutsHelp(prev => !prev);
+        return;
+      }
+
+      const hasMeta = e.metaKey || e.ctrlKey;
+
+      if (hasMeta && e.key.toLowerCase() === "p") {
+        e.preventDefault();
+        setEphemeralMode(prev => !prev);
+        toast.info(!ephemeralMode ? "💨 Disappearing messages enabled" : "💨 Disappearing messages disabled");
+      }
+
+      if (hasMeta && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        setShowSearch(prev => !prev);
+      }
+
+      if (e.altKey && e.key.toLowerCase() === "g") {
+        e.preventDefault();
+        setShowGifPicker(prev => !prev);
+        if (!showGifPicker) fetchGifs();
+      }
+
+      if (e.altKey && e.key.toLowerCase() === "e") {
+        e.preventDefault();
+        setShowEmojiPicker(prev => !prev);
+      }
+    };
+
+    window.addEventListener("keydown", handleShortcuts);
+    return () => window.removeEventListener("keydown", handleShortcuts);
+  }, [ephemeralMode, showGifPicker, fetchGifs]);
 
   useEffect(() => {
     if (!showGifPicker) return undefined;
