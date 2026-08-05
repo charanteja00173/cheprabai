@@ -848,17 +848,17 @@ const PreviewContent = styled.div`
   gap: 18px;
   padding: 24px;
   width: 100%;
-  align-content: center;
+  align-content: ${(props) => (props.$singleFile ? "center" : "start")};
 
   @media (max-width: 767px) {
     padding: 16px;
     gap: 12px;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    display: ${(props) => (props.$singleFile ? "grid" : "flex")};
+    flex-direction: ${(props) => (props.$singleFile ? "unset" : "column")};
+    grid-template-columns: ${(props) => (props.$singleFile ? "1fr" : "unset")};
     align-content: start;
-  }
-
-  @media (max-width: 380px) {
-    grid-template-columns: 1fr;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
 `;
 
@@ -887,14 +887,17 @@ const PreviewCard = styled.div`
   }
 
   @media (max-width: 767px) {
-    min-height: 190px;
+    min-height: ${(props) => (props.$singleFile ? "320px" : "auto")};
     max-height: none;
+    flex-shrink: 0;
+    flex-direction: ${(props) => (props.$singleFile ? "column" : "row")};
+    align-items: ${(props) => (props.$singleFile ? "stretch" : "center")};
   }
 `;
 
 const PreviewMediaWrapper = styled.div`
   position: relative;
-  width: 100%;
+  width: ${(props) => (props.$singleFile ? "100%" : "100%")};
   height: ${(props) => (props.$singleFile ? "360px" : "160px")};
   display: flex;
   align-items: center;
@@ -903,7 +906,11 @@ const PreviewMediaWrapper = styled.div`
   overflow: hidden;
 
   @media (max-width: 767px) {
-    height: ${(props) => (props.$singleFile ? "260px" : "130px")};
+    height: ${(props) => (props.$singleFile ? "260px" : "80px")};
+    width: ${(props) => (props.$singleFile ? "100%" : "80px")};
+    min-width: ${(props) => (props.$singleFile ? "auto" : "80px")};
+    border-radius: ${(props) => (props.$singleFile ? "0" : "12px")};
+    flex-shrink: 0;
   }
 `;
 
@@ -946,6 +953,13 @@ const PreviewFileInfo = styled.div`
   display: flex;
   flex-direction: column;
   gap: 8px;
+  min-width: 0;
+  flex: 1;
+
+  @media (max-width: 767px) {
+    padding: 10px 14px;
+    gap: 4px;
+  }
 `;
 
 const PreviewFileName = styled.div`
@@ -981,6 +995,15 @@ const PreviewRemoveButton = styled.button`
   &:hover {
     transform: translateY(-1px);
     background: rgba(255, 255, 255, 0.2);
+  }
+
+  @media (max-width: 767px) {
+    position: static;
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    margin-right: 10px;
+    align-self: center;
   }
 `;
 
@@ -5039,6 +5062,27 @@ export default function ChatRoom() {
       return placeholder;
     });
 
+    // 1b. Auto-detect pasted code that isn't wrapped in backticks
+    // Checks: multi-line text with code-like patterns (indentation, braces, semicolons, arrows, keywords)
+    if (codeBlocks.length === 0 && textWithPlaceholders.includes('\n')) {
+      const lines = textWithPlaceholders.split('\n');
+      // Only auto-detect if: 3+ lines AND enough code-like lines
+      if (lines.length >= 3) {
+        let codeLineCount = 0;
+        for (const line of lines) {
+          if (/^\s{2,}\S/.test(line) || /[{}();]\s*$/.test(line) || /=>/.test(line) || /^\s*(import|export|const|let|var|function|class|def |if\s*\(|else|for\s*\(|while\s*\(|return |public |private |protected |static |void |int |String |package |from |require\()/.test(line)) {
+            codeLineCount++;
+          }
+        }
+        // If more than 40% of lines look like code, treat as a code block
+        if (codeLineCount / lines.length > 0.4) {
+          const placeholder = `___CHEPRABAI_CODE_BLOCK_${codeBlocks.length}___`;
+          codeBlocks.push({ placeholder, lang: "", code: textWithPlaceholders });
+          textWithPlaceholders = placeholder;
+        }
+      }
+    }
+
     // 2. Escape HTML for the rest of the text
     let escaped = escapeHtml(textWithPlaceholders);
 
@@ -5054,7 +5098,11 @@ export default function ChatRoom() {
     escaped = escaped.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, "<strong>$1</strong>");
     escaped = escaped.replace(/(?<!\w)_(.+?)_(?!\w)/g, "<em>$1</em>");
     escaped = escaped.replace(/~(.+?)~/g, "<del>$1</del>");
-    escaped = escaped.replace(/`([^`]+)`/g, '<code style="background:rgba(255,255,255,.08);padding:2px 5px;border-radius:4px;font-family:monospace;font-size:.85em">$1</code>');
+    escaped = escaped.replace(/`([^`]+)`/g, (match, code) => {
+      const escapedInline = encodeURIComponent(code);
+      const copyInlineJs = `navigator.clipboard.writeText(decodeURIComponent('${escapedInline}')); var btn = this.querySelector('.inline-copy-btn'); if(btn){ btn.textContent = '✓'; btn.style.color = '#00bfa5'; setTimeout(function(){ btn.textContent = '📋'; btn.style.color = 'rgba(255,255,255,0.35)'; }, 1500); }`;
+      return `<span onclick="${copyInlineJs}" style="background:rgba(255,255,255,.08);padding:2px 6px;border-radius:4px;font-family:monospace;font-size:.85em;cursor:pointer;position:relative;display:inline-flex;align-items:center;gap:4px;transition:background .2s" onmouseover="this.style.background='rgba(255,255,255,.14)'" onmouseout="this.style.background='rgba(255,255,255,.08)'"><code style="font-family:inherit">${code}</code><span class="inline-copy-btn" style="font-size:.7em;color:rgba(255,255,255,0.35);flex-shrink:0">📋</span></span>`;
+    });
 
     const uniqueNames = new Set();
     if (userName) uniqueNames.add(userName);
@@ -5090,12 +5138,12 @@ export default function ChatRoom() {
       const copyCodeJs = `navigator.clipboard.writeText(decodeURIComponent('${escapedCodeForClipboard}')); this.innerText = '✓ Copied'; this.style.color = '#00bfa5'; setTimeout(() => { this.innerText = 'Copy'; this.style.color = 'inherit'; }, 2000);`;
 
       const blockHtml = `
-<div style="background:#0b0c10; border:1px solid rgba(255,255,255,0.08); border-radius:12px; margin:12px 0; overflow:hidden; font-family:monospace; font-size:0.88rem; box-shadow:0 8px 24px rgba(0,0,0,0.3); max-width: 100%; text-align: left; box-sizing: border-box;">
+<div style="background:#0b0c10; border:1px solid rgba(255,255,255,0.08); border-radius:12px; margin:12px 0; overflow:hidden; font-family:'SF Mono','Fira Code',Consolas,monospace; font-size:0.85rem; box-shadow:0 8px 24px rgba(0,0,0,0.3); max-width: 100%; text-align: left; box-sizing: border-box;">
   <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.03); padding:8px 14px; border-bottom:1px solid rgba(255,255,255,0.06); box-sizing: border-box;">
     <span style="font-size:0.72rem; color:var(--chakra-colors-brandPrimary); text-transform:uppercase; font-weight:bold; letter-spacing:0.05em;">💻 ${block.lang || 'code'}</span>
-    <button onclick="${copyCodeJs}" style="background:transparent; border:none; color:rgba(255,255,255,0.4); cursor:pointer; font-size:0.75rem; font-weight:bold; padding: 4px 8px; outline:none; transition:color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,0.4)'">Copy</button>
+    <button onclick="${copyCodeJs}" style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:rgba(255,255,255,0.55); cursor:pointer; font-size:0.73rem; font-weight:600; padding:4px 10px; border-radius:6px; outline:none; transition:all 0.2s; display:flex; align-items:center; gap:4px;" onmouseover="this.style.background='rgba(255,255,255,0.12)';this.style.color='#fff';this.style.borderColor='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.06)';this.style.color='rgba(255,255,255,0.55)';this.style.borderColor='rgba(255,255,255,0.1)'">📋 Copy</button>
   </div>
-  <pre style="margin:0; padding:14px; overflow-x:auto; line-height:1.5; color:#c9d1d9; background:#0d0e15; font-family:inherit; box-sizing: border-box;"><code style="font-family:inherit; white-space:pre; word-break: normal; word-wrap: normal;">${escapedCodeForHtml}</code></pre>
+  <pre style="margin:0; padding:14px; overflow-x:auto; line-height:1.55; color:#c9d1d9; background:#0d0e15; font-family:inherit; box-sizing: border-box; -webkit-overflow-scrolling: touch;"><code style="font-family:inherit; white-space:pre; word-break: normal; word-wrap: normal;">${escapedCodeForHtml}</code></pre>
 </div>`.trim();
 
       escaped = escaped.replace(block.placeholder, blockHtml);
@@ -5988,6 +6036,51 @@ export default function ChatRoom() {
         )}
 
         <MessageInputContainer style={{ flexDirection: "column", alignItems: "stretch", gap: 8 }}>
+          {replyTo && (
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              padding: "10px 14px",
+              background: "rgba(255,255,255,.06)",
+              borderRadius: 12,
+              borderLeft: "3px solid var(--chakra-colors-brandPrimary)",
+              animation: "fadeIn .15s ease",
+            }}>
+              <ReplyAttachmentPreview reply={replyTo} roomKey={roomKey} />
+              <div style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
+                <div style={{ fontSize: ".75rem", fontWeight: 700, color: "var(--chakra-colors-brandPrimary)", marginBottom: 2 }}>
+                  Replying to {replyTo.userName || "Message"}
+                </div>
+                <div style={{ fontSize: ".8rem", opacity: .72, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {replyTo.file?.viewOnce ? "View-once media" : (replyTo.preview || "Attachment")}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setReplyTo(null)}
+                aria-label="Cancel reply"
+                style={{
+                  background: "rgba(255,255,255,.08)",
+                  border: "none",
+                  color: "var(--chakra-colors-textSecondary)",
+                  cursor: "pointer",
+                  borderRadius: "50%",
+                  width: 28,
+                  height: 28,
+                  display: "grid",
+                  placeItems: "center",
+                  flexShrink: 0,
+                  fontSize: ".85rem",
+                  transition: "background .2s, color .2s",
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,71,87,.18)"; e.currentTarget.style.color = "#ff6b6b"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,.08)"; e.currentTarget.style.color = "var(--chakra-colors-textSecondary)"; }}
+              >
+                ✕
+              </button>
+            </div>
+          )}
           {showMobileActions && isMobile && (
             <AccessoryRow>
               <div style={{ position: "relative" }}>
