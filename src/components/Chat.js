@@ -52,7 +52,7 @@ const LiveMeeting = React.lazy(() => import("./LiveMeeting"));
 const getMediaAspectRatio = (sourceStr = "", fileType = "") => {
   const str = sourceStr.toLowerCase();
   if (str.includes("snap") || str.includes("tiktok")) return "9 / 16";
-  if (str.includes("instagram") || str.includes("insta")) return "1 / 1";
+  if (str.includes("instagram") || str.includes("insta")) return "9 / 16";
   if (str.includes("youtube") || str.includes("youtu.be") || str.includes("vimeo")) return "16 / 9";
   if (str.includes("twitter") || str.includes("x.com")) return "1.91 / 1";
   if (str.includes("reddit")) return "4 / 3";
@@ -2575,7 +2575,7 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile }) {
         if (isPlaying) {
           audioElRef.current.pause();
         } else {
-          audioElRef.current.play().catch(() => {});
+          audioElRef.current.play().catch(() => { });
         }
       };
 
@@ -2705,16 +2705,16 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile }) {
   return (
     <FileAttachmentWrapper ref={containerRef} style={{ padding: 0 }}>
       {fileType && fileType.startsWith("image") ? (
-        <div 
+        <div
           onClick={() => setFullscreen({ ...file, url: decryptedUrl })}
           style={{ position: "relative", borderRadius: 16, overflow: "hidden" }}
         >
-          <img 
-            alt={file.name} 
-            src={decryptedUrl} 
-            loading="lazy" 
+          <img
+            alt={file.name}
+            src={decryptedUrl}
+            loading="lazy"
             decoding="async"
-            style={{ width: "100%", height: "auto", maxHeight: isMobile ? "320px" : "420px", objectFit: "cover", display: "block", borderRadius: 0, background: "rgba(0,0,0,0.25)" }} 
+            style={{ width: "100%", height: "auto", maxHeight: isMobile ? "320px" : "420px", objectFit: "cover", display: "block", borderRadius: 0, background: "rgba(0,0,0,0.25)" }}
           />
           <div style={{ padding: "8px 12px", background: "rgba(10, 10, 10, 0.75)", backdropFilter: "blur(12px)", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
             <span style={{ fontSize: "0.72rem", color: "#eee", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "80%", fontWeight: 500 }}>{file.name}</span>
@@ -2729,12 +2729,12 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile }) {
         </div>
       ) : fileType && fileType.startsWith("video") ? (
         <div style={{ position: "relative", borderRadius: 16, overflow: "hidden" }}>
-          <video 
-            src={decryptedUrl} 
-            controls 
-            playsInline 
+          <video
+            src={decryptedUrl}
+            controls
+            playsInline
             preload="none"
-            style={{ width: "100%", height: "auto", maxHeight: isMobile ? "320px" : "420px", objectFit: "contain", display: "block", background: "#000" }} 
+            style={{ width: "100%", height: "auto", maxHeight: isMobile ? "320px" : "420px", objectFit: "contain", display: "block", background: "#000" }}
           />
           <div style={{ padding: "8px 12px", background: "rgba(10, 10, 10, 0.75)", backdropFilter: "blur(12px)", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
             <span style={{ fontSize: "0.72rem", color: "#eee", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "80%", fontWeight: 500 }}>{file.name}</span>
@@ -2748,7 +2748,7 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile }) {
           </div>
         </div>
       ) : (
-        <div 
+        <div
           onClick={() => {
             const link = document.createElement("a");
             link.href = decryptedUrl;
@@ -3135,7 +3135,7 @@ export default function ChatRoom() {
   useEffect(() => {
     const handleShortcuts = (e) => {
       const isInput = e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA";
-      
+
       if (e.key === "Escape") {
         setShowEmojiPicker(false);
         setShowGifPicker(false);
@@ -3459,10 +3459,10 @@ export default function ChatRoom() {
         }
 
         if (document.hidden && "Notification" in window && Notification.permission === "granted") {
-          const bodyText = formattedMsg.file 
-            ? `📎 File: ${formattedMsg.file.name}` 
-            : formattedMsg.poll 
-              ? `📊 Poll: ${formattedMsg.poll.question}` 
+          const bodyText = formattedMsg.file
+            ? `📎 File: ${formattedMsg.file.name}`
+            : formattedMsg.poll
+              ? `📊 Poll: ${formattedMsg.poll.question}`
               : formattedMsg.text;
           new Notification(formattedMsg.userName || "New Message", {
             body: bodyText,
@@ -3696,10 +3696,10 @@ export default function ChatRoom() {
         ringtoneRef.current = {
           stop: () => {
             clearInterval(ringInterval);
-            try { osc1.stop(); osc2.stop(); ctx.close(); } catch {}
+            try { osc1.stop(); osc2.stop(); ctx.close(); } catch { }
           }
         };
-      } catch {}
+      } catch { }
     });
 
     socketRef.current.on("call-ended", () => {
@@ -3935,13 +3935,13 @@ export default function ChatRoom() {
       const container = messagesContainerRef.current;
       if (!container) return;
       const isNearBottom = container.scrollHeight - container.clientHeight - container.scrollTop < 250;
-      
+
       setShowScrollPill(prev => {
         if (isNearBottom && prev) return false;
         if (!isNearBottom && !prev) return true;
         return prev;
       });
-      
+
       if (isNearBottom) {
         setUnreadCount(0);
       }
@@ -4756,7 +4756,7 @@ export default function ChatRoom() {
     if (lastWord.startsWith("@")) {
       const query = lastWord.slice(1).toLowerCase();
       setCursorPosition(selectionStart);
-      
+
       const matches = onlineUsers.filter(u => u.name && u.name.toLowerCase().startsWith(query) && u.name !== userName);
       setMentionSuggestions(matches);
       setShowMentionSuggestions(matches.length > 0);
@@ -4792,12 +4792,12 @@ export default function ChatRoom() {
   const selectMention = (index) => {
     if (index < 0 || index >= mentionSuggestions.length) return;
     const selectedUser = mentionSuggestions[index];
-    
+
     const textBeforeCursor = message.slice(0, cursorPosition);
     const textAfterCursor = message.slice(cursorPosition);
-    
+
     const lastAtIndex = textBeforeCursor.lastIndexOf("@");
-    
+
     const newText = textBeforeCursor.slice(0, lastAtIndex) + "@" + selectedUser.name + " " + textAfterCursor;
     setMessage(newText);
     setShowMentionSuggestions(false);
@@ -5031,10 +5031,12 @@ export default function ChatRoom() {
               allowFullScreen
               style={{
                 width: "100%",
-                aspectRatio: "16/9",
-                minHeight: "300px",
+                aspectRatio: getMediaAspectRatio(embed.src, embed.fileType),
+                height: "auto",
+                minHeight: 0,
                 border: 0,
-                borderRadius: 12
+                borderRadius: 12,
+                display: "block",
               }}
             />
 
@@ -5098,7 +5100,7 @@ export default function ChatRoom() {
       try {
         const regex = new RegExp(`(${searchQuery.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')})`, "gi");
         escaped = escaped.replace(regex, `<mark style="background: #ffa500; color: #000; padding: 0 2px; border-radius: 2px; font-weight: bold">$1</mark>`);
-      } catch (e) {}
+      } catch (e) { }
     }
 
     escaped = escaped.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
@@ -5125,14 +5127,14 @@ export default function ChatRoom() {
     }
     const sortedNames = Array.from(uniqueNames).sort((a, b) => b.length - a.length);
     const escapedNames = sortedNames.map(name => name.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'));
-    const pattern = escapedNames.length > 0 
+    const pattern = escapedNames.length > 0
       ? `@(${escapedNames.join("|")}|\\w+)`
       : `@(\\w+)`;
     const mentionRegex = new RegExp(pattern, "gi");
 
     escaped = escaped.replace(mentionRegex, (match, mentioned) => {
       const isMe = mentioned.toLowerCase() === userName?.toLowerCase();
-      const style = isMe 
+      const style = isMe
         ? "background:rgba(255, 63, 94, 0.2);color:var(--chakra-colors-brandPrimary);font-weight:700;padding:1px 5px;border-radius:4px"
         : "background:rgba(100, 181, 246, 0.15);color:#64b5f6;font-weight:700;padding:1px 5px;border-radius:4px";
       return `<span style="${style}">@${mentioned}</span>`;
@@ -6169,7 +6171,7 @@ export default function ChatRoom() {
           )}
 
           {showMentionSuggestions && mentionSuggestions.length > 0 && (
-            <div 
+            <div
               className="mention-suggestions"
               style={{
                 position: "absolute",
@@ -6210,10 +6212,10 @@ export default function ChatRoom() {
                     }}
                   >
                     {avatar ? (
-                      <img 
-                        src={avatar} 
-                        alt={user.name} 
-                        style={{ width: "24px", height: "24px", borderRadius: "50%", objectFit: "cover" }} 
+                      <img
+                        src={avatar}
+                        alt={user.name}
+                        style={{ width: "24px", height: "24px", borderRadius: "50%", objectFit: "cover" }}
                       />
                     ) : (
                       <div style={{
@@ -6240,8 +6242,8 @@ export default function ChatRoom() {
           <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 12, width: "100%" }}>
             <InputPill>
               {isMobile && (
-                <IconButton 
-                  type="button" 
+                <IconButton
+                  type="button"
                   onClick={() => setShowMobileActions(!showMobileActions)}
                   title="More Actions"
                   style={{ color: showMobileActions ? "var(--chakra-colors-brandPrimary)" : "inherit", transform: showMobileActions ? "rotate(45deg)" : "none", transition: "transform 0.2s" }}
@@ -6388,7 +6390,7 @@ export default function ChatRoom() {
               <p style={{ margin: "0 0 16px", color: "var(--chakra-colors-textSecondary)", fontSize: "0.85rem" }}>
                 Choose when to send your composed message.
               </p>
-              
+
               <div style={{ background: "rgba(255,255,255,0.03)", padding: "12px 14px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.06)", marginBottom: 16, fontSize: "0.9rem", color: "var(--chakra-colors-textPrimary)" }}>
                 {pendingFiles.length > 0 && (
                   <div style={{ marginBottom: message.trim() ? 8 : 0, display: "flex", flexDirection: "column", gap: 4 }}>
@@ -6467,7 +6469,7 @@ export default function ChatRoom() {
               <h3 style={{ margin: 0 }}>Saved Messages 🔖</h3>
               <button type="button" onClick={() => setShowBookmarks(false)} style={{ border: 0, background: "transparent", color: "inherit", cursor: "pointer", fontSize: "1.2rem" }}>✕</button>
             </div>
-            
+
             <div style={{ flex: 1, overflowY: "auto", padding: 24, display: "grid", gap: 16 }}>
               {bookmarks.length === 0 ? (
                 <div style={{ textAlign: "center", color: "var(--chakra-colors-textSecondary)", paddingTop: 40 }}>
@@ -6513,7 +6515,7 @@ export default function ChatRoom() {
               <h3 style={{ margin: "0 0 16px", display: "flex", alignItems: "center", gap: 8 }}>
                 <span>⌨️</span> Keyboard Shortcuts
               </h3>
-              
+
               <div style={{ display: "grid", gap: 14, marginBottom: 24 }}>
                 {[
                   { keys: ["?", "or Esc"], desc: "Toggle / close this guide" },
