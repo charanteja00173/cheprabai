@@ -1012,7 +1012,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
           {!isMinimized && <Watermark x={watermarkPos.x} y={watermarkPos.y}>{userName} | {new Date().toLocaleTimeString()} | CONFIDENTIAL</Watermark>}
           {isPiPMode && (
             <FloatingPiP onClick={flipCamera} title="Tap to flip camera">
-              <video ref={el => { if (el && localStream) el.srcObject = localStream; }} autoPlay muted playsInline />
+              <video ref={el => { if (el && localStream && el.srcObject !== localStream) el.srcObject = localStream; }} autoPlay muted playsInline />
               <div style={{ position: "absolute", bottom: 6, right: 6, background: "rgba(0,0,0,0.5)", borderRadius: 8, padding: "2px 6px", fontSize: "0.6rem", fontWeight: 600, display: "flex", alignItems: "center", gap: 3 }}>
                 <FaExchangeAlt size={8} /> Flip
               </div>
@@ -1025,7 +1025,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
           
           {focusedPeerId ? (
               <div style={{ width: "100%", height: "100%", position: "relative" }}>
-                 <video autoPlay playsInline ref={el => { if (el) el.srcObject = focusedPeerId === "local" ? localStream : remoteStreams[focusedPeerId]?.stream; }} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+                 <video autoPlay playsInline ref={el => { if (el) { const target = focusedPeerId === "local" ? localStream : remoteStreams[focusedPeerId]?.stream; if (el.srcObject !== target) el.srcObject = target; } }} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
                  <div style={{ position: "absolute", top: 20, left: 20, background: "rgba(0,0,0,0.6)", padding: "5px 15px", borderRadius: 20, display: "flex", alignItems: "center", gap: 10 }}>
                     <span>Viewing: {focusedPeerId === "local" ? "You" : remoteStreams[focusedPeerId]?.name}</span>
                     <button onClick={() => setFocusedPeerId(null)} style={{ background: "none", border: "none", color: "var(--chakra-colors-textPrimary)", cursor: "pointer" }}>✕</button>
@@ -1062,7 +1062,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
           </VideoTile>
           {Object.entries(remoteStreams).map(([id, info]) => (
             <VideoTile key={id} $isTalking={speakingPeers[id]} onClick={() => setFocusedPeerId(id)}>
-              <video autoPlay playsInline ref={el => { if (el) el.srcObject = info.stream; }} />
+              <video autoPlay playsInline ref={el => { if (el && el.srcObject !== info.stream) el.srcObject = info.stream; }} />
               <NameTag>
                 {info.name}
               </NameTag>

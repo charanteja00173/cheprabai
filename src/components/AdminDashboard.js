@@ -463,10 +463,79 @@ export default function AdminDashboard() {
   const [sortBy, setSortBy] = useState("newest");
   const [sourceFilter, setSourceFilter] = useState("all");
   const [viewMode, setViewMode] = useState("list");
-  const [downloadTarget, setDownloadTarget] = useState(null);
+  const [decryptTarget, setDecryptTarget] = useState(null);
+  const [decryptAction, setDecryptAction] = useState(""); // "download" or "preview"
   const [roomCode, setRoomCode] = useState("");
 
   const backendUrl = process.env.REACT_APP_SOCKET_ENDPOINT || "https://cheprabai-backend.onrender.com";
+
+  const closePreview = () => {
+    if (previewItem && previewItem.url && previewItem.url.startsWith("blob:")) {
+      URL.revokeObjectURL(previewItem.url);
+    }
+    setPreviewItem(null);
+  };
+
+  const handleAction = async (item, action) => {
+    if (!item.encrypted) {
+      if (action === "download") {
+        try {
+          const response = await fetch(`${backendUrl}/api/proxy-file?url=${encodeURIComponent(item.url)}`);
+          if (!response.ok) throw new Error("Download failed");
+          const blob = await response.blob();
+          const anchor = document.createElement("a");
+          anchor.href = URL.createObjectURL(blob);
+          anchor.download = item.name || "download";
+          anchor.click();
+          URL.revokeObjectURL(anchor.href);
+          toast.success("File downloaded.");
+        } catch (error) {
+          toast.error("Download failed.");
+        }
+      } else {
+        setPreviewItem(item);
+      }
+      return;
+    }
+    setDecryptTarget(item);
+    setDecryptAction(action);
+    setRoomCode("");
+  };
+
+  const executeDecryption = async () => {
+    if (!decryptTarget) return;
+    try {
+      const response = await fetch(`${backendUrl}/api/proxy-file?url=${encodeURIComponent(decryptTarget.url)}`);
+      if (!response.ok) throw new Error("File retrieval failed");
+      let bytes = await response.arrayBuffer();
+      if (decryptTarget.encrypted) {
+        if (!roomCode.trim()) throw new Error("Enter the room security code to decrypt this file.");
+        const key = await generateKeyFromSecret(`${roomCode}${decryptTarget.roomId}`);
+        const iv = new Uint8Array(atob(decryptTarget.iv).split("").map((char) => char.charCodeAt(0)));
+        bytes = await decryptBinary(key, { iv, data: bytes });
+      }
+      const blob = new Blob([bytes], { type: decryptTarget.type || "application/octet-stream" });
+      const localUrl = URL.createObjectURL(blob);
+
+      if (decryptAction === "download") {
+        const anchor = document.createElement("a");
+        anchor.href = localUrl;
+        anchor.download = decryptTarget.name || "download";
+        anchor.click();
+        URL.revokeObjectURL(localUrl);
+        toast.success("File downloaded securely.");
+      } else {
+        setPreviewItem({
+          ...decryptTarget,
+          url: localUrl
+        });
+      }
+      setDecryptTarget(null);
+      setRoomCode("");
+    } catch (error) {
+      toast.error(error.message || "Unable to decrypt this file.");
+    }
+  };
 
   const fetchUploads = useCallback(async (adminToken) => {
     setLoading(true);
@@ -569,24 +638,6 @@ export default function AdminDashboard() {
     } catch (err) {
       toast.error(err.response?.data?.error || "Failed to delete file.");
     }
-  };
-
-  const decryptAndDownload = async () => {
-    if (!downloadTarget) return;
-    try {
-      const response = await fetch(`${backendUrl}/api/proxy-file?url=${encodeURIComponent(downloadTarget.url)}`);
-      if (!response.ok) throw new Error("Download failed");
-      let bytes = await response.arrayBuffer();
-      if (downloadTarget.encrypted) {
-        if (!roomCode.trim()) throw new Error("Enter the room security code to decrypt this file.");
-        const key = await generateKeyFromSecret(`${roomCode}${downloadTarget.roomId}`);
-        const iv = new Uint8Array(atob(downloadTarget.iv).split("").map((char) => char.charCodeAt(0)));
-        bytes = await decryptBinary(key, { iv, data: bytes });
-      }
-      const blob = new Blob([bytes], { type: downloadTarget.type || "application/octet-stream" });
-      const anchor = document.createElement("a"); anchor.href = URL.createObjectURL(blob); anchor.download = downloadTarget.name || "download"; anchor.click(); URL.revokeObjectURL(anchor.href);
-      setDownloadTarget(null); setRoomCode(""); toast.success("File downloaded securely.");
-    } catch (error) { toast.error(error.message || "Unable to decrypt this file."); }
   };
 
   const uniqueRoomsList = useMemo(() => {

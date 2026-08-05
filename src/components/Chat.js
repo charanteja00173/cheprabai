@@ -2749,7 +2749,14 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile }) {
         </div>
       ) : (
         <div 
-          onClick={() => window.open(decryptedUrl, "_blank")}
+          onClick={() => {
+            const link = document.createElement("a");
+            link.href = decryptedUrl;
+            link.download = file.name;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          }}
           style={{
             display: "flex", alignItems: "center", gap: "12px", padding: "12px",
             background: "rgba(255, 255, 255, 0.02)", borderRadius: "12px", border: "1px solid rgba(255, 255, 255, 0.05)",
