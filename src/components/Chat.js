@@ -48,32 +48,15 @@ import { AiFillCloseSquare } from "react-icons/ai";
 const Whiteboard = React.lazy(() => import("./Whiteboard"));
 const LiveMeeting = React.lazy(() => import("./LiveMeeting"));
 
-// Returns the default aspect ratio for media when actual dimensions are unavailable.
-export const getMediaAspectRatio = (source = "", fileType = "") => {
-  const str = String(source).trim().toLowerCase();
-  const type = String(fileType).toLowerCase();
-
-  // Vertical-first platforms
-  if (/(snap(chat)?|tiktok)/.test(str)) {
-    return "9 / 16";
-  }
-
-  // Instagram feed (best default)
-  if (/(instagram|insta)/.test(str)) {
-    return "4 / 5";
-  }
-
-  // Widescreen platforms
-  if (/(youtube|youtu\.be|vimeo|twitter|x\.com|reddit)/.test(str)) {
-    return "16 / 9";
-  }
-
-  // Generic uploaded videos
-  if (type.startsWith("video/") || type === "video") {
-    return "16 / 9";
-  }
-
-  // Default for everything else
+// Platform-aware aspect ratio for media embeds and file uploads
+const getMediaAspectRatio = (sourceStr = "", fileType = "") => {
+  const str = sourceStr.toLowerCase();
+  if (str.includes("snap") || str.includes("tiktok")) return "9 / 16";
+  if (str.includes("instagram") || str.includes("insta")) return "4 / 5";
+  if (str.includes("youtube") || str.includes("youtu.be") || str.includes("vimeo")) return "16 / 9";
+  if (str.includes("twitter") || str.includes("x.com")) return "16 / 9";
+  if (str.includes("reddit")) return "16 / 9";
+  if (fileType && fileType.startsWith("video")) return "16 / 9";
   return "16 / 9";
 };
 
