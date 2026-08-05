@@ -5041,23 +5041,30 @@ export default function ChatRoom() {
 
       if (embed) {
         return (
-          <div key={i}>
+          <div
+            key={i}
+            style={{
+              width: "100%",
+              overflow: "hidden",
+              borderRadius: 12,
+            }}
+          >
             <iframe
-              title={i}
+              title={`embed-${i}`}
               src={embed.src}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
               allowFullScreen
+              loading="lazy"
+              referrerPolicy="strict-origin-when-cross-origin"
               style={{
                 width: "100%",
                 aspectRatio: getMediaAspectRatio(embed.src, embed.fileType),
-                height: "auto",
-                minHeight: 0,
-                border: 0,
-                borderRadius: 12,
                 display: "block",
+                border: "none",
+                borderRadius: 12,
+                background: "#000",
               }}
             />
-
-            {/* {renderLinkActions(part)} */}
           </div>
         );
       }
