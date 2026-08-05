@@ -52,7 +52,7 @@ const LiveMeeting = React.lazy(() => import("./LiveMeeting"));
 const getMediaAspectRatio = (sourceStr = "", fileType = "") => {
   const str = sourceStr.toLowerCase();
   if (str.includes("snap") || str.includes("tiktok")) return "9 / 16";
-  if (str.includes("instagram") || str.includes("insta")) return "9 / 16";
+  if (str.includes("instagram") || str.includes("insta")) return "1 / 1";
   if (str.includes("youtube") || str.includes("youtu.be") || str.includes("vimeo")) return "16 / 9";
   if (str.includes("twitter") || str.includes("x.com")) return "1.91 / 1";
   if (str.includes("reddit")) return "4 / 3";
