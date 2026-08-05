@@ -753,7 +753,7 @@ export default function AdminDashboard() {
           <h2 style={{ margin: 0, fontSize: "1.1rem" }}>Secure download</h2>
           <p style={{ color: "var(--chakra-colors-textSecondary)", fontSize: ".86rem", lineHeight: 1.5 }}>Enter the room security code to decrypt <strong>{decryptTarget.name}</strong> locally. The code is never sent to the server.</p>
           {decryptTarget.encrypted && <LoginInput value={roomCode} onChange={(e) => setRoomCode(e.target.value)} placeholder="Room security code" autoFocus />}
-          <div style={{ display: "flex", gap: 10, marginTop: 16, justifyContent: "flex-end" }}><ActionButton onClick={() => { setDecryptTarget(null); setRoomCode(""); }}>Cancel</ActionButton><LoginButton type="button" onClick={decryptAndDownload}>Download original</LoginButton></div>
+          <div style={{ display: "flex", gap: 10, marginTop: 16, justifyContent: "flex-end" }}><ActionButton onClick={() => { setDecryptTarget(null); setRoomCode(""); }}>Cancel</ActionButton><LoginButton type="button" onClick={executeDecryption}>Download original</LoginButton></div>
         </div>
       </div>}
       <Header>
