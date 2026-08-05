@@ -5030,13 +5030,13 @@ export default function ChatRoom() {
               src={embed.src}
               allowFullScreen
               style={{
-                width: "100%",
                 aspectRatio: getMediaAspectRatio(embed.src, embed.fileType),
                 height: "auto",
-                minHeight: 0,
-                border: 0,
-                borderRadius: 12,
                 display: "block",
+                width: "100%",
+                minHeight: "300px",
+                border: 0,
+                borderRadius: 12
               }}
             />
 
