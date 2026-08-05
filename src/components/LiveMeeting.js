@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import styled from "styled-components";
-import { FaMicrophone, FaVideo, FaPhoneSlash, FaSync, FaDesktop, FaFolderOpen, FaRecordVinyl, FaCompress, FaExpand, FaWindowMinimize, FaExchangeAlt } from "react-icons/fa";
+import { FaMicrophone, FaMicrophoneSlash, FaVideo, FaPhoneSlash, FaSync, FaDesktop, FaFolderOpen, FaRecordVinyl, FaCompress, FaExpand, FaWindowMinimize, FaExchangeAlt, FaLink, FaThLarge } from "react-icons/fa";
 import { Peer } from "peerjs";
 import { toast } from "react-toastify";
+
 
 const MeetingOverlay = styled.div`
   position: fixed;
@@ -135,30 +136,37 @@ const ParticipantGrid = styled.div`
 `;
 
 const VideoTile = styled.div`
-  background: rgba(20, 20, 25, 0.4);
-  backdrop-filter: blur(10px);
-  border-radius: 20px;
+  background: rgba(20, 20, 25, 0.45);
+  backdrop-filter: blur(16px);
+  border-radius: 24px;
   overflow: hidden;
   position: relative;
   aspect-ratio: 16/9;
-  border: 1px solid ${props => props.$isTalking ? "var(--chakra-colors-brandPrimary)" : "rgba(255,255,255,0.06)"};
+  border: 2px solid ${props => props.$isTalking ? "#2ed573" : "rgba(255,255,255,0.06)"};
   box-shadow: ${props => props.$isTalking 
-    ? "0 0 20px rgba(0, 191, 165, 0.3), inset 0 1px 0 rgba(255,255,255,0.1)" 
-    : "0 8px 24px rgba(0, 0, 0, 0.3)"};
+    ? "0 0 25px rgba(46, 213, 115, 0.3), inset 0 1px 0 rgba(255,255,255,0.15)" 
+    : "0 12px 36px rgba(0, 0, 0, 0.4)"};
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
   flex-shrink: 0;
+  width: 100%;
+  height: 100%;
 
-  @media (max-width: 1024px) {
-    width: clamp(130px, 35vw, 170px);
-  }
+  ${props => props.$isStrip && `
+    width: auto;
+    height: 100%;
+    @media (max-width: 1024px) {
+      width: clamp(140px, 30vw, 180px);
+      height: auto;
+    }
+  `}
 
   &:hover {
-    transform: translateY(-2px);
-    border-color: var(--chakra-colors-brandPrimary);
+    transform: translateY(-4px) scale(1.02);
+    border-color: ${props => props.$isTalking ? "#2ed573" : "var(--chakra-colors-brandPrimary)"};
     box-shadow: 
-      0 12px 30px rgba(0, 0, 0, 0.45),
-      0 0 15px var(--chakra-colors-brandGlow);
+      0 20px 40px rgba(0, 0, 0, 0.55),
+      0 0 20px ${props => props.$isTalking ? "rgba(46, 213, 115, 0.4)" : "var(--chakra-colors-brandGlow)"};
   }
 
   video { 
@@ -167,6 +175,7 @@ const VideoTile = styled.div`
     object-fit: cover; 
   }
 `;
+
 
 const NameTag = styled.div`
   position: absolute;
@@ -354,6 +363,108 @@ const Watermark = styled.div`
   transition: all 8s linear;
 `;
 
+const MeetingGrid = styled.div`
+  display: grid;
+  width: 100%;
+  height: 100%;
+  gap: 16px;
+  padding: 10px;
+  box-sizing: border-box;
+  align-content: center;
+  justify-content: center;
+  overflow-y: auto;
+  
+  grid-template-columns: ${props => {
+    const count = props.$count;
+    if (count === 1) return "1fr";
+    if (count === 2) return "1fr 1fr";
+    if (count <= 4) return "1fr 1fr";
+    return "repeat(auto-fit, minmax(280px, 1fr))";
+  }};
+  grid-template-rows: ${props => {
+    const count = props.$count;
+    if (count <= 2) return "1fr";
+    if (count <= 4) return "1fr 1fr";
+    return "repeat(auto-fit, minmax(200px, 1fr))";
+  }};
+
+  @media (max-width: 768px) {
+    grid-template-columns: ${props => {
+      const count = props.$count;
+      if (count === 1) return "1fr";
+      return "1fr 1fr";
+    }};
+    grid-template-rows: auto;
+  }
+`;
+
+const PlaceholderAvatar = styled.div`
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle, #23252f 0%, #111217 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+`;
+
+const AvatarCircle = styled.div`
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--chakra-colors-brandPrimary) 0%, #00bfa5 100%);
+  color: white;
+  font-size: 2rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-transform: uppercase;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  border: 3px solid rgba(255,255,255,0.1);
+  position: relative;
+  transition: all 0.3s ease;
+
+  ${props => props.$isTalking && `
+    border-color: #2ed573;
+    box-shadow: 0 0 25px rgba(46, 213, 115, 0.6);
+    transform: scale(1.05);
+  `}
+
+  @media (max-width: 768px) {
+    width: 50px;
+    height: 50px;
+    font-size: 1.2rem;
+  }
+`;
+
+const MutedBadge = styled.div`
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(255, 71, 87, 0.85);
+  color: white;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  backdrop-filter: blur(5px);
+  border: 1px solid rgba(255,255,255,0.1);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+`;
+
+const getInitials = (name) => {
+  if (!name) return "?";
+  const parts = name.trim().split(/\s+/);
+  if (parts.length > 1) {
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+  return parts[0].slice(0, 2).toUpperCase();
+};
+
 export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin }) {
   const [localStream, setLocalStream] = useState(null);
   const [remoteStreams, setRemoteStreams] = useState({});
@@ -366,8 +477,16 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const [reactions, setReactions] = useState([]);
   const [isFocused, setIsFocused] = useState(true);
   const [watermarkPos, setWatermarkPos] = useState({ x: 10, y: 10 });
-  const [focusedPeerId, setFocusedPeerId] = useState("local");
+  const [focusedPeerId, setFocusedPeerId] = useState(null); // default to null for grid representation
   const [networkStatus, setNetworkStatus] = useState("good"); // good, poor, fallback
+
+  // New states for layout and media controls
+  const [layoutMode, setLayoutMode] = useState("grid");
+  const [participantStates, setParticipantStates] = useState({});
+  const [showUrlInput, setShowUrlInput] = useState(false);
+  const [broadcastUrl, setBroadcastUrl] = useState("");
+  const [streamMediaSource, setStreamMediaSource] = useState(null);
+
 
   // Automatically focus talking user if a remote user starts speaking
   useEffect(() => {
@@ -487,6 +606,43 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   useEffect(() => {
     const backendUrl = new URL(process.env.REACT_APP_SOCKET_ENDPOINT || "https://cheprabai-backend.onrender.com");
 
+    const cleanupPeer = (peerId) => {
+      if (peers.current[peerId]) {
+        try { peers.current[peerId].close(); } catch (e) {}
+        delete peers.current[peerId];
+      }
+      setRemoteStreams(p => {
+        const n = { ...p };
+        delete n[peerId];
+        return n;
+      });
+      setParticipantStates(p => {
+        const n = { ...p };
+        delete n[peerId];
+        return n;
+      });
+    };
+
+    const handleCallEvents = (call, remotePeerId) => {
+      call.on("stream", (rem) => {
+        setRemoteStreams(p => ({
+          ...p,
+          [remotePeerId]: {
+            stream: rem,
+            name: p[remotePeerId]?.name || "Participant"
+          }
+        }));
+      });
+      call.on("close", () => {
+        console.log(`Call with peer ${remotePeerId} closed.`);
+        cleanupPeer(remotePeerId);
+      });
+      call.on("error", (e) => {
+        console.error(`Call error with peer ${remotePeerId}:`, e);
+        cleanupPeer(remotePeerId);
+      });
+    };
+
     const init = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -529,41 +685,57 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
         peer.on("open", (id) => {
           setMyPeerId(id);
-          socket.emit("join-call", { roomId, peerId: id, userName });
+          socket.emit("join-call", { roomId, peerId: id, userName, isMuted: false, isVideoOff: false });
         });
 
         peer.on("call", (call) => {
           call.answer(localStreamRef.current);
-          call.on("stream", (rem) => {
-            setRemoteStreams(p => {
-              const existingName = p[call.peer]?.name || "Participant";
-              return { ...p, [call.peer]: { stream: rem, name: existingName } };
-            });
-          });
-          // CRITICAL: Save incoming call to peers ref for screenshare support
+          handleCallEvents(call, call.peer);
           peers.current[call.peer] = call;
+        });
+
+        peer.on("error", (err) => {
+          console.error("PeerJS error:", err);
+          if (err.type === "disconnected") {
+            toast.warning("Disconnected from meeting server. Reconnecting...");
+            peer.reconnect();
+          } else if (err.type === "network") {
+            toast.error("Network error. Checking signaling path...");
+          } else if (err.type === "peer-unavailable") {
+            const peerIdStr = err.message.split(" ").pop();
+            if (peerIdStr) cleanupPeer(peerIdStr);
+          }
+        });
+
+        peer.on("disconnected", () => {
+          console.log("PeerJS disconnected. Attempting reconnection...");
+          peer.reconnect();
         });
 
         peerRef.current = peer;
 
         socket.on("existing-callers", (callers) => {
-          // Store their names in state, but DO NOT call them. They will receive 'user-connected-call' and call us.
-          callers.forEach(({ peerId, name }) => {
+          callers.forEach(({ peerId, name, isMuted: peerMuted, isVideoOff: peerVideoOff }) => {
             setRemoteStreams(p => ({ ...p, [peerId]: { stream: p[peerId]?.stream || null, name } }));
+            setParticipantStates(p => ({
+              ...p,
+              [peerId]: { isMuted: peerMuted, isVideoOff: peerVideoOff }
+            }));
           });
         });
 
-        socket.on("user-connected-call", ({ peerId, name }) => {
-          // Pre-populate name in state
+        socket.on("user-connected-call", ({ peerId, name, isMuted: peerMuted, isVideoOff: peerVideoOff }) => {
           setRemoteStreams(p => ({ ...p, [peerId]: { stream: p[peerId]?.stream || null, name } }));
+          setParticipantStates(p => ({
+            ...p,
+            [peerId]: { isMuted: peerMuted, isVideoOff: peerVideoOff }
+          }));
 
           if (localStreamRef.current && peerRef.current) {
             const call = peerRef.current.call(peerId, localStreamRef.current);
-            call.on("stream", (rem) => {
-              setRemoteStreams(p => ({ ...p, [peerId]: { stream: rem, name } }));
-              toast.info(`${name} joined the call`);
-            });
+            handleCallEvents(call, peerId);
             peers.current[peerId] = call;
+            toast.info(`${name} joined the call`);
           }
         });
 
@@ -577,16 +749,17 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
           const data = new Uint8Array(analyzer.frequencyBinCount);
 
           const checkVolume = () => {
+            if (!analyzer) return;
             analyzer.getByteFrequencyData(data);
             const volume = data.reduce((a, b) => a + b) / data.length;
             const isTalking = volume > 30; // Threshold
             setSpeakingPeers(p => {
-                if (p.local === isTalking) return p;
-                const currentPeerId = peerRef.current?.id;
-                if (currentPeerId) {
-                  socket.emit("talking-state-change", { peerId: currentPeerId, isTalking });
-                }
-                return { ...p, local: isTalking };
+              if (p.local === isTalking) return p;
+              const currentPeerId = peerRef.current?.id;
+              if (currentPeerId) {
+                socket.emit("talking-state-change", { peerId: currentPeerId, isTalking });
+              }
+              return { ...p, local: isTalking };
             });
             requestAnimationFrame(checkVolume);
           };
@@ -594,24 +767,27 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         }
 
         socket.on("user-disconnected-call", (id) => {
-          if (peers.current[id]) peers.current[id].close();
-          setRemoteStreams(p => {
-            const n = { ...p };
-            delete n[id];
-            return n;
-          });
+          cleanupPeer(id);
+        });
+
+        socket.on("user-media-change", ({ peerId, isMuted: peerMuted, isVideoOff: peerVideoOff }) => {
+          setParticipantStates(p => ({
+            ...p,
+            [peerId]: { ...p[peerId], isMuted: peerMuted, isVideoOff: peerVideoOff }
+          }));
         });
 
         socket.on("screenshare-started", ({ peerId }) => {
-        setFocusedPeerId(peerId);
-        toast.info("Someone is sharing their screen");
-      });
+          setFocusedPeerId(peerId);
+          setLayoutMode("stage");
+          toast.info("Someone is sharing their screen");
+        });
 
-      socket.on("syncMedia", (data) => {
+        socket.on("syncMedia", (data) => {
           isRemoteUpdate.current = true;
           setIsSyncing(true);
           setActiveMedia(data);
-          setTimeout(() => setIsSyncing(false), 1000);
+          setTimeout(() => { isRemoteUpdate.current = false; setIsSyncing(false); }, 1200);
         });
 
         socket.on("meeting-control-denied", ({ message }) => {
@@ -633,6 +809,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
         socket.emit("getMediaState", roomId);
       } catch (err) {
+        console.error("Failed to initialize media devices:", err);
       }
     };
 
@@ -650,10 +827,13 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       if (localStreamRef.current) {
         localStreamRef.current.getTracks().forEach(t => t.stop());
       }
-      if (peerRef.current) peerRef.current.destroy();
+      if (peerRef.current) {
+        try { peerRef.current.destroy(); } catch (e) {}
+      }
       socket.off("user-connected-call");
       socket.off("existing-callers");
       socket.off("user-disconnected-call");
+      socket.off("user-media-change");
       socket.off("screenshare-started");
       socket.off("syncMedia");
       socket.off("meeting-control-denied");
@@ -665,6 +845,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       clearInterval(wmInterval);
     };
   }, [roomId, socket, userName, isAdmin]);
+
 
   useEffect(() => {
     const handleBeforeUnload = (e) => {
@@ -726,32 +907,304 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       return () => clearInterval(interval);
   }, [isAdmin, activeMedia, socket]);
 
+  const ytPlayerRef = useRef(null);
 
+  // Initialize YT Player if activeMedia is YouTube
+  useEffect(() => {
+    if (!activeMedia || !activeMedia.url || !activeMedia.url.includes("youtu")) {
+      ytPlayerRef.current = null;
+      return;
+    }
+
+    const isYoutube = activeMedia.url.includes("youtu");
+    if (!isYoutube) return;
+
+    const videoId = activeMedia.url.includes("youtu.be") 
+      ? activeMedia.url.split("/").pop() 
+      : activeMedia.url.split("v=")[1]?.split("&")[0];
+
+    let player;
+
+    const initPlayer = () => {
+      if (player) return;
+      player = new window.YT.Player("youtube-sync-player", {
+        videoId: videoId,
+        playerVars: {
+          autoplay: 1,
+          controls: 1,
+          rel: 0,
+          modestbranding: 1
+        },
+        events: {
+          onReady: () => {
+            ytPlayerRef.current = player;
+            if (activeMedia.playing) {
+              player.playVideo();
+            } else {
+              player.pauseVideo();
+            }
+            player.seekTo(activeMedia.time || 0, true);
+          },
+          onStateChange: (event) => {
+            if (!isAdmin || isRemoteUpdate.current) return;
+            // 1 = PLAYING, 2 = PAUSED
+            const state = event.data;
+            if (state === 1) {
+              socket.emit("syncMedia", {
+                url: activeMedia.url,
+                playing: true,
+                time: player.getCurrentTime(),
+                sender: userName
+              });
+            } else if (state === 2) {
+              socket.emit("syncMedia", {
+                url: activeMedia.url,
+                playing: false,
+                time: player.getCurrentTime(),
+                sender: userName
+              });
+            }
+          }
+        }
+      });
+    };
+
+    if (!window.YT) {
+      const tag = document.createElement("script");
+      tag.src = "https://www.youtube.com/iframe_api";
+      window.onYouTubeIframeAPIReady = initPlayer;
+      const firstScriptTag = document.getElementsByTagName("script")[0];
+      firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+    } else {
+      const checkYT = setInterval(() => {
+        if (window.YT && window.YT.Player) {
+          clearInterval(checkYT);
+          initPlayer();
+        }
+      }, 100);
+    }
+
+    return () => {
+      if (player && typeof player.destroy === "function") {
+        player.destroy();
+      }
+      ytPlayerRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeMedia?.url, isAdmin, socket, userName]);
+
+  // Sync YT Player when activeMedia changes (remote updates)
+  useEffect(() => {
+    const player = ytPlayerRef.current;
+    if (!player || !activeMedia || !activeMedia.url || !activeMedia.url.includes("youtu") || !player.seekTo) return;
+
+    if (isRemoteUpdate.current) {
+      if (activeMedia.playing) {
+        if (player.getPlayerState() !== 1) player.playVideo();
+      } else {
+        if (player.getPlayerState() !== 2) player.pauseVideo();
+      }
+      const playerTime = player.getCurrentTime();
+      if (Math.abs(playerTime - activeMedia.time) > 1.5) {
+        player.seekTo(activeMedia.time, true);
+      }
+    }
+  }, [activeMedia]);
+
+  // Heartbeat YouTube Sync to handle drift
+  useEffect(() => {
+    if (!isAdmin || !activeMedia || !activeMedia.url || !activeMedia.url.includes("youtu") || !activeMedia.playing) return;
+    const interval = setInterval(() => {
+      if (ytPlayerRef.current && ytPlayerRef.current.getCurrentTime && !isRemoteUpdate.current) {
+        socket.emit("syncMedia", {
+          ...activeMedia,
+          time: ytPlayerRef.current.getCurrentTime(),
+          heartbeat: true
+        });
+      }
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [isAdmin, activeMedia, socket]);
+
+  const toggleMute = () => {
+    if (localStream) {
+      const nextMuted = !isMuted;
+      localStream.getAudioTracks()[0].enabled = !nextMuted;
+      setIsMuted(nextMuted);
+      socket.emit("media-state-change", { peerId: myPeerId, isMuted: nextMuted, isVideoOff });
+    }
+  };
+
+  const toggleVideo = () => {
+    if (localStream) {
+      const nextVideoOff = !isVideoOff;
+      localStream.getVideoTracks()[0].enabled = !nextVideoOff;
+      setIsVideoOff(nextVideoOff);
+      socket.emit("media-state-change", { peerId: myPeerId, isMuted, isVideoOff: nextVideoOff });
+    }
+  };
+
+  const startLocalFileBroadcast = async (file) => {
+    try {
+      const videoElement = document.createElement("video");
+      videoElement.src = URL.createObjectURL(file);
+      videoElement.playsInline = true;
+      videoElement.muted = true; // Mute locally to prevent feedback loop
+      videoElement.autoplay = true;
+
+      await new Promise(r => { videoElement.onloadedmetadata = r; });
+      videoElement.play();
+
+      let videoStream;
+      if (videoElement.captureStream) {
+        videoStream = videoElement.captureStream(24);
+      } else if (videoElement.mozCaptureStream) {
+        videoStream = videoElement.mozCaptureStream(24);
+      } else {
+        throw new Error("Video stream capture not supported in this browser.");
+      }
+
+      const videoTrack = videoStream.getVideoTracks()[0];
+      const videoAudioTrack = videoStream.getAudioTracks()[0];
+
+      if (!videoTrack) throw new Error("No video track found in the file.");
+
+      let mixedAudioTrack = null;
+      let audioCtx = null;
+      let dest = null;
+
+      if (videoAudioTrack && localStream) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        dest = audioCtx.createMediaStreamDestination();
+
+        const micStream = new MediaStream(localStream.getAudioTracks());
+        const micSource = audioCtx.createMediaStreamSource(micStream);
+        micSource.connect(dest);
+
+        const fileStream = new MediaStream([videoAudioTrack]);
+        const fileSource = audioCtx.createMediaStreamSource(fileStream);
+        fileSource.connect(dest);
+
+        mixedAudioTrack = dest.stream.getAudioTracks()[0];
+      } else if (videoAudioTrack) {
+        mixedAudioTrack = videoAudioTrack;
+      }
+
+      const mediaSourceObj = {
+        videoElement,
+        audioContext: audioCtx,
+        localUrl: videoElement.src,
+        originalVideoTrack: localStream.getVideoTracks()[0],
+        originalAudioTrack: localStream.getAudioTracks()[0]
+      };
+      setStreamMediaSource(mediaSourceObj);
+
+      if (myVideoRef.current) myVideoRef.current.srcObject = videoStream;
+
+      Object.values(peers.current).forEach(async (call) => {
+        if (call.peerConnection) {
+          const senders = call.peerConnection.getSenders();
+          const videoSender = senders.find(s => s.track?.kind === "video");
+          if (videoSender) {
+            await videoSender.replaceTrack(videoTrack);
+          }
+          if (mixedAudioTrack) {
+            const audioSender = senders.find(s => s.track?.kind === "audio");
+            if (audioSender) {
+              await audioSender.replaceTrack(mixedAudioTrack);
+            }
+          }
+        }
+      });
+
+      socket.emit("screenshare-started", { roomId, peerId: myPeerId });
+      setFocusedPeerId("local");
+      setActiveMedia({ url: null, playing: true, time: 0, type: "local_stream", name: file.name });
+
+      videoElement.onended = () => {
+        stopLocalFileBroadcast(mediaSourceObj);
+      };
+    } catch (e) {
+      toast.error(`Local file streaming failed: ${e.message}`);
+    }
+  };
+
+  const stopLocalFileBroadcast = async (overrideSourceObj = null) => {
+    const sourceObj = overrideSourceObj || streamMediaSource;
+    if (!sourceObj) return;
+
+    try {
+      const originalVid = sourceObj.originalVideoTrack;
+      const originalAud = sourceObj.originalAudioTrack;
+
+      Object.values(peers.current).forEach(async (call) => {
+        if (call.peerConnection) {
+          const senders = call.peerConnection.getSenders();
+          const videoSender = senders.find(s => s.track?.kind === "video");
+          if (videoSender && originalVid) {
+            await videoSender.replaceTrack(originalVid);
+          }
+          const audioSender = senders.find(s => s.track?.kind === "audio");
+          if (audioSender && originalAud) {
+            await audioSender.replaceTrack(originalAud);
+          }
+        }
+      });
+
+      if (myVideoRef.current && localStream) {
+        myVideoRef.current.srcObject = localStream;
+      }
+
+      if (sourceObj.videoElement) {
+        sourceObj.videoElement.pause();
+        sourceObj.videoElement.removeAttribute("src");
+        sourceObj.videoElement.load();
+      }
+      if (sourceObj.localUrl) {
+        URL.revokeObjectURL(sourceObj.localUrl);
+      }
+      if (sourceObj.audioContext) {
+        sourceObj.audioContext.close();
+      }
+
+      setStreamMediaSource(null);
+      setActiveMedia(null);
+      socket.emit("syncMedia", null);
+      setFocusedPeerId(null);
+    } catch (err) {
+      console.error("Error stopping video broadcast:", err);
+    }
+  };
 
   const handleLocalFile = (e) => {
     const file = e.target.files[0];
     if (file) {
-        const url = URL.createObjectURL(file);
-        setActiveMedia({ url, playing: true, time: 0, type: "local", name: file.name });
-        socket.emit("syncMedia", { url: null, playing: true, time: 0, type: "local", name: file.name });
+      startLocalFileBroadcast(file);
     }
+  };
+
+  const handleUrlBroadcast = () => {
+    if (!broadcastUrl) return;
+    setActiveMedia({ url: broadcastUrl, playing: true, time: 0, type: "url", name: "Shared Media" });
+    socket.emit("syncMedia", { url: broadcastUrl, playing: true, time: 0, type: "url", name: "Shared Media" });
+    setShowUrlInput(false);
+    setBroadcastUrl("");
+    setLayoutMode("stage");
   };
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
-        containerRef.current.requestFullscreen().catch(err => {
-            toast.error(`Error attempting to enable full-screen mode: ${err.message}`);
-        });
-        setIsFullscreen(true);
+      containerRef.current.requestFullscreen().catch(err => {
+        toast.error(`Error attempting to enable full-screen mode: ${err.message}`);
+      });
+      setIsFullscreen(true);
     } else {
-        document.exitFullscreen();
-        setIsFullscreen(false);
+      document.exitFullscreen();
+      setIsFullscreen(false);
     }
   };
 
-
-
-   const handleMediaAction = (action) => {
+  const handleMediaAction = (action) => {
     if (!mediaRef.current || isRemoteUpdate.current) return;
     const data = { 
       url: activeMedia?.url, 
@@ -765,72 +1218,75 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
   const startScreenShare = async () => {
     try {
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
-            toast.error("Screen sharing is unavailable in this browser. Use a supported Android browser or desktop browser.");
-            return;
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+        toast.error("Screen sharing is unavailable in this browser. Use a supported Android browser or desktop browser.");
+        return;
+      }
+
+      const screenStream = await navigator.mediaDevices.getDisplayMedia({ 
+        video: { 
+          cursor: "always",
+          width: { ideal: 1920, max: 1920 },
+          height: { ideal: 1080, max: 1080 },
+          frameRate: { ideal: 24, max: 30 }
+        },
+        audio: true
+      });
+
+      const videoTrack = screenStream.getVideoTracks()[0];
+      if ('contentHint' in videoTrack) {
+        videoTrack.contentHint = 'detail';
+      }
+
+      if (myVideoRef.current) myVideoRef.current.srcObject = screenStream;
+
+      Object.values(peers.current).forEach(async (call) => {
+        if (call.peerConnection) {
+          const sender = call.peerConnection.getSenders().find(s => s.track?.kind === 'video');
+          if (sender) {
+            await sender.replaceTrack(videoTrack);
+            const params = sender.getParameters();
+            if (!params.encodings) params.encodings = [{}];
+            params.encodings[0].maxBitrate = 2500000; 
+            sender.setParameters(params).catch(e => {});
+          }
         }
+      });
 
-        const screenStream = await navigator.mediaDevices.getDisplayMedia({ 
-            video: { 
-                cursor: "always",
-                width: { ideal: 1920, max: 1920 },
-                height: { ideal: 1080, max: 1080 },
-                frameRate: { ideal: 24, max: 30 } // Optimized for stability
-            },
-            audio: true
-        });
+      setFocusedPeerId("local");
+      socket.emit("screenshare-started", { roomId, peerId: myPeerId });
+      setLayoutMode("stage");
 
-        const videoTrack = screenStream.getVideoTracks()[0];
-        // Optimize for static content clarity (text/code)
-        if ('contentHint' in videoTrack) {
-            videoTrack.contentHint = 'detail';
-        }
-
-        if (myVideoRef.current) myVideoRef.current.srcObject = screenStream;
-
-        // Replace track and apply bitrate constraints for performance
-        Object.values(peers.current).forEach(async (call) => {
-            if (call.peerConnection) {
-                const sender = call.peerConnection.getSenders().find(s => s.track?.kind === 'video');
-                if (sender) {
-                    await sender.replaceTrack(videoTrack);
-                    
-                    // Bandwidth Optimization: Cap at 2.5Mbps for smooth 1080p
-                    const params = sender.getParameters();
-                    if (!params.encodings) params.encodings = [{}];
-                    params.encodings[0].maxBitrate = 2500000; 
-                    sender.setParameters(params).catch(e => {});
-                }
-            }
-        });
-
-        // Update local UI and Notify others
-        setFocusedPeerId("local");
-        socket.emit("screenshare-started", { roomId, peerId: myPeerId });
-
-        videoTrack.onended = () => {
-            stopScreenShare();
-        };
+      videoTrack.onended = () => {
+        stopScreenShare();
+      };
     } catch (err) {
-        toast.error(err.name === "NotAllowedError" ? "Screen sharing was cancelled." : "Unable to start screen sharing on this device.");
+      toast.error(err.name === "NotAllowedError" ? "Screen sharing was cancelled." : "Unable to start screen sharing on this device.");
     }
   };
 
-  const stopScreenShare = async () => {
+  const stopScreenShare = () => {
     try {
-        const videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
-        const videoTrack = videoStream.getVideoTracks()[0];
-        
-        if (myVideoRef.current) myVideoRef.current.srcObject = videoStream;
-        setLocalStream(videoStream);
+      if (!localStream) return;
+      const videoTrack = localStream.getVideoTracks()[0];
+      if (myVideoRef.current && localStream) {
+        myVideoRef.current.srcObject = localStream;
+      }
 
-        Object.values(peers.current).forEach(call => {
-            const sender = call.peerConnection.getSenders().find(s => s.track?.kind === 'video');
-            if (sender) sender.replaceTrack(videoTrack);
-        });
+      Object.values(peers.current).forEach(async (call) => {
+        if (call.peerConnection) {
+          const sender = call.peerConnection.getSenders().find(s => s.track?.kind === 'video');
+          if (sender && videoTrack) {
+            await sender.replaceTrack(videoTrack);
+          }
+        }
+      });
+      setFocusedPeerId(null);
     } catch (err) {
+      console.error("Error stopping screen share:", err);
     }
   };
+
 
   const flipCamera = async () => {
     try {
@@ -963,7 +1419,82 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   };
 
   const remoteEntries = Object.entries(remoteStreams);
-  const isPiPMode = remoteEntries.length === 1 && !activeMedia && !isMinimized;
+  const isStageMode = layoutMode === "stage" || !!activeMedia || focusedPeerId !== null;
+  const isPiPMode = isStageMode && remoteEntries.length === 1 && !activeMedia && !isMinimized;
+  const totalParticipantsCount = 1 + remoteEntries.length;
+
+  const handleTileClick = (peerId) => {
+    setFocusedPeerId(peerId);
+    setLayoutMode("stage");
+  };
+
+  const renderParticipantTiles = (isStrip = false) => {
+    const tiles = [];
+
+    // Local user
+    tiles.push(
+      <VideoTile 
+        key="local" 
+        $isTalking={speakingPeers.local} 
+        $isStrip={isStrip}
+        onClick={() => handleTileClick("local")}
+      >
+        {isVideoOff ? (
+          <PlaceholderAvatar>
+            <AvatarCircle $isTalking={speakingPeers.local}>
+              {getInitials(userName)}
+            </AvatarCircle>
+            {isMuted && <MutedBadge title="Muted"><FaMicrophoneSlash /></MutedBadge>}
+          </PlaceholderAvatar>
+        ) : (
+          <video ref={myVideoRef} autoPlay muted playsInline />
+        )}
+        <NameTag>
+          {userName} (You) {isMuted && <span style={{ color: "#ff4757" }}>🎤 Muted</span>}
+        </NameTag>
+      </VideoTile>
+    );
+
+    // Remote users
+    Object.entries(remoteStreams).forEach(([id, info]) => {
+      const peerState = participantStates[id] || {};
+      const peerVideoOff = peerState.isVideoOff;
+      const peerMuted = peerState.isMuted;
+
+      tiles.push(
+        <VideoTile 
+          key={id} 
+          $isTalking={speakingPeers[id]} 
+          $isStrip={isStrip}
+          onClick={() => handleTileClick(id)}
+        >
+          {peerVideoOff ? (
+            <PlaceholderAvatar>
+              <AvatarCircle $isTalking={speakingPeers[id]}>
+                {getInitials(info.name)}
+              </AvatarCircle>
+              {peerMuted && <MutedBadge title="Muted"><FaMicrophoneSlash /></MutedBadge>}
+            </PlaceholderAvatar>
+          ) : (
+            <video 
+              autoPlay 
+              playsInline 
+              ref={el => { 
+                if (el && info.stream && el.srcObject !== info.stream) {
+                  el.srcObject = info.stream; 
+                } 
+              }} 
+            />
+          )}
+          <NameTag>
+            {info.name} {peerMuted && <span style={{ color: "#ff4757" }}>🎤 Muted</span>}
+          </NameTag>
+        </VideoTile>
+      );
+    });
+
+    return tiles;
+  };
 
   return (
     <MeetingOverlay ref={containerRef} $minimized={isMinimized} onClick={isMinimized ? () => setIsMinimized(false) : undefined}>
@@ -981,6 +1512,23 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         </div>
         <div onClick={(event) => event.stopPropagation()} style={{ display: "flex", gap: "4px", background: "rgba(255,255,255,0.08)", padding: "4px", borderRadius: "14px", border: "1px solid rgba(255,255,255,0.12)", alignItems: "center" }}>
           {isMinimized ? <CircleButton style={{ width: 32, height: 32, fontSize: ".8rem" }} onClick={() => setIsMinimized(false)} title="Return to call"><FaExpand /></CircleButton> : <>
+          {!isMinimized && (
+            <CircleButton 
+              style={{ width: 32, height: 32, fontSize: "0.8rem" }}
+              onClick={() => {
+                if (layoutMode === "grid") {
+                  setLayoutMode("stage");
+                  setFocusedPeerId(remoteEntries.length > 0 ? remoteEntries[0][0] : "local");
+                } else {
+                  setLayoutMode("grid");
+                  setFocusedPeerId(null);
+                }
+              }} 
+              title={layoutMode === "grid" ? "Switch to Stage View" : "Switch to Grid View"}
+            >
+              {layoutMode === "grid" ? <FaDesktop /> : <FaThLarge />}
+            </CircleButton>
+          )}
           <CircleButton 
             style={{ width: 32, height: 32, fontSize: "0.8rem" }}
             onClick={toggleFullscreen} 
@@ -1004,82 +1552,135 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       </MeetingHeader>
 
       <ContentLayout $isAdmin={isAdmin} $minimized={isMinimized}>
-        <MainStage $minimized={isMinimized}>
-          {!isAdmin && <PrivacyGuard $minimized={isMinimized} show={!isFocused}><h3>Privacy watermark active</h3><p>Your name and a live timestamp remain visible during this call.</p></PrivacyGuard>}
-          {!isMinimized && <div style={{ position: "absolute", top: 10, left: 10, zIndex: 60, fontSize: "0.6rem", opacity: 0.3, color: "var(--chakra-colors-textPrimary)" }}>
-              ID: {myPeerId || "Connecting..."}
-          </div>}
-          {!isMinimized && <Watermark x={watermarkPos.x} y={watermarkPos.y}>{userName} | {new Date().toLocaleTimeString()} | CONFIDENTIAL</Watermark>}
-          {isPiPMode && (
-            <FloatingPiP onClick={flipCamera} title="Tap to flip camera">
-              <video ref={el => { if (el && localStream && el.srcObject !== localStream) el.srcObject = localStream; }} autoPlay muted playsInline />
-              <div style={{ position: "absolute", bottom: 6, right: 6, background: "rgba(0,0,0,0.5)", borderRadius: 8, padding: "2px 6px", fontSize: "0.6rem", fontWeight: 600, display: "flex", alignItems: "center", gap: 3 }}>
-                <FaExchangeAlt size={8} /> Flip
-              </div>
-            </FloatingPiP>
-          )}
-          {reactions.map(r => (
-            <div key={r.id} style={{ position: "absolute", bottom: 0, left: `${r.x}%`, fontSize: "2.5rem", animation: "floatUp 3s ease-out forwards", zIndex: 100 }}>{r.emoji}</div>
-          ))}
-          {!isMinimized && isSyncing && <div style={{ position: "absolute", top: 20, right: 20, color: "#4CAF50", display: "flex", alignItems: "center", gap: 10, background: "rgba(0,0,0,0.6)", padding: "8px 15px", borderRadius: "10px", backdropFilter: "blur(5px)" }}><FaSync style={{ animation: "spin 1s linear infinite" }} /> Real-time Syncing...</div>}
-          
-          {focusedPeerId ? (
-              <div style={{ width: "100%", height: "100%", position: "relative" }}>
-                 <video autoPlay playsInline ref={el => { if (el) { const target = focusedPeerId === "local" ? localStream : remoteStreams[focusedPeerId]?.stream; if (el.srcObject !== target) el.srcObject = target; } }} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
-                 <div style={{ position: "absolute", top: 20, left: 20, background: "rgba(0,0,0,0.6)", padding: "5px 15px", borderRadius: 20, display: "flex", alignItems: "center", gap: 10 }}>
-                    <span>Viewing: {focusedPeerId === "local" ? "You" : remoteStreams[focusedPeerId]?.name}</span>
-                    <button onClick={() => setFocusedPeerId(null)} style={{ background: "none", border: "none", color: "var(--chakra-colors-textPrimary)", cursor: "pointer" }}>✕</button>
-                 </div>
-              </div>
-          ) : activeMedia ? (
-            <div key={activeMedia.url} style={{ width: "100%", height: "100%" }}>
-               {activeMedia.url?.includes("youtu") ? (
-                  <iframe title="YouTube Video" src={`https://www.youtube.com/embed/${activeMedia.url.includes("youtu.be") ? activeMedia.url.split("/").pop() : activeMedia.url.split("v=")[1]?.split("&")[0]}`} style={{ width: "100%", height: "100%", border: "none" }} allowFullScreen />
-                ) : (
-                 <video 
-                   ref={mediaRef} 
-                   src={activeMedia.url} 
-                   controls 
-                   playsInline
-                   style={{ width: "100%", height: "100%" }} 
-                   onPlay={() => handleMediaAction("play")} 
-                   onPause={() => handleMediaAction("pause")}
-                   onSeeked={() => handleMediaAction("seek")}
-                 />
-               )}
-            </div>
-          ) : (
-            <div style={{ opacity: 0.2 }}><FaDesktop size={100} /></div>
-          )}
-        </MainStage>
+        {isStageMode ? (
+          <>
+            <MainStage $minimized={isMinimized}>
+              {!isAdmin && <PrivacyGuard $minimized={isMinimized} show={!isFocused}><h3>Privacy watermark active</h3><p>Your name and a live timestamp remain visible during this call.</p></PrivacyGuard>}
+              {!isMinimized && <div style={{ position: "absolute", top: 10, left: 10, zIndex: 60, fontSize: "0.6rem", opacity: 0.3, color: "var(--chakra-colors-textPrimary)" }}>
+                  ID: {myPeerId || "Connecting..."}
+              </div>}
+              {!isMinimized && <Watermark x={watermarkPos.x} y={watermarkPos.y}>{userName} | {new Date().toLocaleTimeString()} | CONFIDENTIAL</Watermark>}
+              {isPiPMode && (
+                <FloatingPiP onClick={flipCamera} title="Tap to flip camera">
+                  <video ref={el => { if (el && localStream && el.srcObject !== localStream) el.srcObject = localStream; }} autoPlay muted playsInline />
+                  <div style={{ position: "absolute", bottom: 6, right: 6, background: "rgba(0,0,0,0.5)", borderRadius: 8, padding: "2px 6px", fontSize: "0.6rem", fontWeight: 600, display: "flex", alignItems: "center", gap: 3 }}>
+                    <FaExchangeAlt size={8} /> Flip
+                  </div>
+                </FloatingPiP>
+              )}
+              {reactions.map(r => (
+                <div key={r.id} style={{ position: "absolute", bottom: 0, left: `${r.x}%`, fontSize: "2.5rem", animation: "floatUp 3s ease-out forwards", zIndex: 100 }}>{r.emoji}</div>
+              ))}
+              {!isMinimized && isSyncing && <div style={{ position: "absolute", top: 20, right: 20, color: "#4CAF50", display: "flex", alignItems: "center", gap: 10, background: "rgba(0,0,0,0.6)", padding: "8px 15px", borderRadius: "10px", backdropFilter: "blur(5px)" }}><FaSync style={{ animation: "spin 1s linear infinite" }} /> Real-time Syncing...</div>}
+              
+              {focusedPeerId ? (() => {
+                const focusedIsVideoOff = focusedPeerId === "local" ? isVideoOff : (participantStates[focusedPeerId]?.isVideoOff);
+                const focusedName = focusedPeerId === "local" ? userName : (remoteStreams[focusedPeerId]?.name || "Participant");
+                const focusedIsMuted = focusedPeerId === "local" ? isMuted : (participantStates[focusedPeerId]?.isMuted);
+                const focusedIsTalking = speakingPeers[focusedPeerId];
+                const targetStream = focusedPeerId === "local" ? localStream : remoteStreams[focusedPeerId]?.stream;
 
-        {!isPiPMode && <ParticipantGrid className="participant-strip">
-          <VideoTile $isTalking={speakingPeers.local} onClick={() => setFocusedPeerId("local")}>
-            <video ref={myVideoRef} autoPlay muted playsInline />
-            <NameTag>
-                {userName} (You)
-            </NameTag>
-          </VideoTile>
-          {Object.entries(remoteStreams).map(([id, info]) => (
-            <VideoTile key={id} $isTalking={speakingPeers[id]} onClick={() => setFocusedPeerId(id)}>
-              <video autoPlay playsInline ref={el => { if (el && el.srcObject !== info.stream) el.srcObject = info.stream; }} />
-              <NameTag>
-                {info.name}
-              </NameTag>
-            </VideoTile>
-          ))}
-        </ParticipantGrid>}
+                return (
+                  <div style={{ width: "100%", height: "100%", position: "relative" }}>
+                     {focusedIsVideoOff ? (
+                       <PlaceholderAvatar style={{ borderRadius: 28 }}>
+                         <AvatarCircle $isTalking={focusedIsTalking} style={{ width: 120, height: 120, fontSize: "3rem" }}>
+                           {getInitials(focusedName)}
+                         </AvatarCircle>
+                         {focusedIsMuted && <MutedBadge style={{ width: 36, height: 36, fontSize: "1.2rem", top: 20, right: 20 }} title="Muted"><FaMicrophoneSlash /></MutedBadge>}
+                       </PlaceholderAvatar>
+                     ) : (
+                       <video autoPlay playsInline ref={el => { if (el && el.srcObject !== targetStream) el.srcObject = targetStream; }} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+                     )}
+                     <div style={{ position: "absolute", top: 20, left: 20, background: "rgba(0,0,0,0.6)", padding: "5px 15px", borderRadius: 20, display: "flex", alignItems: "center", gap: 10, zIndex: 100 }}>
+                        <span>Viewing: {focusedPeerId === "local" ? "You" : remoteStreams[focusedPeerId]?.name}</span>
+                        <button onClick={() => setFocusedPeerId(null)} style={{ background: "none", border: "none", color: "var(--chakra-colors-textPrimary)", cursor: "pointer" }}>✕</button>
+                     </div>
+                  </div>
+                );
+              })() : activeMedia ? (
+                <div key={activeMedia.url} style={{ width: "100%", height: "100%", position: "relative" }}>
+                   {activeMedia.url?.includes("youtu") ? (
+                      <div id="youtube-sync-player" style={{ width: "100%", height: "100%" }} />
+                    ) : (
+                      <video 
+                        ref={mediaRef} 
+                        src={activeMedia.url} 
+                        controls 
+                        playsInline
+                        style={{ width: "100%", height: "100%" }} 
+                        onPlay={() => handleMediaAction("play")} 
+                        onPause={() => handleMediaAction("pause")}
+                        onSeeked={() => handleMediaAction("seek")}
+                      />
+                   )}
+                   <div style={{ position: "absolute", top: 20, left: 20, background: "rgba(0,0,0,0.6)", padding: "5px 15px", borderRadius: 20, display: "flex", alignItems: "center", gap: 10, zIndex: 100 }}>
+                      <span>Shared Media: {activeMedia.name || "Broadcast"}</span>
+                      {isAdmin && (
+                        <button 
+                          onClick={() => {
+                            if (activeMedia.type === "local_stream") {
+                              stopLocalFileBroadcast();
+                            } else {
+                              setActiveMedia(null);
+                              socket.emit("syncMedia", null);
+                            }
+                          }} 
+                          style={{ background: "rgba(255,71,87,0.8)", border: "none", color: "white", padding: "2px 8px", borderRadius: "6px", cursor: "pointer", fontSize: "0.8rem", fontWeight: "bold" }}
+                        >
+                          Stop
+                        </button>
+                      )}
+                   </div>
+                </div>
+              ) : (
+                <div style={{ opacity: 0.2 }}><FaDesktop size={100} /></div>
+              )}
+            </MainStage>
+
+            {!isPiPMode && (
+              <ParticipantGrid className="participant-strip">
+                {renderParticipantTiles(true)}
+              </ParticipantGrid>
+            )}
+          </>
+        ) : (
+          <MeetingGrid $count={totalParticipantsCount} className="meeting-grid">
+            {renderParticipantTiles(false)}
+          </MeetingGrid>
+        )}
       </ContentLayout>
 
       <ControlBar $minimized={isMinimized}>
-        <CircleButton $active={isMuted} onClick={() => { if (localStream) { localStream.getAudioTracks()[0].enabled = isMuted; setIsMuted(!isMuted); } }} title={isMuted ? "Unmute Microphone" : "Mute Microphone"}><FaMicrophone /></CircleButton>
-        <CircleButton $active={isVideoOff} onClick={() => { if (localStream) { localStream.getVideoTracks()[0].enabled = isVideoOff; setIsVideoOff(!isVideoOff); } }} title={isVideoOff ? "Turn Camera On" : "Turn Camera Off"}><FaVideo /></CircleButton>
+        <CircleButton $active={isMuted} onClick={toggleMute} title={isMuted ? "Unmute Microphone" : "Mute Microphone"}>
+          {isMuted ? <FaMicrophoneSlash /> : <FaMicrophone />}
+        </CircleButton>
+        <CircleButton $active={isVideoOff} onClick={toggleVideo} title={isVideoOff ? "Turn Camera On" : "Turn Camera Off"}><FaVideo /></CircleButton>
         <CircleButton onClick={flipCamera} title="Flip Camera"><FaExchangeAlt /></CircleButton>
         <CircleButton onClick={startScreenShare} title="Share Your Screen with Others"><FaDesktop /></CircleButton>
         
         {isAdmin && (
           <div style={{ display: "flex", gap: "10px", alignItems: "center", borderLeft: "1px solid rgba(255,255,255,0.1)", paddingLeft: "10px", marginLeft: "5px" }}>
-              <label><CircleButton as="span" title="Broadcast a Video File from your computer"><FaFolderOpen /><input type="file" hidden accept="video/*" onChange={handleLocalFile} /></CircleButton></label>
+              {streamMediaSource ? (
+                <CircleButton 
+                  onClick={() => stopLocalFileBroadcast()} 
+                  title="Stop Local Video Broadcast"
+                  style={{ background: "#ff4757", borderColor: "#ff4757" }}
+                >
+                  <FaPhoneSlash />
+                </CircleButton>
+              ) : (
+                <label><CircleButton as="span" title="Broadcast a Video File from your computer"><FaFolderOpen /><input type="file" hidden accept="video/*" onChange={handleLocalFile} /></CircleButton></label>
+              )}
+              
+              <CircleButton 
+                onClick={() => setShowUrlInput(prev => !prev)} 
+                title="Broadcast a Video URL (YouTube, MP4)"
+                style={{ background: showUrlInput ? "rgba(0,191,165,0.2)" : "transparent", borderColor: showUrlInput ? "var(--chakra-colors-brandPrimary)" : "rgba(255,255,255,0.06)" }}
+              >
+                <FaLink />
+              </CircleButton>
+
               <CircleButton 
                   $active={isRecording} 
                   onClick={toggleRecording} 
@@ -1093,6 +1694,58 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         <div style={{ width: 1, height: 24, background: "rgba(255,255,255,0.1)", margin: "0 5px", flexShrink: 0 }} />
         {["❤️", "👏", "😂"].map(e => <CircleButton key={e} onClick={() => sendReaction(e)} title={`Send ${e} reaction`} style={{ background: "transparent", border: "none" }}>{e}</CircleButton>)}
       </ControlBar>
+
+      {showUrlInput && (
+        <div style={{
+          position: "absolute",
+          bottom: "90px",
+          left: "50%",
+          transform: "translateX(-50%)",
+          background: "rgba(15, 15, 20, 0.85)",
+          backdropFilter: "blur(24px)",
+          border: "1px solid rgba(255, 255, 255, 0.12)",
+          padding: "16px",
+          borderRadius: "20px",
+          zIndex: 1000,
+          display: "flex",
+          gap: "10px",
+          width: "min(400px, 90%)",
+          boxShadow: "0 20px 50px rgba(0,0,0,0.6)"
+        }}>
+          <input 
+            type="text" 
+            placeholder="Paste YouTube or direct MP4 URL..." 
+            value={broadcastUrl}
+            onChange={(e) => setBroadcastUrl(e.target.value)}
+            style={{
+              flex: 1,
+              background: "rgba(255,255,255,0.06)",
+              border: "1px solid rgba(255,255,255,0.1)",
+              borderRadius: "10px",
+              padding: "8px 12px",
+              color: "white",
+              fontSize: "0.9rem",
+              outline: "none"
+            }}
+          />
+          <button 
+            onClick={handleUrlBroadcast}
+            style={{
+              background: "var(--chakra-colors-brandPrimary)",
+              border: "none",
+              borderRadius: "10px",
+              padding: "8px 16px",
+              color: "white",
+              fontSize: "0.9rem",
+              fontWeight: "600",
+              cursor: "pointer"
+            }}
+          >
+            Broadcast
+          </button>
+        </div>
+      )}
+
       <style>{`
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         @keyframes floatUp { 0% { transform: translateY(0) scale(1); opacity: 1; } 100% { transform: translateY(-700px) scale(2.5); opacity: 0; } }

@@ -90,7 +90,7 @@ export const THEMES = {
     }
   },
 
-  midnight: {
+  slateMidnight: {
     name: "Midnight",
     isDarkOnly: true,
     colors: {
@@ -115,6 +115,7 @@ export const THEMES = {
 
   arcticWhite: {
     name: "Arctic White",
+    isLightOnly: true,
     isDarkOnly: false,
     colors: {
       primary: "#2563EB",
@@ -138,6 +139,7 @@ export const THEMES = {
 
   pearl: {
     name: "Pearl",
+    isLightOnly: true,
     isDarkOnly: false,
     colors: {
       primary: "#334155",

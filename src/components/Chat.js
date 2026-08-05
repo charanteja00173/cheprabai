@@ -2131,16 +2131,16 @@ function PremiumEmojiPicker({ onSelect, onClose, isMobile }) {
       width: isMobile ? "calc(100% - 32px)" : 320,
       maxWidth: isMobile ? 360 : "none",
       height: 380,
-      background: "#171922",
-      border: "1px solid rgba(255,255,255,.12)",
+      background: "var(--chakra-colors-surface)",
+      border: "1px solid var(--chakra-colors-border)",
       borderRadius: 16,
-      boxShadow: "0 20px 50px rgba(0,0,0,.5)",
+      boxShadow: "var(--chakra-shadows-cardShadow)",
       display: "flex",
       flexDirection: "column",
       zIndex: 22000,
       overflow: "hidden"
     }}>
-      <div style={{ padding: 10, borderBottom: "1px solid rgba(255,255,255,.06)" }}>
+      <div style={{ padding: 10, borderBottom: "1px solid var(--chakra-colors-borderSubtle)" }}>
         <input
           type="text"
           placeholder="Search emojis..."
@@ -2149,10 +2149,10 @@ function PremiumEmojiPicker({ onSelect, onClose, isMobile }) {
           style={{
             width: "100%",
             padding: "8px 12px",
-            background: "rgba(255,255,255,.05)",
-            border: "1px solid rgba(255,255,255,.08)",
+            background: "var(--chakra-colors-surfaceHover)",
+            border: "1px solid var(--chakra-colors-borderSubtle)",
             borderRadius: 8,
-            color: "#fff",
+            color: "var(--chakra-colors-textPrimary)",
             fontSize: "0.85rem",
             outline: "none",
             boxSizing: "border-box"
@@ -6752,14 +6752,14 @@ export default function ChatRoom() {
 
       {viewedByTarget && (
         <div role="presentation" onClick={() => setViewedByTarget(null)} style={{ position: "fixed", inset: 0, zIndex: 10050, display: "grid", placeItems: "center", padding: 16, background: "rgba(0,0,0,.62)", backdropFilter: "blur(8px)" }}>
-          <section role="dialog" aria-modal="true" aria-label="Message view details" onClick={(event) => event.stopPropagation()} style={{ width: "min(100%, 390px)", maxHeight: "min(76vh, 560px)", overflow: "auto", borderRadius: 20, border: "1px solid rgba(255,255,255,.13)", background: "#12151d", boxShadow: "0 22px 70px rgba(0,0,0,.56)", padding: 20, color: "var(--chakra-colors-textPrimary)" }}>
+          <section role="dialog" aria-modal="true" aria-label="Message view details" onClick={(event) => event.stopPropagation()} style={{ width: "min(100%, 390px)", maxHeight: "min(76vh, 560px)", overflow: "auto", borderRadius: 20, border: "1px solid var(--chakra-colors-border)", background: "var(--chakra-colors-cardBg)", boxShadow: "var(--chakra-shadows-cardShadow)", padding: 20, color: "var(--chakra-colors-textPrimary)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 14 }}>
               <div><div style={{ fontSize: ".72rem", color: "var(--chakra-colors-textSecondary)", textTransform: "uppercase", letterSpacing: ".08em", fontWeight: 800 }}>Message details</div><h2 style={{ margin: "4px 0 0", fontSize: "1.1rem" }}>Read by {Object.keys(viewedByTarget.viewedBy || {}).length}</h2></div>
-              <button type="button" onClick={() => setViewedByTarget(null)} aria-label="Close message details" style={{ minWidth: 40, minHeight: 40, borderRadius: 12, border: "1px solid rgba(255,255,255,.1)", background: "rgba(255,255,255,.06)", color: "inherit", cursor: "pointer", fontSize: "1.2rem" }}>×</button>
+              <button type="button" onClick={() => setViewedByTarget(null)} aria-label="Close message details" style={{ minWidth: 40, minHeight: 40, borderRadius: 12, border: "1px solid var(--chakra-colors-border)", background: "var(--chakra-colors-surfaceHover)", color: "inherit", cursor: "pointer", fontSize: "1.2rem" }}>×</button>
             </div>
-            <div style={{ borderTop: "1px solid rgba(255,255,255,.08)" }}>
+            <div style={{ borderTop: "1px solid var(--chakra-colors-borderSubtle)" }}>
               {Object.values(viewedByTarget.viewedBy || {}).map((viewer, index) => (
-                <div key={`${viewer.name}-${index}`} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "13px 0", borderBottom: "1px solid rgba(255,255,255,.06)" }}>
+                <div key={`${viewer.name}-${index}`} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "13px 0", borderBottom: "1px solid var(--chakra-colors-borderSubtle)" }}>
                   <div style={{ minWidth: 0 }}><div style={{ fontWeight: 750, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{viewer.name || "Guest"}</div><div style={{ marginTop: 3, color: "var(--chakra-colors-textSecondary)", fontSize: ".78rem" }}>Seen {viewer.timestamp ? new Date(viewer.timestamp).toLocaleString() : "just now"}</div></div>
                   <span aria-hidden="true" style={{ color: "#4fc3f7", fontWeight: 900 }}>✓✓</span>
                 </div>
