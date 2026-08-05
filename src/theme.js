@@ -25,22 +25,137 @@ export const THEMES = {
     name: "Pitch Black",
     isDarkOnly: true,
     colors: {
-      primary: "#4F8CFF",      // Royal Electric Blue
-      secondary: "#00E5FF",    // Neon Cyan
-      accent: "#9D5CFF",       // Imperial Violet
+      primary: "#1C1F26",
+      secondary: "#262B36",
+      accent: "#343B4A",
 
-      hover: "#6AA3FF",
+      hover: "#2B3140",
 
-      glow: "rgba(79, 140, 255, 0.22)",
+      glow: "rgba(255,255,255,0.05)",
 
-      lightBg: "#000000",      // Absolute OLED Black
+      lightBg: "#000000",
       darkBg: "#000000",
 
-      lightSurface: "#040405", // Premium elevated surface
-      darkSurface: "#040405",
+      lightSurface: "#050506",
+      darkSurface: "#050506",
 
-      lightSurfaceHover: "#0A0A0F",
-      darkSurfaceHover: "#0A0A0F",
+      lightSurfaceHover: "#0B0C10",
+      darkSurfaceHover: "#0B0C10",
+    }
+  },
+
+  obsidian: {
+    name: "Obsidian",
+    isDarkOnly: true,
+    colors: {
+      primary: "#181A20",
+      secondary: "#21242C",
+      accent: "#2C313C",
+
+      hover: "#2F3440",
+
+      glow: "rgba(255,255,255,0.04)",
+
+      lightBg: "#030303",
+      darkBg: "#030303",
+
+      lightSurface: "#090A0D",
+      darkSurface: "#090A0D",
+
+      lightSurfaceHover: "#111318",
+      darkSurfaceHover: "#111318",
+    }
+  },
+
+  carbon: {
+    name: "Carbon",
+    isDarkOnly: true,
+    colors: {
+      primary: "#20242D",
+      secondary: "#2A303C",
+      accent: "#394150",
+
+      hover: "#333B48",
+
+      glow: "rgba(255,255,255,0.05)",
+
+      lightBg: "#050505",
+      darkBg: "#050505",
+
+      lightSurface: "#0C0D10",
+      darkSurface: "#0C0D10",
+
+      lightSurfaceHover: "#14171D",
+      darkSurfaceHover: "#14171D",
+    }
+  },
+
+  midnight: {
+    name: "Midnight",
+    isDarkOnly: true,
+    colors: {
+      primary: "#16181D",
+      secondary: "#20242A",
+      accent: "#2A3038",
+
+      hover: "#313741",
+
+      glow: "rgba(255,255,255,0.04)",
+
+      lightBg: "#010101",
+      darkBg: "#010101",
+
+      lightSurface: "#07080A",
+      darkSurface: "#07080A",
+
+      lightSurfaceHover: "#101216",
+      darkSurfaceHover: "#101216",
+    }
+  },
+
+  arcticWhite: {
+    name: "Arctic White",
+    isDarkOnly: false,
+    colors: {
+      primary: "#2563EB",
+      secondary: "#0EA5E9",
+      accent: "#7C3AED",
+
+      hover: "#1D4ED8",
+
+      glow: "rgba(37,99,235,0.15)",
+
+      lightBg: "#FAFBFD",
+      darkBg: "#FAFBFD",
+
+      lightSurface: "#FFFFFF",
+      darkSurface: "#FFFFFF",
+
+      lightSurfaceHover: "#F2F5FA",
+      darkSurfaceHover: "#F2F5FA",
+    }
+  },
+
+  pearl: {
+    name: "Pearl",
+    isDarkOnly: false,
+    colors: {
+      primary: "#334155",
+      secondary: "#475569",
+      accent: "#6366F1",
+
+      hover: "#1E293B",
+
+      glow: "rgba(99,102,241,0.12)",
+
+      lightBg: "#F5F7FA",
+      darkBg: "#F5F7FA",
+
+      lightSurface: "#FFFFFF",
+      darkSurface: "#FFFFFF",
+
+      lightSurfaceHover: "#EEF2F7",
+      darkSurfaceHover: "#EEF2F7",
     }
   },
   default: {
