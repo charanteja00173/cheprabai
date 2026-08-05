@@ -25,22 +25,22 @@ export const THEMES = {
     name: "Pitch Black",
     isDarkOnly: true,
     colors: {
-      primary: "#1C1F26",
-      secondary: "#262B36",
-      accent: "#343B4A",
+      primary: "#0A0A0B",
+      secondary: "#101011",
+      accent: "#151518",
 
-      hover: "#2B3140",
+      hover: "#1B1B1F",
 
-      glow: "rgba(255,255,255,0.05)",
+      glow: "rgba(255,255,255,0.025)",
 
       lightBg: "#000000",
       darkBg: "#000000",
 
-      lightSurface: "#050506",
-      darkSurface: "#050506",
+      lightSurface: "#020202",
+      darkSurface: "#020202",
 
-      lightSurfaceHover: "#0B0C10",
-      darkSurfaceHover: "#0B0C10",
+      lightSurfaceHover: "#060607",
+      darkSurfaceHover: "#060607",
     }
   },
 
