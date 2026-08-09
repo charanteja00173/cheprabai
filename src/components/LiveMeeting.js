@@ -6,7 +6,7 @@ import {
   FaCompress, FaExpand, FaExchangeAlt, FaLink, 
   FaThLarge, FaStop, FaUsers, FaHandPaper, FaPlay, 
   FaPause, FaStepBackward, FaStepForward, FaTachometerAlt,
-  FaWifi, FaSignal
+  FaWifi, FaSignal, FaWindowMinimize, FaTimes
 } from "react-icons/fa";
 import { Peer } from "peerjs";
 import { toast } from "react-toastify";
@@ -57,8 +57,6 @@ const breathe = keyframes`
 `;
 
 /* ═══════════════════════════════ STYLED COMPONENTS ═══════════════════════════════ */
-// ✅ FIXED: All styled components with proper animation handling
-
 const MeetingContainer = styled.div`
   position: fixed;
   inset: 0;
@@ -69,6 +67,59 @@ const MeetingContainer = styled.div`
   color: var(--chakra-colors-textPrimary, #ffffff);
   overflow: hidden;
   animation: ${fadeIn} 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+
+  ${props => props.$minimized && `
+    inset: auto;
+    bottom: 20px;
+    right: 20px;
+    width: 320px;
+    height: 200px;
+    border-radius: 16px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    border: 1px solid rgba(255,255,255,0.08);
+    cursor: pointer;
+    
+    .meeting-header {
+      padding: 8px 12px;
+    }
+    
+    .content-area {
+      padding: 4px 8px;
+    }
+    
+    .controls-bar {
+      display: none;
+    }
+    
+    .participant-sidebar {
+      display: none;
+    }
+    
+    .main-video-area {
+      border-radius: 8px;
+      min-height: 100px;
+    }
+  `}
+
+  @media (max-width: 768px) {
+    ${props => props.$minimized && `
+      width: 280px;
+      height: 180px;
+      bottom: 10px;
+      right: 10px;
+      border-radius: 12px;
+    `}
+  }
+
+  @media (max-width: 480px) {
+    ${props => props.$minimized && `
+      width: 240px;
+      height: 160px;
+      bottom: 8px;
+      right: 8px;
+      border-radius: 10px;
+    `}
+  }
 `;
 
 const GradientBackground = styled.div`
@@ -264,6 +315,7 @@ const ParticipantSidebar = styled.div`
   border: 1px solid rgba(255, 255, 255, 0.06);
   max-height: 100%;
   overflow: hidden;
+  transition: all 0.3s ease;
 
   @media (max-width: 1024px) {
     width: 100%;
@@ -293,7 +345,6 @@ const ParticipantSidebar = styled.div`
   }
 `;
 
-// ✅ FIXED: Animation properly wrapped with css helper
 const ParticipantTile = styled.div`
   background: rgba(255, 255, 255, 0.03);
   border-radius: 16px;
@@ -813,7 +864,6 @@ const SyncIndicator = styled.div`
   }
 `;
 
-// ✅ FIXED: Animation properly used in styled component
 const SpeakingIndicator = styled.div`
   position: absolute;
   bottom: 20px;
@@ -832,7 +882,6 @@ const SpeakingIndicator = styled.div`
   z-index: 10;
 `;
 
-// ✅ FIXED: New styled component for shimmer text with proper animation
 const ShimmerText = styled.div`
   font-size: clamp(0.8rem, 1.5vw, 1rem);
   font-weight: 600;
@@ -873,7 +922,6 @@ const FocusedPeerCloseButton = styled.button`
   }
 `;
 
-// ✅ FIXED: New styled component for broadcast overlay with proper animation
 const BroadcastOverlay = styled.div`
   width: 100%;
   height: 100%;
@@ -894,6 +942,58 @@ const BroadcastOverlay = styled.div`
     gap: 6px;
     padding: 12px;
   }
+`;
+
+// Participant Popover
+const ParticipantPopover = styled.div`
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: rgba(20, 20, 35, 0.95);
+  backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 16px;
+  min-width: 220px;
+  max-height: 300px;
+  overflow-y: auto;
+  z-index: 100;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  animation: ${slideUp} 0.2s ease-out;
+
+  @media (max-width: 768px) {
+    min-width: 180px;
+    padding: 12px;
+    right: -10px;
+  }
+`;
+
+const ParticipantRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 4px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.05);
+  }
+`;
+
+const ParticipantAvatar = styled.div`
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #4a9eff, #6c5ce7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: white;
+  flex-shrink: 0;
 `;
 
 /* ═══════════════════════════════ HELPERS ═══════════════════════════════ */
@@ -936,6 +1036,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const [streamMediaSource, setStreamMediaSource] = useState(null);
   const [myPeerId, setMyPeerId] = useState(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
   const [isConnecting, setIsConnecting] = useState(true);
   const [callDuration, setCallDuration] = useState(0);
   const [showParticipants, setShowParticipants] = useState(false);
@@ -1601,6 +1702,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
   const startLocalFileBroadcast = async (file) => {
     try {
+      // Create video element for broadcasting
       const videoElement = document.createElement("video");
       broadcastVideoRef.current = videoElement;
       videoElement.src = URL.createObjectURL(file);
@@ -1615,6 +1717,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       });
       await videoElement.play();
 
+      // Capture stream from video
       let videoStream;
       if (videoElement.captureStream) {
         videoStream = videoElement.captureStream(24);
@@ -1629,6 +1732,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
       if (!videoTrack) throw new Error("No video track found in the file.");
 
+      // Mix audio tracks if available
       let mixedAudioTrack = null;
       let audioCtx = null;
 
@@ -1659,10 +1763,13 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       };
       setStreamMediaSource(mediaSourceObj);
 
+      // ✅ FIX: Show broadcast in admin's preview but keep original stream
+      // We'll use a separate video element for preview
       if (myVideoRef.current) {
         myVideoRef.current.srcObject = videoStream;
       }
 
+      // Replace tracks for all peers
       Object.values(peers.current).forEach(async (call) => {
         try {
           if (call.peerConnection) {
@@ -1678,6 +1785,9 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
           console.warn("Track replacement error:", e);
         }
       });
+
+      // Set the media reference for controls
+      localMediaRef.current = videoElement;
 
       socket.emit("screenshare-started", { roomId, peerId: myPeerId });
       socket.emit("media-file-shared", { name: file.name, type: file.type, sharerName: userName });
@@ -1701,6 +1811,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       const originalVid = sourceObj.originalVideoTrack;
       const originalAud = sourceObj.originalAudioTrack;
 
+      // Restore original tracks for all peers
       Object.values(peers.current).forEach(async (call) => {
         try {
           if (call.peerConnection) {
@@ -1715,10 +1826,12 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         }
       });
 
+      // Restore admin's preview
       if (myVideoRef.current && localStream) {
         myVideoRef.current.srcObject = localStream;
       }
 
+      // Cleanup video element
       if (sourceObj.videoElement) {
         sourceObj.videoElement.pause();
         sourceObj.videoElement.removeAttribute("src");
@@ -1729,6 +1842,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
       setStreamMediaSource(null);
       setActiveMedia(null);
+      localMediaRef.current = null;
       socket.emit("syncMedia", null);
       socket.emit("screenshare-stopped", { peerId: myPeerId });
       socket.emit("media-file-stopped");
@@ -1767,6 +1881,10 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       document.exitFullscreen();
       setIsFullscreen(false);
     }
+  };
+
+  const toggleMinimize = () => {
+    setIsMinimized(!isMinimized);
   };
 
   const handleMediaAction = (action) => {
@@ -2020,7 +2138,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
   /* ═══════════════════════════════ COMPUTED ═══════════════════════════════ */
   const remoteEntries = Object.entries(remoteStreams);
-  const isStageMode = layoutMode === "stage" || !!activeMedia || focusedPeerId !== null || !!remoteFileBroadcast;
+  // const isStageMode = layoutMode === "stage" || !!activeMedia || focusedPeerId !== null || !!remoteFileBroadcast;
   const totalParticipantsCount = 1 + remoteEntries.length;
 
   const allParticipants = [
@@ -2391,56 +2509,95 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   /* ═══════════════════════════════ MAIN RENDER ═══════════════════════════════ */
   return (
     <StyleSheetManager shouldForwardProp={(prop) => !prop.startsWith('$')}>
-      <MeetingContainer ref={containerRef}>
+      <MeetingContainer ref={containerRef} $minimized={isMinimized} onClick={isMinimized ? () => setIsMinimized(false) : undefined}>
         <GradientBackground />
         
         {/* Header */}
-        <MeetingHeader>
+        <MeetingHeader className="meeting-header">
           <HeaderLeft>
             <Logo>
               <span className="logo-dot" />
               <span>Meet</span>
             </Logo>
-            <StatusIndicator $status={networkStatus}>
-              {networkStatus === 'good' && <FaWifi size={12} />}
-              {networkStatus === 'poor' && <FaSignal size={12} />}
-              {networkStatus === 'fallback' && <FaSignal size={12} />}
-              {networkStatus === 'good' ? 'Excellent' : networkStatus === 'poor' ? 'Weak' : 'Low BW'}
-            </StatusIndicator>
-            <span style={{ fontSize: 'clamp(0.6rem, 0.9vw, 0.75rem)', opacity: 0.5 }}>
-              {formatDuration(callDuration)}
-            </span>
+            {!isMinimized && (
+              <>
+                <StatusIndicator $status={networkStatus}>
+                  {networkStatus === 'good' && <FaWifi size={12} />}
+                  {networkStatus === 'poor' && <FaSignal size={12} />}
+                  {networkStatus === 'fallback' && <FaSignal size={12} />}
+                  {networkStatus === 'good' ? 'Excellent' : networkStatus === 'poor' ? 'Weak' : 'Low BW'}
+                </StatusIndicator>
+                <span style={{ fontSize: 'clamp(0.6rem, 0.9vw, 0.75rem)', opacity: 0.5 }}>
+                  {formatDuration(callDuration)}
+                </span>
+              </>
+            )}
           </HeaderLeft>
           <HeaderRight>
+            {!isMinimized && (
+              <>
+                <ControlButton
+                  style={{ width: 'clamp(32px, 4vw, 38px)', height: 'clamp(32px, 4vw, 38px)', fontSize: '0.8rem', position: 'relative' }}
+                  onClick={() => setShowParticipants(!showParticipants)}
+                  title="Participants"
+                >
+                  <FaUsers />
+                  {totalParticipantsCount > 1 && <span className="badge">{totalParticipantsCount}</span>}
+                </ControlButton>
+                {showParticipants && (
+                  <ParticipantPopover>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 700, opacity: 0.6 }}>Participants ({totalParticipantsCount})</span>
+                      <button 
+                        onClick={() => setShowParticipants(false)} 
+                        style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', opacity: 0.5 }}
+                      >
+                        <FaTimes />
+                      </button>
+                    </div>
+                    {allParticipants.map(p => (
+                      <ParticipantRow key={p.id}>
+                        <ParticipantAvatar>{getInitials(p.name)}</ParticipantAvatar>
+                        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {p.name}{p.id === 'local' ? ' (You)' : ''}
+                        </span>
+                        {p.isMuted && <FaMicrophoneSlash size={12} style={{ color: '#ff4757', flexShrink: 0 }} />}
+                        {p.isVideoOff && <FaVideoSlash size={12} style={{ color: '#ff4757', flexShrink: 0 }} />}
+                        {speakingPeers[p.id] && <span style={{ color: '#2ed573', fontSize: '0.6rem', fontWeight: 600 }}>🔊</span>}
+                      </ParticipantRow>
+                    ))}
+                  </ParticipantPopover>
+                )}
+                <ControlButton
+                  style={{ width: 'clamp(32px, 4vw, 38px)', height: 'clamp(32px, 4vw, 38px)', fontSize: '0.8rem' }}
+                  onClick={() => {
+                    if (layoutMode === "grid") {
+                      setLayoutMode("stage");
+                      setFocusedPeerId(remoteEntries.length > 0 ? remoteEntries[0][0] : "local");
+                    } else {
+                      setLayoutMode("grid");
+                      setFocusedPeerId(null);
+                    }
+                  }}
+                  title={layoutMode === "grid" ? "Stage View" : "Grid View"}
+                >
+                  {layoutMode === "grid" ? <FaThLarge /> : <FaDesktop />}
+                </ControlButton>
+                <ControlButton
+                  style={{ width: 'clamp(32px, 4vw, 38px)', height: 'clamp(32px, 4vw, 38px)', fontSize: '0.8rem' }}
+                  onClick={toggleFullscreen}
+                  title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+                >
+                  {isFullscreen ? <FaCompress /> : <FaExpand />}
+                </ControlButton>
+              </>
+            )}
             <ControlButton
               style={{ width: 'clamp(32px, 4vw, 38px)', height: 'clamp(32px, 4vw, 38px)', fontSize: '0.8rem' }}
-              onClick={() => setShowParticipants(!showParticipants)}
-              title="Participants"
+              onClick={toggleMinimize}
+              title={isMinimized ? "Expand" : "Minimize"}
             >
-              <FaUsers />
-              {totalParticipantsCount > 1 && <span className="badge">{totalParticipantsCount}</span>}
-            </ControlButton>
-            <ControlButton
-              style={{ width: 'clamp(32px, 4vw, 38px)', height: 'clamp(32px, 4vw, 38px)', fontSize: '0.8rem' }}
-              onClick={() => {
-                if (layoutMode === "grid") {
-                  setLayoutMode("stage");
-                  setFocusedPeerId(remoteEntries.length > 0 ? remoteEntries[0][0] : "local");
-                } else {
-                  setLayoutMode("grid");
-                  setFocusedPeerId(null);
-                }
-              }}
-              title={layoutMode === "grid" ? "Stage View" : "Grid View"}
-            >
-              {layoutMode === "grid" ? <FaThLarge /> : <FaDesktop />}
-            </ControlButton>
-            <ControlButton
-              style={{ width: 'clamp(32px, 4vw, 38px)', height: 'clamp(32px, 4vw, 38px)', fontSize: '0.8rem' }}
-              onClick={toggleFullscreen}
-              title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
-            >
-              {isFullscreen ? <FaCompress /> : <FaExpand />}
+              <FaWindowMinimize />
             </ControlButton>
             <ControlButton
               $primary
@@ -2454,128 +2611,130 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         </MeetingHeader>
 
         {/* Content Area */}
-        <ContentArea>
-          <MainVideoArea>
-            {renderMainContent()}
-            
-            {/* Reactions */}
-            {reactions.map(r => (
-              <ReactionFloat key={r.id} $x={r.x}>
-                {r.emoji}
-              </ReactionFloat>
-            ))}
-            
-            {/* Sync Indicator */}
-            {isSyncing && !isConnecting && (
-              <SyncIndicator>
-                <FaSync /> Syncing...
-              </SyncIndicator>
-            )}
-          </MainVideoArea>
+        {!isMinimized && (
+          <ContentArea className="content-area">
+            <MainVideoArea className="main-video-area">
+              {renderMainContent()}
+              
+              {/* Reactions */}
+              {reactions.map(r => (
+                <ReactionFloat key={r.id} $x={r.x}>
+                  {r.emoji}
+                </ReactionFloat>
+              ))}
+              
+              {/* Sync Indicator */}
+              {isSyncing && !isConnecting && (
+                <SyncIndicator>
+                  <FaSync /> Syncing...
+                </SyncIndicator>
+              )}
+            </MainVideoArea>
 
-          {/* Participant Sidebar */}
-          {!isStageMode && (
-            <ParticipantSidebar>
+            {/* Participant Sidebar - Always visible when not minimized */}
+            <ParticipantSidebar className="participant-sidebar">
               {renderParticipantTiles()}
             </ParticipantSidebar>
-          )}
-        </ContentArea>
+          </ContentArea>
+        )}
 
         {/* Controls Bar */}
-        <ControlsBar>
-          <ControlButton
-            $active={isMuted}
-            onClick={toggleMute}
-            title={isMuted ? "Unmute" : "Mute"}
-          >
-            {isMuted ? <FaMicrophoneSlash /> : <FaMicrophone />}
-          </ControlButton>
-          
-          <ControlButton
-            $active={isVideoOff}
-            onClick={toggleVideo}
-            title={isVideoOff ? "Start Video" : "Stop Video"}
-          >
-            {isVideoOff ? <FaVideoSlash /> : <FaVideo />}
-          </ControlButton>
-          
-          <ControlButton
-            onClick={flipCamera}
-            title="Flip Camera"
-          >
-            <FaExchangeAlt />
-          </ControlButton>
-          
-          <ControlButton
-            onClick={startScreenShare}
-            title="Share Screen"
-          >
-            <FaDesktop />
-          </ControlButton>
-
-          <ControlDivider />
-
-          {isAdmin && (
-            <>
-              {streamMediaSource ? (
-                <ControlButton
-                  onClick={() => stopLocalFileBroadcast()}
-                  style={{ background: 'rgba(255, 71, 87, 0.2)', borderColor: 'rgba(255, 71, 87, 0.3)', color: '#ff4757' }}
-                  title="Stop Broadcast"
-                >
-                  <FaStop />
-                </ControlButton>
-              ) : (
-                <label>
-                  <ControlButton as="span" title="Share File">
-                    <FaFolderOpen />
-                    <input type="file" hidden accept="video/*,audio/*" onChange={handleLocalFile} />
-                  </ControlButton>
-                </label>
-              )}
-
-              <ControlButton
-                onClick={() => setShowUrlInput(!showUrlInput)}
-                title="Share URL"
-                style={showUrlInput ? { background: 'rgba(74, 158, 255, 0.2)', borderColor: 'rgba(74, 158, 255, 0.3)' } : {}}
-              >
-                <FaLink />
-              </ControlButton>
-
-              <ControlButton
-                $active={isRecording}
-                onClick={toggleRecording}
-                title={isRecording ? "Stop Recording" : "Record"}
-                style={isRecording ? { background: 'rgba(255, 71, 87, 0.2)', borderColor: 'rgba(255, 71, 87, 0.3)', color: '#ff4757' } : {}}
-              >
-                <FaRecordVinyl />
-              </ControlButton>
-
-              <ControlDivider />
-            </>
-          )}
-
-          <ControlButton
-            onClick={() => sendReaction("👋")}
-            title="Raise Hand"
-          >
-            <FaHandPaper />
-          </ControlButton>
-          
-          {["❤️", "👏", "😂"].map(emoji => (
+        {!isMinimized && (
+          <ControlsBar className="controls-bar">
             <ControlButton
-              key={emoji}
-              onClick={() => sendReaction(emoji)}
-              title={`Send ${emoji}`}
-              style={{ fontSize: 'clamp(0.9rem, 1.2vw, 1.1rem)' }}
+              $active={isMuted}
+              onClick={toggleMute}
+              title={isMuted ? "Unmute" : "Mute"}
             >
-              {emoji}
+              {isMuted ? <FaMicrophoneSlash /> : <FaMicrophone />}
             </ControlButton>
-          ))}
-        </ControlsBar>
+            
+            <ControlButton
+              $active={isVideoOff}
+              onClick={toggleVideo}
+              title={isVideoOff ? "Start Video" : "Stop Video"}
+            >
+              {isVideoOff ? <FaVideoSlash /> : <FaVideo />}
+            </ControlButton>
+            
+            <ControlButton
+              onClick={flipCamera}
+              title="Flip Camera"
+            >
+              <FaExchangeAlt />
+            </ControlButton>
+            
+            <ControlButton
+              onClick={startScreenShare}
+              title="Share Screen"
+            >
+              <FaDesktop />
+            </ControlButton>
+
+            <ControlDivider />
+
+            {isAdmin && (
+              <>
+                {streamMediaSource ? (
+                  <ControlButton
+                    onClick={() => stopLocalFileBroadcast()}
+                    style={{ background: 'rgba(255, 71, 87, 0.2)', borderColor: 'rgba(255, 71, 87, 0.3)', color: '#ff4757' }}
+                    title="Stop Broadcast"
+                  >
+                    <FaStop />
+                  </ControlButton>
+                ) : (
+                  <label>
+                    <ControlButton as="span" title="Share File">
+                      <FaFolderOpen />
+                      <input type="file" hidden accept="video/*,audio/*" onChange={handleLocalFile} />
+                    </ControlButton>
+                  </label>
+                )}
+
+                <ControlButton
+                  onClick={() => setShowUrlInput(!showUrlInput)}
+                  title="Share URL"
+                  style={showUrlInput ? { background: 'rgba(74, 158, 255, 0.2)', borderColor: 'rgba(74, 158, 255, 0.3)' } : {}}
+                >
+                  <FaLink />
+                </ControlButton>
+
+                <ControlButton
+                  $active={isRecording}
+                  onClick={toggleRecording}
+                  title={isRecording ? "Stop Recording" : "Record"}
+                  style={isRecording ? { background: 'rgba(255, 71, 87, 0.2)', borderColor: 'rgba(255, 71, 87, 0.3)', color: '#ff4757' } : {}}
+                >
+                  <FaRecordVinyl />
+                </ControlButton>
+
+                <ControlDivider />
+              </>
+            )}
+
+            <ControlButton
+              onClick={() => sendReaction("👋")}
+              title="Raise Hand"
+            >
+              <FaHandPaper />
+            </ControlButton>
+            
+            {["❤️", "👏", "😂"].map(emoji => (
+              <ControlButton
+                key={emoji}
+                onClick={() => sendReaction(emoji)}
+                title={`Send ${emoji}`}
+                style={{ fontSize: 'clamp(0.9rem, 1.2vw, 1.1rem)' }}
+              >
+                {emoji}
+              </ControlButton>
+            ))}
+          </ControlsBar>
+        )}
 
         {/* URL Input Overlay */}
-        {showUrlInput && (
+        {showUrlInput && !isMinimized && (
           <UrlInputOverlay>
             <input
               type="text"
@@ -2588,57 +2747,6 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
               Broadcast
             </button>
           </UrlInputOverlay>
-        )}
-
-        {/* Participant Popover */}
-        {showParticipants && (
-          <div style={{
-            position: 'absolute',
-            top: '70px',
-            right: '24px',
-            background: 'rgba(20, 20, 35, 0.95)',
-            backdropFilter: 'blur(20px)',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
-            borderRadius: '16px',
-            padding: '16px',
-            minWidth: '220px',
-            maxHeight: '300px',
-            overflowY: 'auto',
-            zIndex: 100,
-            animation: `${slideUp} 0.2s ease-out`,
-            boxShadow: '0 20px 60px rgba(0,0,0,0.5)'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-              <span style={{ fontSize: '0.75rem', fontWeight: 700, opacity: 0.6 }}>Participants ({totalParticipantsCount})</span>
-              <button onClick={() => setShowParticipants(false)} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', opacity: 0.5 }}>✕</button>
-            </div>
-            {allParticipants.map(p => (
-              <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 4px', borderRadius: '8px' }}>
-                <div style={{
-                  width: '28px',
-                  height: '28px',
-                  borderRadius: '50%',
-                  background: 'linear-gradient(135deg, #4a9eff, #6c5ce7)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '0.6rem',
-                  fontWeight: 700,
-                  textTransform: 'uppercase',
-                  color: 'white',
-                  flexShrink: 0
-                }}>
-                  {getInitials(p.name)}
-                </div>
-                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.8rem' }}>
-                  {p.name}{p.id === 'local' ? ' (You)' : ''}
-                </span>
-                {p.isMuted && <FaMicrophoneSlash size={12} style={{ color: '#ff4757', flexShrink: 0 }} />}
-                {p.isVideoOff && <FaVideoSlash size={12} style={{ color: '#ff4757', flexShrink: 0 }} />}
-                {speakingPeers[p.id] && <span style={{ color: '#2ed573', fontSize: '0.6rem', fontWeight: 600 }}>🔊</span>}
-              </div>
-            ))}
-          </div>
         )}
       </MeetingContainer>
     </StyleSheetManager>
