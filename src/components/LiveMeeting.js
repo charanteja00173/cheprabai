@@ -1,15 +1,25 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import styled, { keyframes } from "styled-components";
+import styled, { keyframes, StyleSheetManager } from "styled-components";
 import { 
   FaMicrophone, FaMicrophoneSlash, FaVideo, FaVideoSlash, 
   FaPhoneSlash, FaSync, FaDesktop, FaFolderOpen, FaRecordVinyl, 
-  FaCompress, FaExpand, FaWindowMinimize, FaExchangeAlt, FaLink, 
-  FaThLarge, FaStop, FaUsers, FaTimes, FaHandPaper, FaPlay, 
+  FaCompress, FaExpand, FaExchangeAlt, FaLink, 
+  FaThLarge, FaStop, FaUsers, FaHandPaper, FaPlay, 
   FaPause, FaStepBackward, FaStepForward, FaTachometerAlt,
-  FaUserPlus, FaUserCheck, FaWifi, FaSignal, FaCamera
+  FaWifi, FaSignal
 } from "react-icons/fa";
 import { Peer } from "peerjs";
 import { toast } from "react-toastify";
+
+// Prevent extension interference
+if (typeof window !== 'undefined') {
+  window.addEventListener('error', (e) => {
+    if (e.message && e.message.includes('chrome-extension')) {
+      e.preventDefault();
+      return true;
+    }
+  });
+}
 
 /* ═══════════════════════════════ ANIMATIONS ═══════════════════════════════ */
 const fadeIn = keyframes`
@@ -40,10 +50,6 @@ const shimmer = keyframes`
 const tileEnter = keyframes`
   from { opacity: 0; transform: scale(0.85) rotateY(-10deg); } 
   to { opacity: 1; transform: scale(1) rotateY(0); }
-`;
-const glowPulse = keyframes`
-  0%, 100% { box-shadow: 0 0 20px rgba(74, 158, 255, 0.2); }
-  50% { box-shadow: 0 0 40px rgba(74, 158, 255, 0.4); }
 `;
 const breathe = keyframes`
   0%, 100% { transform: scale(1); }
@@ -306,7 +312,7 @@ const ParticipantTile = styled.div`
   }
 
   ${props => props.$isActive && `
-    animation: ${glowPulse} 2s ease-in-out infinite;
+    animation: ${breathe} 2s ease-in-out infinite;
   `}
 
   @media (max-width: 1024px) {
@@ -637,31 +643,6 @@ const StatusBadge = styled.div`
   }
 `;
 
-const EmptyState = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  color: rgba(255, 255, 255, 0.2);
-  gap: 12px;
-
-  svg {
-    font-size: 4rem;
-  }
-
-  @media (max-width: 768px) {
-    svg {
-      font-size: 3rem;
-    }
-  }
-
-  @media (max-width: 480px) {
-    svg {
-      font-size: 2rem;
-    }
-  }
-`;
-
 const Overlay = styled.div`
   position: absolute;
   inset: 0;
@@ -840,11 +821,12 @@ const getInitials = (name) => {
 };
 
 const formatDuration = (seconds) => {
+  if (!seconds || seconds < 0) return "0:00";
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
-  const s = seconds % 60;
+  const s = Math.floor(seconds % 60);
   if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
-  return `${m}:${String(s).padStart(2, "0")}`;
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 };
 
 /* ═══════════════════════════════ COMPONENT ═══════════════════════════════ */
@@ -859,8 +841,6 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const [isSyncing, setIsSyncing] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [reactions, setReactions] = useState([]);
-  const [isFocused, setIsFocused] = useState(true);
-  const [watermarkPos, setWatermarkPos] = useState({ x: 10, y: 10 });
   const [focusedPeerId, setFocusedPeerId] = useState(null);
   const [networkStatus, setNetworkStatus] = useState("good");
   const [layoutMode, setLayoutMode] = useState("grid");
@@ -870,8 +850,6 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const [streamMediaSource, setStreamMediaSource] = useState(null);
   const [myPeerId, setMyPeerId] = useState(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [isMinimized, setIsMinimized] = useState(false);
-  const [isFrontCamera, setIsFrontCamera] = useState(true);
   const [isConnecting, setIsConnecting] = useState(true);
   const [callDuration, setCallDuration] = useState(0);
   const [showParticipants, setShowParticipants] = useState(false);
@@ -881,6 +859,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const [videoDuration, setVideoDuration] = useState(0);
   const [showControls, setShowControls] = useState(true);
   const [controlTimeout, setControlTimeout] = useState(null);
+  const [isFrontCamera, setIsFrontCamera] = useState(true);
 
   // Refs
   const containerRef = useRef();
@@ -953,56 +932,60 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     if (!localStream) return;
 
     const interval = setInterval(async () => {
-      let totalPacketsLost = 0;
-      let totalRTT = 0;
-      let rttCount = 0;
+      try {
+        let totalPacketsLost = 0;
+        let totalRTT = 0;
+        let rttCount = 0;
 
-      const promises = Object.values(peers.current).map(async (call) => {
-        if (!call.peerConnection) return;
-        try {
-          const stats = await call.peerConnection.getStats();
-          stats.forEach((report) => {
-            if (report.type === "candidate-pair" && report.state === "succeeded") {
-              if (report.currentRoundTripTime !== undefined) {
-                totalRTT += report.currentRoundTripTime;
-                rttCount++;
-              }
-            }
-            if (report.type === "inbound-rtp" && report.kind === "video") {
-              if (report.packetsLost !== undefined) {
-                totalPacketsLost += report.packetsLost;
-              }
-            }
-          });
-        } catch (e) { /* ignore */ }
-      });
-
-      await Promise.all(promises);
-      const avgRTT = rttCount > 0 ? (totalRTT / rttCount) * 1000 : 0;
-
-      let nextStatus = "good";
-      if (avgRTT > 300 || totalPacketsLost > 50) nextStatus = "poor";
-      if (avgRTT > 600 || totalPacketsLost > 150) nextStatus = "fallback";
-
-      setNetworkStatus(nextStatus);
-
-      Object.values(peers.current).forEach((call) => {
-        if (!call.peerConnection) return;
-        const senders = call.peerConnection.getSenders();
-        const videoSender = senders.find(s => s.track && s.track.kind === "video");
-        if (videoSender) {
+        const promises = Object.values(peers.current).map(async (call) => {
+          if (!call.peerConnection) return;
           try {
-            const params = videoSender.getParameters();
-            if (params && params.encodings && params.encodings[0]) {
-              let maxBitrate = 1500000;
-              if (nextStatus === "poor") maxBitrate = 300000;
-              else if (nextStatus === "fallback") maxBitrate = 50000;
-              params.encodings[0].maxBitrate = maxBitrate;
-              videoSender.setParameters(params);
-            }
-          } catch (err) { /* ignore */ }
-        }
-      });
+            const stats = await call.peerConnection.getStats();
+            stats.forEach((report) => {
+              if (report.type === "candidate-pair" && report.state === "succeeded") {
+                if (report.currentRoundTripTime !== undefined) {
+                  totalRTT += report.currentRoundTripTime;
+                  rttCount++;
+                }
+              }
+              if (report.type === "inbound-rtp" && report.kind === "video") {
+                if (report.packetsLost !== undefined) {
+                  totalPacketsLost += report.packetsLost;
+                }
+              }
+            });
+          } catch (e) { /* ignore */ }
+        });
+
+        await Promise.all(promises);
+        const avgRTT = rttCount > 0 ? (totalRTT / rttCount) * 1000 : 0;
+
+        let nextStatus = "good";
+        if (avgRTT > 300 || totalPacketsLost > 50) nextStatus = "poor";
+        if (avgRTT > 600 || totalPacketsLost > 150) nextStatus = "fallback";
+
+        setNetworkStatus(nextStatus);
+
+        Object.values(peers.current).forEach((call) => {
+          if (!call.peerConnection) return;
+          const senders = call.peerConnection.getSenders();
+          const videoSender = senders.find(s => s.track && s.track.kind === "video");
+          if (videoSender) {
+            try {
+              const params = videoSender.getParameters();
+              if (params && params.encodings && params.encodings[0]) {
+                let maxBitrate = 1500000;
+                if (nextStatus === "poor") maxBitrate = 300000;
+                else if (nextStatus === "fallback") maxBitrate = 50000;
+                params.encodings[0].maxBitrate = maxBitrate;
+                videoSender.setParameters(params);
+              }
+            } catch (err) { /* ignore */ }
+          }
+        });
+      } catch (e) {
+        // Silent fail for ABR
+      }
     }, 4000);
 
     return () => clearInterval(interval);
@@ -1161,29 +1144,37 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
         // Audio Activity Detection
         if (localStreamRef.current) {
-          const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-          const source = audioContext.createMediaStreamSource(localStreamRef.current);
-          const analyzer = audioContext.createAnalyser();
-          analyzer.fftSize = 512;
-          source.connect(analyzer);
-          const data = new Uint8Array(analyzer.frequencyBinCount);
+          try {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const source = audioContext.createMediaStreamSource(localStreamRef.current);
+            const analyzer = audioContext.createAnalyser();
+            analyzer.fftSize = 512;
+            source.connect(analyzer);
+            const data = new Uint8Array(analyzer.frequencyBinCount);
 
-          const checkVolume = () => {
-            if (!analyzer) return;
-            analyzer.getByteFrequencyData(data);
-            const volume = data.reduce((a, b) => a + b) / data.length;
-            const isTalking = volume > 30;
-            setSpeakingPeers(p => {
-              if (p.local === isTalking) return p;
-              const currentPeerId = peerRef.current?.id;
-              if (currentPeerId) {
-                socket.emit("talking-state-change", { peerId: currentPeerId, isTalking });
+            const checkVolume = () => {
+              if (!analyzer) return;
+              try {
+                analyzer.getByteFrequencyData(data);
+                const volume = data.reduce((a, b) => a + b) / data.length;
+                const isTalking = volume > 30;
+                setSpeakingPeers(p => {
+                  if (p.local === isTalking) return p;
+                  const currentPeerId = peerRef.current?.id;
+                  if (currentPeerId) {
+                    socket.emit("talking-state-change", { peerId: currentPeerId, isTalking });
+                  }
+                  return { ...p, local: isTalking };
+                });
+                requestAnimationFrame(checkVolume);
+              } catch (e) {
+                // Silent fail for audio analysis
               }
-              return { ...p, local: isTalking };
-            });
-            requestAnimationFrame(checkVolume);
-          };
-          checkVolume();
+            };
+            checkVolume();
+          } catch (e) {
+            // Silent fail for audio context
+          }
         }
 
         socket.on("user-disconnected-call", (id) => {
@@ -1251,13 +1242,8 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
     init();
 
-    const handleBlur = () => !isAdmin && setIsFocused(false);
-    const handleFocus = () => setIsFocused(true);
     const handleContextMenu = (e) => e.preventDefault();
-    window.addEventListener("blur", handleBlur);
-    window.addEventListener("focus", handleFocus);
     document.addEventListener("contextmenu", handleContextMenu);
-    const wmInterval = setInterval(() => setWatermarkPos({ x: Math.random() * 80, y: Math.random() * 80 }), 8000);
 
     return () => {
       socket.emit("leave-call", { roomId });
@@ -1284,10 +1270,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       socket.off("meeting-control-denied");
       socket.off("reaction");
       socket.off("user-talking-change");
-      window.removeEventListener("blur", handleBlur);
-      window.removeEventListener("focus", handleFocus);
       document.removeEventListener("contextmenu", handleContextMenu);
-      clearInterval(wmInterval);
     };
   }, [roomId, socket, userName, isAdmin]);
 
@@ -1342,7 +1325,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     const updateState = () => {
       setLocalPlaybackState({
         playing: !v.paused,
-        time: v.currentTime,
+        time: v.currentTime || 0,
         duration: v.duration || 0
       });
       setVideoDuration(v.duration || 0);
@@ -1369,7 +1352,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     if (!v) return;
 
     const interval = setInterval(() => {
-      if (!isRemoteUpdate.current) {
+      if (!isRemoteUpdate.current && v.currentTime) {
         socket.emit("syncMedia", {
           ...activeMedia,
           time: v.currentTime,
@@ -1392,31 +1375,37 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       ? activeMedia.url.split("/").pop()
       : activeMedia.url.split("v=")[1]?.split("&")[0];
 
+    if (!videoId) return;
+
     let player;
 
     const initPlayer = () => {
-      if (player) return;
-      player = new window.YT.Player("youtube-sync-player", {
-        videoId: videoId,
-        playerVars: { autoplay: 1, controls: 1, rel: 0, modestbranding: 1 },
-        events: {
-          onReady: () => {
-            ytPlayerRef.current = player;
-            if (activeMedia.playing) player.playVideo();
-            else player.pauseVideo();
-            player.seekTo(activeMedia.time || 0, true);
-          },
-          onStateChange: (event) => {
-            if (!isAdmin || isRemoteUpdate.current) return;
-            const state = event.data;
-            if (state === 1) {
-              socket.emit("syncMedia", { url: activeMedia.url, playing: true, time: player.getCurrentTime(), sender: userName });
-            } else if (state === 2) {
-              socket.emit("syncMedia", { url: activeMedia.url, playing: false, time: player.getCurrentTime(), sender: userName });
+      if (player || !window.YT) return;
+      try {
+        player = new window.YT.Player("youtube-sync-player", {
+          videoId: videoId,
+          playerVars: { autoplay: 1, controls: 1, rel: 0, modestbranding: 1 },
+          events: {
+            onReady: () => {
+              ytPlayerRef.current = player;
+              if (activeMedia.playing) player.playVideo();
+              else player.pauseVideo();
+              player.seekTo(activeMedia.time || 0, true);
+            },
+            onStateChange: (event) => {
+              if (!isAdmin || isRemoteUpdate.current) return;
+              const state = event.data;
+              if (state === 1) {
+                socket.emit("syncMedia", { url: activeMedia.url, playing: true, time: player.getCurrentTime(), sender: userName });
+              } else if (state === 2) {
+                socket.emit("syncMedia", { url: activeMedia.url, playing: false, time: player.getCurrentTime(), sender: userName });
+              }
             }
           }
-        }
-      });
+        });
+      } catch (e) {
+        console.error("YouTube player error:", e);
+      }
     };
 
     if (!window.YT) {
@@ -1424,7 +1413,9 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       tag.src = "https://www.youtube.com/iframe_api";
       window.onYouTubeIframeAPIReady = initPlayer;
       const firstScriptTag = document.getElementsByTagName("script")[0];
-      firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+      if (firstScriptTag) {
+        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+      }
     } else {
       const checkYT = setInterval(() => {
         if (window.YT && window.YT.Player) { clearInterval(checkYT); initPlayer(); }
@@ -1444,14 +1435,18 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     if (!player || !activeMedia || !activeMedia.url || !activeMedia.url.includes("youtu") || !player.seekTo) return;
 
     if (isRemoteUpdate.current) {
-      if (activeMedia.playing) {
-        if (player.getPlayerState() !== 1) player.playVideo();
-      } else {
-        if (player.getPlayerState() !== 2) player.pauseVideo();
-      }
-      const playerTime = player.getCurrentTime();
-      if (Math.abs(playerTime - activeMedia.time) > 2.5) {
-        player.seekTo(activeMedia.time, true);
+      try {
+        if (activeMedia.playing) {
+          if (player.getPlayerState() !== 1) player.playVideo();
+        } else {
+          if (player.getPlayerState() !== 2) player.pauseVideo();
+        }
+        const playerTime = player.getCurrentTime();
+        if (Math.abs(playerTime - activeMedia.time) > 2.5) {
+          player.seekTo(activeMedia.time, true);
+        }
+      } catch (e) {
+        console.error("YouTube sync error:", e);
       }
     }
   }, [activeMedia]);
@@ -1460,8 +1455,12 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   useEffect(() => {
     if (!isAdmin || !activeMedia || !activeMedia.url || !activeMedia.url.includes("youtu") || !activeMedia.playing) return;
     const interval = setInterval(() => {
-      if (ytPlayerRef.current && ytPlayerRef.current.getCurrentTime && !isRemoteUpdate.current) {
-        socket.emit("syncMedia", { ...activeMedia, time: ytPlayerRef.current.getCurrentTime(), heartbeat: true });
+      try {
+        if (ytPlayerRef.current && ytPlayerRef.current.getCurrentTime && !isRemoteUpdate.current) {
+          socket.emit("syncMedia", { ...activeMedia, time: ytPlayerRef.current.getCurrentTime(), heartbeat: true });
+        }
+      } catch (e) {
+        // Silent fail
       }
     }, 5000);
     return () => clearInterval(interval);
@@ -1496,7 +1495,6 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         setIsVideoOff(nextVideoOff);
         socket.emit("media-state-change", { peerId: myPeerId, isMuted, isVideoOff: nextVideoOff });
         
-        // Update local video preview
         if (myVideoRef.current) {
           myVideoRef.current.srcObject = localStream;
         }
@@ -1517,7 +1515,6 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
   const startLocalFileBroadcast = async (file) => {
     try {
-      // Create video element for broadcasting
       const videoElement = document.createElement("video");
       broadcastVideoRef.current = videoElement;
       videoElement.src = URL.createObjectURL(file);
@@ -1525,10 +1522,13 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       videoElement.muted = true;
       videoElement.autoplay = true;
 
-      await new Promise(r => { videoElement.onloadedmetadata = r; });
+      await new Promise((resolve, reject) => {
+        videoElement.onloadedmetadata = resolve;
+        videoElement.onerror = reject;
+        setTimeout(reject, 10000);
+      });
       await videoElement.play();
 
-      // Capture stream from video
       let videoStream;
       if (videoElement.captureStream) {
         videoStream = videoElement.captureStream(24);
@@ -1543,20 +1543,23 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
       if (!videoTrack) throw new Error("No video track found in the file.");
 
-      // Mix audio tracks if available
       let mixedAudioTrack = null;
       let audioCtx = null;
 
       if (videoAudioTrack && localStream) {
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const dest = audioCtx.createMediaStreamDestination();
-        const micStream = new MediaStream(localStream.getAudioTracks());
-        const micSource = audioCtx.createMediaStreamSource(micStream);
-        micSource.connect(dest);
-        const fileStream = new MediaStream([videoAudioTrack]);
-        const fileSource = audioCtx.createMediaStreamSource(fileStream);
-        fileSource.connect(dest);
-        mixedAudioTrack = dest.stream.getAudioTracks()[0];
+        try {
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          const dest = audioCtx.createMediaStreamDestination();
+          const micStream = new MediaStream(localStream.getAudioTracks());
+          const micSource = audioCtx.createMediaStreamSource(micStream);
+          micSource.connect(dest);
+          const fileStream = new MediaStream([videoAudioTrack]);
+          const fileSource = audioCtx.createMediaStreamSource(fileStream);
+          fileSource.connect(dest);
+          mixedAudioTrack = dest.stream.getAudioTracks()[0];
+        } catch (e) {
+          console.warn("Audio mixing failed:", e);
+        }
       } else if (videoAudioTrack) {
         mixedAudioTrack = videoAudioTrack;
       }
@@ -1570,21 +1573,23 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       };
       setStreamMediaSource(mediaSourceObj);
 
-      // Show broadcast in admin's preview
       if (myVideoRef.current) {
         myVideoRef.current.srcObject = videoStream;
       }
 
-      // Replace tracks for all peers
       Object.values(peers.current).forEach(async (call) => {
-        if (call.peerConnection) {
-          const senders = call.peerConnection.getSenders();
-          const videoSender = senders.find(s => s.track?.kind === "video");
-          if (videoSender) await videoSender.replaceTrack(videoTrack);
-          if (mixedAudioTrack) {
-            const audioSender = senders.find(s => s.track?.kind === "audio");
-            if (audioSender) await audioSender.replaceTrack(mixedAudioTrack);
+        try {
+          if (call.peerConnection) {
+            const senders = call.peerConnection.getSenders();
+            const videoSender = senders.find(s => s.track?.kind === "video");
+            if (videoSender) await videoSender.replaceTrack(videoTrack);
+            if (mixedAudioTrack) {
+              const audioSender = senders.find(s => s.track?.kind === "audio");
+              if (audioSender) await audioSender.replaceTrack(mixedAudioTrack);
+            }
           }
+        } catch (e) {
+          console.warn("Track replacement error:", e);
         }
       });
 
@@ -1593,7 +1598,6 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       setFocusedPeerId("local");
       setActiveMedia({ url: null, playing: true, time: 0, type: "local_stream", name: file.name });
 
-      // Set up ended handler
       videoElement.onended = () => stopLocalFileBroadcast(mediaSourceObj);
       
       toast.success(`Now broadcasting: ${file.name}`);
@@ -1611,23 +1615,24 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       const originalVid = sourceObj.originalVideoTrack;
       const originalAud = sourceObj.originalAudioTrack;
 
-      // Restore original tracks for all peers
       Object.values(peers.current).forEach(async (call) => {
-        if (call.peerConnection) {
-          const senders = call.peerConnection.getSenders();
-          const videoSender = senders.find(s => s.track?.kind === "video");
-          if (videoSender && originalVid) await videoSender.replaceTrack(originalVid);
-          const audioSender = senders.find(s => s.track?.kind === "audio");
-          if (audioSender && originalAud) await audioSender.replaceTrack(originalAud);
+        try {
+          if (call.peerConnection) {
+            const senders = call.peerConnection.getSenders();
+            const videoSender = senders.find(s => s.track?.kind === "video");
+            if (videoSender && originalVid) await videoSender.replaceTrack(originalVid);
+            const audioSender = senders.find(s => s.track?.kind === "audio");
+            if (audioSender && originalAud) await audioSender.replaceTrack(originalAud);
+          }
+        } catch (e) {
+          console.warn("Track restoration error:", e);
         }
       });
 
-      // Restore admin's preview
       if (myVideoRef.current && localStream) {
         myVideoRef.current.srcObject = localStream;
       }
 
-      // Cleanup video element
       if (sourceObj.videoElement) {
         sourceObj.videoElement.pause();
         sourceObj.videoElement.removeAttribute("src");
@@ -1685,7 +1690,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     const data = {
       url: activeMedia?.url,
       playing: action === "play" || (action === "seek" && !v.paused),
-      time: v.currentTime,
+      time: v.currentTime || 0,
       sender: userName
     };
     setActiveMedia(data);
@@ -1695,22 +1700,34 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const handleSeek = (value) => {
     const v = getControlledMedia();
     if (!v || isRemoteUpdate.current) return;
-    v.currentTime = parseFloat(value);
-    handleMediaAction("seek");
+    try {
+      v.currentTime = parseFloat(value);
+      handleMediaAction("seek");
+    } catch (e) {
+      // Silent fail
+    }
   };
 
   const handleSpeedChange = (speed) => {
     const v = getControlledMedia();
     if (!v) return;
-    v.playbackRate = parseFloat(speed);
-    setPlaybackSpeed(parseFloat(speed));
+    try {
+      v.playbackRate = parseFloat(speed);
+      setPlaybackSpeed(parseFloat(speed));
+    } catch (e) {
+      // Silent fail
+    }
   };
 
   const handleSkip = (seconds) => {
     const v = getControlledMedia();
     if (!v || isRemoteUpdate.current) return;
-    v.currentTime = Math.max(0, Math.min(v.duration || 0, v.currentTime + seconds));
-    handleMediaAction("seek");
+    try {
+      v.currentTime = Math.max(0, Math.min(v.duration || 0, v.currentTime + seconds));
+      handleMediaAction("seek");
+    } catch (e) {
+      // Silent fail
+    }
   };
 
   const startScreenShare = async () => {
@@ -1731,15 +1748,19 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       if (myVideoRef.current) myVideoRef.current.srcObject = screenStream;
 
       Object.values(peers.current).forEach(async (call) => {
-        if (call.peerConnection) {
-          const sender = call.peerConnection.getSenders().find(s => s.track?.kind === "video");
-          if (sender) {
-            await sender.replaceTrack(videoTrack);
-            const params = sender.getParameters();
-            if (!params.encodings) params.encodings = [{}];
-            params.encodings[0].maxBitrate = 2500000;
-            sender.setParameters(params).catch(() => {});
+        try {
+          if (call.peerConnection) {
+            const sender = call.peerConnection.getSenders().find(s => s.track?.kind === "video");
+            if (sender) {
+              await sender.replaceTrack(videoTrack);
+              const params = sender.getParameters();
+              if (!params.encodings) params.encodings = [{}];
+              params.encodings[0].maxBitrate = 2500000;
+              sender.setParameters(params).catch(() => {});
+            }
           }
+        } catch (e) {
+          console.warn("Screen share track error:", e);
         }
       });
 
@@ -1763,9 +1784,13 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       }
 
       Object.values(peers.current).forEach(async (call) => {
-        if (call.peerConnection) {
-          const sender = call.peerConnection.getSenders().find(s => s.track?.kind === "video");
-          if (sender && videoTrack) await sender.replaceTrack(videoTrack);
+        try {
+          if (call.peerConnection) {
+            const sender = call.peerConnection.getSenders().find(s => s.track?.kind === "video");
+            if (sender && videoTrack) await sender.replaceTrack(videoTrack);
+          }
+        } catch (e) {
+          console.warn("Screen share stop error:", e);
         }
       });
 
@@ -1792,9 +1817,13 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       localStreamRef.current = newStream;
 
       Object.values(peers.current).forEach(call => {
-        if (call.peerConnection) {
-          const sender = call.peerConnection.getSenders().find(s => s.track?.kind === "video");
-          if (sender) sender.replaceTrack(newVideoTrack);
+        try {
+          if (call.peerConnection) {
+            const sender = call.peerConnection.getSenders().find(s => s.track?.kind === "video");
+            if (sender) sender.replaceTrack(newVideoTrack);
+          }
+        } catch (e) {
+          console.warn("Camera flip track error:", e);
         }
       });
 
@@ -1851,15 +1880,19 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       recordedChunks.current = [];
       rec.ondataavailable = (e) => { if (e.data && e.data.size > 0) recordedChunks.current.push(e.data); };
       rec.onstop = () => {
-        const ext = options.mimeType && options.mimeType.includes("mp4") ? "mp4" : "webm";
-        const blob = new Blob(recordedChunks.current, { type: options.mimeType || "video/webm" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url; a.download = `Meeting_Recording_${Date.now()}.${ext}`; a.click();
-        displayStream.getTracks().forEach(track => track.stop());
-        if (audioContext.state !== "closed") audioContext.close();
-        setIsRecording(false);
-        toast.success("Recording saved");
+        try {
+          const ext = options.mimeType && options.mimeType.includes("mp4") ? "mp4" : "webm";
+          const blob = new Blob(recordedChunks.current, { type: options.mimeType || "video/webm" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url; a.download = `Meeting_Recording_${Date.now()}.${ext}`; a.click();
+          displayStream.getTracks().forEach(track => track.stop());
+          if (audioContext.state !== "closed") audioContext.close();
+          setIsRecording(false);
+          toast.success("Recording saved");
+        } catch (e) {
+          toast.error("Error saving recording");
+        }
       };
 
       displayStream.getVideoTracks()[0].onended = () => {
@@ -1886,12 +1919,16 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     const v = getControlledMedia();
     if (!v || isRemoteUpdate.current) return;
     
-    if (v.paused) {
-      v.play();
-      handleMediaAction("play");
-    } else {
-      v.pause();
-      handleMediaAction("pause");
+    try {
+      if (v.paused) {
+        v.play();
+        handleMediaAction("play");
+      } else {
+        v.pause();
+        handleMediaAction("pause");
+      }
+    } catch (e) {
+      // Silent fail
     }
   };
 
@@ -1915,7 +1952,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     setLayoutMode("stage");
   };
 
-  const isLocalBroadcasting = !!streamMediaSource || !!activeMedia?.type === "local_stream";
+  const isLocalBroadcasting = !!streamMediaSource || activeMedia?.type === "local_stream";
 
   /* ═══════════════════════════════ RENDER HELPERS ═══════════════════════════════ */
 
@@ -2235,7 +2272,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                     <SeekBar
                       type="range"
                       min="0"
-                      max={videoDuration || 0}
+                      max={videoDuration || 1}
                       step="0.1"
                       value={localPlaybackState.time || 0}
                       onChange={(e) => handleSeek(e.target.value)}
@@ -2340,255 +2377,257 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
   /* ═══════════════════════════════ MAIN RENDER ═══════════════════════════════ */
   return (
-    <MeetingContainer ref={containerRef}>
-      <GradientBackground />
-      
-      {/* Header */}
-      <MeetingHeader>
-        <HeaderLeft>
-          <Logo>
-            <span className="logo-dot" />
-            <span>Meet</span>
-          </Logo>
-          <StatusIndicator $status={networkStatus}>
-            {networkStatus === 'good' && <FaWifi size={12} />}
-            {networkStatus === 'poor' && <FaSignal size={12} />}
-            {networkStatus === 'fallback' && <FaSignal size={12} />}
-            {networkStatus === 'good' ? 'Excellent' : networkStatus === 'poor' ? 'Weak' : 'Low BW'}
-          </StatusIndicator>
-          <span style={{ fontSize: 'clamp(0.6rem, 0.9vw, 0.75rem)', opacity: 0.5 }}>
-            {formatDuration(callDuration)}
-          </span>
-        </HeaderLeft>
-        <HeaderRight>
-          <ControlButton
-            style={{ width: 'clamp(32px, 4vw, 38px)', height: 'clamp(32px, 4vw, 38px)', fontSize: '0.8rem' }}
-            onClick={() => setShowParticipants(!showParticipants)}
-            title="Participants"
-          >
-            <FaUsers />
-            {totalParticipantsCount > 1 && <span className="badge">{totalParticipantsCount}</span>}
-          </ControlButton>
-          <ControlButton
-            style={{ width: 'clamp(32px, 4vw, 38px)', height: 'clamp(32px, 4vw, 38px)', fontSize: '0.8rem' }}
-            onClick={() => {
-              if (layoutMode === "grid") {
-                setLayoutMode("stage");
-                setFocusedPeerId(remoteEntries.length > 0 ? remoteEntries[0][0] : "local");
-              } else {
-                setLayoutMode("grid");
-                setFocusedPeerId(null);
-              }
-            }}
-            title={layoutMode === "grid" ? "Stage View" : "Grid View"}
-          >
-            {layoutMode === "grid" ? <FaThLarge /> : <FaDesktop />}
-          </ControlButton>
-          <ControlButton
-            style={{ width: 'clamp(32px, 4vw, 38px)', height: 'clamp(32px, 4vw, 38px)', fontSize: '0.8rem' }}
-            onClick={toggleFullscreen}
-            title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
-          >
-            {isFullscreen ? <FaCompress /> : <FaExpand />}
-          </ControlButton>
-          <ControlButton
-            $primary
-            style={{ width: 'clamp(32px, 4vw, 38px)', height: 'clamp(32px, 4vw, 38px)', fontSize: '0.8rem' }}
-            onClick={handleLeaveCall}
-            title="Leave Meeting"
-          >
-            <FaPhoneSlash />
-          </ControlButton>
-        </HeaderRight>
-      </MeetingHeader>
-
-      {/* Content Area */}
-      <ContentArea>
-        <MainVideoArea>
-          {renderMainContent()}
-          
-          {/* Reactions */}
-          {reactions.map(r => (
-            <ReactionFloat key={r.id} $x={r.x}>
-              {r.emoji}
-            </ReactionFloat>
-          ))}
-          
-          {/* Sync Indicator */}
-          {isSyncing && !isConnecting && (
-            <SyncIndicator>
-              <FaSync /> Syncing...
-            </SyncIndicator>
-          )}
-        </MainVideoArea>
-
-        {/* Participant Sidebar */}
-        {!isStageMode && (
-          <ParticipantSidebar>
-            {renderParticipantTiles()}
-          </ParticipantSidebar>
-        )}
-      </ContentArea>
-
-      {/* Controls Bar */}
-      <ControlsBar>
-        <ControlButton
-          $active={isMuted}
-          onClick={toggleMute}
-          title={isMuted ? "Unmute" : "Mute"}
-        >
-          {isMuted ? <FaMicrophoneSlash /> : <FaMicrophone />}
-        </ControlButton>
+    <StyleSheetManager shouldForwardProp={(prop) => !prop.startsWith('$')}>
+      <MeetingContainer ref={containerRef}>
+        <GradientBackground />
         
-        <ControlButton
-          $active={isVideoOff}
-          onClick={toggleVideo}
-          title={isVideoOff ? "Start Video" : "Stop Video"}
-        >
-          {isVideoOff ? <FaVideoSlash /> : <FaVideo />}
-        </ControlButton>
-        
-        <ControlButton
-          onClick={flipCamera}
-          title="Flip Camera"
-        >
-          <FaExchangeAlt />
-        </ControlButton>
-        
-        <ControlButton
-          onClick={startScreenShare}
-          title="Share Screen"
-        >
-          <FaDesktop />
-        </ControlButton>
+        {/* Header */}
+        <MeetingHeader>
+          <HeaderLeft>
+            <Logo>
+              <span className="logo-dot" />
+              <span>Meet</span>
+            </Logo>
+            <StatusIndicator $status={networkStatus}>
+              {networkStatus === 'good' && <FaWifi size={12} />}
+              {networkStatus === 'poor' && <FaSignal size={12} />}
+              {networkStatus === 'fallback' && <FaSignal size={12} />}
+              {networkStatus === 'good' ? 'Excellent' : networkStatus === 'poor' ? 'Weak' : 'Low BW'}
+            </StatusIndicator>
+            <span style={{ fontSize: 'clamp(0.6rem, 0.9vw, 0.75rem)', opacity: 0.5 }}>
+              {formatDuration(callDuration)}
+            </span>
+          </HeaderLeft>
+          <HeaderRight>
+            <ControlButton
+              style={{ width: 'clamp(32px, 4vw, 38px)', height: 'clamp(32px, 4vw, 38px)', fontSize: '0.8rem' }}
+              onClick={() => setShowParticipants(!showParticipants)}
+              title="Participants"
+            >
+              <FaUsers />
+              {totalParticipantsCount > 1 && <span className="badge">{totalParticipantsCount}</span>}
+            </ControlButton>
+            <ControlButton
+              style={{ width: 'clamp(32px, 4vw, 38px)', height: 'clamp(32px, 4vw, 38px)', fontSize: '0.8rem' }}
+              onClick={() => {
+                if (layoutMode === "grid") {
+                  setLayoutMode("stage");
+                  setFocusedPeerId(remoteEntries.length > 0 ? remoteEntries[0][0] : "local");
+                } else {
+                  setLayoutMode("grid");
+                  setFocusedPeerId(null);
+                }
+              }}
+              title={layoutMode === "grid" ? "Stage View" : "Grid View"}
+            >
+              {layoutMode === "grid" ? <FaThLarge /> : <FaDesktop />}
+            </ControlButton>
+            <ControlButton
+              style={{ width: 'clamp(32px, 4vw, 38px)', height: 'clamp(32px, 4vw, 38px)', fontSize: '0.8rem' }}
+              onClick={toggleFullscreen}
+              title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+            >
+              {isFullscreen ? <FaCompress /> : <FaExpand />}
+            </ControlButton>
+            <ControlButton
+              $primary
+              style={{ width: 'clamp(32px, 4vw, 38px)', height: 'clamp(32px, 4vw, 38px)', fontSize: '0.8rem' }}
+              onClick={handleLeaveCall}
+              title="Leave Meeting"
+            >
+              <FaPhoneSlash />
+            </ControlButton>
+          </HeaderRight>
+        </MeetingHeader>
 
-        <ControlDivider />
-
-        {isAdmin && (
-          <>
-            {streamMediaSource ? (
-              <ControlButton
-                onClick={() => stopLocalFileBroadcast()}
-                style={{ background: 'rgba(255, 71, 87, 0.2)', borderColor: 'rgba(255, 71, 87, 0.3)', color: '#ff4757' }}
-                title="Stop Broadcast"
-              >
-                <FaStop />
-              </ControlButton>
-            ) : (
-              <label>
-                <ControlButton as="span" title="Share File">
-                  <FaFolderOpen />
-                  <input type="file" hidden accept="video/*,audio/*" onChange={handleLocalFile} />
-                </ControlButton>
-              </label>
+        {/* Content Area */}
+        <ContentArea>
+          <MainVideoArea>
+            {renderMainContent()}
+            
+            {/* Reactions */}
+            {reactions.map(r => (
+              <ReactionFloat key={r.id} $x={r.x}>
+                {r.emoji}
+              </ReactionFloat>
+            ))}
+            
+            {/* Sync Indicator */}
+            {isSyncing && !isConnecting && (
+              <SyncIndicator>
+                <FaSync /> Syncing...
+              </SyncIndicator>
             )}
+          </MainVideoArea>
 
+          {/* Participant Sidebar */}
+          {!isStageMode && (
+            <ParticipantSidebar>
+              {renderParticipantTiles()}
+            </ParticipantSidebar>
+          )}
+        </ContentArea>
+
+        {/* Controls Bar */}
+        <ControlsBar>
+          <ControlButton
+            $active={isMuted}
+            onClick={toggleMute}
+            title={isMuted ? "Unmute" : "Mute"}
+          >
+            {isMuted ? <FaMicrophoneSlash /> : <FaMicrophone />}
+          </ControlButton>
+          
+          <ControlButton
+            $active={isVideoOff}
+            onClick={toggleVideo}
+            title={isVideoOff ? "Start Video" : "Stop Video"}
+          >
+            {isVideoOff ? <FaVideoSlash /> : <FaVideo />}
+          </ControlButton>
+          
+          <ControlButton
+            onClick={flipCamera}
+            title="Flip Camera"
+          >
+            <FaExchangeAlt />
+          </ControlButton>
+          
+          <ControlButton
+            onClick={startScreenShare}
+            title="Share Screen"
+          >
+            <FaDesktop />
+          </ControlButton>
+
+          <ControlDivider />
+
+          {isAdmin && (
+            <>
+              {streamMediaSource ? (
+                <ControlButton
+                  onClick={() => stopLocalFileBroadcast()}
+                  style={{ background: 'rgba(255, 71, 87, 0.2)', borderColor: 'rgba(255, 71, 87, 0.3)', color: '#ff4757' }}
+                  title="Stop Broadcast"
+                >
+                  <FaStop />
+                </ControlButton>
+              ) : (
+                <label>
+                  <ControlButton as="span" title="Share File">
+                    <FaFolderOpen />
+                    <input type="file" hidden accept="video/*,audio/*" onChange={handleLocalFile} />
+                  </ControlButton>
+                </label>
+              )}
+
+              <ControlButton
+                onClick={() => setShowUrlInput(!showUrlInput)}
+                title="Share URL"
+                style={showUrlInput ? { background: 'rgba(74, 158, 255, 0.2)', borderColor: 'rgba(74, 158, 255, 0.3)' } : {}}
+              >
+                <FaLink />
+              </ControlButton>
+
+              <ControlButton
+                $active={isRecording}
+                onClick={toggleRecording}
+                title={isRecording ? "Stop Recording" : "Record"}
+                style={isRecording ? { background: 'rgba(255, 71, 87, 0.2)', borderColor: 'rgba(255, 71, 87, 0.3)', color: '#ff4757' } : {}}
+              >
+                <FaRecordVinyl />
+              </ControlButton>
+
+              <ControlDivider />
+            </>
+          )}
+
+          <ControlButton
+            onClick={() => sendReaction("👋")}
+            title="Raise Hand"
+          >
+            <FaHandPaper />
+          </ControlButton>
+          
+          {["❤️", "👏", "😂"].map(emoji => (
             <ControlButton
-              onClick={() => setShowUrlInput(!showUrlInput)}
-              title="Share URL"
-              style={showUrlInput ? { background: 'rgba(74, 158, 255, 0.2)', borderColor: 'rgba(74, 158, 255, 0.3)' } : {}}
+              key={emoji}
+              onClick={() => sendReaction(emoji)}
+              title={`Send ${emoji}`}
+              style={{ fontSize: 'clamp(0.9rem, 1.2vw, 1.1rem)' }}
             >
-              <FaLink />
+              {emoji}
             </ControlButton>
+          ))}
+        </ControlsBar>
 
-            <ControlButton
-              $active={isRecording}
-              onClick={toggleRecording}
-              title={isRecording ? "Stop Recording" : "Record"}
-              style={isRecording ? { background: 'rgba(255, 71, 87, 0.2)', borderColor: 'rgba(255, 71, 87, 0.3)', color: '#ff4757' } : {}}
-            >
-              <FaRecordVinyl />
-            </ControlButton>
-
-            <ControlDivider />
-          </>
+        {/* URL Input Overlay */}
+        {showUrlInput && (
+          <UrlInputOverlay>
+            <input
+              type="text"
+              placeholder="Paste YouTube or direct MP4 URL..."
+              value={broadcastUrl}
+              onChange={(e) => setBroadcastUrl(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleUrlBroadcast()}
+            />
+            <button onClick={handleUrlBroadcast}>
+              Broadcast
+            </button>
+          </UrlInputOverlay>
         )}
 
-        <ControlButton
-          onClick={() => sendReaction("👋")}
-          title="Raise Hand"
-        >
-          <FaHandPaper />
-        </ControlButton>
-        
-        {["❤️", "👏", "😂"].map(emoji => (
-          <ControlButton
-            key={emoji}
-            onClick={() => sendReaction(emoji)}
-            title={`Send ${emoji}`}
-            style={{ fontSize: 'clamp(0.9rem, 1.2vw, 1.1rem)' }}
-          >
-            {emoji}
-          </ControlButton>
-        ))}
-      </ControlsBar>
-
-      {/* URL Input Overlay */}
-      {showUrlInput && (
-        <UrlInputOverlay>
-          <input
-            type="text"
-            placeholder="Paste YouTube or direct MP4 URL..."
-            value={broadcastUrl}
-            onChange={(e) => setBroadcastUrl(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleUrlBroadcast()}
-          />
-          <button onClick={handleUrlBroadcast}>
-            Broadcast
-          </button>
-        </UrlInputOverlay>
-      )}
-
-      {/* Participant Popover */}
-      {showParticipants && (
-        <div style={{
-          position: 'absolute',
-          top: '70px',
-          right: '24px',
-          background: 'rgba(20, 20, 35, 0.95)',
-          backdropFilter: 'blur(20px)',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
-          borderRadius: '16px',
-          padding: '16px',
-          minWidth: '220px',
-          maxHeight: '300px',
-          overflowY: 'auto',
-          zIndex: 100,
-          animation: `${slideUp} 0.2s ease-out`,
-          boxShadow: '0 20px 60px rgba(0,0,0,0.5)'
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-            <span style={{ fontSize: '0.75rem', fontWeight: 700, opacity: 0.6 }}>Participants ({totalParticipantsCount})</span>
-            <button onClick={() => setShowParticipants(false)} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', opacity: 0.5 }}>✕</button>
-          </div>
-          {allParticipants.map(p => (
-            <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 4px', borderRadius: '8px' }}>
-              <div style={{
-                width: '28px',
-                height: '28px',
-                borderRadius: '50%',
-                background: 'linear-gradient(135deg, #4a9eff, #6c5ce7)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '0.6rem',
-                fontWeight: 700,
-                textTransform: 'uppercase',
-                color: 'white',
-                flexShrink: 0
-              }}>
-                {getInitials(p.name)}
-              </div>
-              <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.8rem' }}>
-                {p.name}{p.id === 'local' ? ' (You)' : ''}
-              </span>
-              {p.isMuted && <FaMicrophoneSlash size={12} style={{ color: '#ff4757', flexShrink: 0 }} />}
-              {p.isVideoOff && <FaVideoSlash size={12} style={{ color: '#ff4757', flexShrink: 0 }} />}
-              {speakingPeers[p.id] && <span style={{ color: '#2ed573', fontSize: '0.6rem', fontWeight: 600 }}>🔊</span>}
+        {/* Participant Popover */}
+        {showParticipants && (
+          <div style={{
+            position: 'absolute',
+            top: '70px',
+            right: '24px',
+            background: 'rgba(20, 20, 35, 0.95)',
+            backdropFilter: 'blur(20px)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: '16px',
+            padding: '16px',
+            minWidth: '220px',
+            maxHeight: '300px',
+            overflowY: 'auto',
+            zIndex: 100,
+            animation: `${slideUp} 0.2s ease-out`,
+            boxShadow: '0 20px 60px rgba(0,0,0,0.5)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 700, opacity: 0.6 }}>Participants ({totalParticipantsCount})</span>
+              <button onClick={() => setShowParticipants(false)} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', opacity: 0.5 }}>✕</button>
             </div>
-          ))}
-        </div>
-      )}
-    </MeetingContainer>
+            {allParticipants.map(p => (
+              <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 4px', borderRadius: '8px' }}>
+                <div style={{
+                  width: '28px',
+                  height: '28px',
+                  borderRadius: '50%',
+                  background: 'linear-gradient(135deg, #4a9eff, #6c5ce7)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '0.6rem',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  color: 'white',
+                  flexShrink: 0
+                }}>
+                  {getInitials(p.name)}
+                </div>
+                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.8rem' }}>
+                  {p.name}{p.id === 'local' ? ' (You)' : ''}
+                </span>
+                {p.isMuted && <FaMicrophoneSlash size={12} style={{ color: '#ff4757', flexShrink: 0 }} />}
+                {p.isVideoOff && <FaVideoSlash size={12} style={{ color: '#ff4757', flexShrink: 0 }} />}
+                {speakingPeers[p.id] && <span style={{ color: '#2ed573', fontSize: '0.6rem', fontWeight: 600 }}>🔊</span>}
+              </div>
+            ))}
+          </div>
+        )}
+      </MeetingContainer>
+    </StyleSheetManager>
   );
 }
