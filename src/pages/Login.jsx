@@ -4,7 +4,9 @@ import { useNavigate } from "react-router-dom";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-const SECURITY_CODE = process.env.REACT_APP_SECURITY_CODES.split(",");
+const SECURITY_CODE = process.env.REACT_APP_SECURITY_CODES
+  ? process.env.REACT_APP_SECURITY_CODES.split(",").map(code => code.trim()).filter(Boolean)
+  : [];
 
 const Container = styled.div`
   display: flex;

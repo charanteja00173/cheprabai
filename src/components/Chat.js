@@ -78,7 +78,9 @@ const getFileType = (file) => {
   return type;
 };
 
-const SECURITY_CODE = process.env.REACT_APP_SECURITY_CODES.split(",");
+const SECURITY_CODE = process.env.REACT_APP_SECURITY_CODES
+  ? process.env.REACT_APP_SECURITY_CODES.split(",").map(code => code.trim()).filter(Boolean)
+  : [];
 
 const urlRegex = /(https?:\/\/[^\s]+)/g;
 
@@ -149,11 +151,11 @@ const Header = styled.div`
   align-items: center;
   padding: 8px 16px;
   min-height: 52px;
-  background: rgba(10, 10, 10, 0.4);
+  background: var(--chakra-colors-glassBg);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   color: var(--chakra-colors-textPrimary);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--chakra-colors-border);
   box-sizing: border-box;
   z-index: 10;
   flex-shrink: 0;
@@ -174,8 +176,8 @@ const Avatar = styled.img`
   height: 30px;
   border-radius: 50%;
   margin-right: 8px;
-  border: 1.5px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.25);
+  border: 1.5px solid var(--chakra-colors-border);
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.15);
   flex-shrink: 0;
 
   @media (max-width: 480px) {
@@ -209,8 +211,8 @@ const RoomActions = styled.div`
 `;
 
 const ActionButton = styled.button`
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: var(--chakra-colors-badgeBg);
+  border: 1px solid var(--chakra-colors-badgeBorder);
   color: var(--chakra-colors-textPrimary);
   cursor: pointer;
   font-size: 1rem;
@@ -264,7 +266,7 @@ const MessageBubble = styled.div`
   background: ${(p) =>
     p.isSystem ? "transparent" :
       p.isSender ? "linear-gradient(135deg, var(--chakra-colors-brandPrimary), var(--chakra-colors-brandSecondary))" :
-        "rgba(255, 255, 255, 0.03)"};
+        "var(--chakra-colors-badgeBg)"};
   
   backdrop-filter: ${(p) => (p.isSystem ? "none" : p.isSender ? "none" : "blur(16px)")};
   -webkit-backdrop-filter: ${(p) => (p.isSystem ? "none" : p.isSender ? "none" : "blur(16px)")};
@@ -272,7 +274,7 @@ const MessageBubble = styled.div`
   border: ${(p) =>
     p.isSystem ? "none" :
       p.isSender ? "0.5px solid rgba(255, 255, 255, 0.05)" :
-        "0.5px solid rgba(255, 255, 255, 0.035)"};
+        "0.5px solid var(--chakra-colors-border)"};
 
   border-radius: ${(p) =>
     p.isSystem ? "12px" :
@@ -350,16 +352,16 @@ const FileAttachmentWrapper = styled.div`
   box-sizing: border-box;
   border-radius: 16px;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: var(--chakra-colors-badgeBg);
+  border: 1px solid var(--chakra-colors-border);
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
 
   &:hover {
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--chakra-colors-surfaceHover);
     border-color: var(--chakra-colors-brandPrimary);
     transform: translateY(-1px);
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
   }
 
   .expand-btn {
@@ -389,8 +391,8 @@ const BubbleActionButton = styled.button`
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  border: 1px solid ${(p) => p.$active ? "rgba(255, 165, 0, .25)" : "rgba(255, 255, 255, 0.08)"};
-  background: ${(p) => p.$active ? "rgba(255, 165, 0, .1)" : "rgba(255, 255, 255, 0.04)"};
+  border: 1px solid ${(p) => p.$active ? "rgba(255, 165, 0, .25)" : "var(--chakra-colors-border)"};
+  background: ${(p) => p.$active ? "rgba(255, 165, 0, .1)" : "var(--chakra-colors-badgeBg)"};
   color: ${(p) => p.$active ? "#ffa500" : "var(--chakra-colors-textSecondary)"};
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -399,7 +401,7 @@ const BubbleActionButton = styled.button`
   font-size: 0.85rem;
 
   &:hover {
-    background: ${(p) => p.$danger ? "rgba(255, 71, 87, 0.15)" : p.$active ? "rgba(255, 165, 0, 0.18)" : "rgba(255, 255, 255, 0.12)"};
+    background: ${(p) => p.$danger ? "rgba(255, 71, 87, 0.15)" : p.$active ? "rgba(255, 165, 0, 0.18)" : "var(--chakra-colors-surfaceHover)"};
     color: ${(p) => p.$danger ? "#ff6b6b" : p.$active ? "#ffa500" : "var(--chakra-colors-brandPrimary)"};
     border-color: ${(p) => p.$danger ? "rgba(255, 107, 107, 0.3)" : p.$active ? "rgba(255, 165, 0, 0.35)" : "var(--chakra-colors-brandPrimary)"};
     transform: translateY(-1.5px) scale(1.05);
@@ -477,7 +479,7 @@ const LandingWrapper = styled.div`
     align-items: flex-start;
     padding: 0;
     overscroll-behavior: contain;
-    background: #090a0f;
+    background: var(--chakra-colors-bg);
     &::before, &::after { display: none; }
   }
 
@@ -534,16 +536,16 @@ const JoinContainer = styled.div`
   gap: 16px;
   width: 100%;
   max-width: min(460px, calc(100vw - 32px));
-  background: linear-gradient(160deg, rgba(21, 23, 31, .94), rgba(10, 11, 16, .92));
+  background: var(--chakra-colors-surface);
   backdrop-filter: blur(36px);
   -webkit-backdrop-filter: blur(36px);
   padding: clamp(24px, 5vw, 38px);
   border-radius: 24px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--chakra-colors-border);
   box-shadow: 
-    0 4px 30px rgba(0, 0, 0, 0.4),
-    0 25px 60px rgba(0, 0, 0, 0.6),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    0 4px 30px rgba(0, 0, 0, 0.15),
+    0 25px 60px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 var(--chakra-colors-borderSubtle);
   margin: 0 16px;
   box-sizing: border-box;
   z-index: 2;
@@ -558,7 +560,7 @@ const JoinContainer = styled.div`
     gap: 16px;
     border: 0;
     border-radius: 0;
-    background: linear-gradient(180deg, #10121a 0%, #090a0f 74%);
+    background: var(--chakra-colors-bg);
     box-shadow: none;
   }
 
@@ -574,17 +576,17 @@ const JoinInput = styled.input`
   min-height: 52px;
   padding: 14px 16px 14px 46px;
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.11);
-  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid var(--chakra-colors-border);
+  background: var(--chakra-colors-badgeBg);
   color: var(--chakra-colors-textPrimary);
   outline: none;
   font-size: 1rem;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
 
   &:hover {
-    border-color: rgba(255, 255, 255, 0.15);
-    background: rgba(255, 255, 255, 0.04);
+    border-color: var(--chakra-colors-brandSecondary);
+    background: var(--chakra-colors-surfaceHover);
   }
 
   &:focus {
@@ -639,10 +641,10 @@ const AvatarPicker = styled.label`
   border-radius: 12px;
   cursor: pointer;
   color: var(--chakra-colors-textPrimary);
-  background: rgba(255,255,255,.045);
-  border: 1px dashed rgba(255,255,255,.17);
+  background: var(--chakra-colors-badgeBg);
+  border: 1px dashed var(--chakra-colors-border);
   transition: border-color .2s ease, background .2s ease;
-  &:hover, &:focus-within { border-color: var(--chakra-colors-brandPrimary); background: rgba(255,255,255,.075); }
+  &:hover, &:focus-within { border-color: var(--chakra-colors-brandPrimary); background: var(--chakra-colors-surfaceHover); }
 `;
 
 const PasswordInputContainer = styled.div`
@@ -3722,7 +3724,7 @@ export default function ChatRoom() {
       clearInterval(pingInterval);
       if (ringtoneRef.current) { ringtoneRef.current.stop(); ringtoneRef.current = null; }
     };
-  }, [joined, roomId, userName, roomKey, securityCode]);
+  }, [joined, roomId, userName, roomKey, securityCode, showMeeting]);
 
   useEffect(() => {
     if (!joined) return;
@@ -5098,7 +5100,7 @@ export default function ChatRoom() {
     // 3. Apply standard search query highlighting and markdown formatting to the escaped text
     if (searchQuery && searchQuery.trim()) {
       try {
-        const regex = new RegExp(`(${searchQuery.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')})`, "gi");
+        const regex = new RegExp(`(${searchQuery.replace(new RegExp('[-/\\\\^$*+?.()|[\\]{}]', 'g'), '\\$&')})`, "gi");
         escaped = escaped.replace(regex, `<mark style="background: #ffa500; color: #000; padding: 0 2px; border-radius: 2px; font-weight: bold">$1</mark>`);
       } catch (e) { }
     }
@@ -5126,7 +5128,7 @@ export default function ChatRoom() {
       });
     }
     const sortedNames = Array.from(uniqueNames).sort((a, b) => b.length - a.length);
-    const escapedNames = sortedNames.map(name => name.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'));
+    const escapedNames = sortedNames.map(name => name.replace(new RegExp('[-/\\\\^$*+?.()|[\\]{}]', 'g'), '\\$&'));
     const pattern = escapedNames.length > 0
       ? `@(${escapedNames.join("|")}|\\w+)`
       : `@(\\w+)`;

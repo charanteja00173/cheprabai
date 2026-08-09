@@ -61,7 +61,7 @@ export const ThemeManagerProvider = ({ children }) => {
       availableThemes: Object.keys(THEMES),
       availableFonts: Object.keys(FONTS)
     }}>
-      <ChakraProvider theme={chakraTheme}>
+      <ChakraProvider theme={chakraTheme} resetCSS portalZIndex={9999}>
         <ColorModeSyncer activeThemeKey={activeThemeKey} />
         {children}
       </ChakraProvider>

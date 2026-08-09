@@ -568,13 +568,22 @@ export function createAppTheme(themeKey = "default", fontKey = "inter") {
     },
     styles: {
       global: {
+        html: {
+          minHeight: "100%",
+          scrollBehavior: "smooth",
+        },
         body: {
           bg: "bg",
           color: "textPrimary",
+          minHeight: "100%",
           lineHeight: "1.7",
           letterSpacing: "0.01em",
           transition: "background-color 0.3s ease, color 0.3s ease",
           overflowX: "hidden",
+        },
+        "#root": {
+          minHeight: "100dvh",
+          width: "100%",
         },
         "h1, h2, h3, h4, h5, h6": {
           fontWeight: "700",
@@ -817,5 +826,4 @@ function hexToRgb(hex) {
   return result ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : "139, 92, 246";
 }
 
-const defaultTheme = createAppTheme();
-export default defaultTheme;
+export default createAppTheme;

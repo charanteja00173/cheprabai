@@ -1,27 +1,38 @@
-import React, { useState, useEffect, useRef } from "react";
-import styled from "styled-components";
-import { FaMicrophone, FaMicrophoneSlash, FaVideo, FaPhoneSlash, FaSync, FaDesktop, FaFolderOpen, FaRecordVinyl, FaCompress, FaExpand, FaWindowMinimize, FaExchangeAlt, FaLink, FaThLarge } from "react-icons/fa";
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import styled, { keyframes } from "styled-components";
+import { FaMicrophone, FaMicrophoneSlash, FaVideo, FaVideoSlash, FaPhoneSlash, FaSync, FaDesktop, FaFolderOpen, FaRecordVinyl, FaCompress, FaExpand, FaWindowMinimize, FaExchangeAlt, FaLink, FaThLarge, FaStop, FaUsers, FaTimes, FaHandPaper } from "react-icons/fa";
 import { Peer } from "peerjs";
 import { toast } from "react-toastify";
 
+/* ═══════════════════════════════ ANIMATIONS ═══════════════════════════════ */
+const fadeIn = keyframes`from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); }`;
+const slideUp = keyframes`from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); }`;
+// eslint-disable-next-line no-unused-vars
+const floatUp = keyframes`0% { transform: translateY(0) scale(1); opacity: 1; } 100% { transform: translateY(-700px) scale(2.5); opacity: 0; }`;
+const spin = keyframes`from { transform: rotate(0deg); } to { transform: rotate(360deg); }`;
+// eslint-disable-next-line no-unused-vars
+const pulse = keyframes`0% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0.4); } 70% { box-shadow: 0 0 0 8px rgba(255, 71, 87, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0); }`;
+const shimmer = keyframes`0% { background-position: -200% 0; } 100% { background-position: 200% 0; }`;
+const tileEnter = keyframes`from { opacity: 0; transform: scale(0.85); } to { opacity: 1; transform: scale(1); }`;
 
 const MeetingOverlay = styled.div`
   position: fixed;
   inset: 40px;
   z-index: 10005;
-  background: rgba(10, 10, 15, 0.45);
+  background: var(--chakra-colors-glassBg);
   backdrop-filter: blur(40px);
   -webkit-backdrop-filter: blur(40px);
   display: flex;
   flex-direction: column;
-  color: white;
+  color: var(--chakra-colors-textPrimary);
   padding: 24px;
   overflow: hidden;
   border-radius: 32px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 
-    0 50px 100px rgba(0, 0, 0, 0.85),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--chakra-colors-border);
+  box-shadow:
+    0 50px 100px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 var(--chakra-colors-borderSubtle);
+  animation: ${fadeIn} 0.35s ease-out;
 
   ${p => p.$minimized && `
     inset: auto 18px 18px auto;
@@ -31,6 +42,7 @@ const MeetingOverlay = styled.div`
     padding: 10px;
     border-radius: 20px;
     cursor: pointer;
+    background: var(--chakra-colors-surface);
   `}
 
   @media (max-width: 768px) {
@@ -40,11 +52,12 @@ const MeetingOverlay = styled.div`
       height: 176px;
       padding: 8px;
       border-radius: 18px;
+      background: var(--chakra-colors-surface);
     ` : `
       inset: 0;
       border-radius: 0;
       padding: 12px 10px;
-      background: #000;
+      background: var(--chakra-colors-bg);
     `}
   }
 `;
@@ -53,12 +66,29 @@ const MeetingHeader = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
   width: 100%;
   height: 54px;
   flex-shrink: 0;
   padding: 0 12px;
   ${p => p.$minimized && `height: 38px; margin-bottom: 8px; padding: 0 4px;`}
+`;
+
+const HeaderLeft = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+`;
+
+const HeaderRight = styled.div`
+  display: flex;
+  gap: 4px;
+  background: var(--chakra-colors-badgeBg);
+  padding: 4px;
+  border-radius: 14px;
+  border: 1px solid var(--chakra-colors-badgeBorder);
+  align-items: center;
 `;
 
 const ContentLayout = styled.div`
@@ -86,17 +116,17 @@ const ContentLayout = styled.div`
 
 const MainStage = styled.div`
   flex: 3;
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--chakra-colors-bg);
   border-radius: 28px;
   overflow: hidden;
   position: relative;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--chakra-colors-border);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 
-    0 30px 60px rgba(0, 0, 0, 0.7),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  box-shadow:
+    0 30px 60px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 var(--chakra-colors-borderSubtle);
 
   @media (max-width: 768px) {
     border-radius: 20px;
@@ -136,21 +166,22 @@ const ParticipantGrid = styled.div`
 `;
 
 const VideoTile = styled.div`
-  background: rgba(20, 20, 25, 0.45);
+  background: var(--chakra-colors-cardBg);
   backdrop-filter: blur(16px);
   border-radius: 24px;
   overflow: hidden;
   position: relative;
   aspect-ratio: 16/9;
-  border: 2px solid ${props => props.$isTalking ? "#2ed573" : "rgba(255,255,255,0.06)"};
-  box-shadow: ${props => props.$isTalking 
-    ? "0 0 25px rgba(46, 213, 115, 0.3), inset 0 1px 0 rgba(255,255,255,0.15)" 
-    : "0 12px 36px rgba(0, 0, 0, 0.4)"};
+  border: 2px solid ${props => props.$isTalking ? "#2ed573" : "var(--chakra-colors-border)"};
+  box-shadow: ${props => props.$isTalking
+    ? "0 0 25px rgba(46, 213, 115, 0.3), inset 0 1px 0 var(--chakra-colors-borderSubtle)"
+    : "0 12px 36px rgba(0, 0, 0, 0.1)"};
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
   flex-shrink: 0;
   width: 100%;
   height: 100%;
+  animation: ${tileEnter} 0.4s ease-out;
 
   ${props => props.$isStrip && `
     width: auto;
@@ -164,31 +195,31 @@ const VideoTile = styled.div`
   &:hover {
     transform: translateY(-4px) scale(1.02);
     border-color: ${props => props.$isTalking ? "#2ed573" : "var(--chakra-colors-brandPrimary)"};
-    box-shadow: 
-      0 20px 40px rgba(0, 0, 0, 0.55),
+    box-shadow:
+      0 20px 40px rgba(0, 0, 0, 0.15),
       0 0 20px ${props => props.$isTalking ? "rgba(46, 213, 115, 0.4)" : "var(--chakra-colors-brandGlow)"};
   }
 
-  video { 
-    width: 100%; 
-    height: 100%; 
-    object-fit: cover; 
+  video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
   }
 `;
-
 
 const NameTag = styled.div`
   position: absolute;
   bottom: 10px;
   left: 10px;
-  background: rgba(15, 15, 20, 0.75);
+  background: var(--chakra-colors-glassBg);
+  color: var(--chakra-colors-textPrimary);
   padding: 4px 10px;
   border-radius: 10px;
   font-size: 0.75rem;
   font-weight: 600;
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--chakra-colors-borderSubtle);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -208,34 +239,32 @@ const ControlBar = styled.div`
   transform: translateX(-50%);
   display: flex;
   align-items: center;
-  gap: 12px;
-  background: rgba(15, 15, 20, 0.55);
+  gap: 8px;
+  background: var(--chakra-colors-glassBg);
   backdrop-filter: blur(36px);
   -webkit-backdrop-filter: blur(36px);
   border-radius: 24px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  padding: 8px 20px;
+  border: 1px solid var(--chakra-colors-border);
+  padding: 8px 16px;
   z-index: 500;
-  box-shadow: 
-    0 20px 45px rgba(0, 0, 0, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 20px 45px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 var(--chakra-colors-borderSubtle);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: ${slideUp} 0.4s ease-out;
   ${p => p.$minimized && `display: none;`}
 
   &:hover {
-    background: rgba(15, 15, 20, 0.65);
+    background: var(--chakra-colors-surfaceHover);
     bottom: 32px;
-    box-shadow: 
-      0 25px 50px rgba(0, 0, 0, 0.6),
-      inset 0 1px 0 rgba(255, 255, 255, 0.1);
   }
 
   @media (max-width: 768px) {
     bottom: 12px;
-    padding: 6px 12px;
-    gap: 8px;
-    width: 95%;
-    max-width: 95%;
+    padding: 6px 10px;
+    gap: 6px;
+    width: 96%;
+    max-width: 96%;
     overflow-x: auto;
     justify-content: safe center;
     border-radius: 16px;
@@ -243,6 +272,7 @@ const ControlBar = styled.div`
     -ms-overflow-style: none;
     scrollbar-width: none;
     white-space: nowrap;
+    scroll-snap-type: x mandatory;
   }
 `;
 
@@ -250,9 +280,9 @@ const CircleButton = styled.button`
   width: 48px;
   height: 48px;
   border-radius: 14px;
-  border: 1px solid ${props => props.$active ? "rgba(255, 71, 87, 0.5)" : "rgba(255, 255, 255, 0.06)"};
-  background: ${props => props.$active ? "#ff4757" : "rgba(255, 255, 255, 0.04)"};
-  color: white;
+  border: 1px solid ${props => props.$active ? "rgba(255, 71, 87, 0.5)" : "var(--chakra-colors-badgeBorder)"};
+  background: ${props => props.$active ? "#ff4757" : "var(--chakra-colors-badgeBg)"};
+  color: var(--chakra-colors-textPrimary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -260,27 +290,52 @@ const CircleButton = styled.button`
   cursor: pointer;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   flex-shrink: 0;
+  position: relative;
+  scroll-snap-align: center;
 
   @media (max-width: 768px) {
-    width: 44px;
-    height: 44px;
+    width: 42px;
+    height: 42px;
     font-size: 0.95rem;
     border-radius: 10px;
   }
 
-  &:hover { 
-    transform: translateY(-2px); 
-    background: ${props => props.$active ? "#ff6b81" : "rgba(255, 255, 255, 0.1)"};
+  &:hover {
+    transform: translateY(-2px);
+    background: ${props => props.$active ? "#ff6b81" : "var(--chakra-colors-surfaceHover)"};
     border-color: ${props => props.$active ? "rgba(255, 71, 87, 0.8)" : "var(--chakra-colors-brandPrimary)"};
     box-shadow: ${props => props.$active ? "none" : "0 0 10px var(--chakra-colors-brandGlow)"};
   }
-  
+
   &:active {
     transform: translateY(0);
   }
 `;
 
+const ControlLabel = styled.span`
+  position: absolute;
+  bottom: -18px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.55rem;
+  font-weight: 600;
+  white-space: nowrap;
+  opacity: 0.5;
+  pointer-events: none;
+  color: var(--chakra-colors-textSecondary);
 
+  @media (max-width: 768px) {
+    display: none;
+  }
+`;
+
+const Divider = styled.div`
+  width: 1px;
+  height: 24px;
+  background: var(--chakra-colors-border);
+  margin: 0 4px;
+  flex-shrink: 0;
+`;
 
 const FloatingPiP = styled.div`
   position: absolute;
@@ -290,8 +345,8 @@ const FloatingPiP = styled.div`
   height: 170px;
   border-radius: 18px;
   overflow: hidden;
-  border: 2px solid rgba(255, 255, 255, 0.15);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+  border: 2px solid var(--chakra-colors-border);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
   z-index: 100;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -299,7 +354,7 @@ const FloatingPiP = styled.div`
   &:hover {
     transform: scale(1.05);
     border-color: var(--chakra-colors-brandPrimary);
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6), 0 0 15px var(--chakra-colors-brandGlow);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15), 0 0 15px var(--chakra-colors-brandGlow);
   }
 
   video {
@@ -321,13 +376,13 @@ const PrivacyGuard = styled.div`
   position: absolute;
   inset: 0;
   z-index: 200;
-  background: #000;
+  background: var(--chakra-colors-bg);
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
   text-align: center;
-  color: white;
+  color: var(--chakra-colors-textPrimary);
   opacity: ${props => props.$minimized ? 0 : props.show ? 1 : 0};
   pointer-events: ${props => props.$minimized ? "none" : props.show ? "all" : "none"};
   transition: opacity 0.3s ease;
@@ -342,11 +397,11 @@ const PrivacyGuard = styled.div`
   }
 
   &::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: repeating-linear-gradient(45deg, #000, #000 10px, #111 10px, #111 20px);
-      opacity: 0.9;
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(45deg, var(--chakra-colors-bg), var(--chakra-colors-bg) 10px, var(--chakra-colors-surface) 10px, var(--chakra-colors-surface) 20px);
+    opacity: 0.9;
   }
 `;
 
@@ -356,7 +411,7 @@ const Watermark = styled.div`
   left: ${props => props.x}%;
   opacity: 0.1;
   font-size: 0.8rem;
-  color: white;
+  color: var(--chakra-colors-textPrimary);
   pointer-events: none;
   z-index: 50;
   white-space: nowrap;
@@ -373,7 +428,7 @@ const MeetingGrid = styled.div`
   align-content: center;
   justify-content: center;
   overflow-y: auto;
-  
+
   grid-template-columns: ${props => {
     const count = props.$count;
     if (count === 1) return "1fr";
@@ -401,7 +456,7 @@ const MeetingGrid = styled.div`
 const PlaceholderAvatar = styled.div`
   width: 100%;
   height: 100%;
-  background: radial-gradient(circle, #23252f 0%, #111217 100%);
+  background: radial-gradient(circle, var(--chakra-colors-surface) 0%, var(--chakra-colors-bg) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -412,7 +467,7 @@ const AvatarCircle = styled.div`
   width: 80px;
   height: 80px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--chakra-colors-brandPrimary) 0%, #00bfa5 100%);
+  background: linear-gradient(135deg, var(--chakra-colors-brandPrimary) 0%, var(--chakra-colors-brandSecondary) 100%);
   color: white;
   font-size: 2rem;
   font-weight: 700;
@@ -420,8 +475,8 @@ const AvatarCircle = styled.div`
   align-items: center;
   justify-content: center;
   text-transform: uppercase;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
-  border: 3px solid rgba(255,255,255,0.1);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+  border: 3px solid var(--chakra-colors-border);
   position: relative;
   transition: all 0.3s ease;
 
@@ -452,10 +507,162 @@ const MutedBadge = styled.div`
   justify-content: center;
   font-size: 0.8rem;
   backdrop-filter: blur(5px);
-  border: 1px solid rgba(255,255,255,0.1);
-  box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+  border: 1px solid var(--chakra-colors-border);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.15);
 `;
 
+const ParticipantBadge = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--chakra-colors-badgeBg);
+  border: 1px solid var(--chakra-colors-badgeBorder);
+  padding: 5px 10px;
+  border-radius: 10px;
+  color: var(--chakra-colors-textPrimary);
+  font-size: 0.72rem;
+  font-weight: 650;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+
+  &:hover {
+    background: var(--chakra-colors-surfaceHover);
+    border-color: var(--chakra-colors-brandPrimary);
+  }
+`;
+
+const ParticipantPopover = styled.div`
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  background: var(--chakra-colors-surface);
+  backdrop-filter: blur(24px);
+  border: 1px solid var(--chakra-colors-border);
+  border-radius: 16px;
+  padding: 12px;
+  min-width: 200px;
+  max-height: 280px;
+  overflow-y: auto;
+  z-index: 600;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.15);
+  color: var(--chakra-colors-textPrimary);
+  animation: ${slideUp} 0.2s ease-out;
+`;
+
+const ParticipantRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 4px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 500;
+
+  &:hover { background: var(--chakra-colors-surfaceHover); }
+`;
+
+const ParticipantDot = styled.div`
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--chakra-colors-brandPrimary), var(--chakra-colors-brandSecondary));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  flex-shrink: 0;
+  color: #white;
+`;
+
+const ConnectingOverlay = styled.div`
+  position: absolute;
+  inset: 0;
+  z-index: 300;
+  background: var(--chakra-colors-bg);
+  color: var(--chakra-colors-textPrimary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  animation: ${fadeIn} 0.3s ease-out;
+`;
+
+const SpinnerRing = styled.div`
+  width: 48px;
+  height: 48px;
+  border: 3px solid var(--chakra-colors-border);
+  border-top-color: var(--chakra-colors-brandPrimary);
+  border-radius: 50%;
+  animation: ${spin} 0.8s linear infinite;
+`;
+
+const StatusChip = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--chakra-colors-badgeBg);
+  color: var(--chakra-colors-textPrimary);
+  padding: 4px 8px;
+  border-radius: 10px;
+  font-size: 0.72rem;
+  font-weight: 650;
+`;
+
+const TimerDisplay = styled.span`
+  font-size: 0.72rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.7;
+  padding: 4px 8px;
+  background: var(--chakra-colors-badgeBg);
+  color: var(--chakra-colors-textPrimary);
+  border-radius: 10px;
+`;
+
+const UrlInputOverlay = styled.div`
+  position: absolute;
+  bottom: 90px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--chakra-colors-surface);
+  border: 1px solid var(--chakra-colors-border);
+  color: var(--chakra-colors-textPrimary);
+  padding: 16px;
+  border-radius: 20px;
+  z-index: 1000;
+  display: flex;
+  gap: 10px;
+  width: min(400px, 90%);
+  box-shadow: 0 20px 50px rgba(0,0,0,0.15);
+  animation: ${slideUp} 0.25s ease-out;
+`;
+
+const FileBroadcastOverlay = styled.div`
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  background: radial-gradient(circle at center, var(--chakra-colors-badgeBg), transparent 70%);
+
+  .shimmer-text {
+    font-size: 1rem;
+    font-weight: 600;
+    background: linear-gradient(90deg, var(--chakra-colors-textMuted), var(--chakra-colors-textPrimary), var(--chakra-colors-textMuted));
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: ${shimmer} 2s linear infinite;
+  }
+`;
+
+/* ═══════════════════════════════ HELPERS ═══════════════════════════════ */
 const getInitials = (name) => {
   if (!name) return "?";
   const parts = name.trim().split(/\s+/);
@@ -465,6 +672,15 @@ const getInitials = (name) => {
   return parts[0].slice(0, 2).toUpperCase();
 };
 
+const formatDuration = (seconds) => {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  return `${m}:${String(s).padStart(2, "0")}`;
+};
+
+/* ═══════════════════════════════ COMPONENT ═══════════════════════════════ */
 export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin }) {
   const [localStream, setLocalStream] = useState(null);
   const [remoteStreams, setRemoteStreams] = useState({});
@@ -477,18 +693,43 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const [reactions, setReactions] = useState([]);
   const [isFocused, setIsFocused] = useState(true);
   const [watermarkPos, setWatermarkPos] = useState({ x: 10, y: 10 });
-  const [focusedPeerId, setFocusedPeerId] = useState(null); // default to null for grid representation
-  const [networkStatus, setNetworkStatus] = useState("good"); // good, poor, fallback
-
-  // New states for layout and media controls
+  const [focusedPeerId, setFocusedPeerId] = useState(null);
+  const [networkStatus, setNetworkStatus] = useState("good");
   const [layoutMode, setLayoutMode] = useState("grid");
   const [participantStates, setParticipantStates] = useState({});
   const [showUrlInput, setShowUrlInput] = useState(false);
   const [broadcastUrl, setBroadcastUrl] = useState("");
   const [streamMediaSource, setStreamMediaSource] = useState(null);
+  const [myPeerId, setMyPeerId] = useState(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
+  const [isFrontCamera, setIsFrontCamera] = useState(true);
+  const [isConnecting, setIsConnecting] = useState(true);
+  const [callDuration, setCallDuration] = useState(0);
+  const [showParticipants, setShowParticipants] = useState(false);
+  const [remoteFileBroadcast, setRemoteFileBroadcast] = useState(null);
 
+  const containerRef = useRef();
+  const peerRef = useRef(null);
+  const myVideoRef = useRef();
+  const mediaRef = useRef();
+  const isRemoteUpdate = useRef(false);
+  const peers = useRef({});
+  const recorderRef = useRef(null);
+  const recordedChunks = useRef([]);
+  const localStreamRef = useRef(null);
+  const callStartTime = useRef(Date.now());
 
-  // Automatically focus talking user if a remote user starts speaking
+  // ─── Call Duration Timer ───
+  useEffect(() => {
+    callStartTime.current = Date.now();
+    const timer = setInterval(() => {
+      setCallDuration(Math.floor((Date.now() - callStartTime.current) / 1000));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // ─── Auto-focus active talker ───
   useEffect(() => {
     const activeTalker = Object.entries(speakingPeers).find(([id, isTalking]) => isTalking && id !== "local");
     if (activeTalker) {
@@ -496,7 +737,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     }
   }, [speakingPeers]);
 
-  // PiP: auto-focus the single remote peer
+  // ─── Auto-focus single remote peer (PiP mode) ───
   useEffect(() => {
     const entries = Object.entries(remoteStreams);
     if (entries.length === 1 && !activeMedia) {
@@ -504,7 +745,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     }
   }, [remoteStreams, activeMedia]);
 
-  // Adaptive Bitrate Control (ABR) & Audio-Only Fallback
+  // ─── Adaptive Bitrate Control (ABR) ───
   useEffect(() => {
     if (!localStream) return;
 
@@ -513,7 +754,6 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       let totalRTT = 0;
       let rttCount = 0;
 
-      // Query WebRTC stats on all active peer connections
       const promises = Object.values(peers.current).map(async (call) => {
         if (!call.peerConnection) return;
         try {
@@ -531,26 +771,18 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
               }
             }
           });
-        } catch (e) {
-          // ignore stats retrieval errors
-        }
+        } catch (e) { /* ignore stats retrieval errors */ }
       });
 
       await Promise.all(promises);
-
-      const avgRTT = rttCount > 0 ? (totalRTT / rttCount) * 1000 : 0; // ms
+      const avgRTT = rttCount > 0 ? (totalRTT / rttCount) * 1000 : 0;
 
       let nextStatus = "good";
-      if (avgRTT > 300 || totalPacketsLost > 50) {
-        nextStatus = "poor";
-      }
-      if (avgRTT > 600 || totalPacketsLost > 150) {
-        nextStatus = "fallback";
-      }
+      if (avgRTT > 300 || totalPacketsLost > 50) nextStatus = "poor";
+      if (avgRTT > 600 || totalPacketsLost > 150) nextStatus = "fallback";
 
       setNetworkStatus(nextStatus);
 
-      // Apply dynamic bitrate restrictions (ABR)
       Object.values(peers.current).forEach((call) => {
         if (!call.peerConnection) return;
         const senders = call.peerConnection.getSenders();
@@ -559,22 +791,16 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
           try {
             const params = videoSender.getParameters();
             if (params && params.encodings && params.encodings[0]) {
-              let maxBitrate = 1500000; // 1.5 Mbps default
-              if (nextStatus === "poor") {
-                maxBitrate = 300000; // 300 kbps (SD video)
-              } else if (nextStatus === "fallback") {
-                maxBitrate = 50000; // 50 kbps (extremely low quality)
-              }
+              let maxBitrate = 1500000;
+              if (nextStatus === "poor") maxBitrate = 300000;
+              else if (nextStatus === "fallback") maxBitrate = 50000;
               params.encodings[0].maxBitrate = maxBitrate;
               videoSender.setParameters(params);
             }
-          } catch (err) {
-            // ignore parameter updates on closed senders
-          }
+          } catch (err) { /* ignore */ }
         }
       });
 
-      // Automatically trigger Audio-Only Fallback if connection drops severely
       if (nextStatus === "fallback") {
         const videoTrack = localStream.getVideoTracks()[0];
         if (videoTrack && videoTrack.enabled) {
@@ -588,21 +814,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     return () => clearInterval(interval);
   }, [localStream]);
 
-  const [myPeerId, setMyPeerId] = useState(null);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [isMinimized, setIsMinimized] = useState(false);
-  const [isFrontCamera, setIsFrontCamera] = useState(true);
-  
-  const containerRef = useRef();
-  const peerRef = useRef(null);
-  const myVideoRef = useRef();
-  const mediaRef = useRef();
-  const isRemoteUpdate = useRef(false);
-  const peers = useRef({});
-  const recorderRef = useRef(null);
-  const recordedChunks = useRef([]);
-  const localStreamRef = useRef(null);
-
+  // ─── Main PeerJS Initialization ───
   useEffect(() => {
     const backendUrl = new URL(process.env.REACT_APP_SOCKET_ENDPOINT || "https://cheprabai-backend.onrender.com");
 
@@ -633,10 +845,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
           }
         }));
       });
-      call.on("close", () => {
-        console.log(`Call with peer ${remotePeerId} closed.`);
-        cleanupPeer(remotePeerId);
-      });
+      call.on("close", () => cleanupPeer(remotePeerId));
       call.on("error", (e) => {
         console.error(`Call error with peer ${remotePeerId}:`, e);
         cleanupPeer(remotePeerId);
@@ -645,6 +854,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
     const init = async () => {
       try {
+        setIsConnecting(true);
         const stream = await navigator.mediaDevices.getUserMedia({
           video: true,
           audio: {
@@ -678,13 +888,12 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
           host: backendUrl.hostname,
           port: backendUrl.port || (backendUrl.protocol === "https:" ? 443 : 80),
           secure: backendUrl.protocol === "https:",
-          config: {
-            iceServers: iceServers
-          }
+          config: { iceServers }
         });
 
         peer.on("open", (id) => {
           setMyPeerId(id);
+          setIsConnecting(false);
           socket.emit("join-call", { roomId, peerId: id, userName, isMuted: false, isVideoOff: false });
         });
 
@@ -714,6 +923,8 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
         peerRef.current = peer;
 
+        // ─── Socket Event Handlers ───
+
         socket.on("existing-callers", (callers) => {
           callers.forEach(({ peerId, name, isMuted: peerMuted, isVideoOff: peerVideoOff }) => {
             setRemoteStreams(p => ({ ...p, [peerId]: { stream: p[peerId]?.stream || null, name } }));
@@ -722,6 +933,19 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
               [peerId]: { isMuted: peerMuted, isVideoOff: peerVideoOff }
             }));
           });
+
+          // Delay calling peers by 500ms to let PeerJS finish initializing on both sides
+          setTimeout(() => {
+            callers.forEach(({ peerId, name }) => {
+              if (localStreamRef.current && peerRef.current && !peers.current[peerId]) {
+                const call = peerRef.current.call(peerId, localStreamRef.current);
+                if (call) {
+                  handleCallEvents(call, peerId);
+                  peers.current[peerId] = call;
+                }
+              }
+            });
+          }, 500);
         });
 
         socket.on("user-connected-call", ({ peerId, name, isMuted: peerMuted, isVideoOff: peerVideoOff }) => {
@@ -731,15 +955,20 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
             [peerId]: { isMuted: peerMuted, isVideoOff: peerVideoOff }
           }));
 
-          if (localStreamRef.current && peerRef.current) {
-            const call = peerRef.current.call(peerId, localStreamRef.current);
-            handleCallEvents(call, peerId);
-            peers.current[peerId] = call;
-            toast.info(`${name} joined the call`);
-          }
+          // Delay the outgoing call slightly for reliability
+          setTimeout(() => {
+            if (localStreamRef.current && peerRef.current && !peers.current[peerId]) {
+              const call = peerRef.current.call(peerId, localStreamRef.current);
+              if (call) {
+                handleCallEvents(call, peerId);
+                peers.current[peerId] = call;
+                toast.info(`${name} joined the call`);
+              }
+            }
+          }, 300);
         });
 
-        // Basic Audio Activity Detection
+        // Audio Activity Detection
         if (localStreamRef.current) {
           const audioContext = new (window.AudioContext || window.webkitAudioContext)();
           const source = audioContext.createMediaStreamSource(localStreamRef.current);
@@ -752,7 +981,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
             if (!analyzer) return;
             analyzer.getByteFrequencyData(data);
             const volume = data.reduce((a, b) => a + b) / data.length;
-            const isTalking = volume > 30; // Threshold
+            const isTalking = volume > 30;
             setSpeakingPeers(p => {
               if (p.local === isTalking) return p;
               const currentPeerId = peerRef.current?.id;
@@ -783,6 +1012,20 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
           toast.info("Someone is sharing their screen");
         });
 
+        socket.on("screenshare-stopped", ({ peerId }) => {
+          setFocusedPeerId(null);
+          setLayoutMode("grid");
+        });
+
+        socket.on("media-file-shared", (data) => {
+          setRemoteFileBroadcast(data);
+          setLayoutMode("stage");
+        });
+
+        socket.on("media-file-stopped", () => {
+          setRemoteFileBroadcast(null);
+        });
+
         socket.on("syncMedia", (data) => {
           isRemoteUpdate.current = true;
           setIsSyncing(true);
@@ -810,6 +1053,8 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         socket.emit("getMediaState", roomId);
       } catch (err) {
         console.error("Failed to initialize media devices:", err);
+        setIsConnecting(false);
+        toast.error("Could not access camera/microphone. Please check your permissions.");
       }
     };
 
@@ -824,9 +1069,16 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     const wmInterval = setInterval(() => setWatermarkPos({ x: Math.random() * 80, y: Math.random() * 80 }), 8000);
 
     return () => {
+      // Emit leave-call before cleaning up
+      socket.emit("leave-call", { roomId });
+
       if (localStreamRef.current) {
         localStreamRef.current.getTracks().forEach(t => t.stop());
       }
+      Object.values(peers.current).forEach(call => {
+        try { call.close(); } catch (e) {}
+      });
+      peers.current = {};
       if (peerRef.current) {
         try { peerRef.current.destroy(); } catch (e) {}
       }
@@ -835,6 +1087,9 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       socket.off("user-disconnected-call");
       socket.off("user-media-change");
       socket.off("screenshare-started");
+      socket.off("screenshare-stopped");
+      socket.off("media-file-shared");
+      socket.off("media-file-stopped");
       socket.off("syncMedia");
       socket.off("meeting-control-denied");
       socket.off("reaction");
@@ -846,7 +1101,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     };
   }, [roomId, socket, userName, isAdmin]);
 
-
+  // ─── Prevent accidental tab close ───
   useEffect(() => {
     const handleBeforeUnload = (e) => {
       e.preventDefault();
@@ -857,70 +1112,67 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, []);
 
+  // ─── Media Sync ───
   useEffect(() => {
     if (!mediaRef.current || !activeMedia) return;
-    
+
     const v = mediaRef.current;
-    
-    // Always sync time if drift is significant
-    if (Math.abs(v.currentTime - activeMedia.time) > 1.2) {
-        v.currentTime = activeMedia.time;
+
+    // Increased drift threshold to 2.5s for smoother experience
+    if (Math.abs(v.currentTime - activeMedia.time) > 2.5) {
+      v.currentTime = activeMedia.time;
     }
 
-    // Handle Play/Pause sync
     const handleSync = async () => {
-        try {
-            if (activeMedia.playing && v.paused) {
-                // Try playing. If blocked, try muted as fallback
-                await v.play().catch(async () => {
-                    v.muted = true;
-                    await v.play();
-                    toast.info("Click anywhere to enable audio");
-                });
-            } else if (!activeMedia.playing && !v.paused) {
-                v.pause();
-            }
-        } catch (e) {
+      try {
+        if (activeMedia.playing && v.paused) {
+          await v.play().catch(async () => {
+            v.muted = true;
+            await v.play();
+            toast.info("Click anywhere to enable audio");
+            // Add a one-time click handler to unmute
+            const unmute = () => { v.muted = false; document.removeEventListener("click", unmute); };
+            document.addEventListener("click", unmute);
+          });
+        } else if (!activeMedia.playing && !v.paused) {
+          v.pause();
         }
+      } catch (e) { /* ignore autoplay errors */ }
     };
 
     if (isRemoteUpdate.current) {
-        handleSync();
-        // Reset flag after a delay to allow state stabilization
-        const t = setTimeout(() => { isRemoteUpdate.current = false; }, 1200);
-        return () => clearTimeout(t);
+      handleSync();
+      const t = setTimeout(() => { isRemoteUpdate.current = false; }, 1200);
+      return () => clearTimeout(t);
     }
   }, [activeMedia]);
 
-  // Heartbeat Sync to handle drift
+  // ─── Heartbeat Sync (admin only) ───
   useEffect(() => {
-      if (!isAdmin || !activeMedia || !activeMedia.playing || !mediaRef.current) return;
-      const interval = setInterval(() => {
-          if (mediaRef.current && !isRemoteUpdate.current) {
-              socket.emit("syncMedia", { 
-                  ...activeMedia, 
-                  time: mediaRef.current.currentTime, 
-                  heartbeat: true 
-              });
-          }
-      }, 5000);
-      return () => clearInterval(interval);
+    if (!isAdmin || !activeMedia || !activeMedia.playing || !mediaRef.current) return;
+    const interval = setInterval(() => {
+      if (mediaRef.current && !isRemoteUpdate.current) {
+        socket.emit("syncMedia", {
+          ...activeMedia,
+          time: mediaRef.current.currentTime,
+          heartbeat: true
+        });
+      }
+    }, 5000);
+    return () => clearInterval(interval);
   }, [isAdmin, activeMedia, socket]);
 
   const ytPlayerRef = useRef(null);
 
-  // Initialize YT Player if activeMedia is YouTube
+  // ─── YouTube Player Init ───
   useEffect(() => {
     if (!activeMedia || !activeMedia.url || !activeMedia.url.includes("youtu")) {
       ytPlayerRef.current = null;
       return;
     }
 
-    const isYoutube = activeMedia.url.includes("youtu");
-    if (!isYoutube) return;
-
-    const videoId = activeMedia.url.includes("youtu.be") 
-      ? activeMedia.url.split("/").pop() 
+    const videoId = activeMedia.url.includes("youtu.be")
+      ? activeMedia.url.split("/").pop()
       : activeMedia.url.split("v=")[1]?.split("&")[0];
 
     let player;
@@ -929,40 +1181,21 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       if (player) return;
       player = new window.YT.Player("youtube-sync-player", {
         videoId: videoId,
-        playerVars: {
-          autoplay: 1,
-          controls: 1,
-          rel: 0,
-          modestbranding: 1
-        },
+        playerVars: { autoplay: 1, controls: 1, rel: 0, modestbranding: 1 },
         events: {
           onReady: () => {
             ytPlayerRef.current = player;
-            if (activeMedia.playing) {
-              player.playVideo();
-            } else {
-              player.pauseVideo();
-            }
+            if (activeMedia.playing) player.playVideo();
+            else player.pauseVideo();
             player.seekTo(activeMedia.time || 0, true);
           },
           onStateChange: (event) => {
             if (!isAdmin || isRemoteUpdate.current) return;
-            // 1 = PLAYING, 2 = PAUSED
             const state = event.data;
             if (state === 1) {
-              socket.emit("syncMedia", {
-                url: activeMedia.url,
-                playing: true,
-                time: player.getCurrentTime(),
-                sender: userName
-              });
+              socket.emit("syncMedia", { url: activeMedia.url, playing: true, time: player.getCurrentTime(), sender: userName });
             } else if (state === 2) {
-              socket.emit("syncMedia", {
-                url: activeMedia.url,
-                playing: false,
-                time: player.getCurrentTime(),
-                sender: userName
-              });
+              socket.emit("syncMedia", { url: activeMedia.url, playing: false, time: player.getCurrentTime(), sender: userName });
             }
           }
         }
@@ -977,23 +1210,18 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
     } else {
       const checkYT = setInterval(() => {
-        if (window.YT && window.YT.Player) {
-          clearInterval(checkYT);
-          initPlayer();
-        }
+        if (window.YT && window.YT.Player) { clearInterval(checkYT); initPlayer(); }
       }, 100);
     }
 
     return () => {
-      if (player && typeof player.destroy === "function") {
-        player.destroy();
-      }
+      if (player && typeof player.destroy === "function") player.destroy();
       ytPlayerRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeMedia?.url, isAdmin, socket, userName]);
 
-  // Sync YT Player when activeMedia changes (remote updates)
+  // ─── YouTube Sync on Remote Update ───
   useEffect(() => {
     const player = ytPlayerRef.current;
     if (!player || !activeMedia || !activeMedia.url || !activeMedia.url.includes("youtu") || !player.seekTo) return;
@@ -1005,51 +1233,71 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         if (player.getPlayerState() !== 2) player.pauseVideo();
       }
       const playerTime = player.getCurrentTime();
-      if (Math.abs(playerTime - activeMedia.time) > 1.5) {
+      if (Math.abs(playerTime - activeMedia.time) > 2.5) {
         player.seekTo(activeMedia.time, true);
       }
     }
   }, [activeMedia]);
 
-  // Heartbeat YouTube Sync to handle drift
+  // ─── YouTube Heartbeat ───
   useEffect(() => {
     if (!isAdmin || !activeMedia || !activeMedia.url || !activeMedia.url.includes("youtu") || !activeMedia.playing) return;
     const interval = setInterval(() => {
       if (ytPlayerRef.current && ytPlayerRef.current.getCurrentTime && !isRemoteUpdate.current) {
-        socket.emit("syncMedia", {
-          ...activeMedia,
-          time: ytPlayerRef.current.getCurrentTime(),
-          heartbeat: true
-        });
+        socket.emit("syncMedia", { ...activeMedia, time: ytPlayerRef.current.getCurrentTime(), heartbeat: true });
       }
     }, 5000);
     return () => clearInterval(interval);
   }, [isAdmin, activeMedia, socket]);
 
-  const toggleMute = () => {
+  // ─── Re-attach video ref when video is toggled back on ───
+  useEffect(() => {
+    if (!isVideoOff && myVideoRef.current && localStreamRef.current) {
+      if (myVideoRef.current.srcObject !== localStreamRef.current) {
+        myVideoRef.current.srcObject = localStreamRef.current;
+      }
+    }
+  }, [isVideoOff]);
+
+  /* ═══════════════════════════════ ACTIONS ═══════════════════════════════ */
+
+  const toggleMute = useCallback(() => {
     if (localStream) {
       const nextMuted = !isMuted;
       localStream.getAudioTracks()[0].enabled = !nextMuted;
       setIsMuted(nextMuted);
       socket.emit("media-state-change", { peerId: myPeerId, isMuted: nextMuted, isVideoOff });
     }
-  };
+  }, [localStream, isMuted, isVideoOff, myPeerId, socket]);
 
-  const toggleVideo = () => {
+  const toggleVideo = useCallback(() => {
     if (localStream) {
       const nextVideoOff = !isVideoOff;
       localStream.getVideoTracks()[0].enabled = !nextVideoOff;
       setIsVideoOff(nextVideoOff);
       socket.emit("media-state-change", { peerId: myPeerId, isMuted, isVideoOff: nextVideoOff });
     }
-  };
+  }, [localStream, isVideoOff, isMuted, myPeerId, socket]);
+
+  const handleLeaveCall = useCallback(() => {
+    // Stop recording if active
+    if (recorderRef.current && recorderRef.current.state !== "inactive") {
+      recorderRef.current.stop();
+    }
+    // Stop local file broadcast if active
+    if (streamMediaSource) {
+      stopLocalFileBroadcast(streamMediaSource);
+    }
+    onClose();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onClose, streamMediaSource]);
 
   const startLocalFileBroadcast = async (file) => {
     try {
       const videoElement = document.createElement("video");
       videoElement.src = URL.createObjectURL(file);
       videoElement.playsInline = true;
-      videoElement.muted = true; // Mute locally to prevent feedback loop
+      videoElement.muted = true;
       videoElement.autoplay = true;
 
       await new Promise(r => { videoElement.onloadedmetadata = r; });
@@ -1071,20 +1319,16 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
       let mixedAudioTrack = null;
       let audioCtx = null;
-      let dest = null;
 
       if (videoAudioTrack && localStream) {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        dest = audioCtx.createMediaStreamDestination();
-
+        const dest = audioCtx.createMediaStreamDestination();
         const micStream = new MediaStream(localStream.getAudioTracks());
         const micSource = audioCtx.createMediaStreamSource(micStream);
         micSource.connect(dest);
-
         const fileStream = new MediaStream([videoAudioTrack]);
         const fileSource = audioCtx.createMediaStreamSource(fileStream);
         fileSource.connect(dest);
-
         mixedAudioTrack = dest.stream.getAudioTracks()[0];
       } else if (videoAudioTrack) {
         mixedAudioTrack = videoAudioTrack;
@@ -1105,25 +1349,20 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         if (call.peerConnection) {
           const senders = call.peerConnection.getSenders();
           const videoSender = senders.find(s => s.track?.kind === "video");
-          if (videoSender) {
-            await videoSender.replaceTrack(videoTrack);
-          }
+          if (videoSender) await videoSender.replaceTrack(videoTrack);
           if (mixedAudioTrack) {
             const audioSender = senders.find(s => s.track?.kind === "audio");
-            if (audioSender) {
-              await audioSender.replaceTrack(mixedAudioTrack);
-            }
+            if (audioSender) await audioSender.replaceTrack(mixedAudioTrack);
           }
         }
       });
 
       socket.emit("screenshare-started", { roomId, peerId: myPeerId });
+      socket.emit("media-file-shared", { name: file.name, type: file.type, sharerName: userName });
       setFocusedPeerId("local");
       setActiveMedia({ url: null, playing: true, time: 0, type: "local_stream", name: file.name });
 
-      videoElement.onended = () => {
-        stopLocalFileBroadcast(mediaSourceObj);
-      };
+      videoElement.onended = () => stopLocalFileBroadcast(mediaSourceObj);
     } catch (e) {
       toast.error(`Local file streaming failed: ${e.message}`);
     }
@@ -1141,13 +1380,9 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         if (call.peerConnection) {
           const senders = call.peerConnection.getSenders();
           const videoSender = senders.find(s => s.track?.kind === "video");
-          if (videoSender && originalVid) {
-            await videoSender.replaceTrack(originalVid);
-          }
+          if (videoSender && originalVid) await videoSender.replaceTrack(originalVid);
           const audioSender = senders.find(s => s.track?.kind === "audio");
-          if (audioSender && originalAud) {
-            await audioSender.replaceTrack(originalAud);
-          }
+          if (audioSender && originalAud) await audioSender.replaceTrack(originalAud);
         }
       });
 
@@ -1160,17 +1395,16 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         sourceObj.videoElement.removeAttribute("src");
         sourceObj.videoElement.load();
       }
-      if (sourceObj.localUrl) {
-        URL.revokeObjectURL(sourceObj.localUrl);
-      }
-      if (sourceObj.audioContext) {
-        sourceObj.audioContext.close();
-      }
+      if (sourceObj.localUrl) URL.revokeObjectURL(sourceObj.localUrl);
+      if (sourceObj.audioContext) sourceObj.audioContext.close();
 
       setStreamMediaSource(null);
       setActiveMedia(null);
       socket.emit("syncMedia", null);
+      socket.emit("screenshare-stopped", { peerId: myPeerId });
+      socket.emit("media-file-stopped");
       setFocusedPeerId(null);
+      setLayoutMode("grid");
     } catch (err) {
       console.error("Error stopping video broadcast:", err);
     }
@@ -1178,9 +1412,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
   const handleLocalFile = (e) => {
     const file = e.target.files[0];
-    if (file) {
-      startLocalFileBroadcast(file);
-    }
+    if (file) startLocalFileBroadcast(file);
   };
 
   const handleUrlBroadcast = () => {
@@ -1206,11 +1438,11 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
   const handleMediaAction = (action) => {
     if (!mediaRef.current || isRemoteUpdate.current) return;
-    const data = { 
-      url: activeMedia?.url, 
-      playing: action === "play" || (action === "seek" && !mediaRef.current.paused), 
-      time: mediaRef.current.currentTime, 
-      sender: userName 
+    const data = {
+      url: activeMedia?.url,
+      playing: action === "play" || (action === "seek" && !mediaRef.current.paused),
+      time: mediaRef.current.currentTime,
+      sender: userName
     };
     setActiveMedia(data);
     socket.emit("syncMedia", data);
@@ -1219,36 +1451,29 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const startScreenShare = async () => {
     try {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
-        toast.error("Screen sharing is unavailable in this browser. Use a supported Android browser or desktop browser.");
+        toast.error("Screen sharing is unavailable in this browser.");
         return;
       }
 
-      const screenStream = await navigator.mediaDevices.getDisplayMedia({ 
-        video: { 
-          cursor: "always",
-          width: { ideal: 1920, max: 1920 },
-          height: { ideal: 1080, max: 1080 },
-          frameRate: { ideal: 24, max: 30 }
-        },
+      const screenStream = await navigator.mediaDevices.getDisplayMedia({
+        video: { cursor: "always", width: { ideal: 1920, max: 1920 }, height: { ideal: 1080, max: 1080 }, frameRate: { ideal: 24, max: 30 } },
         audio: true
       });
 
       const videoTrack = screenStream.getVideoTracks()[0];
-      if ('contentHint' in videoTrack) {
-        videoTrack.contentHint = 'detail';
-      }
+      if ("contentHint" in videoTrack) videoTrack.contentHint = "detail";
 
       if (myVideoRef.current) myVideoRef.current.srcObject = screenStream;
 
       Object.values(peers.current).forEach(async (call) => {
         if (call.peerConnection) {
-          const sender = call.peerConnection.getSenders().find(s => s.track?.kind === 'video');
+          const sender = call.peerConnection.getSenders().find(s => s.track?.kind === "video");
           if (sender) {
             await sender.replaceTrack(videoTrack);
             const params = sender.getParameters();
             if (!params.encodings) params.encodings = [{}];
-            params.encodings[0].maxBitrate = 2500000; 
-            sender.setParameters(params).catch(e => {});
+            params.encodings[0].maxBitrate = 2500000;
+            sender.setParameters(params).catch(() => {});
           }
         }
       });
@@ -1257,9 +1482,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       socket.emit("screenshare-started", { roomId, peerId: myPeerId });
       setLayoutMode("stage");
 
-      videoTrack.onended = () => {
-        stopScreenShare();
-      };
+      videoTrack.onended = () => stopScreenShare();
     } catch (err) {
       toast.error(err.name === "NotAllowedError" ? "Screen sharing was cancelled." : "Unable to start screen sharing on this device.");
     }
@@ -1275,38 +1498,32 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
       Object.values(peers.current).forEach(async (call) => {
         if (call.peerConnection) {
-          const sender = call.peerConnection.getSenders().find(s => s.track?.kind === 'video');
-          if (sender && videoTrack) {
-            await sender.replaceTrack(videoTrack);
-          }
+          const sender = call.peerConnection.getSenders().find(s => s.track?.kind === "video");
+          if (sender && videoTrack) await sender.replaceTrack(videoTrack);
         }
       });
+
+      socket.emit("screenshare-stopped", { peerId: myPeerId });
       setFocusedPeerId(null);
+      setLayoutMode("grid");
     } catch (err) {
       console.error("Error stopping screen share:", err);
     }
   };
-
 
   const flipCamera = async () => {
     try {
       const newFacing = isFrontCamera ? "environment" : "user";
       const newStream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: newFacing },
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
-        }
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
       });
       const newVideoTrack = newStream.getVideoTracks()[0];
 
-      // Update local video display
       if (myVideoRef.current) myVideoRef.current.srcObject = newStream;
       setLocalStream(newStream);
       localStreamRef.current = newStream;
 
-      // Replace track on all peer connections
       Object.values(peers.current).forEach(call => {
         if (call.peerConnection) {
           const sender = call.peerConnection.getSenders().find(s => s.track?.kind === "video");
@@ -1322,92 +1539,69 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
   const toggleRecording = async () => {
     if (!isAdmin) {
-        toast.error("Only the room admin can record this meeting.");
-        return;
+      toast.error("Only the room admin can record this meeting.");
+      return;
     }
     if (isRecording) {
-        if (recorderRef.current && recorderRef.current.state !== 'inactive') {
-            recorderRef.current.stop();
-        }
-        setIsRecording(false);
-        return;
+      if (recorderRef.current && recorderRef.current.state !== "inactive") recorderRef.current.stop();
+      setIsRecording(false);
+      return;
     }
 
     try {
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
-            toast.error("Screen recording is not supported on your browser (e.g., older mobile Safari).");
-            return;
-        }
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+        toast.error("Screen recording is not supported on your browser.");
+        return;
+      }
 
-        // Capture screen with system audio
-        const displayStream = await navigator.mediaDevices.getDisplayMedia({
-            video: { cursor: "always" },
-            audio: true
-        });
+      const displayStream = await navigator.mediaDevices.getDisplayMedia({ video: { cursor: "always" }, audio: true });
 
-        const tracks = [...displayStream.getVideoTracks()];
-        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        const destination = audioContext.createMediaStreamDestination();
+      const tracks = [...displayStream.getVideoTracks()];
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const destination = audioContext.createMediaStreamDestination();
 
-        // Mix screen audio
-        if (displayStream.getAudioTracks().length > 0) {
-            const displayAudioSource = audioContext.createMediaStreamSource(new MediaStream(displayStream.getAudioTracks()));
-            displayAudioSource.connect(destination);
-        }
+      if (displayStream.getAudioTracks().length > 0) {
+        const displayAudioSource = audioContext.createMediaStreamSource(new MediaStream(displayStream.getAudioTracks()));
+        displayAudioSource.connect(destination);
+      }
 
-        // Mix local microphone audio
-        if (localStream && localStream.getAudioTracks().length > 0) {
-            const micAudioSource = audioContext.createMediaStreamSource(new MediaStream(localStream.getAudioTracks()));
-            micAudioSource.connect(destination);
-        }
+      if (localStream && localStream.getAudioTracks().length > 0) {
+        const micAudioSource = audioContext.createMediaStreamSource(new MediaStream(localStream.getAudioTracks()));
+        micAudioSource.connect(destination);
+      }
 
-        const mixedStream = new MediaStream([
-            ...tracks,
-            ...destination.stream.getTracks()
-        ]);
+      const mixedStream = new MediaStream([...tracks, ...destination.stream.getTracks()]);
 
-        let options = {};
-        if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')) {
-            options = { mimeType: 'video/webm;codecs=vp9,opus' };
-        } else if (MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')) {
-            options = { mimeType: 'video/webm;codecs=vp8,opus' };
-        } else if (MediaRecorder.isTypeSupported('video/webm')) {
-            options = { mimeType: 'video/webm' };
-        } else if (MediaRecorder.isTypeSupported('video/mp4')) {
-            options = { mimeType: 'video/mp4' };
-        }
+      let options = {};
+      if (MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")) options = { mimeType: "video/webm;codecs=vp9,opus" };
+      else if (MediaRecorder.isTypeSupported("video/webm;codecs=vp8,opus")) options = { mimeType: "video/webm;codecs=vp8,opus" };
+      else if (MediaRecorder.isTypeSupported("video/webm")) options = { mimeType: "video/webm" };
+      else if (MediaRecorder.isTypeSupported("video/mp4")) options = { mimeType: "video/mp4" };
 
-        const rec = new MediaRecorder(mixedStream, options);
-        recordedChunks.current = [];
-        rec.ondataavailable = (e) => {
-            if (e.data && e.data.size > 0) recordedChunks.current.push(e.data);
-        };
-        rec.onstop = () => {
-            const ext = options.mimeType && options.mimeType.includes('mp4') ? 'mp4' : 'webm';
-            const blob = new Blob(recordedChunks.current, { type: options.mimeType || "video/webm" });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url; a.download = `Meeting_Recording_${Date.now()}.${ext}`; a.click();
+      const rec = new MediaRecorder(mixedStream, options);
+      recordedChunks.current = [];
+      rec.ondataavailable = (e) => { if (e.data && e.data.size > 0) recordedChunks.current.push(e.data); };
+      rec.onstop = () => {
+        const ext = options.mimeType && options.mimeType.includes("mp4") ? "mp4" : "webm";
+        const blob = new Blob(recordedChunks.current, { type: options.mimeType || "video/webm" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url; a.download = `Meeting_Recording_${Date.now()}.${ext}`; a.click();
+        displayStream.getTracks().forEach(track => track.stop());
+        if (audioContext.state !== "closed") audioContext.close();
+        setIsRecording(false);
+      };
 
-            // Clean up
-            displayStream.getTracks().forEach(track => track.stop());
-            if (audioContext.state !== 'closed') audioContext.close();
-            setIsRecording(false);
-        };
+      displayStream.getVideoTracks()[0].onended = () => {
+        if (recorderRef.current && recorderRef.current.state !== "inactive") recorderRef.current.stop();
+      };
 
-        // Stop recording when user clicks "Stop Sharing" on browser banner
-        displayStream.getVideoTracks()[0].onended = () => {
-            if (recorderRef.current && recorderRef.current.state !== 'inactive') {
-                recorderRef.current.stop();
-            }
-        };
-
-        rec.start(1000);
-        recorderRef.current = rec;
-        setIsRecording(true);
-        toast.info("⏺ Recording Started. Your screen is being captured.");
+      rec.start(1000);
+      recorderRef.current = rec;
+      setIsRecording(true);
+      toast.info("⏺ Recording Started. Your screen is being captured.");
     } catch (err) {
-        toast.error("Recording canceled or unsupported.");
+      toast.error("Recording canceled or unsupported.");
     }
   };
 
@@ -1418,24 +1612,36 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     setTimeout(() => setReactions(p => p.filter(r => r.id !== id)), 3000);
   };
 
+  /* ═══════════════════════════════ COMPUTED ═══════════════════════════════ */
   const remoteEntries = Object.entries(remoteStreams);
-  const isStageMode = layoutMode === "stage" || !!activeMedia || focusedPeerId !== null;
-  const isPiPMode = isStageMode && remoteEntries.length === 1 && !activeMedia && !isMinimized;
+  const isStageMode = layoutMode === "stage" || !!activeMedia || focusedPeerId !== null || !!remoteFileBroadcast;
+  const isPiPMode = isStageMode && remoteEntries.length === 1 && !activeMedia && !isMinimized && !remoteFileBroadcast;
   const totalParticipantsCount = 1 + remoteEntries.length;
+
+  const allParticipants = [
+    { id: "local", name: userName, isMuted, isVideoOff },
+    ...remoteEntries.map(([id, info]) => ({
+      id,
+      name: info.name || "Participant",
+      isMuted: participantStates[id]?.isMuted || false,
+      isVideoOff: participantStates[id]?.isVideoOff || false
+    }))
+  ];
 
   const handleTileClick = (peerId) => {
     setFocusedPeerId(peerId);
     setLayoutMode("stage");
   };
 
+  /* ═══════════════════════════════ RENDER HELPERS ═══════════════════════════════ */
   const renderParticipantTiles = (isStrip = false) => {
     const tiles = [];
 
     // Local user
     tiles.push(
-      <VideoTile 
-        key="local" 
-        $isTalking={speakingPeers.local} 
+      <VideoTile
+        key="local"
+        $isTalking={speakingPeers.local}
         $isStrip={isStrip}
         onClick={() => handleTileClick("local")}
       >
@@ -1462,9 +1668,9 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       const peerMuted = peerState.isMuted;
 
       tiles.push(
-        <VideoTile 
-          key={id} 
-          $isTalking={speakingPeers[id]} 
+        <VideoTile
+          key={id}
+          $isTalking={speakingPeers[id]}
           $isStrip={isStrip}
           onClick={() => handleTileClick(id)}
         >
@@ -1476,14 +1682,14 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
               {peerMuted && <MutedBadge title="Muted"><FaMicrophoneSlash /></MutedBadge>}
             </PlaceholderAvatar>
           ) : (
-            <video 
-              autoPlay 
-              playsInline 
-              ref={el => { 
+            <video
+              autoPlay
+              playsInline
+              ref={el => {
                 if (el && info.stream && el.srcObject !== info.stream) {
-                  el.srcObject = info.stream; 
-                } 
-              }} 
+                  el.srcObject = info.stream;
+                }
+              }}
             />
           )}
           <NameTag>
@@ -1496,69 +1702,206 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     return tiles;
   };
 
+  const renderMainStageContent = () => {
+    // Focused peer view
+    if (focusedPeerId) {
+      const focusedIsVideoOff = focusedPeerId === "local" ? isVideoOff : (participantStates[focusedPeerId]?.isVideoOff);
+      const focusedName = focusedPeerId === "local" ? userName : (remoteStreams[focusedPeerId]?.name || "Participant");
+      const focusedIsMuted = focusedPeerId === "local" ? isMuted : (participantStates[focusedPeerId]?.isMuted);
+      const focusedIsTalking = speakingPeers[focusedPeerId];
+      const targetStream = focusedPeerId === "local" ? localStream : remoteStreams[focusedPeerId]?.stream;
+
+      return (
+        <div style={{ width: "100%", height: "100%", position: "relative" }}>
+          {focusedIsVideoOff ? (
+            <PlaceholderAvatar style={{ borderRadius: 28 }}>
+              <AvatarCircle $isTalking={focusedIsTalking} style={{ width: 120, height: 120, fontSize: "3rem" }}>
+                {getInitials(focusedName)}
+              </AvatarCircle>
+              {focusedIsMuted && <MutedBadge style={{ width: 36, height: 36, fontSize: "1.2rem", top: 20, right: 20 }} title="Muted"><FaMicrophoneSlash /></MutedBadge>}
+            </PlaceholderAvatar>
+          ) : (
+            <video
+              autoPlay
+              playsInline
+              muted={focusedPeerId === "local"}
+              ref={el => {
+                if (el && targetStream && el.srcObject !== targetStream) el.srcObject = targetStream;
+              }}
+              style={{ width: "100%", height: "100%", objectFit: "contain" }}
+            />
+          )}
+          <div style={{ position: "absolute", top: 20, left: 20, background: "rgba(0,0,0,0.6)", padding: "5px 15px", borderRadius: 20, display: "flex", alignItems: "center", gap: 10, zIndex: 100 }}>
+            <span>Viewing: {focusedPeerId === "local" ? "You" : remoteStreams[focusedPeerId]?.name}</span>
+            <button onClick={() => { setFocusedPeerId(null); setLayoutMode("grid"); }} style={{ background: "none", border: "none", color: "var(--chakra-colors-textPrimary)", cursor: "pointer", fontSize: "1rem" }}>✕</button>
+          </div>
+        </div>
+      );
+    }
+
+    // Active media (URL broadcast or local stream)
+    if (activeMedia) {
+      return (
+        <div key={activeMedia.url} style={{ width: "100%", height: "100%", position: "relative" }}>
+          {activeMedia.url?.includes("youtu") ? (
+            <div id="youtube-sync-player" style={{ width: "100%", height: "100%" }} />
+          ) : activeMedia.type === "local_stream" && !isAdmin ? (
+            // Non-admin sees "streaming in progress" overlay (the video comes via WebRTC peer track)
+            <FileBroadcastOverlay>
+              <FaDesktop size={48} style={{ opacity: 0.3 }} />
+              <div className="shimmer-text">{remoteFileBroadcast?.sharerName || "Admin"} is streaming: {remoteFileBroadcast?.name || activeMedia.name || "Media"}</div>
+              <span style={{ fontSize: "0.8rem", opacity: 0.4 }}>Audio and video are streamed live via the call</span>
+            </FileBroadcastOverlay>
+          ) : (
+            <video
+              ref={mediaRef}
+              src={activeMedia.url}
+              controls
+              playsInline
+              style={{ width: "100%", height: "100%" }}
+              onPlay={() => handleMediaAction("play")}
+              onPause={() => handleMediaAction("pause")}
+              onSeeked={() => handleMediaAction("seek")}
+            />
+          )}
+          <div style={{ position: "absolute", top: 20, left: 20, background: "rgba(0,0,0,0.6)", padding: "5px 15px", borderRadius: 20, display: "flex", alignItems: "center", gap: 10, zIndex: 100 }}>
+            <span>Shared Media: {activeMedia.name || "Broadcast"}</span>
+            {isAdmin && (
+              <button
+                onClick={() => {
+                  if (activeMedia.type === "local_stream") stopLocalFileBroadcast();
+                  else { setActiveMedia(null); socket.emit("syncMedia", null); }
+                }}
+                style={{ background: "rgba(255,71,87,0.8)", border: "none", color: "white", padding: "2px 8px", borderRadius: "6px", cursor: "pointer", fontSize: "0.8rem", fontWeight: "bold" }}
+              >
+                Stop
+              </button>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // Remote file broadcast overlay for non-admin when no activeMedia
+    if (remoteFileBroadcast && !isAdmin) {
+      return (
+        <FileBroadcastOverlay>
+          <FaDesktop size={48} style={{ opacity: 0.3 }} />
+          <div className="shimmer-text">{remoteFileBroadcast.sharerName || "Admin"} is streaming: {remoteFileBroadcast.name || "Media"}</div>
+          <span style={{ fontSize: "0.8rem", opacity: 0.4 }}>Audio and video are streamed live via the call</span>
+        </FileBroadcastOverlay>
+      );
+    }
+
+    // Empty stage
+    return <div style={{ opacity: 0.2 }}><FaDesktop size={100} /></div>;
+  };
+
+  /* ═══════════════════════════════ RENDER ═══════════════════════════════ */
   return (
     <MeetingOverlay ref={containerRef} $minimized={isMinimized} onClick={isMinimized ? () => setIsMinimized(false) : undefined}>
+      {/* ─── HEADER ─── */}
       <MeetingHeader $minimized={isMinimized}>
-        <div style={{ display: "flex", alignItems: "center", gap: "12px", minWidth: 0 }}>
+        <HeaderLeft>
           <div className="live-pulse" style={{ width: 8, height: 8, background: "#ff4757", borderRadius: "50%", flexShrink: 0 }} />
-          <h2 style={{ margin: 0, fontSize: "1rem", fontWeight: 700, letterSpacing: "-0.5px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Video call</h2>
+          <h2 style={{ margin: 0, fontSize: "1rem", fontWeight: 700, letterSpacing: "-0.5px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            Video Call
+          </h2>
           {!isMinimized && (
-            <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "rgba(255,255,255,0.06)", padding: "4px 8px", borderRadius: "10px", fontSize: "0.72rem", fontWeight: 650 }}>
-              {networkStatus === "good" && <span style={{ color: "#2ed573" }}>● Good Connection</span>}
-              {networkStatus === "poor" && <span style={{ color: "#ffa502" }}>● Weak Connection</span>}
-              {networkStatus === "fallback" && <span style={{ color: "#ff4757" }}>● Low Bandwidth Fallback</span>}
-            </div>
+            <>
+              <StatusChip>
+                {networkStatus === "good" && <span style={{ color: "#2ed573" }}>● Good</span>}
+                {networkStatus === "poor" && <span style={{ color: "#ffa502" }}>● Weak</span>}
+                {networkStatus === "fallback" && <span style={{ color: "#ff4757" }}>● Low BW</span>}
+              </StatusChip>
+              <TimerDisplay>{formatDuration(callDuration)}</TimerDisplay>
+              <div style={{ position: "relative" }}>
+                <ParticipantBadge onClick={(e) => { e.stopPropagation(); setShowParticipants(p => !p); }}>
+                  <FaUsers size={12} />
+                  {totalParticipantsCount}
+                </ParticipantBadge>
+                {showParticipants && (
+                  <ParticipantPopover onClick={(e) => e.stopPropagation()}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                      <span style={{ fontSize: "0.75rem", fontWeight: 700, opacity: 0.6 }}>IN THIS CALL</span>
+                      <button onClick={() => setShowParticipants(false)} style={{ background: "none", border: "none", color: "white", cursor: "pointer", opacity: 0.5, fontSize: "0.8rem" }}><FaTimes /></button>
+                    </div>
+                    {allParticipants.map(p => (
+                      <ParticipantRow key={p.id}>
+                        <ParticipantDot>{getInitials(p.name)}</ParticipantDot>
+                        <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}{p.id === "local" ? " (You)" : ""}</span>
+                        {p.isMuted && <FaMicrophoneSlash size={10} style={{ color: "#ff4757", flexShrink: 0 }} />}
+                        {p.isVideoOff && <FaVideoSlash size={10} style={{ color: "#ff4757", flexShrink: 0 }} />}
+                      </ParticipantRow>
+                    ))}
+                  </ParticipantPopover>
+                )}
+              </div>
+            </>
           )}
-        </div>
-        <div onClick={(event) => event.stopPropagation()} style={{ display: "flex", gap: "4px", background: "rgba(255,255,255,0.08)", padding: "4px", borderRadius: "14px", border: "1px solid rgba(255,255,255,0.12)", alignItems: "center" }}>
-          {isMinimized ? <CircleButton style={{ width: 32, height: 32, fontSize: ".8rem" }} onClick={() => setIsMinimized(false)} title="Return to call"><FaExpand /></CircleButton> : <>
-          {!isMinimized && (
-            <CircleButton 
-              style={{ width: 32, height: 32, fontSize: "0.8rem" }}
-              onClick={() => {
-                if (layoutMode === "grid") {
-                  setLayoutMode("stage");
-                  setFocusedPeerId(remoteEntries.length > 0 ? remoteEntries[0][0] : "local");
-                } else {
-                  setLayoutMode("grid");
-                  setFocusedPeerId(null);
-                }
-              }} 
-              title={layoutMode === "grid" ? "Switch to Stage View" : "Switch to Grid View"}
-            >
-              {layoutMode === "grid" ? <FaDesktop /> : <FaThLarge />}
-            </CircleButton>
+        </HeaderLeft>
+        <HeaderRight onClick={(e) => e.stopPropagation()}>
+          {isMinimized ? (
+            <CircleButton style={{ width: 32, height: 32, fontSize: ".8rem" }} onClick={() => setIsMinimized(false)} title="Return to call"><FaExpand /></CircleButton>
+          ) : (
+            <>
+              <CircleButton
+                style={{ width: 32, height: 32, fontSize: "0.8rem" }}
+                onClick={() => {
+                  if (layoutMode === "grid") {
+                    setLayoutMode("stage");
+                    setFocusedPeerId(remoteEntries.length > 0 ? remoteEntries[0][0] : "local");
+                  } else {
+                    setLayoutMode("grid");
+                    setFocusedPeerId(null);
+                  }
+                }}
+                title={layoutMode === "grid" ? "Switch to Stage View" : "Switch to Grid View"}
+              >
+                {layoutMode === "grid" ? <FaDesktop /> : <FaThLarge />}
+              </CircleButton>
+              <CircleButton
+                style={{ width: 32, height: 32, fontSize: "0.8rem" }}
+                onClick={toggleFullscreen}
+                title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+              >
+                {isFullscreen ? <FaCompress /> : <FaExpand />}
+              </CircleButton>
+              <CircleButton
+                style={{ width: 32, height: 32, fontSize: "0.8rem" }}
+                onClick={(event) => { event.stopPropagation(); setIsMinimized(true); }}
+                title="Minimize"
+              >
+                <FaWindowMinimize />
+              </CircleButton>
+            </>
           )}
-          <CircleButton 
-            style={{ width: 32, height: 32, fontSize: "0.8rem" }}
-            onClick={toggleFullscreen} 
-            title={isFullscreen ? "Exit Fullscreen (Esc)" : "Enter Fullscreen Mode"}
+          <Divider style={{ height: 16, margin: "0 4px" }} />
+          <CircleButton
+            $active={true}
+            style={isMinimized ? { width: 32, height: 32, fontSize: ".8rem" } : undefined}
+            onClick={handleLeaveCall}
+            title="Leave Meeting"
           >
-            {isFullscreen ? <FaCompress /> : <FaExpand />}
-          </CircleButton>
-          <CircleButton 
-            style={{ width: 32, height: 32, fontSize: "0.8rem" }}
-            onClick={(event) => { event.stopPropagation(); setIsMinimized(true); }}
-            title="Minimize call"
-          >
-            <FaWindowMinimize />
-          </CircleButton>
-          </>}
-          <div style={{ width: 1, height: 16, background: "rgba(255,255,255,0.1)", margin: "0 4px" }} />
-          <CircleButton $active={true} style={isMinimized ? { width: 32, height: 32, fontSize: ".8rem" } : undefined} onClick={onClose} title="Leave Meeting">
             <FaPhoneSlash />
           </CircleButton>
-        </div>
+        </HeaderRight>
       </MeetingHeader>
 
+      {/* ─── CONTENT ─── */}
       <ContentLayout $isAdmin={isAdmin} $minimized={isMinimized}>
         {isStageMode ? (
           <>
             <MainStage $minimized={isMinimized}>
+              {isConnecting && (
+                <ConnectingOverlay>
+                  <SpinnerRing />
+                  <span style={{ fontSize: "0.9rem", fontWeight: 600 }}>Connecting to meeting...</span>
+                  <span style={{ fontSize: "0.75rem", opacity: 0.5 }}>Setting up your camera and microphone</span>
+                </ConnectingOverlay>
+              )}
               {!isAdmin && <PrivacyGuard $minimized={isMinimized} show={!isFocused}><h3>Privacy watermark active</h3><p>Your name and a live timestamp remain visible during this call.</p></PrivacyGuard>}
-              {!isMinimized && <div style={{ position: "absolute", top: 10, left: 10, zIndex: 60, fontSize: "0.6rem", opacity: 0.3, color: "var(--chakra-colors-textPrimary)" }}>
-                  ID: {myPeerId || "Connecting..."}
-              </div>}
+              {!isMinimized && <div style={{ position: "absolute", top: 10, left: 10, zIndex: 60, fontSize: "0.6rem", opacity: 0.3, color: "var(--chakra-colors-textPrimary)" }}>ID: {myPeerId || "Connecting..."}</div>}
               {!isMinimized && <Watermark x={watermarkPos.x} y={watermarkPos.y}>{userName} | {new Date().toLocaleTimeString()} | CONFIDENTIAL</Watermark>}
               {isPiPMode && (
                 <FloatingPiP onClick={flipCamera} title="Tap to flip camera">
@@ -1571,71 +1914,12 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
               {reactions.map(r => (
                 <div key={r.id} style={{ position: "absolute", bottom: 0, left: `${r.x}%`, fontSize: "2.5rem", animation: "floatUp 3s ease-out forwards", zIndex: 100 }}>{r.emoji}</div>
               ))}
-              {!isMinimized && isSyncing && <div style={{ position: "absolute", top: 20, right: 20, color: "#4CAF50", display: "flex", alignItems: "center", gap: 10, background: "rgba(0,0,0,0.6)", padding: "8px 15px", borderRadius: "10px", backdropFilter: "blur(5px)" }}><FaSync style={{ animation: "spin 1s linear infinite" }} /> Real-time Syncing...</div>}
-              
-              {focusedPeerId ? (() => {
-                const focusedIsVideoOff = focusedPeerId === "local" ? isVideoOff : (participantStates[focusedPeerId]?.isVideoOff);
-                const focusedName = focusedPeerId === "local" ? userName : (remoteStreams[focusedPeerId]?.name || "Participant");
-                const focusedIsMuted = focusedPeerId === "local" ? isMuted : (participantStates[focusedPeerId]?.isMuted);
-                const focusedIsTalking = speakingPeers[focusedPeerId];
-                const targetStream = focusedPeerId === "local" ? localStream : remoteStreams[focusedPeerId]?.stream;
-
-                return (
-                  <div style={{ width: "100%", height: "100%", position: "relative" }}>
-                     {focusedIsVideoOff ? (
-                       <PlaceholderAvatar style={{ borderRadius: 28 }}>
-                         <AvatarCircle $isTalking={focusedIsTalking} style={{ width: 120, height: 120, fontSize: "3rem" }}>
-                           {getInitials(focusedName)}
-                         </AvatarCircle>
-                         {focusedIsMuted && <MutedBadge style={{ width: 36, height: 36, fontSize: "1.2rem", top: 20, right: 20 }} title="Muted"><FaMicrophoneSlash /></MutedBadge>}
-                       </PlaceholderAvatar>
-                     ) : (
-                       <video autoPlay playsInline ref={el => { if (el && el.srcObject !== targetStream) el.srcObject = targetStream; }} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
-                     )}
-                     <div style={{ position: "absolute", top: 20, left: 20, background: "rgba(0,0,0,0.6)", padding: "5px 15px", borderRadius: 20, display: "flex", alignItems: "center", gap: 10, zIndex: 100 }}>
-                        <span>Viewing: {focusedPeerId === "local" ? "You" : remoteStreams[focusedPeerId]?.name}</span>
-                        <button onClick={() => setFocusedPeerId(null)} style={{ background: "none", border: "none", color: "var(--chakra-colors-textPrimary)", cursor: "pointer" }}>✕</button>
-                     </div>
-                  </div>
-                );
-              })() : activeMedia ? (
-                <div key={activeMedia.url} style={{ width: "100%", height: "100%", position: "relative" }}>
-                   {activeMedia.url?.includes("youtu") ? (
-                      <div id="youtube-sync-player" style={{ width: "100%", height: "100%" }} />
-                    ) : (
-                      <video 
-                        ref={mediaRef} 
-                        src={activeMedia.url} 
-                        controls 
-                        playsInline
-                        style={{ width: "100%", height: "100%" }} 
-                        onPlay={() => handleMediaAction("play")} 
-                        onPause={() => handleMediaAction("pause")}
-                        onSeeked={() => handleMediaAction("seek")}
-                      />
-                   )}
-                   <div style={{ position: "absolute", top: 20, left: 20, background: "rgba(0,0,0,0.6)", padding: "5px 15px", borderRadius: 20, display: "flex", alignItems: "center", gap: 10, zIndex: 100 }}>
-                      <span>Shared Media: {activeMedia.name || "Broadcast"}</span>
-                      {isAdmin && (
-                        <button 
-                          onClick={() => {
-                            if (activeMedia.type === "local_stream") {
-                              stopLocalFileBroadcast();
-                            } else {
-                              setActiveMedia(null);
-                              socket.emit("syncMedia", null);
-                            }
-                          }} 
-                          style={{ background: "rgba(255,71,87,0.8)", border: "none", color: "white", padding: "2px 8px", borderRadius: "6px", cursor: "pointer", fontSize: "0.8rem", fontWeight: "bold" }}
-                        >
-                          Stop
-                        </button>
-                      )}
-                   </div>
+              {!isMinimized && isSyncing && (
+                <div style={{ position: "absolute", top: 20, right: 20, color: "#4CAF50", display: "flex", alignItems: "center", gap: 10, background: "rgba(0,0,0,0.6)", padding: "8px 15px", borderRadius: "10px", backdropFilter: "blur(5px)" }}>
+                  <FaSync style={{ animation: "spin 1s linear infinite" }} /> Real-time Syncing...
                 </div>
-              ) : (
-                <div style={{ opacity: 0.2 }}><FaDesktop size={100} /></div>
               )}
+              {renderMainStageContent()}
             </MainStage>
 
             {!isPiPMode && (
@@ -1645,107 +1929,122 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
             )}
           </>
         ) : (
-          <MeetingGrid $count={totalParticipantsCount} className="meeting-grid">
-            {renderParticipantTiles(false)}
-          </MeetingGrid>
+          <>
+            {isConnecting && (
+              <ConnectingOverlay style={{ borderRadius: 28 }}>
+                <SpinnerRing />
+                <span style={{ fontSize: "0.9rem", fontWeight: 600 }}>Connecting to meeting...</span>
+                <span style={{ fontSize: "0.75rem", opacity: 0.5 }}>Setting up your camera and microphone</span>
+              </ConnectingOverlay>
+            )}
+            <MeetingGrid $count={totalParticipantsCount} className="meeting-grid">
+              {renderParticipantTiles(false)}
+            </MeetingGrid>
+          </>
         )}
       </ContentLayout>
 
+      {/* ─── CONTROL BAR ─── */}
       <ControlBar $minimized={isMinimized}>
-        <CircleButton $active={isMuted} onClick={toggleMute} title={isMuted ? "Unmute Microphone" : "Mute Microphone"}>
+        <CircleButton $active={isMuted} onClick={toggleMute} title={isMuted ? "Unmute" : "Mute"}>
           {isMuted ? <FaMicrophoneSlash /> : <FaMicrophone />}
+          <ControlLabel>{isMuted ? "Unmute" : "Mute"}</ControlLabel>
         </CircleButton>
-        <CircleButton $active={isVideoOff} onClick={toggleVideo} title={isVideoOff ? "Turn Camera On" : "Turn Camera Off"}><FaVideo /></CircleButton>
-        <CircleButton onClick={flipCamera} title="Flip Camera"><FaExchangeAlt /></CircleButton>
-        <CircleButton onClick={startScreenShare} title="Share Your Screen with Others"><FaDesktop /></CircleButton>
-        
-        {isAdmin && (
-          <div style={{ display: "flex", gap: "10px", alignItems: "center", borderLeft: "1px solid rgba(255,255,255,0.1)", paddingLeft: "10px", marginLeft: "5px" }}>
-              {streamMediaSource ? (
-                <CircleButton 
-                  onClick={() => stopLocalFileBroadcast()} 
-                  title="Stop Local Video Broadcast"
-                  style={{ background: "#ff4757", borderColor: "#ff4757" }}
-                >
-                  <FaPhoneSlash />
-                </CircleButton>
-              ) : (
-                <label><CircleButton as="span" title="Broadcast a Video File from your computer"><FaFolderOpen /><input type="file" hidden accept="video/*" onChange={handleLocalFile} /></CircleButton></label>
-              )}
-              
-              <CircleButton 
-                onClick={() => setShowUrlInput(prev => !prev)} 
-                title="Broadcast a Video URL (YouTube, MP4)"
-                style={{ background: showUrlInput ? "rgba(0,191,165,0.2)" : "transparent", borderColor: showUrlInput ? "var(--chakra-colors-brandPrimary)" : "rgba(255,255,255,0.06)" }}
-              >
-                <FaLink />
-              </CircleButton>
+        <CircleButton $active={isVideoOff} onClick={toggleVideo} title={isVideoOff ? "Camera On" : "Camera Off"}>
+          {isVideoOff ? <FaVideoSlash /> : <FaVideo />}
+          <ControlLabel>{isVideoOff ? "Start" : "Stop"}</ControlLabel>
+        </CircleButton>
+        <CircleButton onClick={flipCamera} title="Flip Camera">
+          <FaExchangeAlt />
+          <ControlLabel>Flip</ControlLabel>
+        </CircleButton>
+        <CircleButton onClick={startScreenShare} title="Share Screen">
+          <FaDesktop />
+          <ControlLabel>Share</ControlLabel>
+        </CircleButton>
 
-              <CircleButton 
-                  $active={isRecording} 
-                  onClick={toggleRecording} 
-                  title={isRecording ? "Stop and save meeting recording" : "Start meeting recording (admin only)"}
-                  style={{ background: isRecording ? "#ff4757" : "transparent", borderColor: isRecording ? "#ff4757" : "rgba(255,71,87,0.3)" }}
+        {isAdmin && (
+          <>
+            <Divider />
+            {streamMediaSource ? (
+              <CircleButton
+                onClick={() => stopLocalFileBroadcast()}
+                title="Stop Local Video Broadcast"
+                style={{ background: "#ff4757", borderColor: "#ff4757" }}
               >
-                  <FaRecordVinyl color={isRecording ? "white" : "#ff4757"} />
+                <FaStop />
+                <ControlLabel>Stop File</ControlLabel>
               </CircleButton>
-          </div>
+            ) : (
+              <label>
+                <CircleButton as="span" title="Share a media file from your device">
+                  <FaFolderOpen />
+                  <ControlLabel>File</ControlLabel>
+                  <input type="file" hidden accept="video/*,audio/*" onChange={handleLocalFile} />
+                </CircleButton>
+              </label>
+            )}
+
+            <CircleButton
+              onClick={() => setShowUrlInput(prev => !prev)}
+              title="Share a URL (YouTube, MP4)"
+              style={{ background: showUrlInput ? "rgba(0,191,165,0.2)" : "transparent", borderColor: showUrlInput ? "var(--chakra-colors-brandPrimary)" : "rgba(255,255,255,0.06)" }}
+            >
+              <FaLink />
+              <ControlLabel>URL</ControlLabel>
+            </CircleButton>
+
+            <CircleButton
+              $active={isRecording}
+              onClick={toggleRecording}
+              title={isRecording ? "Stop Recording" : "Record Meeting"}
+              style={{ background: isRecording ? "#ff4757" : "transparent", borderColor: isRecording ? "#ff4757" : "rgba(255,71,87,0.3)" }}
+            >
+              <FaRecordVinyl color={isRecording ? "white" : "#ff4757"} />
+              <ControlLabel>{isRecording ? "Stop Rec" : "Record"}</ControlLabel>
+            </CircleButton>
+          </>
         )}
-        <div style={{ width: 1, height: 24, background: "rgba(255,255,255,0.1)", margin: "0 5px", flexShrink: 0 }} />
-        {["❤️", "👏", "😂"].map(e => <CircleButton key={e} onClick={() => sendReaction(e)} title={`Send ${e} reaction`} style={{ background: "transparent", border: "none" }}>{e}</CircleButton>)}
+
+        <Divider />
+        <CircleButton onClick={() => sendReaction("👋")} title="Raise Hand" style={{ background: "transparent", border: "none" }}>
+          <FaHandPaper />
+          <ControlLabel>Hand</ControlLabel>
+        </CircleButton>
+        {["❤️", "👏", "😂"].map(e => (
+          <CircleButton key={e} onClick={() => sendReaction(e)} title={`Send ${e}`} style={{ background: "transparent", border: "none" }}>
+            {e}
+          </CircleButton>
+        ))}
       </ControlBar>
 
+      {/* ─── URL INPUT OVERLAY ─── */}
       {showUrlInput && (
-        <div style={{
-          position: "absolute",
-          bottom: "90px",
-          left: "50%",
-          transform: "translateX(-50%)",
-          background: "rgba(15, 15, 20, 0.85)",
-          backdropFilter: "blur(24px)",
-          border: "1px solid rgba(255, 255, 255, 0.12)",
-          padding: "16px",
-          borderRadius: "20px",
-          zIndex: 1000,
-          display: "flex",
-          gap: "10px",
-          width: "min(400px, 90%)",
-          boxShadow: "0 20px 50px rgba(0,0,0,0.6)"
-        }}>
-          <input 
-            type="text" 
-            placeholder="Paste YouTube or direct MP4 URL..." 
+        <UrlInputOverlay>
+          <input
+            type="text"
+            placeholder="Paste YouTube or direct MP4 URL..."
             value={broadcastUrl}
             onChange={(e) => setBroadcastUrl(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleUrlBroadcast()}
             style={{
-              flex: 1,
-              background: "rgba(255,255,255,0.06)",
-              border: "1px solid rgba(255,255,255,0.1)",
-              borderRadius: "10px",
-              padding: "8px 12px",
-              color: "white",
-              fontSize: "0.9rem",
-              outline: "none"
+              flex: 1, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)",
+              borderRadius: "10px", padding: "8px 12px", color: "white", fontSize: "0.9rem", outline: "none"
             }}
           />
-          <button 
+          <button
             onClick={handleUrlBroadcast}
             style={{
-              background: "var(--chakra-colors-brandPrimary)",
-              border: "none",
-              borderRadius: "10px",
-              padding: "8px 16px",
-              color: "white",
-              fontSize: "0.9rem",
-              fontWeight: "600",
-              cursor: "pointer"
+              background: "var(--chakra-colors-brandPrimary)", border: "none", borderRadius: "10px",
+              padding: "8px 16px", color: "white", fontSize: "0.9rem", fontWeight: "600", cursor: "pointer"
             }}
           >
             Broadcast
           </button>
-        </div>
+        </UrlInputOverlay>
       )}
 
+      {/* ─── KEYFRAME STYLES ─── */}
       <style>{`
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         @keyframes floatUp { 0% { transform: translateY(0) scale(1); opacity: 1; } 100% { transform: translateY(-700px) scale(2.5); opacity: 0; } }

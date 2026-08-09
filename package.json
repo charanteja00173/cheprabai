@@ -34,12 +34,12 @@
     "start": "react-scripts start",
     "build": "CI=false react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "postinstall": "rm -f ./node_modules/@formatjs/fast-memoize/index.js.map ./node_modules/@formatjs/fast-memoize/lib/index.js.map || true"
   },
   "eslintConfig": {
     "extends": [
-      "react-app",
-      "react-app/jest"
+      "react-app"
     ]
   },
   "browserslist": {

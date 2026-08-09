@@ -19,16 +19,16 @@ const SettingsButton = styled.button`
   width: 40px;
   height: 40px;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: var(--chakra-colors-badgeBg);
+  border: 1px solid var(--chakra-colors-badgeBorder);
   flex-shrink: 0;
 
   &:hover {
     opacity: 1;
-    background: rgba(255, 255, 255, 0.06);
+    background: var(--chakra-colors-surfaceHover);
     border-color: var(--chakra-colors-brandPrimary);
     transform: rotate(45deg) scale(1.05);
-    box-shadow: 0 0 12px rgba(255, 63, 94, 0.15);
+    box-shadow: 0 0 12px var(--chakra-colors-brandGlow);
   }
 
   @media (max-width: 480px) {
@@ -59,7 +59,7 @@ const scaleUp = keyframes`
 const Overlay = styled.div`
   position: fixed;
   inset: 0;
-  background: rgba(8, 8, 12, 0.75);
+  background: rgba(8, 8, 12, 0.4);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   display: flex;
@@ -71,8 +71,8 @@ const Overlay = styled.div`
 `;
 
 const Modal = styled.div`
-  background: rgba(15, 15, 20, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--chakra-colors-surface);
+  border: 1px solid var(--chakra-colors-border);
   backdrop-filter: blur(40px);
   -webkit-backdrop-filter: blur(40px);
   border-radius: 24px;
@@ -82,9 +82,9 @@ const Modal = styled.div`
   max-height: 80vh;
   overflow-y: auto;
   box-shadow: 
-    0 4px 30px rgba(0, 0, 0, 0.3),
-    0 30px 70px rgba(0, 0, 0, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    0 4px 30px rgba(0, 0, 0, 0.15),
+    0 30px 70px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 var(--chakra-colors-borderSubtle);
   box-sizing: border-box;
   animation: ${scaleUp} 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 
@@ -110,8 +110,8 @@ const ModalTitle = styled.h3`
 `;
 
 const CloseButton = styled.button`
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: var(--chakra-colors-badgeBg);
+  border: 1px solid var(--chakra-colors-badgeBorder);
   color: var(--chakra-colors-textSecondary);
   cursor: pointer;
   font-size: 1rem;
@@ -125,8 +125,8 @@ const CloseButton = styled.button`
 
   &:hover {
     color: var(--chakra-colors-textPrimary);
-    background: rgba(255, 255, 255, 0.08);
-    border-color: rgba(255, 255, 255, 0.15);
+    background: var(--chakra-colors-surfaceHover);
+    border-color: var(--chakra-colors-brandPrimary);
     transform: scale(1.05);
   }
 `;
@@ -161,21 +161,21 @@ const ThemeOption = styled.button`
   padding: 12px 14px;
   min-height: 80px;
   border-radius: 16px;
-  border: 1px solid ${(p) => (p.$active ? "var(--chakra-colors-brandPrimary)" : "rgba(255, 255, 255, 0.06)")};
-  background: ${(p) => (p.$active ? "rgba(255, 255, 255, 0.04)" : "rgba(255, 255, 255, 0.01)")};
+  border: 1px solid ${(p) => (p.$active ? "var(--chakra-colors-brandPrimary)" : "var(--chakra-colors-border)")};
+  background: ${(p) => (p.$active ? "var(--chakra-colors-badgeBg)" : "var(--chakra-colors-bg)")};
   color: var(--chakra-colors-textPrimary);
   cursor: pointer;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   font-size: 0.88rem;
   box-sizing: border-box;
   width: 100%;
-  box-shadow: ${(p) => (p.$active ? "0 4px 12px rgba(0, 0, 0, 0.15)" : "none")};
+  box-shadow: ${(p) => (p.$active ? "0 4px 12px rgba(0, 0, 0, 0.1)" : "none")};
 
   &:hover {
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--chakra-colors-surfaceHover);
     transform: translateY(-2px);
-    border-color: ${(p) => (p.$active ? "var(--chakra-colors-brandPrimary)" : "rgba(255, 255, 255, 0.15)")};
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    border-color: ${(p) => (p.$active ? "var(--chakra-colors-brandPrimary)" : "var(--chakra-colors-brandSecondary)")};
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
   }
 `;
 
@@ -199,8 +199,8 @@ const FontOption = styled.button`
   padding: 12px 14px;
   min-height: 48px;
   border-radius: 14px;
-  border: 1px solid ${(p) => (p.$active ? "var(--chakra-colors-brandPrimary)" : "rgba(255, 255, 255, 0.06)")};
-  background: ${(p) => (p.$active ? "rgba(255, 255, 255, 0.04)" : "rgba(255, 255, 255, 0.01)")};
+  border: 1px solid ${(p) => (p.$active ? "var(--chakra-colors-brandPrimary)" : "var(--chakra-colors-border)")};
+  background: ${(p) => (p.$active ? "var(--chakra-colors-badgeBg)" : "var(--chakra-colors-bg)")};
   color: var(--chakra-colors-textPrimary);
   cursor: pointer;
   transition: all 0.2s ease;
@@ -214,10 +214,10 @@ const FontOption = styled.button`
   box-sizing: border-box;
 
   &:hover {
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--chakra-colors-surfaceHover);
     transform: translateY(-2px);
-    border-color: ${(p) => (p.$active ? "var(--chakra-colors-brandPrimary)" : "rgba(255, 255, 255, 0.15)")};
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    border-color: ${(p) => (p.$active ? "var(--chakra-colors-brandPrimary)" : "var(--chakra-colors-brandSecondary)")};
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   }
 `;
 

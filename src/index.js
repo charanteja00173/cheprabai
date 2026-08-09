@@ -4,17 +4,7 @@ import './index.css';
 import App from './App';
 
 /* ================= PRODUCTION SECURITY ================= */
-// Suppress all console output permanently
-const noop = () => {};
-["log", "warn", "error", "info", "debug", "trace", "dir", "table", "clear"].forEach((method) => {
-  try {
-    Object.defineProperty(window.console, method, {
-      value: noop,
-      writable: false,
-      configurable: false
-    });
-  } catch (e) {}
-});
+// Keep console output enabled for debugging.
 
 // Disable right-click context menu
 document.addEventListener("contextmenu", (e) => e.preventDefault());
@@ -56,10 +46,10 @@ document.addEventListener("selectstart", (e) => {
 
 /* ================= GLOBAL ERROR BOUNDARY ================= */
 window.addEventListener("error", (e) => {
-  e.preventDefault();
+  console.error("Global error:", e.error || e.message, e.filename, e.lineno, e.colno, e.error);
 });
 window.addEventListener("unhandledrejection", (e) => {
-  e.preventDefault();
+  console.error("Unhandled rejection:", e.reason);
 });
 
 const root = ReactDOM.createRoot(document.getElementById('root'));

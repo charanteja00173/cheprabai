@@ -476,31 +476,7 @@ export default function AdminDashboard() {
     setPreviewItem(null);
   };
 
-  const handleAction = async (item, action) => {
-    if (!item.encrypted) {
-      if (action === "download") {
-        try {
-          const response = await fetch(`${backendUrl}/api/proxy-file?url=${encodeURIComponent(item.url)}`);
-          if (!response.ok) throw new Error("Download failed");
-          const blob = await response.blob();
-          const anchor = document.createElement("a");
-          anchor.href = URL.createObjectURL(blob);
-          anchor.download = item.name || "download";
-          anchor.click();
-          URL.revokeObjectURL(anchor.href);
-          toast.success("File downloaded.");
-        } catch (error) {
-          toast.error("Download failed.");
-        }
-      } else {
-        setPreviewItem(item);
-      }
-      return;
-    }
-    setDecryptTarget(item);
-    setDecryptAction(action);
-    setRoomCode("");
-  };
+  
 
   const executeDecryption = async () => {
     if (!decryptTarget) return;
@@ -941,7 +917,7 @@ export default function AdminDashboard() {
                     <tr key={item.id}>
                       <td><button type="button" onClick={() => setPreviewItem(item)} title="Preview file" style={{ border: 0, padding: 0, background: "transparent", cursor: "pointer" }}>{renderPreview(item)}</button></td>
                       <td>
-                        <FileLink href={item.url} onClick={(e) => { e.preventDefault(); setDecryptTarget(item); }}>
+                        <FileLink href={item.url} onClick={(e) => { e.preventDefault(); setDecryptTarget(item); setDecryptAction('download'); }}>
                           <FaDownload style={{ flexShrink: 0, color: "var(--chakra-colors-brandPrimary)" }} />
                           {item.name}
                         </FileLink>
@@ -981,8 +957,8 @@ export default function AdminDashboard() {
               </GridTable>
             </TableCard> : <UploadGrid>
               {filteredUploads.map((item) => (
-                <UploadGridCard key={item.id}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}><button type="button" onClick={() => setPreviewItem(item)} title="Preview file" style={{ border: 0, padding: 0, background: "transparent", cursor: "pointer" }}>{renderPreview(item)}</button><div style={{ minWidth: 0, flex: 1 }}><FileLink href={item.url} onClick={(e) => { e.preventDefault(); setDecryptTarget(item); }} style={{ padding: 0, border: 0, background: "transparent" }}>{item.name}</FileLink><div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}><Badge>{(item.source || "realtime") === "cloudinary" ? "Cloudinary" : "Realtime"}</Badge>{item.type && <Badge $brand>{item.type.split('/')[0]}</Badge>}</div></div><ActionButton onClick={() => setPreviewItem(item)} title="Preview file"><FaEye /></ActionButton></div>
+                    <UploadGridCard key={item.id}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}><button type="button" onClick={() => setPreviewItem(item)} title="Preview file" style={{ border: 0, padding: 0, background: "transparent", cursor: "pointer" }}>{renderPreview(item)}</button><div style={{ minWidth: 0, flex: 1 }}><FileLink href={item.url} onClick={(e) => { e.preventDefault(); setDecryptTarget(item); setDecryptAction('download'); }} style={{ padding: 0, border: 0, background: "transparent" }}>{item.name}</FileLink><div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}><Badge>{(item.source || "realtime") === "cloudinary" ? "Cloudinary" : "Realtime"}</Badge>{item.type && <Badge $brand>{item.type.split('/')[0]}</Badge>}</div></div><ActionButton onClick={() => setPreviewItem(item)} title="Preview file"><FaEye /></ActionButton></div>
                   <div style={{ display: "grid", gap: 5, fontSize: ".78rem", color: "var(--chakra-colors-textSecondary)" }}><span>Room: <strong style={{ color: "var(--chakra-colors-textPrimary)" }}>{item.roomId}</strong></span><span>By: <strong style={{ color: "var(--chakra-colors-textPrimary)" }}>{item.uploadedBy}</strong></span><span>{new Date(item.timestamp).toLocaleString()}</span></div>
                   <ActionButton $danger onClick={() => handleDelete(item.roomId, item.id)} style={{ justifyContent: "center" }}><FaTrash /> Delete permanently</ActionButton>
                 </UploadGridCard>
@@ -1024,9 +1000,9 @@ export default function AdminDashboard() {
           </div>
         )}
       </ContentContainer>
-      {previewItem && <div role="dialog" aria-modal="true" aria-label="File preview" onClick={() => setPreviewItem(null)} style={{ position: "fixed", inset: 0, zIndex: 12000, background: "rgba(0,0,0,.76)", backdropFilter: "blur(8px)", padding: 20, display: "grid", placeItems: "center" }}>
-        <div onClick={(event) => event.stopPropagation()} style={{ width: "min(760px, 100%)", maxHeight: "90dvh", overflow: "auto", borderRadius: 20, padding: 16, background: "#151720", border: "1px solid rgba(255,255,255,.14)", boxShadow: "0 28px 80px rgba(0,0,0,.55)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}><strong style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{previewItem.name}</strong><ActionButton onClick={() => setPreviewItem(null)}>Close</ActionButton></div>
+      {previewItem && <div role="dialog" aria-modal="true" aria-label="File preview" onClick={closePreview} style={{ position: "fixed", inset: 0, zIndex: 12000, background: "rgba(0,0,0,.76)", backdropFilter: "blur(8px)", padding: 20, display: "grid", placeItems: "center" }}>
+          <div onClick={(event) => event.stopPropagation()} style={{ width: "min(760px, 100%)", maxHeight: "90dvh", overflow: "auto", borderRadius: 20, padding: 16, background: "#151720", border: "1px solid rgba(255,255,255,.14)", boxShadow: "0 28px 80px rgba(0,0,0,.55)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}><strong style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{previewItem.name}</strong><ActionButton onClick={closePreview}>Close</ActionButton></div>
           {(previewItem.type || "").startsWith("image/") ? <img src={previewItem.url} alt={previewItem.name} style={{ display: "block", width: "100%", maxHeight: "68dvh", objectFit: "contain", borderRadius: 12, background: "#090a0e" }} /> : (previewItem.type || "").startsWith("video/") ? <video src={previewItem.url} controls autoPlay playsInline style={{ display: "block", width: "100%", maxHeight: "68dvh", borderRadius: 12, background: "#090a0e" }} /> : <a href={previewItem.url} target="_blank" rel="noreferrer" style={{ display: "block", padding: 30, textAlign: "center", color: "var(--chakra-colors-brandPrimary)" }}>Open this file in a new tab</a>}
         </div>
       </div>}
