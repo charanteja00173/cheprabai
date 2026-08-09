@@ -810,6 +810,54 @@ const SyncIndicator = styled.div`
   }
 `;
 
+// ═══════════════════════════════ SPEAKING INDICATOR ═══════════════════════════════
+const SpeakingIndicator = styled.div`
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(46, 213, 115, 0.2);
+  border: 1px solid rgba(46, 213, 115, 0.3);
+  padding: 4px 16px;
+  border-radius: 20px;
+  font-size: clamp(0.6rem, 0.9vw, 0.75rem);
+  color: #2ed573;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  animation: ${breathe} 1.5s ease-in-out infinite;
+  z-index: 10;
+`;
+
+const FocusedPeerOverlay = styled.div`
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(10px);
+  padding: 6px 16px;
+  border-radius: 12px;
+  font-size: clamp(0.6rem, 1vw, 0.8rem);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 10;
+`;
+
+const FocusedPeerCloseButton = styled.button`
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  font-size: 1rem;
+  opacity: 0.6;
+  padding: 0 4px;
+  
+  &:hover {
+    opacity: 1;
+  }
+`;
+
 /* ═══════════════════════════════ HELPERS ═══════════════════════════════ */
 const getInitials = (name) => {
   if (!name) return "?";
@@ -2146,56 +2194,19 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
               style={{ width: '100%', height: '100%', objectFit: 'contain' }}
             />
           )}
-          <div style={{ 
-            position: 'absolute', 
-            top: 16, 
-            left: 16, 
-            background: 'rgba(0,0,0,0.7)',
-            backdropFilter: 'blur(10px)',
-            padding: '6px 16px',
-            borderRadius: '12px',
-            fontSize: 'clamp(0.6rem, 1vw, 0.8rem)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            zIndex: 10
-          }}>
+          <FocusedPeerOverlay>
             <span>Viewing: {focusedName}</span>
-            <button 
+            <FocusedPeerCloseButton 
               onClick={() => { setFocusedPeerId(null); setLayoutMode("grid"); }}
-              style={{ 
-                background: 'none', 
-                border: 'none', 
-                color: 'white', 
-                cursor: 'pointer',
-                fontSize: '1rem',
-                opacity: 0.6,
-                padding: '0 4px'
-              }}
             >
               ✕
-            </button>
-          </div>
+            </FocusedPeerCloseButton>
+          </FocusedPeerOverlay>
           {focusedIsTalking && (
-            <div style={{ 
-              position: 'absolute', 
-              bottom: 20, 
-              left: '50%', 
-              transform: 'translateX(-50%)',
-              background: 'rgba(46, 213, 115, 0.2)',
-              border: '1px solid rgba(46, 213, 115, 0.3)',
-              padding: '4px 16px',
-              borderRadius: '20px',
-              fontSize: 'clamp(0.6rem, 0.9vw, 0.75rem)',
-              color: '#2ed573',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              animation: `${breathe} 1.5s ease-in-out infinite`
-            }}>
+            <SpeakingIndicator>
               <span style={{ width: 8, height: 8, background: '#2ed573', borderRadius: '50%', display: 'inline-block' }} />
               Speaking
-            </div>
+            </SpeakingIndicator>
           )}
         </>
       );
