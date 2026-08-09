@@ -1062,14 +1062,14 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const callStartTime = useRef(Date.now());
   const ytPlayerRef = useRef(null);
   const broadcastVideoRef = useRef(null);
+  const reconnectAttempts = useRef(0);
+  const maxReconnectAttempts = 5;
 
   // ─── Get controlled media element ───
   const getControlledMedia = useCallback(() => {
-    // For local file broadcast, use the broadcast video element
     if (activeMedia?.type === "local_stream") {
       return broadcastVideoRef.current || localMediaRef.current;
     }
-    // For URL media, use the media element
     return mediaRef.current;
   }, [activeMedia?.type]);
 
@@ -1203,6 +1203,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
     const handleCallEvents = (call, remotePeerId) => {
       call.on("stream", (rem) => {
+        console.log(`✅ Received stream from ${remotePeerId}`);
         setRemoteStreams(p => ({
           ...p,
           [remotePeerId]: {
@@ -1211,11 +1212,34 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
           }
         }));
       });
-      call.on("close", () => cleanupPeer(remotePeerId));
-      call.on("error", (e) => {
-        console.error(`Call error with peer ${remotePeerId}:`, e);
+      call.on("close", () => {
+        console.log(`🔴 Call closed with ${remotePeerId}`);
         cleanupPeer(remotePeerId);
       });
+      call.on("error", (e) => {
+        console.error(`❌ Call error with peer ${remotePeerId}:`, e);
+        cleanupPeer(remotePeerId);
+      });
+    };
+
+    const callPeer = (peerId) => {
+      if (!localStreamRef.current || !peerRef.current) return;
+      if (peers.current[peerId]) return;
+      if (peerId === myPeerId) return;
+
+      console.log(`📞 Attempting to call peer: ${peerId}`);
+      try {
+        const call = peerRef.current.call(peerId, localStreamRef.current);
+        if (call) {
+          handleCallEvents(call, peerId);
+          peers.current[peerId] = call;
+          console.log(`✅ Successfully called peer: ${peerId}`);
+          return true;
+        }
+      } catch (e) {
+        console.error(`❌ Error calling peer ${peerId}:`, e);
+        return false;
+      }
     };
 
     const init = async () => {
@@ -1233,12 +1257,28 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         setLocalStream(stream);
         if (myVideoRef.current) myVideoRef.current.srcObject = stream;
 
+        // ✅ Updated ICE servers with TURN for better NAT traversal
         const iceServers = [
           { urls: "stun:stun.l.google.com:19302" },
           { urls: "stun:stun1.l.google.com:19302" },
           { urls: "stun:stun2.l.google.com:19302" },
           { urls: "stun:stun3.l.google.com:19302" },
-          { urls: "stun:stun4.l.google.com:19302" }
+          { urls: "stun:stun4.l.google.com:19302" },
+          // ✅ Public TURN servers for NAT traversal
+          {
+            urls: [
+              'turn:turn.anyfirewall.com:443?transport=tcp',
+              'turn:turn.anyfirewall.com:3478?transport=udp'
+            ],
+            username: 'anyfirewall',
+            credential: 'anyfirewall'
+          },
+          // ✅ Google's TURN server as fallback
+          {
+            urls: 'turn:turn.anyfirewall.com:443?transport=tcp',
+            username: 'anyfirewall',
+            credential: 'anyfirewall'
+          }
         ];
 
         if (process.env.REACT_APP_TURN_URL) {
@@ -1260,37 +1300,74 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         peer.on("open", (id) => {
           setMyPeerId(id);
           setIsConnecting(false);
+          reconnectAttempts.current = 0;
+          console.log(`✅ PeerJS opened with ID: ${id}`);
           socket.emit("join-call", { roomId, peerId: id, userName, isMuted: false, isVideoOff: false });
         });
 
         peer.on("call", (call) => {
-          call.answer(localStreamRef.current);
-          handleCallEvents(call, call.peer);
-          peers.current[call.peer] = call;
+          console.log(`📞 Incoming call from: ${call.peer}`);
+          if (localStreamRef.current) {
+            call.answer(localStreamRef.current);
+            handleCallEvents(call, call.peer);
+            peers.current[call.peer] = call;
+          }
         });
 
+        // ✅ Enhanced error handling with reconnection
         peer.on("error", (err) => {
-          console.error("PeerJS error:", err);
+          console.error("❌ PeerJS error:", err);
           if (err.type === "disconnected") {
-            toast.warning("Disconnected from meeting server. Reconnecting...");
-            peer.reconnect();
+            if (reconnectAttempts.current < maxReconnectAttempts) {
+              reconnectAttempts.current++;
+              toast.warning(`Disconnected. Reconnecting (attempt ${reconnectAttempts.current}/${maxReconnectAttempts})...`);
+              setTimeout(() => {
+                try {
+                  peer.reconnect();
+                } catch (e) {
+                  console.error("Reconnection attempt failed:", e);
+                }
+              }, 2000 * reconnectAttempts.current);
+            } else {
+              toast.error("Failed to reconnect after multiple attempts. Please refresh the page.");
+            }
           } else if (err.type === "network") {
-            toast.error("Network error. Checking signaling path...");
+            toast.error("Network error. Please check your connection.");
           } else if (err.type === "peer-unavailable") {
             const peerIdStr = err.message.split(" ").pop();
             if (peerIdStr) cleanupPeer(peerIdStr);
           }
         });
 
+        // ✅ Peer reconnection handling
         peer.on("disconnected", () => {
-          console.log("PeerJS disconnected. Attempting reconnection...");
-          peer.reconnect();
+          console.log("⚠️ PeerJS disconnected. Attempting reconnection...");
+          toast.warning("Connection lost. Reconnecting...");
+          setTimeout(() => {
+            try {
+              peer.reconnect();
+            } catch (e) {
+              console.error("Reconnection failed:", e);
+              toast.error("Failed to reconnect. Please refresh the page.");
+            }
+          }, 2000);
+        });
+
+        peer.on("connecting", () => {
+          console.log("🔄 PeerJS connecting...");
+        });
+
+        peer.on("connected", () => {
+          console.log("✅ PeerJS connected successfully!");
+          reconnectAttempts.current = 0;
+          toast.success("Reconnected to meeting!");
         });
 
         peerRef.current = peer;
 
         // ─── Socket Event Handlers ───
         socket.on("existing-callers", (callers) => {
+          console.log("📋 Existing callers:", callers);
           callers.forEach(({ peerId, name, isMuted: peerMuted, isVideoOff: peerVideoOff }) => {
             setRemoteStreams(p => ({ ...p, [peerId]: { stream: p[peerId]?.stream || null, name } }));
             setParticipantStates(p => ({
@@ -1301,18 +1378,15 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
           setTimeout(() => {
             callers.forEach(({ peerId, name }) => {
-              if (localStreamRef.current && peerRef.current && !peers.current[peerId]) {
-                const call = peerRef.current.call(peerId, localStreamRef.current);
-                if (call) {
-                  handleCallEvents(call, peerId);
-                  peers.current[peerId] = call;
-                }
+              if (peerId !== myPeerId) {
+                callPeer(peerId);
               }
             });
           }, 500);
         });
 
         socket.on("user-connected-call", ({ peerId, name, isMuted: peerMuted, isVideoOff: peerVideoOff }) => {
+          console.log(`👤 User connected: ${name} (${peerId})`);
           setRemoteStreams(p => ({ ...p, [peerId]: { stream: p[peerId]?.stream || null, name } }));
           setParticipantStates(p => ({
             ...p,
@@ -1320,15 +1394,37 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
           }));
 
           setTimeout(() => {
-            if (localStreamRef.current && peerRef.current && !peers.current[peerId]) {
-              const call = peerRef.current.call(peerId, localStreamRef.current);
-              if (call) {
-                handleCallEvents(call, peerId);
-                peers.current[peerId] = call;
-                toast.info(`${name} joined the call`);
+            if (peerId !== myPeerId) {
+              const success = callPeer(peerId);
+              if (!success) {
+                // Retry after delay
+                setTimeout(() => {
+                  if (!peers.current[peerId]) {
+                    callPeer(peerId);
+                  }
+                }, 2000);
               }
             }
           }, 300);
+        });
+
+        // ✅ Connection verification listener
+        socket.on("connection-verified", ({ message }) => {
+          console.log("✅ Connection verified:", message);
+          toast.success("Connected to call successfully!");
+        });
+
+        // ✅ Peer connection status listener
+        socket.on("peer-connection-status", ({ peerIds, connected }) => {
+          console.log("📊 Peer connection status:", { peerIds, connected });
+          if (!connected) {
+            console.warn("⚠️ Not connected to all peers, attempting reconnection...");
+            peerIds.forEach(peerId => {
+              if (peerId !== myPeerId && !peers.current[peerId]) {
+                callPeer(peerId);
+              }
+            });
+          }
         });
 
         // Audio Activity Detection
@@ -1367,6 +1463,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         }
 
         socket.on("user-disconnected-call", (id) => {
+          console.log(`👋 User disconnected: ${id}`);
           cleanupPeer(id);
         });
 
@@ -1421,6 +1518,34 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
           });
         });
 
+        // ✅ Socket reconnection handling
+        socket.on("connect", () => {
+          console.log("🔌 Socket reconnected");
+          if (myPeerId) {
+            socket.emit("join-call", { roomId, peerId: myPeerId, userName, isMuted, isVideoOff });
+          }
+        });
+
+        socket.on("disconnect", (reason) => {
+          console.log("🔌 Socket disconnected:", reason);
+          if (reason === "io server disconnect") {
+            socket.connect();
+          }
+        });
+
+        socket.on("connect_error", (error) => {
+          console.error("❌ Socket connection error:", error);
+          toast.error("Connection error. Attempting to reconnect...");
+        });
+
+        socket.on("reconnect_attempt", (attemptNumber) => {
+          console.log(`🔄 Reconnection attempt ${attemptNumber}`);
+        });
+
+        socket.on("reconnect_failed", () => {
+          toast.error("Failed to reconnect to server. Please refresh the page.");
+        });
+
         socket.emit("getMediaState", roomId);
       } catch (err) {
         console.error("Failed to initialize media devices:", err);
@@ -1459,9 +1584,100 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       socket.off("meeting-control-denied");
       socket.off("reaction");
       socket.off("user-talking-change");
+      socket.off("connection-verified");
+      socket.off("peer-connection-status");
+      socket.off("connect");
+      socket.off("disconnect");
+      socket.off("connect_error");
+      socket.off("reconnect_attempt");
+      socket.off("reconnect_failed");
       document.removeEventListener("contextmenu", handleContextMenu);
     };
-  }, [roomId, socket, userName, isAdmin]);
+  }, [roomId, socket, userName, isAdmin, myPeerId]);
+
+  // ─── Force reconnection for all peers ───
+  const forceReconnectAll = useCallback(() => {
+    const remotePeerIds = Object.keys(remoteStreams);
+    remotePeerIds.forEach(peerId => {
+      if (!peers.current[peerId] && peerId !== myPeerId) {
+        console.log(`🔄 Force reconnecting to ${peerId}`);
+        try {
+          if (peerRef.current && localStreamRef.current) {
+            const call = peerRef.current.call(peerId, localStreamRef.current);
+            if (call) {
+              const handleCallEvents = (call, remotePeerId) => {
+                call.on("stream", (rem) => {
+                  setRemoteStreams(p => ({
+                    ...p,
+                    [remotePeerId]: {
+                      stream: rem,
+                      name: p[remotePeerId]?.name || "Participant"
+                    }
+                  }));
+                });
+                call.on("close", () => {
+                  if (peers.current[remotePeerId]) {
+                    try { peers.current[remotePeerId].close(); } catch (e) {}
+                    delete peers.current[remotePeerId];
+                  }
+                });
+                call.on("error", (e) => {
+                  console.error(`Call error with peer ${remotePeerId}:`, e);
+                });
+              };
+              handleCallEvents(call, peerId);
+              peers.current[peerId] = call;
+            }
+          }
+        } catch (e) {
+          console.error(`Error force reconnecting to ${peerId}:`, e);
+        }
+      }
+    });
+  }, [remoteStreams, myPeerId]);
+
+  // ─── Reconnect when remote streams change ───
+  useEffect(() => {
+    const remotePeerIds = Object.keys(remoteStreams);
+    remotePeerIds.forEach(peerId => {
+      if (!peers.current[peerId] && peerId !== myPeerId && localStreamRef.current) {
+        console.log(`🔄 Auto-reconnecting to ${peerId}`);
+        setTimeout(() => {
+          try {
+            if (peerRef.current && localStreamRef.current) {
+              const call = peerRef.current.call(peerId, localStreamRef.current);
+              if (call) {
+                const handleCallEvents = (call, remotePeerId) => {
+                  call.on("stream", (rem) => {
+                    setRemoteStreams(p => ({
+                      ...p,
+                      [remotePeerId]: {
+                        stream: rem,
+                        name: p[remotePeerId]?.name || "Participant"
+                      }
+                    }));
+                  });
+                  call.on("close", () => {
+                    if (peers.current[remotePeerId]) {
+                      try { peers.current[remotePeerId].close(); } catch (e) {}
+                      delete peers.current[remotePeerId];
+                    }
+                  });
+                  call.on("error", (e) => {
+                    console.error(`Call error with peer ${remotePeerId}:`, e);
+                  });
+                };
+                handleCallEvents(call, peerId);
+                peers.current[peerId] = call;
+              }
+            }
+          } catch (e) {
+            console.error(`Error auto-reconnecting to ${peerId}:`, e);
+          }
+        }, 1000);
+      }
+    });
+  }, [remoteStreams, myPeerId]);
 
   // ─── Prevent accidental tab close ───
   useEffect(() => {
@@ -1705,12 +1921,10 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   // ✅ FIXED: Properly handle local file broadcast with video/audio
   const startLocalFileBroadcast = async (file) => {
     try {
-      // Create video element for broadcasting
       const videoElement = document.createElement("video");
       broadcastVideoRef.current = videoElement;
       broadcastVideoElement.current = videoElement;
       
-      // Set up the video element
       videoElement.src = URL.createObjectURL(file);
       videoElement.playsInline = true;
       videoElement.muted = false;
@@ -1719,17 +1933,14 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       videoElement.style.width = '100%';
       videoElement.style.height = '100%';
 
-      // Wait for metadata to load
       await new Promise((resolve, reject) => {
         videoElement.onloadedmetadata = resolve;
         videoElement.onerror = reject;
         setTimeout(reject, 10000);
       });
 
-      // Start playing
       await videoElement.play();
 
-      // Get the video stream for broadcasting
       let videoStream;
       if (videoElement.captureStream) {
         videoStream = videoElement.captureStream(30);
@@ -1744,7 +1955,6 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
       if (!videoTrack) throw new Error("No video track found in the file.");
 
-      // Mix audio tracks if available
       let mixedAudioTrack = null;
       let audioCtx = null;
 
@@ -1753,12 +1963,10 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
           audioCtx = new (window.AudioContext || window.webkitAudioContext)();
           const dest = audioCtx.createMediaStreamDestination();
           
-          // Add microphone audio
           const micStream = new MediaStream(localStream.getAudioTracks());
           const micSource = audioCtx.createMediaStreamSource(micStream);
           micSource.connect(dest);
           
-          // Add video audio
           const fileStream = new MediaStream([videoAudioTrack]);
           const fileSource = audioCtx.createMediaStreamSource(fileStream);
           fileSource.connect(dest);
@@ -1780,13 +1988,11 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       };
       setStreamMediaSource(mediaSourceObj);
 
-      // Show broadcast in admin's preview
       if (myVideoRef.current) {
         myVideoRef.current.srcObject = videoStream;
         myVideoRef.current.style.display = 'block';
       }
 
-      // Replace tracks for all peers
       Object.values(peers.current).forEach(async (call) => {
         try {
           if (call.peerConnection) {
@@ -1803,10 +2009,8 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         }
       });
 
-      // Set the media reference for controls
       localMediaRef.current = videoElement;
 
-      // Update state
       socket.emit("screenshare-started", { roomId, peerId: myPeerId });
       socket.emit("media-file-shared", { name: file.name, type: file.type, sharerName: userName });
       setFocusedPeerId("local");
@@ -1818,13 +2022,11 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         name: file.name 
       });
 
-      // Handle video end
       videoElement.onended = () => {
         toast.info("Video playback ended");
         stopLocalFileBroadcast(mediaSourceObj);
       };
 
-      // Handle errors
       videoElement.onerror = () => {
         toast.error("Error playing video");
         stopLocalFileBroadcast(mediaSourceObj);
@@ -1834,7 +2036,6 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     } catch (e) {
       console.error("Broadcast error:", e);
       toast.error(`Local file streaming failed: ${e.message}`);
-      // Clean up on error
       if (broadcastVideoRef.current) {
         broadcastVideoRef.current.pause();
         broadcastVideoRef.current.removeAttribute("src");
@@ -1851,7 +2052,6 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       const originalVid = sourceObj.originalVideoTrack;
       const originalAud = sourceObj.originalAudioTrack;
 
-      // Restore original tracks for all peers
       Object.values(peers.current).forEach(async (call) => {
         try {
           if (call.peerConnection) {
@@ -1866,13 +2066,11 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         }
       });
 
-      // Restore admin's preview
       if (myVideoRef.current && localStream) {
         myVideoRef.current.srcObject = localStream;
         myVideoRef.current.style.display = 'block';
       }
 
-      // Cleanup video element
       if (sourceObj.videoElement) {
         sourceObj.videoElement.pause();
         sourceObj.videoElement.removeAttribute("src");
@@ -1903,7 +2101,6 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const handleLocalFile = (e) => {
     const file = e.target.files[0];
     if (file) {
-      // Check if it's a video file
       if (file.type.startsWith('video/')) {
         startLocalFileBroadcast(file);
       } else {
@@ -2214,7 +2411,6 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const renderParticipantTiles = () => {
     const tiles = [];
 
-    // Local user tile
     const isLocalActive = focusedPeerId === "local" || (!focusedPeerId && !activeMedia);
     tiles.push(
       <ParticipantTile
@@ -2274,7 +2470,6 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       </ParticipantTile>
     );
 
-    // Remote user tiles
     Object.entries(remoteStreams).forEach(([id, info]) => {
       const peerState = participantStates[id] || {};
       const peerVideoOff = peerState.isVideoOff;
@@ -2337,7 +2532,6 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   };
 
   const renderMainContent = () => {
-    // Show connecting state
     if (isConnecting) {
       return (
         <Overlay>
@@ -2348,7 +2542,6 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       );
     }
 
-    // Show focused peer
     if (focusedPeerId) {
       const isLocal = focusedPeerId === "local";
       const focusedIsVideoOff = isLocal ? isVideoOff : (participantStates[focusedPeerId]?.isVideoOff);
@@ -2419,14 +2612,12 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       );
     }
 
-    // Show active media (broadcast)
     if (activeMedia) {
       return (
         <>
           {activeMedia.url?.includes("youtu") ? (
             <div id="youtube-sync-player" style={{ width: '100%', height: '100%' }} />
           ) : activeMedia.type === "local_stream" ? (
-            // Show the actual video element for local stream
             <video
               ref={broadcastVideoRef}
               playsInline
@@ -2450,7 +2641,6 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
             />
           )}
           
-          {/* Media Controls - Always shown for admin, shown for others if they have controls */}
           {(isAdmin || activeMedia.type !== "local_stream") && (
             <MediaControlsOverlay $visible={showControls}>
               <MediaControlsRow>
@@ -2531,7 +2721,6 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       );
     }
 
-    // Show remote file broadcast overlay
     if (remoteFileBroadcast && !isAdmin) {
       return (
         <BroadcastOverlay>
@@ -2546,7 +2735,6 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       );
     }
 
-    // Empty state - show all participants in grid
     return (
       <div style={{ 
         width: '100%', 
@@ -2568,7 +2756,6 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       <MeetingContainer ref={containerRef} $minimized={isMinimized} onClick={isMinimized ? () => setIsMinimized(false) : undefined}>
         <GradientBackground />
         
-        {/* Header */}
         <MeetingHeader className="meeting-header">
           <HeaderLeft>
             <Logo>
@@ -2666,20 +2853,17 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
           </HeaderRight>
         </MeetingHeader>
 
-        {/* Content Area */}
         {!isMinimized && (
           <ContentArea className="content-area">
             <MainVideoArea className="main-video-area">
               {renderMainContent()}
               
-              {/* Reactions */}
               {reactions.map(r => (
                 <ReactionFloat key={r.id} $x={r.x}>
                   {r.emoji}
                 </ReactionFloat>
               ))}
               
-              {/* Sync Indicator */}
               {isSyncing && !isConnecting && (
                 <SyncIndicator>
                   <FaSync /> Syncing...
@@ -2687,14 +2871,12 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
               )}
             </MainVideoArea>
 
-            {/* Participant Sidebar - Always visible when not minimized */}
             <ParticipantSidebar className="participant-sidebar">
               {renderParticipantTiles()}
             </ParticipantSidebar>
           </ContentArea>
         )}
 
-        {/* Controls Bar */}
         {!isMinimized && (
           <ControlsBar className="controls-bar">
             <ControlButton
@@ -2789,7 +2971,6 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
           </ControlsBar>
         )}
 
-        {/* URL Input Overlay */}
         {showUrlInput && !isMinimized && (
           <UrlInputOverlay>
             <input
