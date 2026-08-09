@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import styled, { keyframes, StyleSheetManager } from "styled-components";
+import styled, { keyframes, StyleSheetManager, css } from "styled-components";
 import { 
   FaMicrophone, FaMicrophoneSlash, FaVideo, FaVideoSlash, 
   FaPhoneSlash, FaSync, FaDesktop, FaFolderOpen, FaRecordVinyl, 
@@ -311,7 +311,7 @@ const ParticipantTile = styled.div`
     border-color: ${props => props.$isTalking ? 'rgba(46, 213, 115, 0.8)' : 'rgba(74, 158, 255, 0.6)'};
   }
 
-  ${props => props.$isActive && `
+  ${props => props.$isActive && css`
     animation: ${breathe} 2s ease-in-out infinite;
   `}
 
