@@ -1,116 +1,110 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import styled, { keyframes } from "styled-components";
-import { FaMicrophone, FaMicrophoneSlash, FaVideo, FaVideoSlash, FaPhoneSlash, FaSync, FaDesktop, FaFolderOpen, FaRecordVinyl, FaCompress, FaExpand, FaWindowMinimize, FaExchangeAlt, FaLink, FaThLarge, FaStop, FaUsers, FaTimes, FaHandPaper, FaPlay, FaPause, FaStepBackward, FaStepForward, FaTachometerAlt } from "react-icons/fa";
+import { 
+  FaMicrophone, FaMicrophoneSlash, FaVideo, FaVideoSlash, 
+  FaPhoneSlash, FaSync, FaDesktop, FaFolderOpen, FaRecordVinyl, 
+  FaCompress, FaExpand, FaWindowMinimize, FaExchangeAlt, FaLink, 
+  FaThLarge, FaStop, FaUsers, FaTimes, FaHandPaper, FaPlay, 
+  FaPause, FaStepBackward, FaStepForward, FaTachometerAlt,
+  FaUserPlus, FaUserCheck, FaWifi, FaSignal, FaCamera
+} from "react-icons/fa";
 import { Peer } from "peerjs";
 import { toast } from "react-toastify";
 
 /* ═══════════════════════════════ ANIMATIONS ═══════════════════════════════ */
-const fadeIn = keyframes`from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); }`;
-const slideUp = keyframes`from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); }`;
-const floatUp = keyframes`0% { transform: translateY(0) scale(1); opacity: 1; } 100% { transform: translateY(-700px) scale(2.5); opacity: 0; }`;
-const spin = keyframes`from { transform: rotate(0deg); } to { transform: rotate(360deg); }`;
-const pulse = keyframes`0% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0.4); } 70% { box-shadow: 0 0 0 8px rgba(255, 71, 87, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0); }`;
-const shimmer = keyframes`0% { background-position: -200% 0; } 100% { background-position: 200% 0; }`;
-const tileEnter = keyframes`from { opacity: 0; transform: scale(0.85); } to { opacity: 1; transform: scale(1); }`;
+const fadeIn = keyframes`
+  from { opacity: 0; transform: scale(0.96) translateY(10px); } 
+  to { opacity: 1; transform: scale(1) translateY(0); }
+`;
+const slideUp = keyframes`
+  from { opacity: 0; transform: translateY(30px) scale(0.95); } 
+  to { opacity: 1; transform: translateY(0) scale(1); }
+`;
+const floatUp = keyframes`
+  0% { transform: translateY(0) scale(1) rotate(0deg); opacity: 1; } 
+  100% { transform: translateY(-600px) scale(2) rotate(20deg); opacity: 0; }
+`;
+const spin = keyframes`
+  from { transform: rotate(0deg); } 
+  to { transform: rotate(360deg); }
+`;
+const pulse = keyframes`
+  0% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0.4); } 
+  70% { box-shadow: 0 0 0 12px rgba(255, 71, 87, 0); } 
+  100% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0); }
+`;
+const shimmer = keyframes`
+  0% { background-position: -200% 0; } 
+  100% { background-position: 200% 0; }
+`;
+const tileEnter = keyframes`
+  from { opacity: 0; transform: scale(0.85) rotateY(-10deg); } 
+  to { opacity: 1; transform: scale(1) rotateY(0); }
+`;
+const glowPulse = keyframes`
+  0%, 100% { box-shadow: 0 0 20px rgba(74, 158, 255, 0.2); }
+  50% { box-shadow: 0 0 40px rgba(74, 158, 255, 0.4); }
+`;
+const breathe = keyframes`
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+`;
 
 /* ═══════════════════════════════ STYLED COMPONENTS ═══════════════════════════════ */
-const MeetingOverlay = styled.div`
+const MeetingContainer = styled.div`
   position: fixed;
-  inset: 20px;
+  inset: 0;
   z-index: 10005;
-  background: var(--chakra-colors-glassBg, rgba(20, 20, 30, 0.92));
-  backdrop-filter: blur(40px);
-  -webkit-backdrop-filter: blur(40px);
+  background: var(--chakra-colors-bg, #0a0a12);
   display: flex;
   flex-direction: column;
   color: var(--chakra-colors-textPrimary, #ffffff);
-  padding: 20px;
   overflow: hidden;
-  border-radius: 32px;
-  border: 1px solid var(--chakra-colors-border, rgba(255,255,255,0.08));
-  box-shadow: 0 50px 100px rgba(0, 0, 0, 0.25);
-  animation: ${fadeIn} 0.35s ease-out;
-  transition: all 0.3s ease;
+  animation: ${fadeIn} 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+`;
 
-  ${p => p.$minimized && `
-    inset: auto 16px 16px auto;
-    width: min(340px, calc(100vw - 32px));
-    height: 200px;
-    min-height: 0;
-    padding: 10px;
-    border-radius: 20px;
-    cursor: pointer;
-    background: var(--chakra-colors-surface, rgba(30, 30, 45, 0.95));
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-  `}
-
-  @media (max-width: 768px) {
-    inset: 0;
-    border-radius: 0;
-    padding: 12px 10px;
-    background: var(--chakra-colors-bg, #0a0a12);
-    
-    ${p => p.$minimized && `
-      inset: auto 8px calc(8px + env(safe-area-inset-bottom)) auto;
-      width: min(300px, calc(100vw - 16px));
-      height: 160px;
-      padding: 8px;
-      border-radius: 16px;
-      background: var(--chakra-colors-surface, rgba(30, 30, 45, 0.95));
-    `}
-  }
-
-  @media (max-width: 480px) {
-    padding: 8px 6px;
-    
-    ${p => p.$minimized && `
-      width: min(280px, calc(100vw - 12px));
-      height: 140px;
-      padding: 6px;
-      border-radius: 14px;
-    `}
-  }
+const GradientBackground = styled.div`
+  position: absolute;
+  inset: 0;
+  background: 
+    radial-gradient(ellipse at 20% 50%, rgba(74, 158, 255, 0.05) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 50%, rgba(108, 92, 231, 0.05) 0%, transparent 60%),
+    var(--chakra-colors-bg, #0a0a12);
+  z-index: 0;
 `;
 
 const MeetingHeader = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
-  width: 100%;
-  height: 50px;
+  padding: 16px 24px;
+  background: rgba(10, 10, 18, 0.8);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  z-index: 10;
   flex-shrink: 0;
-  padding: 0 8px;
-  gap: 8px;
-  
-  ${p => p.$minimized && `
-    height: 32px;
-    margin-bottom: 6px;
-    padding: 0 4px;
-  `}
+  gap: 12px;
 
   @media (max-width: 768px) {
-    height: 40px;
-    margin-bottom: 8px;
-    padding: 0 4px;
-    gap: 4px;
+    padding: 12px 16px;
+    gap: 8px;
   }
 
   @media (max-width: 480px) {
-    height: 36px;
-    margin-bottom: 6px;
+    padding: 8px 12px;
+    gap: 4px;
   }
 `;
 
 const HeaderLeft = styled.div`
   display: flex;
   align-items: center;
-  gap: 8px;
-  min-width: 0;
+  gap: 12px;
   flex: 1;
+  min-width: 0;
 
   @media (max-width: 768px) {
-    gap: 6px;
+    gap: 8px;
   }
 
   @media (max-width: 480px) {
@@ -120,165 +114,218 @@ const HeaderLeft = styled.div`
 
 const HeaderRight = styled.div`
   display: flex;
-  gap: 4px;
-  background: var(--chakra-colors-badgeBg, rgba(255,255,255,0.05));
-  padding: 4px;
-  border-radius: 14px;
-  border: 1px solid var(--chakra-colors-badgeBorder, rgba(255,255,255,0.06));
   align-items: center;
+  gap: 8px;
   flex-shrink: 0;
 
   @media (max-width: 768px) {
-    gap: 2px;
-    padding: 3px;
-    border-radius: 10px;
+    gap: 4px;
   }
 
   @media (max-width: 480px) {
-    gap: 1px;
-    padding: 2px;
-    border-radius: 8px;
+    gap: 2px;
   }
 `;
 
-const ContentLayout = styled.div`
+const Logo = styled.div`
   display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: clamp(1rem, 1.5vw, 1.2rem);
+  font-weight: 700;
+  color: #4a9eff;
+
+  .logo-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #4a9eff;
+    animation: ${pulse} 2s infinite;
+  }
+
+  @media (max-width: 480px) {
+    gap: 4px;
+    .logo-dot {
+      width: 6px;
+      height: 6px;
+    }
+  }
+`;
+
+const StatusIndicator = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: clamp(0.6rem, 0.9vw, 0.75rem);
+  font-weight: 600;
+  background: ${props => {
+    if (props.$status === 'good') return 'rgba(46, 213, 115, 0.15)';
+    if (props.$status === 'poor') return 'rgba(255, 165, 2, 0.15)';
+    return 'rgba(255, 71, 87, 0.15)';
+  }};
+  color: ${props => {
+    if (props.$status === 'good') return '#2ed573';
+    if (props.$status === 'poor') return '#ffa502';
+    return '#ff4757';
+  }};
+  border: 1px solid ${props => {
+    if (props.$status === 'good') return 'rgba(46, 213, 115, 0.2)';
+    if (props.$status === 'poor') return 'rgba(255, 165, 2, 0.2)';
+    return 'rgba(255, 71, 87, 0.2)';
+  }};
+
+  @media (max-width: 768px) {
+    padding: 2px 8px;
+    font-size: 0.55rem;
+  }
+
+  @media (max-width: 480px) {
+    padding: 2px 6px;
+    font-size: 0.5rem;
+    gap: 3px;
+  }
+`;
+
+const ContentArea = styled.div`
   flex: 1;
+  display: flex;
   gap: 16px;
+  padding: 16px 24px;
+  position: relative;
+  z-index: 1;
   min-height: 0;
-  
-  ${props => !props.$isAdmin && `
-    -webkit-touch-callout: none;
-    -webkit-user-select: none;
-    user-select: none;
-  `}
-  
-  ${p => p.$minimized && `
-    gap: 0;
-    & > :not(:first-child) { display: none; }
-  `}
-  
+
   @media (max-width: 1024px) {
     flex-direction: column;
+    padding: 12px 16px;
     gap: 12px;
   }
 
   @media (max-width: 768px) {
+    padding: 8px 12px;
     gap: 8px;
   }
 
   @media (max-width: 480px) {
+    padding: 6px 8px;
     gap: 6px;
   }
 `;
 
-const MainStage = styled.div`
-  flex: 3;
-  background: var(--chakra-colors-bg, #0a0a12);
+const MainVideoArea = styled.div`
+  flex: 1;
+  background: rgba(255, 255, 255, 0.02);
   border-radius: 24px;
   overflow: hidden;
   position: relative;
-  border: 1px solid var(--chakra-colors-border, rgba(255,255,255,0.06));
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  min-height: 300px;
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 200px;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s ease;
 
   @media (max-width: 768px) {
     border-radius: 16px;
-    min-height: 150px;
+    min-height: 200px;
   }
 
   @media (max-width: 480px) {
     border-radius: 12px;
-    min-height: 120px;
+    min-height: 150px;
   }
 
-  ${p => p.$minimized && `
-    flex: 1;
-    min-height: 0;
-    border-radius: 12px;
-    video { object-fit: cover !important; }
-  `}
+  video {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
 `;
 
-const ParticipantGrid = styled.div`
-  flex: 1;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+const ParticipantSidebar = styled.div`
+  width: 280px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
   gap: 12px;
-  overflow-y: auto;
-  padding-right: 4px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 24px;
+  padding: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  max-height: 100%;
+  overflow: hidden;
 
   @media (max-width: 1024px) {
-    display: flex;
+    width: 100%;
+    flex-direction: row;
+    padding: 12px;
+    gap: 8px;
+    max-height: 160px;
     overflow-x: auto;
     overflow-y: hidden;
-    padding: 8px 4px;
-    max-height: 140px;
-    gap: 10px;
     &::-webkit-scrollbar { display: none; }
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
 
   @media (max-width: 768px) {
-    max-height: 110px;
-    padding: 6px 4px 60px;
-    gap: 8px;
+    max-height: 120px;
+    padding: 8px;
+    gap: 6px;
+    border-radius: 16px;
   }
 
   @media (max-width: 480px) {
     max-height: 90px;
-    padding: 4px 2px 50px;
-    gap: 6px;
+    padding: 6px;
+    gap: 4px;
+    border-radius: 12px;
   }
 `;
 
-const VideoTile = styled.div`
-  background: var(--chakra-colors-cardBg, rgba(255,255,255,0.03));
-  backdrop-filter: blur(16px);
-  border-radius: 20px;
+const ParticipantTile = styled.div`
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 16px;
   overflow: hidden;
   position: relative;
   aspect-ratio: 16/9;
-  border: 2px solid ${props => props.$isTalking ? "#2ed573" : "var(--chakra-colors-border, rgba(255,255,255,0.06))"};
-  box-shadow: ${props => props.$isTalking
-    ? "0 0 25px rgba(46, 213, 115, 0.3)"
-    : "0 8px 24px rgba(0, 0, 0, 0.1)"};
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 2px solid ${props => 
+    props.$isTalking ? 'rgba(46, 213, 115, 0.6)' : 
+    props.$isActive ? 'rgba(74, 158, 255, 0.4)' : 
+    'rgba(255, 255, 255, 0.06)'
+  };
   cursor: pointer;
-  flex-shrink: 0;
-  width: 100%;
-  height: 100%;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   animation: ${tileEnter} 0.4s ease-out;
 
-  ${props => props.$isStrip && `
-    width: auto;
-    height: 100%;
-    min-width: 160px;
-    
-    @media (max-width: 1024px) {
-      min-width: 140px;
-      width: clamp(120px, 25vw, 160px);
-      height: auto;
-    }
-    
-    @media (max-width: 768px) {
-      min-width: 100px;
-      width: clamp(80px, 20vw, 120px);
-    }
-    
-    @media (max-width: 480px) {
-      min-width: 70px;
-      width: clamp(60px, 18vw, 90px);
-    }
+  &:hover {
+    transform: scale(1.02);
+    border-color: ${props => props.$isTalking ? 'rgba(46, 213, 115, 0.8)' : 'rgba(74, 158, 255, 0.6)'};
+  }
+
+  ${props => props.$isActive && `
+    animation: ${glowPulse} 2s ease-in-out infinite;
   `}
 
-  &:hover {
-    transform: translateY(-2px) scale(1.02);
-    border-color: ${props => props.$isTalking ? "#2ed573" : "var(--chakra-colors-brandPrimary, #4a9eff)"};
+  @media (max-width: 1024px) {
+    min-width: 160px;
+    width: clamp(120px, 20vw, 200px);
+    height: auto;
+    flex-shrink: 0;
+  }
+
+  @media (max-width: 768px) {
+    min-width: 120px;
+    width: clamp(80px, 18vw, 140px);
+    border-radius: 12px;
+  }
+
+  @media (max-width: 480px) {
+    min-width: 80px;
+    width: clamp(60px, 15vw, 100px);
+    border-radius: 8px;
   }
 
   video {
@@ -286,14 +333,240 @@ const VideoTile = styled.div`
     height: 100%;
     object-fit: cover;
   }
+`;
+
+const ControlsBar = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: rgba(10, 10, 18, 0.9);
+  backdrop-filter: blur(20px);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+  position: relative;
+  z-index: 10;
+  flex-wrap: wrap;
 
   @media (max-width: 768px) {
-    border-radius: 14px;
+    padding: 10px 12px;
+    gap: 6px;
   }
 
   @media (max-width: 480px) {
+    padding: 8px 8px;
+    gap: 4px;
+  }
+`;
+
+const ControlButton = styled.button`
+  width: clamp(40px, 5vw, 48px);
+  height: clamp(40px, 5vw, 48px);
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: ${props => props.$active ? 'rgba(255, 71, 87, 0.2)' : 'rgba(255, 255, 255, 0.05)'};
+  color: ${props => props.$active ? '#ff4757' : 'var(--chakra-colors-textPrimary, #ffffff)'};
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(0.85rem, 1.2vw, 1.1rem);
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+  position: relative;
+
+  ${props => props.$primary && `
+    background: #ff4757;
+    border-color: #ff4757;
+    color: white;
+    &:hover {
+      background: #ff6b81;
+      border-color: #ff6b81;
+    }
+  `}
+
+  ${props => props.$success && `
+    background: rgba(46, 213, 115, 0.2);
+    border-color: rgba(46, 213, 115, 0.3);
+    color: #2ed573;
+    &:hover {
+      background: rgba(46, 213, 115, 0.3);
+    }
+  `}
+
+  &:hover {
+    transform: translateY(-2px);
+    background: ${props => props.$active ? 'rgba(255, 71, 87, 0.3)' : 'rgba(255, 255, 255, 0.1)'};
+    border-color: ${props => props.$active ? 'rgba(255, 71, 87, 0.5)' : 'rgba(255, 255, 255, 0.15)'};
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+
+  @media (max-width: 768px) {
+    width: 38px;
+    height: 38px;
     border-radius: 10px;
-    border-width: 1.5px;
+    font-size: 0.8rem;
+  }
+
+  @media (max-width: 480px) {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    font-size: 0.7rem;
+  }
+
+  .badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #ff4757;
+    color: white;
+    font-size: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+
+    @media (max-width: 480px) {
+      width: 12px;
+      height: 12px;
+      font-size: 0.4rem;
+    }
+  }
+`;
+
+const ControlDivider = styled.div`
+  width: 1px;
+  height: 32px;
+  background: rgba(255, 255, 255, 0.06);
+  margin: 0 4px;
+  flex-shrink: 0;
+
+  @media (max-width: 480px) {
+    height: 24px;
+    margin: 0 2px;
+  }
+`;
+
+const MediaControlsOverlay = styled.div`
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 100%);
+  padding: 30px 20px 16px;
+  z-index: 20;
+  opacity: ${props => props.$visible ? 1 : 0};
+  transition: opacity 0.3s ease;
+
+  @media (max-width: 768px) {
+    padding: 20px 12px 12px;
+  }
+
+  @media (max-width: 480px) {
+    padding: 16px 8px 8px;
+  }
+`;
+
+const MediaControlsRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: clamp(6px, 1.5vw, 12px);
+  flex-wrap: wrap;
+
+  @media (max-width: 480px) {
+    gap: 4px;
+  }
+`;
+
+const MediaButton = styled.button`
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: white;
+  padding: clamp(4px, 0.6vw, 8px) clamp(6px, 1vw, 12px);
+  cursor: pointer;
+  font-size: clamp(0.7rem, 1vw, 0.9rem);
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.15);
+  }
+
+  @media (max-width: 480px) {
+    padding: 3px 6px;
+    font-size: 0.6rem;
+    border-radius: 6px;
+  }
+`;
+
+const SeekBar = styled.input`
+  flex: 1;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  outline: none;
+  min-width: 60px;
+
+  &::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #4a9eff;
+    cursor: pointer;
+    border: 2px solid rgba(255,255,255,0.2);
+  }
+
+  &::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #4a9eff;
+    cursor: pointer;
+    border: 2px solid rgba(255,255,255,0.2);
+  }
+
+  @media (max-width: 768px) {
+    &::-webkit-slider-thumb {
+      width: 12px;
+      height: 12px;
+    }
+  }
+
+  @media (max-width: 480px) {
+    &::-webkit-slider-thumb {
+      width: 10px;
+      height: 10px;
+    }
+  }
+`;
+
+const SpeedSelect = styled.select`
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: white;
+  padding: clamp(2px, 0.4vw, 4px) clamp(4px, 0.6vw, 8px);
+  border-radius: 6px;
+  font-size: clamp(0.6rem, 0.8vw, 0.75rem);
+  cursor: pointer;
+
+  @media (max-width: 480px) {
+    font-size: 0.55rem;
+    padding: 2px 4px;
   }
 `;
 
@@ -301,532 +574,136 @@ const NameTag = styled.div`
   position: absolute;
   bottom: 8px;
   left: 8px;
-  background: var(--chakra-colors-glassBg, rgba(0,0,0,0.6));
-  color: var(--chakra-colors-textPrimary, #ffffff);
-  padding: 4px 10px;
-  border-radius: 10px;
-  font-size: 0.7rem;
-  font-weight: 600;
+  background: rgba(0, 0, 0, 0.7);
   backdrop-filter: blur(10px);
-  border: 1px solid var(--chakra-colors-borderSubtle, rgba(255,255,255,0.06));
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: clamp(0.55rem, 0.8vw, 0.7rem);
+  font-weight: 600;
   display: flex;
   align-items: center;
   gap: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
   max-width: 90%;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 
   @media (max-width: 768px) {
-    font-size: 0.6rem;
     padding: 3px 8px;
-    bottom: 6px;
-    left: 6px;
+    font-size: 0.5rem;
     border-radius: 8px;
-    gap: 4px;
   }
 
   @media (max-width: 480px) {
-    font-size: 0.5rem;
     padding: 2px 6px;
+    font-size: 0.45rem;
+    border-radius: 6px;
     bottom: 4px;
     left: 4px;
-    border-radius: 6px;
-    gap: 3px;
   }
 `;
 
-const ControlBar = styled.div`
-  position: absolute;
-  bottom: 24px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--chakra-colors-glassBg, rgba(0,0,0,0.7));
-  backdrop-filter: blur(36px);
-  -webkit-backdrop-filter: blur(36px);
-  border-radius: 20px;
-  border: 1px solid var(--chakra-colors-border, rgba(255,255,255,0.08));
-  padding: 6px 14px;
-  z-index: 500;
-  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.3);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  animation: ${slideUp} 0.4s ease-out;
-  max-width: 92%;
-  
-  ${p => p.$minimized && `display: none;`}
-
-  &:hover {
-    background: var(--chakra-colors-surfaceHover, rgba(30,30,50,0.85));
-  }
-
-  @media (max-width: 768px) {
-    bottom: 12px;
-    padding: 5px 10px;
-    gap: 4px;
-    width: 96%;
-    max-width: 96%;
-    overflow-x: auto;
-    justify-content: safe center;
-    border-radius: 14px;
-    flex-wrap: nowrap;
-    &::-webkit-scrollbar { display: none; }
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-    white-space: nowrap;
-  }
-
-  @media (max-width: 480px) {
-    bottom: 8px;
-    padding: 4px 8px;
-    gap: 3px;
-    border-radius: 12px;
-    width: 98%;
-  }
-`;
-
-const CircleButton = styled.button`
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  border: 1px solid ${props => props.$active ? "rgba(255, 71, 87, 0.5)" : "var(--chakra-colors-badgeBorder, rgba(255,255,255,0.06))"};
-  background: ${props => props.$active ? "#ff4757" : "var(--chakra-colors-badgeBg, rgba(255,255,255,0.05))"};
-  color: var(--chakra-colors-textPrimary, #ffffff);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  flex-shrink: 0;
-  position: relative;
-
-  @media (max-width: 768px) {
-    width: 38px;
-    height: 38px;
-    font-size: 0.85rem;
-    border-radius: 10px;
-  }
-
-  @media (max-width: 480px) {
-    width: 32px;
-    height: 32px;
-    font-size: 0.7rem;
-    border-radius: 8px;
-  }
-
-  &:hover {
-    transform: translateY(-1px);
-    background: ${props => props.$active ? "#ff6b81" : "var(--chakra-colors-surfaceHover, rgba(255,255,255,0.08))"};
-    border-color: ${props => props.$active ? "rgba(255, 71, 87, 0.8)" : "var(--chakra-colors-brandPrimary, #4a9eff)"};
-  }
-
-  &:active {
-    transform: translateY(0);
-  }
-`;
-
-const ControlLabel = styled.span`
-  position: absolute;
-  bottom: -16px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 0.5rem;
-  font-weight: 600;
-  white-space: nowrap;
-  opacity: 0.5;
-  pointer-events: none;
-  color: var(--chakra-colors-textSecondary, rgba(255,255,255,0.5));
-
-  @media (max-width: 768px) {
-    display: none;
-  }
-`;
-
-const Divider = styled.div`
-  width: 1px;
-  height: 24px;
-  background: var(--chakra-colors-border, rgba(255,255,255,0.08));
-  margin: 0 2px;
-  flex-shrink: 0;
-
-  @media (max-width: 768px) {
-    height: 20px;
-  }
-
-  @media (max-width: 480px) {
-    height: 16px;
-  }
-`;
-
-const FloatingPiP = styled.div`
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  width: 120px;
-  height: 160px;
-  border-radius: 16px;
-  overflow: hidden;
-  border: 2px solid var(--chakra-colors-border, rgba(255,255,255,0.1));
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
-  z-index: 100;
-  cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-
-  &:hover {
-    transform: scale(1.05);
-    border-color: var(--chakra-colors-brandPrimary, #4a9eff);
-  }
-
-  video {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  @media (max-width: 768px) {
-    width: 90px;
-    height: 120px;
-    top: 12px;
-    right: 12px;
-    border-radius: 12px;
-  }
-
-  @media (max-width: 480px) {
-    width: 70px;
-    height: 93px;
-    top: 8px;
-    right: 8px;
-    border-radius: 10px;
-  }
-`;
-
-const PrivacyGuard = styled.div`
-  position: absolute;
-  inset: 0;
-  z-index: 200;
-  background: var(--chakra-colors-bg, #0a0a12);
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  text-align: center;
-  color: var(--chakra-colors-textPrimary, #ffffff);
-  opacity: ${props => props.$minimized ? 0 : props.show ? 1 : 0};
-  pointer-events: ${props => props.$minimized ? "none" : props.show ? "all" : "none"};
-  transition: opacity 0.3s ease;
-
-  h3 { font-size: 1.3rem; margin-bottom: 8px; }
-  p { font-size: 0.9rem; opacity: 0.7; }
-
-  @media (max-width: 768px) {
-    h3 { font-size: 1rem; }
-    p { font-size: 0.75rem; }
-  }
-
-  @media (max-width: 480px) {
-    h3 { font-size: 0.85rem; }
-    p { font-size: 0.65rem; }
-  }
-
-  &::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: repeating-linear-gradient(45deg, var(--chakra-colors-bg, #0a0a12), var(--chakra-colors-bg, #0a0a12) 10px, var(--chakra-colors-surface, rgba(30,30,45,0.5)) 10px, var(--chakra-colors-surface, rgba(30,30,45,0.5)) 20px);
-    opacity: 0.9;
-  }
-`;
-
-const Watermark = styled.div`
-  position: absolute;
-  top: ${props => props.y}%;
-  left: ${props => props.x}%;
-  opacity: 0.08;
-  font-size: 0.7rem;
-  color: var(--chakra-colors-textPrimary, #ffffff);
-  pointer-events: none;
-  z-index: 50;
-  white-space: nowrap;
-  transition: all 8s linear;
-
-  @media (max-width: 768px) {
-    font-size: 0.5rem;
-  }
-`;
-
-const MeetingGrid = styled.div`
-  display: grid;
-  width: 100%;
-  height: 100%;
-  gap: 12px;
-  padding: 8px;
-  box-sizing: border-box;
-  align-content: center;
-  justify-content: center;
-  overflow-y: auto;
-
-  grid-template-columns: ${props => {
-    const count = props.$count;
-    if (count === 1) return "1fr";
-    if (count === 2) return "1fr 1fr";
-    if (count <= 4) return "1fr 1fr";
-    return "repeat(auto-fit, minmax(240px, 1fr))";
-  }};
-  grid-template-rows: ${props => {
-    const count = props.$count;
-    if (count <= 2) return "1fr";
-    if (count <= 4) return "1fr 1fr";
-    return "repeat(auto-fit, minmax(180px, 1fr))";
-  }};
-
-  @media (max-width: 768px) {
-    gap: 8px;
-    padding: 6px;
-    grid-template-columns: ${props => {
-      const count = props.$count;
-      if (count === 1) return "1fr";
-      return "1fr 1fr";
-    }};
-    grid-template-rows: auto;
-  }
-
-  @media (max-width: 480px) {
-    gap: 6px;
-    padding: 4px;
-  }
-`;
-
-const PlaceholderAvatar = styled.div`
-  width: 100%;
-  height: 100%;
-  background: radial-gradient(circle, var(--chakra-colors-surface, rgba(30,30,45,0.5)) 0%, var(--chakra-colors-bg, #0a0a12) 100%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-`;
-
-const AvatarCircle = styled.div`
-  width: 70px;
-  height: 70px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--chakra-colors-brandPrimary, #4a9eff) 0%, var(--chakra-colors-brandSecondary, #6c5ce7) 100%);
-  color: white;
-  font-size: 1.8rem;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-transform: uppercase;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.2);
-  border: 3px solid var(--chakra-colors-border, rgba(255,255,255,0.08));
-  position: relative;
-  transition: all 0.3s ease;
-
-  ${props => props.$isTalking && `
-    border-color: #2ed573;
-    box-shadow: 0 0 30px rgba(46, 213, 115, 0.4);
-    transform: scale(1.05);
-  `}
-
-  @media (max-width: 768px) {
-    width: 50px;
-    height: 50px;
-    font-size: 1.2rem;
-    border-width: 2px;
-  }
-
-  @media (max-width: 480px) {
-    width: 40px;
-    height: 40px;
-    font-size: 1rem;
-    border-width: 2px;
-  }
-`;
-
-const MutedBadge = styled.div`
+const StatusBadge = styled.div`
   position: absolute;
   top: 8px;
   right: 8px;
-  background: rgba(255, 71, 87, 0.85);
+  background: ${props => props.$type === 'muted' ? 'rgba(255, 71, 87, 0.9)' : 'rgba(74, 158, 255, 0.9)'};
   color: white;
-  width: 22px;
-  height: 22px;
+  width: clamp(20px, 3vw, 28px);
+  height: clamp(20px, 3vw, 28px);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.7rem;
+  font-size: clamp(0.5rem, 0.8vw, 0.7rem);
   backdrop-filter: blur(5px);
-  border: 1px solid var(--chakra-colors-border, rgba(255,255,255,0.06));
+  border: 1px solid rgba(255, 255, 255, 0.1);
 
   @media (max-width: 768px) {
     width: 18px;
     height: 18px;
-    font-size: 0.6rem;
-    top: 6px;
-    right: 6px;
-  }
-`;
-
-const ParticipantBadge = styled.button`
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  background: var(--chakra-colors-badgeBg, rgba(255,255,255,0.05));
-  border: 1px solid var(--chakra-colors-badgeBorder, rgba(255,255,255,0.06));
-  padding: 4px 8px;
-  border-radius: 10px;
-  color: var(--chakra-colors-textPrimary, #ffffff);
-  font-size: 0.7rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-  position: relative;
-  white-space: nowrap;
-
-  &:hover {
-    background: var(--chakra-colors-surfaceHover, rgba(255,255,255,0.08));
-    border-color: var(--chakra-colors-brandPrimary, #4a9eff);
-  }
-
-  @media (max-width: 768px) {
-    padding: 3px 6px;
-    font-size: 0.6rem;
-    border-radius: 8px;
-  }
-`;
-
-const ParticipantPopover = styled.div`
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  background: var(--chakra-colors-surface, rgba(20,20,35,0.95));
-  backdrop-filter: blur(24px);
-  border: 1px solid var(--chakra-colors-border, rgba(255,255,255,0.06));
-  border-radius: 14px;
-  padding: 10px;
-  min-width: 180px;
-  max-height: 260px;
-  overflow-y: auto;
-  z-index: 600;
-  box-shadow: 0 20px 50px rgba(0,0,0,0.3);
-  color: var(--chakra-colors-textPrimary, #ffffff);
-  animation: ${slideUp} 0.2s ease-out;
-
-  @media (max-width: 768px) {
-    min-width: 150px;
-    padding: 8px;
-    border-radius: 12px;
-  }
-`;
-
-const ParticipantRow = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 6px;
-  border-radius: 8px;
-  font-size: 0.75rem;
-  font-weight: 500;
-
-  &:hover { background: var(--chakra-colors-surfaceHover, rgba(255,255,255,0.05)); }
-
-  @media (max-width: 768px) {
-    font-size: 0.65rem;
-    padding: 3px 4px;
-  }
-`;
-
-const ParticipantDot = styled.div`
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--chakra-colors-brandPrimary, #4a9eff), var(--chakra-colors-brandSecondary, #6c5ce7));
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.6rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  flex-shrink: 0;
-  color: white;
-
-  @media (max-width: 768px) {
-    width: 20px;
-    height: 20px;
     font-size: 0.5rem;
+    top: 4px;
+    right: 4px;
+  }
+
+  @media (max-width: 480px) {
+    width: 14px;
+    height: 14px;
+    font-size: 0.4rem;
+    top: 3px;
+    right: 3px;
   }
 `;
 
-const ConnectingOverlay = styled.div`
-  position: absolute;
-  inset: 0;
-  z-index: 300;
-  background: var(--chakra-colors-bg, #0a0a12);
-  color: var(--chakra-colors-textPrimary, #ffffff);
+const EmptyState = styled.div`
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  color: rgba(255, 255, 255, 0.2);
   gap: 12px;
-  animation: ${fadeIn} 0.3s ease-out;
+
+  svg {
+    font-size: 4rem;
+  }
 
   @media (max-width: 768px) {
-    gap: 8px;
+    svg {
+      font-size: 3rem;
+    }
+  }
+
+  @media (max-width: 480px) {
+    svg {
+      font-size: 2rem;
+    }
   }
 `;
 
-const SpinnerRing = styled.div`
-  width: 40px;
-  height: 40px;
-  border: 3px solid var(--chakra-colors-border, rgba(255,255,255,0.06));
-  border-top-color: var(--chakra-colors-brandPrimary, #4a9eff);
+const Overlay = styled.div`
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  color: white;
+  text-align: center;
+  padding: 20px;
+
+  h3 {
+    font-size: clamp(1rem, 2vw, 1.5rem);
+    margin: 0;
+  }
+
+  p {
+    font-size: clamp(0.7rem, 1.2vw, 0.9rem);
+    opacity: 0.7;
+    margin: 0;
+  }
+
+  @media (max-width: 768px) {
+    gap: 10px;
+  }
+`;
+
+const ConnectingSpinner = styled.div`
+  width: 48px;
+  height: 48px;
+  border: 3px solid rgba(255, 255, 255, 0.1);
+  border-top-color: #4a9eff;
   border-radius: 50%;
   animation: ${spin} 0.8s linear infinite;
 
   @media (max-width: 768px) {
-    width: 30px;
-    height: 30px;
-    border-width: 2px;
-  }
-`;
-
-const StatusChip = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  background: var(--chakra-colors-badgeBg, rgba(255,255,255,0.05));
-  color: var(--chakra-colors-textPrimary, #ffffff);
-  padding: 3px 8px;
-  border-radius: 10px;
-  font-size: 0.65rem;
-  font-weight: 600;
-
-  @media (max-width: 768px) {
-    font-size: 0.55rem;
-    padding: 2px 6px;
-    border-radius: 8px;
-  }
-`;
-
-const TimerDisplay = styled.span`
-  font-size: 0.65rem;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  opacity: 0.7;
-  padding: 3px 8px;
-  background: var(--chakra-colors-badgeBg, rgba(255,255,255,0.05));
-  color: var(--chakra-colors-textPrimary, #ffffff);
-  border-radius: 10px;
-
-  @media (max-width: 768px) {
-    font-size: 0.55rem;
-    padding: 2px 6px;
-    border-radius: 8px;
+    width: 36px;
+    height: 36px;
   }
 `;
 
@@ -835,187 +712,120 @@ const UrlInputOverlay = styled.div`
   bottom: 80px;
   left: 50%;
   transform: translateX(-50%);
-  background: var(--chakra-colors-surface, rgba(20,20,35,0.95));
-  border: 1px solid var(--chakra-colors-border, rgba(255,255,255,0.06));
-  color: var(--chakra-colors-textPrimary, #ffffff);
-  padding: 14px;
-  border-radius: 18px;
-  z-index: 1000;
+  background: rgba(20, 20, 35, 0.95);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 16px 20px;
   display: flex;
-  gap: 8px;
-  width: min(400px, 90%);
-  box-shadow: 0 20px 50px rgba(0,0,0,0.3);
-  animation: ${slideUp} 0.25s ease-out;
+  gap: 10px;
+  width: min(500px, 90%);
+  z-index: 100;
+  animation: ${slideUp} 0.3s ease-out;
+
+  input {
+    flex: 1;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    padding: 8px 14px;
+    color: white;
+    font-size: clamp(0.8rem, 1.2vw, 0.9rem);
+    outline: none;
+
+    &:focus {
+      border-color: #4a9eff;
+    }
+  }
+
+  button {
+    background: #4a9eff;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 20px;
+    color: white;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: clamp(0.8rem, 1.2vw, 0.9rem);
+    transition: background 0.2s;
+    white-space: nowrap;
+
+    &:hover {
+      background: #6cb0ff;
+    }
+  }
 
   @media (max-width: 768px) {
     bottom: 70px;
-    padding: 12px;
-    border-radius: 14px;
-    gap: 6px;
+    padding: 12px 16px;
+    border-radius: 12px;
+    gap: 8px;
     width: 92%;
   }
 
   @media (max-width: 480px) {
     bottom: 60px;
-    padding: 10px;
-    border-radius: 12px;
-    gap: 4px;
-    width: 94%;
-  }
-`;
-
-const FileBroadcastOverlay = styled.div`
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  background: radial-gradient(circle at center, var(--chakra-colors-badgeBg, rgba(255,255,255,0.03)), transparent 70%);
-  padding: 20px;
-
-  .shimmer-text {
-    font-size: 0.95rem;
-    font-weight: 600;
-    background: linear-gradient(90deg, var(--chakra-colors-textMuted, rgba(255,255,255,0.3)), var(--chakra-colors-textPrimary, #ffffff), var(--chakra-colors-textMuted, rgba(255,255,255,0.3)));
-    background-size: 200% 100%;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    animation: ${shimmer} 2s linear infinite;
-    text-align: center;
-  }
-
-  @media (max-width: 768px) {
-    gap: 8px;
-    padding: 16px;
-    
-    .shimmer-text {
-      font-size: 0.8rem;
-    }
-  }
-
-  @media (max-width: 480px) {
-    gap: 6px;
-    padding: 12px;
-    
-    .shimmer-text {
-      font-size: 0.7rem;
-    }
-  }
-`;
-
-const MediaControls = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  background: var(--chakra-colors-badgeBg, rgba(0,0,0,0.3));
-  padding: 4px 8px;
-  border-radius: 12px;
-  border: 1px solid var(--chakra-colors-border, rgba(255,255,255,0.06));
-
-  @media (max-width: 768px) {
-    padding: 3px 6px;
-    gap: 3px;
+    padding: 10px 12px;
     border-radius: 10px;
-  }
+    gap: 6px;
+    width: 94%;
 
-  @media (max-width: 480px) {
-    padding: 2px 4px;
-    gap: 2px;
-    border-radius: 8px;
+    input {
+      padding: 6px 10px;
+      font-size: 0.75rem;
+    }
+
+    button {
+      padding: 6px 12px;
+      font-size: 0.75rem;
+    }
   }
 `;
 
-const MediaControlButton = styled.button`
-  background: transparent;
-  border: none;
-  color: var(--chakra-colors-textPrimary, #ffffff);
-  padding: 4px 6px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 0.9rem;
-  transition: all 0.2s;
+const ReactionFloat = styled.div`
+  position: absolute;
+  bottom: 0;
+  left: ${props => props.$x}%;
+  font-size: clamp(2rem, 4vw, 3rem);
+  animation: ${floatUp} 3s ease-out forwards;
+  z-index: 50;
+  pointer-events: none;
+`;
+
+const SyncIndicator = styled.div`
+  position: absolute;
+  top: 16px;
+  right: 16px;
   display: flex;
   align-items: center;
-  gap: 4px;
-
-  &:hover {
-    background: var(--chakra-colors-surfaceHover, rgba(255,255,255,0.08));
-  }
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(10px);
+  padding: 6px 14px;
+  border-radius: 12px;
+  font-size: clamp(0.6rem, 0.9vw, 0.75rem);
+  color: #4CAF50;
+  border: 1px solid rgba(76, 175, 80, 0.2);
+  z-index: 30;
+  animation: ${slideUp} 0.3s ease-out;
 
   @media (max-width: 768px) {
-    padding: 2px 4px;
-    font-size: 0.75rem;
-    border-radius: 4px;
+    top: 12px;
+    right: 12px;
+    padding: 4px 10px;
+    font-size: 0.55rem;
   }
 
   @media (max-width: 480px) {
-    padding: 2px 3px;
-    font-size: 0.65rem;
-  }
-`;
-
-const SpeedControl = styled.select`
-  background: var(--chakra-colors-badgeBg, rgba(255,255,255,0.05));
-  border: 1px solid var(--chakra-colors-border, rgba(255,255,255,0.06));
-  color: var(--chakra-colors-textPrimary, #ffffff);
-  padding: 2px 6px;
-  border-radius: 6px;
-  font-size: 0.7rem;
-  cursor: pointer;
-
-  @media (max-width: 768px) {
-    font-size: 0.6rem;
-    padding: 2px 4px;
-  }
-`;
-
-const SeekBar = styled.input`
-  width: 100px;
-  height: 4px;
-  -webkit-appearance: none;
-  appearance: none;
-  background: var(--chakra-colors-border, rgba(255,255,255,0.1));
-  border-radius: 2px;
-  outline: none;
-
-  &::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
-    background: var(--chakra-colors-brandPrimary, #4a9eff);
-    cursor: pointer;
-    border: 2px solid var(--chakra-colors-bg, #0a0a12);
+    top: 8px;
+    right: 8px;
+    padding: 3px 8px;
+    font-size: 0.5rem;
+    gap: 4px;
   }
 
-  &::-moz-range-thumb {
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
-    background: var(--chakra-colors-brandPrimary, #4a9eff);
-    cursor: pointer;
-    border: 2px solid var(--chakra-colors-bg, #0a0a12);
-  }
-
-  @media (max-width: 768px) {
-    width: 60px;
-    
-    &::-webkit-slider-thumb {
-      width: 12px;
-      height: 12px;
-    }
-  }
-
-  @media (max-width: 480px) {
-    width: 40px;
-    
-    &::-webkit-slider-thumb {
-      width: 10px;
-      height: 10px;
-    }
+  svg {
+    animation: ${spin} 1s linear infinite;
   }
 `;
 
@@ -1039,6 +849,7 @@ const formatDuration = (seconds) => {
 
 /* ═══════════════════════════════ COMPONENT ═══════════════════════════════ */
 export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin }) {
+  // State
   const [localStream, setLocalStream] = useState(null);
   const [remoteStreams, setRemoteStreams] = useState({});
   const [isMuted, setIsMuted] = useState(false);
@@ -1068,7 +879,10 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [localPlaybackState, setLocalPlaybackState] = useState({ playing: false, time: 0, duration: 0 });
   const [videoDuration, setVideoDuration] = useState(0);
+  const [showControls, setShowControls] = useState(true);
+  const [controlTimeout, setControlTimeout] = useState(null);
 
+  // Refs
   const containerRef = useRef();
   const peerRef = useRef(null);
   const myVideoRef = useRef();
@@ -1080,11 +894,13 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const recordedChunks = useRef([]);
   const localStreamRef = useRef(null);
   const callStartTime = useRef(Date.now());
+  const ytPlayerRef = useRef(null);
+  const broadcastVideoRef = useRef(null);
 
   // ─── Get controlled media element ───
   const getControlledMedia = useCallback(() => {
     if (activeMedia?.type === "local_stream") {
-      return localMediaRef.current;
+      return localMediaRef.current || broadcastVideoRef.current;
     }
     return mediaRef.current;
   }, [activeMedia?.type]);
@@ -1098,6 +914,32 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     return () => clearInterval(timer);
   }, []);
 
+  // ─── Auto-hide controls on video ───
+  useEffect(() => {
+    if (!activeMedia) return;
+    
+    const handleMouseMove = () => {
+      setShowControls(true);
+      clearTimeout(controlTimeout);
+      const timeout = setTimeout(() => setShowControls(false), 3000);
+      setControlTimeout(timeout);
+    };
+
+    const container = containerRef.current;
+    if (container) {
+      container.addEventListener('mousemove', handleMouseMove);
+      container.addEventListener('touchstart', handleMouseMove);
+    }
+
+    return () => {
+      if (container) {
+        container.removeEventListener('mousemove', handleMouseMove);
+        container.removeEventListener('touchstart', handleMouseMove);
+      }
+      clearTimeout(controlTimeout);
+    };
+  }, [activeMedia, controlTimeout]);
+
   // ─── Auto-focus active talker ───
   useEffect(() => {
     const activeTalker = Object.entries(speakingPeers).find(([id, isTalking]) => isTalking && id !== "local");
@@ -1106,15 +948,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     }
   }, [speakingPeers, layoutMode]);
 
-  // ─── Auto-focus single remote peer ───
-  useEffect(() => {
-    const entries = Object.entries(remoteStreams);
-    if (entries.length === 1 && !activeMedia && layoutMode !== "stage") {
-      setFocusedPeerId(entries[0][0]);
-    }
-  }, [remoteStreams, activeMedia, layoutMode]);
-
-  // ─── Adaptive Bitrate Control (ABR) ───
+  // ─── Adaptive Bitrate Control ───
   useEffect(() => {
     if (!localStream) return;
 
@@ -1140,7 +974,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
               }
             }
           });
-        } catch (e) { /* ignore stats retrieval errors */ }
+        } catch (e) { /* ignore */ }
       });
 
       await Promise.all(promises);
@@ -1169,15 +1003,6 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
           } catch (err) { /* ignore */ }
         }
       });
-
-      if (nextStatus === "fallback") {
-        const videoTrack = localStream.getVideoTracks()[0];
-        if (videoTrack && videoTrack.enabled) {
-          videoTrack.enabled = false;
-          setIsVideoOff(true);
-          toast.warning("Low bandwidth detected. Automatic audio-only fallback enabled.");
-        }
-      }
     }, 4000);
 
     return () => clearInterval(interval);
@@ -1225,7 +1050,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       try {
         setIsConnecting(true);
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
+          video: { facingMode: 'user' },
           audio: {
             echoCancellation: true,
             noiseSuppression: true,
@@ -1293,7 +1118,6 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         peerRef.current = peer;
 
         // ─── Socket Event Handlers ───
-
         socket.on("existing-callers", (callers) => {
           callers.forEach(({ peerId, name, isMuted: peerMuted, isVideoOff: peerVideoOff }) => {
             setRemoteStreams(p => ({ ...p, [peerId]: { stream: p[peerId]?.stream || null, name } }));
@@ -1558,8 +1382,6 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   }, [isAdmin, activeMedia, socket, getControlledMedia]);
 
   // ─── YouTube Player Init ───
-  const ytPlayerRef = useRef(null);
-
   useEffect(() => {
     if (!activeMedia || !activeMedia.url || !activeMedia.url.includes("youtu")) {
       ytPlayerRef.current = null;
@@ -1668,9 +1490,17 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const toggleVideo = useCallback(() => {
     if (localStream) {
       const nextVideoOff = !isVideoOff;
-      localStream.getVideoTracks()[0].enabled = !nextVideoOff;
-      setIsVideoOff(nextVideoOff);
-      socket.emit("media-state-change", { peerId: myPeerId, isMuted, isVideoOff: nextVideoOff });
+      const videoTrack = localStream.getVideoTracks()[0];
+      if (videoTrack) {
+        videoTrack.enabled = !nextVideoOff;
+        setIsVideoOff(nextVideoOff);
+        socket.emit("media-state-change", { peerId: myPeerId, isMuted, isVideoOff: nextVideoOff });
+        
+        // Update local video preview
+        if (myVideoRef.current) {
+          myVideoRef.current.srcObject = localStream;
+        }
+      }
     }
   }, [localStream, isVideoOff, isMuted, myPeerId, socket]);
 
@@ -1687,16 +1517,18 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
   const startLocalFileBroadcast = async (file) => {
     try {
+      // Create video element for broadcasting
       const videoElement = document.createElement("video");
-      localMediaRef.current = videoElement;
+      broadcastVideoRef.current = videoElement;
       videoElement.src = URL.createObjectURL(file);
       videoElement.playsInline = true;
       videoElement.muted = true;
       videoElement.autoplay = true;
 
       await new Promise(r => { videoElement.onloadedmetadata = r; });
-      videoElement.play();
+      await videoElement.play();
 
+      // Capture stream from video
       let videoStream;
       if (videoElement.captureStream) {
         videoStream = videoElement.captureStream(24);
@@ -1711,6 +1543,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
       if (!videoTrack) throw new Error("No video track found in the file.");
 
+      // Mix audio tracks if available
       let mixedAudioTrack = null;
       let audioCtx = null;
 
@@ -1737,8 +1570,12 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       };
       setStreamMediaSource(mediaSourceObj);
 
-      if (myVideoRef.current) myVideoRef.current.srcObject = videoStream;
+      // Show broadcast in admin's preview
+      if (myVideoRef.current) {
+        myVideoRef.current.srcObject = videoStream;
+      }
 
+      // Replace tracks for all peers
       Object.values(peers.current).forEach(async (call) => {
         if (call.peerConnection) {
           const senders = call.peerConnection.getSenders();
@@ -1756,8 +1593,12 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       setFocusedPeerId("local");
       setActiveMedia({ url: null, playing: true, time: 0, type: "local_stream", name: file.name });
 
+      // Set up ended handler
       videoElement.onended = () => stopLocalFileBroadcast(mediaSourceObj);
+      
+      toast.success(`Now broadcasting: ${file.name}`);
     } catch (e) {
+      console.error("Broadcast error:", e);
       toast.error(`Local file streaming failed: ${e.message}`);
     }
   };
@@ -1770,6 +1611,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       const originalVid = sourceObj.originalVideoTrack;
       const originalAud = sourceObj.originalAudioTrack;
 
+      // Restore original tracks for all peers
       Object.values(peers.current).forEach(async (call) => {
         if (call.peerConnection) {
           const senders = call.peerConnection.getSenders();
@@ -1780,10 +1622,12 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         }
       });
 
+      // Restore admin's preview
       if (myVideoRef.current && localStream) {
         myVideoRef.current.srcObject = localStream;
       }
 
+      // Cleanup video element
       if (sourceObj.videoElement) {
         sourceObj.videoElement.pause();
         sourceObj.videoElement.removeAttribute("src");
@@ -1799,8 +1643,11 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       socket.emit("media-file-stopped");
       setFocusedPeerId(null);
       setLayoutMode("grid");
+      
+      toast.info("Broadcast stopped");
     } catch (err) {
-      console.error("Error stopping video broadcast:", err);
+      console.error("Error stopping broadcast:", err);
+      toast.error("Error stopping broadcast");
     }
   };
 
@@ -1816,6 +1663,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     setShowUrlInput(false);
     setBroadcastUrl("");
     setLayoutMode("stage");
+    toast.success("Media broadcast started");
   };
 
   const toggleFullscreen = () => {
@@ -1873,7 +1721,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       }
 
       const screenStream = await navigator.mediaDevices.getDisplayMedia({
-        video: { cursor: "always", width: { ideal: 1920, max: 1920 }, height: { ideal: 1080, max: 1080 }, frameRate: { ideal: 24, max: 30 } },
+        video: { cursor: "always", width: { ideal: 1920, max: 1920 }, height: { ideal: 1080, max: 1080 } },
         audio: true
       });
 
@@ -1898,10 +1746,11 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       setFocusedPeerId("local");
       socket.emit("screenshare-started", { roomId, peerId: myPeerId });
       setLayoutMode("stage");
+      toast.info("Screen sharing started");
 
       videoTrack.onended = () => stopScreenShare();
     } catch (err) {
-      toast.error(err.name === "NotAllowedError" ? "Screen sharing was cancelled." : "Unable to start screen sharing on this device.");
+      toast.error(err.name === "NotAllowedError" ? "Screen sharing was cancelled." : "Unable to start screen sharing.");
     }
   };
 
@@ -1923,6 +1772,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       socket.emit("screenshare-stopped", { peerId: myPeerId });
       setFocusedPeerId(null);
       setLayoutMode("grid");
+      toast.info("Screen sharing stopped");
     } catch (err) {
       console.error("Error stopping screen share:", err);
     }
@@ -1949,6 +1799,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       });
 
       setIsFrontCamera(!isFrontCamera);
+      toast.success(`Switched to ${isFrontCamera ? 'back' : 'front'} camera`);
     } catch (err) {
       toast.error("Unable to switch camera.");
     }
@@ -1962,6 +1813,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     if (isRecording) {
       if (recorderRef.current && recorderRef.current.state !== "inactive") recorderRef.current.stop();
       setIsRecording(false);
+      toast.info("Recording stopped");
       return;
     }
 
@@ -2007,6 +1859,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         displayStream.getTracks().forEach(track => track.stop());
         if (audioContext.state !== "closed") audioContext.close();
         setIsRecording(false);
+        toast.success("Recording saved");
       };
 
       displayStream.getVideoTracks()[0].onended = () => {
@@ -2016,7 +1869,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       rec.start(1000);
       recorderRef.current = rec;
       setIsRecording(true);
-      toast.info("⏺ Recording Started. Your screen is being captured.");
+      toast.info("⏺ Recording Started");
     } catch (err) {
       toast.error("Recording canceled or unsupported.");
     }
@@ -2045,7 +1898,6 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   /* ═══════════════════════════════ COMPUTED ═══════════════════════════════ */
   const remoteEntries = Object.entries(remoteStreams);
   const isStageMode = layoutMode === "stage" || !!activeMedia || focusedPeerId !== null || !!remoteFileBroadcast;
-  const isPiPMode = isStageMode && remoteEntries.length === 1 && !activeMedia && !isMinimized && !remoteFileBroadcast;
   const totalParticipantsCount = 1 + remoteEntries.length;
 
   const allParticipants = [
@@ -2063,54 +1915,111 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     setLayoutMode("stage");
   };
 
+  const isLocalBroadcasting = !!streamMediaSource || !!activeMedia?.type === "local_stream";
+
   /* ═══════════════════════════════ RENDER HELPERS ═══════════════════════════════ */
-  const renderParticipantTiles = (isStrip = false) => {
+
+  const renderParticipantTiles = () => {
     const tiles = [];
 
-    // Local user
+    // Local user tile
+    const isLocalActive = focusedPeerId === "local" || (!focusedPeerId && !activeMedia);
     tiles.push(
-      <VideoTile
+      <ParticipantTile
         key="local"
         $isTalking={speakingPeers.local}
-        $isStrip={isStrip}
+        $isActive={isLocalActive}
         onClick={() => handleTileClick("local")}
       >
-        {isVideoOff ? (
-          <PlaceholderAvatar>
-            <AvatarCircle $isTalking={speakingPeers.local}>
-              {getInitials(userName)}
-            </AvatarCircle>
-            {isMuted && <MutedBadge title="Muted"><FaMicrophoneSlash /></MutedBadge>}
-          </PlaceholderAvatar>
+        {isVideoOff || isLocalBroadcasting ? (
+          <div style={{ 
+            width: '100%', 
+            height: '100%', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            background: 'rgba(74, 158, 255, 0.05)'
+          }}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ 
+                width: 'clamp(40px, 6vw, 60px)', 
+                height: 'clamp(40px, 6vw, 60px)',
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, #4a9eff, #6c5ce7)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 'clamp(1rem, 2vw, 1.5rem)',
+                fontWeight: 700,
+                color: 'white',
+                margin: '0 auto'
+              }}>
+                {getInitials(userName)}
+              </div>
+              {isLocalBroadcasting && (
+                <div style={{ 
+                  marginTop: '4px', 
+                  fontSize: 'clamp(0.4rem, 0.6vw, 0.6rem)',
+                  color: '#4a9eff',
+                  fontWeight: 600
+                }}>
+                  📡 Broadcasting
+                </div>
+              )}
+            </div>
+          </div>
         ) : (
           <video ref={myVideoRef} autoPlay muted playsInline />
         )}
         <NameTag>
-          {userName} (You) {isMuted && <span style={{ color: "#ff4757" }}>🎤 Muted</span>}
+          {userName} (You)
+          {isMuted && <span style={{ color: '#ff4757' }}>🔇</span>}
+          {isLocalBroadcasting && <span style={{ color: '#4a9eff' }}>📡</span>}
         </NameTag>
-      </VideoTile>
+        {isMuted && <StatusBadge $type="muted"><FaMicrophoneSlash /></StatusBadge>}
+        {isVideoOff && <StatusBadge $type="video"><FaVideoSlash /></StatusBadge>}
+        {isLocalBroadcasting && <StatusBadge $type="broadcast" style={{ background: '#4a9eff' }}><FaDesktop /></StatusBadge>}
+      </ParticipantTile>
     );
 
-    // Remote users
+    // Remote user tiles
     Object.entries(remoteStreams).forEach(([id, info]) => {
       const peerState = participantStates[id] || {};
       const peerVideoOff = peerState.isVideoOff;
       const peerMuted = peerState.isMuted;
+      const isActive = focusedPeerId === id;
 
       tiles.push(
-        <VideoTile
+        <ParticipantTile
           key={id}
           $isTalking={speakingPeers[id]}
-          $isStrip={isStrip}
+          $isActive={isActive}
           onClick={() => handleTileClick(id)}
         >
           {peerVideoOff ? (
-            <PlaceholderAvatar>
-              <AvatarCircle $isTalking={speakingPeers[id]}>
+            <div style={{ 
+              width: '100%', 
+              height: '100%', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              background: 'rgba(255,255,255,0.02)'
+            }}>
+              <div style={{ 
+                width: 'clamp(40px, 6vw, 60px)', 
+                height: 'clamp(40px, 6vw, 60px)',
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, #6c5ce7, #a29bfe)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 'clamp(1rem, 2vw, 1.5rem)',
+                fontWeight: 700,
+                color: 'white'
+              }}>
                 {getInitials(info.name)}
-              </AvatarCircle>
-              {peerMuted && <MutedBadge title="Muted"><FaMicrophoneSlash /></MutedBadge>}
-            </PlaceholderAvatar>
+              </div>
+            </div>
           ) : (
             <video
               autoPlay
@@ -2123,99 +2032,204 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
             />
           )}
           <NameTag>
-            {info.name} {peerMuted && <span style={{ color: "#ff4757" }}>🎤 Muted</span>}
+            {info.name}
+            {peerMuted && <span style={{ color: '#ff4757' }}>🔇</span>}
           </NameTag>
-        </VideoTile>
+          {peerMuted && <StatusBadge $type="muted"><FaMicrophoneSlash /></StatusBadge>}
+          {peerVideoOff && <StatusBadge $type="video"><FaVideoSlash /></StatusBadge>}
+        </ParticipantTile>
       );
     });
 
     return tiles;
   };
 
-  const renderMainStageContent = () => {
-    // Focused peer view
+  const renderMainContent = () => {
+    // Show connecting state
+    if (isConnecting) {
+      return (
+        <Overlay>
+          <ConnectingSpinner />
+          <h3>Connecting to meeting...</h3>
+          <p>Setting up your camera and microphone</p>
+        </Overlay>
+      );
+    }
+
+    // Show focused peer
     if (focusedPeerId) {
-      const focusedIsVideoOff = focusedPeerId === "local" ? isVideoOff : (participantStates[focusedPeerId]?.isVideoOff);
-      const focusedName = focusedPeerId === "local" ? userName : (remoteStreams[focusedPeerId]?.name || "Participant");
-      const focusedIsMuted = focusedPeerId === "local" ? isMuted : (participantStates[focusedPeerId]?.isMuted);
+      const isLocal = focusedPeerId === "local";
+      const focusedIsVideoOff = isLocal ? isVideoOff : (participantStates[focusedPeerId]?.isVideoOff);
+      const focusedName = isLocal ? userName : (remoteStreams[focusedPeerId]?.name || "Participant");
+      const focusedIsMuted = isLocal ? isMuted : (participantStates[focusedPeerId]?.isMuted);
       const focusedIsTalking = speakingPeers[focusedPeerId];
-      const targetStream = focusedPeerId === "local" ? localStream : remoteStreams[focusedPeerId]?.stream;
+      const targetStream = isLocal ? localStream : remoteStreams[focusedPeerId]?.stream;
 
       return (
-        <div style={{ width: "100%", height: "100%", position: "relative" }}>
+        <>
           {focusedIsVideoOff ? (
-            <PlaceholderAvatar style={{ borderRadius: 28 }}>
-              <AvatarCircle $isTalking={focusedIsTalking} style={{ width: 120, height: 120, fontSize: "3rem" }}>
+            <div style={{ 
+              width: '100%', 
+              height: '100%', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              flexDirection: 'column',
+              gap: '16px'
+            }}>
+              <div style={{ 
+                width: 'clamp(80px, 15vw, 150px)', 
+                height: 'clamp(80px, 15vw, 150px)',
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, #4a9eff, #6c5ce7)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 'clamp(2rem, 5vw, 4rem)',
+                fontWeight: 700,
+                color: 'white'
+              }}>
                 {getInitials(focusedName)}
-              </AvatarCircle>
-              {focusedIsMuted && <MutedBadge style={{ width: 36, height: 36, fontSize: "1.2rem", top: 20, right: 20 }} title="Muted"><FaMicrophoneSlash /></MutedBadge>}
-            </PlaceholderAvatar>
+              </div>
+              <div style={{ fontSize: 'clamp(0.8rem, 1.5vw, 1.2rem)', fontWeight: 600 }}>
+                {focusedName} {isLocal && '(You)'}
+              </div>
+              {focusedIsMuted && <div style={{ color: '#ff4757', fontSize: '0.9rem' }}>🔇 Muted</div>}
+            </div>
           ) : (
             <video
               autoPlay
               playsInline
-              muted={focusedPeerId === "local"}
+              muted={isLocal}
               ref={el => {
-                if (el && targetStream && el.srcObject !== targetStream) el.srcObject = targetStream;
+                if (el && targetStream && el.srcObject !== targetStream) {
+                  el.srcObject = targetStream;
+                }
               }}
-              style={{ width: "100%", height: "100%", objectFit: "contain" }}
+              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
             />
           )}
-          <div style={{ position: "absolute", top: 12, left: 12, background: "rgba(0,0,0,0.6)", padding: "4px 12px", borderRadius: 16, display: "flex", alignItems: "center", gap: 8, zIndex: 100, fontSize: "clamp(0.6rem, 1vw, 0.8rem)" }}>
-            <span>Viewing: {focusedPeerId === "local" ? "You" : remoteStreams[focusedPeerId]?.name}</span>
-            <button onClick={() => { setFocusedPeerId(null); setLayoutMode("grid"); }} style={{ background: "none", border: "none", color: "white", cursor: "pointer", fontSize: "0.9rem" }}>✕</button>
+          <div style={{ 
+            position: 'absolute', 
+            top: 16, 
+            left: 16, 
+            background: 'rgba(0,0,0,0.7)',
+            backdropFilter: 'blur(10px)',
+            padding: '6px 16px',
+            borderRadius: '12px',
+            fontSize: 'clamp(0.6rem, 1vw, 0.8rem)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            zIndex: 10
+          }}>
+            <span>Viewing: {focusedName}</span>
+            <button 
+              onClick={() => { setFocusedPeerId(null); setLayoutMode("grid"); }}
+              style={{ 
+                background: 'none', 
+                border: 'none', 
+                color: 'white', 
+                cursor: 'pointer',
+                fontSize: '1rem',
+                opacity: 0.6,
+                padding: '0 4px'
+              }}
+            >
+              ✕
+            </button>
           </div>
-        </div>
+          {focusedIsTalking && (
+            <div style={{ 
+              position: 'absolute', 
+              bottom: 20, 
+              left: '50%', 
+              transform: 'translateX(-50%)',
+              background: 'rgba(46, 213, 115, 0.2)',
+              border: '1px solid rgba(46, 213, 115, 0.3)',
+              padding: '4px 16px',
+              borderRadius: '20px',
+              fontSize: 'clamp(0.6rem, 0.9vw, 0.75rem)',
+              color: '#2ed573',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              animation: `${breathe} 1.5s ease-in-out infinite`
+            }}>
+              <span style={{ width: 8, height: 8, background: '#2ed573', borderRadius: '50%', display: 'inline-block' }} />
+              Speaking
+            </div>
+          )}
+        </>
       );
     }
 
-    // Active media (URL broadcast or local stream)
+    // Show active media (broadcast)
     if (activeMedia) {
       return (
-        <div key={activeMedia.url} style={{ width: "100%", height: "100%", position: "relative" }}>
+        <>
           {activeMedia.url?.includes("youtu") ? (
-            <div id="youtube-sync-player" style={{ width: "100%", height: "100%" }} />
+            <div id="youtube-sync-player" style={{ width: '100%', height: '100%' }} />
           ) : activeMedia.type === "local_stream" && !isAdmin ? (
-            <FileBroadcastOverlay>
+            <div style={{ 
+              width: '100%', 
+              height: '100%', 
+              display: 'flex', 
+              flexDirection: 'column',
+              alignItems: 'center', 
+              justifyContent: 'center',
+              padding: '20px',
+              gap: '12px'
+            }}>
               <FaDesktop size={48} style={{ opacity: 0.3 }} />
-              <div className="shimmer-text">{remoteFileBroadcast?.sharerName || "Admin"} is streaming: {remoteFileBroadcast?.name || activeMedia.name || "Media"}</div>
-              <span style={{ fontSize: "0.8rem", opacity: 0.4 }}>Audio and video are streamed live via the call</span>
-            </FileBroadcastOverlay>
+              <div style={{ 
+                fontSize: 'clamp(0.8rem, 1.5vw, 1rem)',
+                fontWeight: 600,
+                background: 'linear-gradient(90deg, rgba(255,255,255,0.3), #ffffff, rgba(255,255,255,0.3))',
+                backgroundSize: '200% 100%',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                animation: `${shimmer} 2s linear infinite`,
+                textAlign: 'center'
+              }}>
+                {remoteFileBroadcast?.sharerName || "Admin"} is streaming: {remoteFileBroadcast?.name || activeMedia.name || "Media"}
+              </div>
+              <span style={{ fontSize: 'clamp(0.6rem, 1vw, 0.8rem)', opacity: 0.4, textAlign: 'center' }}>
+                Audio and video are streamed live via the call
+              </span>
+            </div>
           ) : (
             <>
               <video
                 ref={mediaRef}
                 src={activeMedia.url}
                 playsInline
-                style={{ width: "100%", height: "100%" }}
+                style={{ width: '100%', height: '100%' }}
                 onPlay={() => handleMediaAction("play")}
                 onPause={() => handleMediaAction("pause")}
                 onSeeked={() => handleMediaAction("seek")}
                 onLoadedMetadata={(e) => setVideoDuration(e.target.duration)}
               />
-              {/* Media Controls Overlay */}
-              <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "linear-gradient(transparent, rgba(0,0,0,0.8))", padding: "clamp(12px, 2vw, 20px) clamp(10px, 1.5vw, 16px) clamp(8px, 1vw, 12px)", zIndex: 50 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "clamp(4px, 1vw, 8px)", flexWrap: "wrap" }}>
-                  <MediaControls>
-                    <MediaControlButton onClick={() => handleSkip(-30)} title="-30s">
-                      <FaStepBackward />
-                    </MediaControlButton>
-                    <MediaControlButton onClick={() => handleSkip(-10)} title="-10s">
-                      <FaStepBackward style={{ fontSize: "0.7rem" }} />
-                    </MediaControlButton>
-                    <MediaControlButton onClick={togglePlayPause} style={{ fontSize: "clamp(1rem, 1.5vw, 1.2rem)" }}>
-                      {localPlaybackState.playing ? <FaPause /> : <FaPlay />}
-                    </MediaControlButton>
-                    <MediaControlButton onClick={() => handleSkip(10)} title="+10s">
-                      <FaStepForward style={{ fontSize: "0.7rem" }} />
-                    </MediaControlButton>
-                    <MediaControlButton onClick={() => handleSkip(30)} title="+30s">
-                      <FaStepForward />
-                    </MediaControlButton>
-                  </MediaControls>
+              <MediaControlsOverlay $visible={showControls}>
+                <MediaControlsRow>
+                  <MediaButton onClick={() => handleSkip(-30)}>
+                    <FaStepBackward /> -30s
+                  </MediaButton>
+                  <MediaButton onClick={() => handleSkip(-10)}>
+                    <FaStepBackward style={{ fontSize: '0.7rem' }} /> -10s
+                  </MediaButton>
+                  <MediaButton onClick={togglePlayPause} style={{ fontSize: 'clamp(1rem, 1.5vw, 1.2rem)', minWidth: '40px' }}>
+                    {localPlaybackState.playing ? <FaPause /> : <FaPlay />}
+                  </MediaButton>
+                  <MediaButton onClick={() => handleSkip(10)}>
+                    +10s <FaStepForward style={{ fontSize: '0.7rem' }} />
+                  </MediaButton>
+                  <MediaButton onClick={() => handleSkip(30)}>
+                    +30s <FaStepForward />
+                  </MediaButton>
                   
-                  <div style={{ display: "flex", alignItems: "center", gap: "clamp(4px, 1vw, 8px)", flex: 1, minWidth: "clamp(80px, 20vw, 120px)" }}>
-                    <span style={{ fontSize: "clamp(0.5rem, 0.8vw, 0.65rem)", opacity: 0.7, whiteSpace: "nowrap" }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1, minWidth: '100px' }}>
+                    <span style={{ fontSize: 'clamp(0.5rem, 0.7vw, 0.65rem)', opacity: 0.7, whiteSpace: 'nowrap' }}>
                       {formatDuration(localPlaybackState.time)} / {formatDuration(videoDuration)}
                     </span>
                     <SeekBar
@@ -2225,13 +2239,12 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                       step="0.1"
                       value={localPlaybackState.time || 0}
                       onChange={(e) => handleSeek(e.target.value)}
-                      style={{ flex: 1 }}
                     />
                   </div>
                   
-                  <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                    <FaTachometerAlt style={{ fontSize: "0.7rem", opacity: 0.5 }} />
-                    <SpeedControl
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <FaTachometerAlt style={{ fontSize: '0.7rem', opacity: 0.5 }} />
+                    <SpeedSelect
                       value={playbackSpeed}
                       onChange={(e) => handleSpeedChange(e.target.value)}
                     >
@@ -2241,268 +2254,276 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                       <option value="1.25">1.25x</option>
                       <option value="1.5">1.5x</option>
                       <option value="2">2x</option>
-                    </SpeedControl>
+                    </SpeedSelect>
                   </div>
                   
                   {isAdmin && (
-                    <button
+                    <MediaButton
                       onClick={() => {
                         if (activeMedia.type === "local_stream") stopLocalFileBroadcast();
                         else { setActiveMedia(null); socket.emit("syncMedia", null); }
                       }}
-                      style={{ background: "rgba(255,71,87,0.8)", border: "none", color: "white", padding: "clamp(2px, 0.5vw, 4px) clamp(8px, 1.5vw, 12px)", borderRadius: "clamp(6px, 1vw, 8px)", cursor: "pointer", fontSize: "clamp(0.6rem, 0.9vw, 0.7rem)", fontWeight: "bold", whiteSpace: "nowrap" }}
+                      style={{ background: 'rgba(255, 71, 87, 0.2)', borderColor: 'rgba(255, 71, 87, 0.3)', color: '#ff4757' }}
                     >
                       <FaStop /> Stop
-                    </button>
+                    </MediaButton>
                   )}
-                </div>
-              </div>
+                </MediaControlsRow>
+              </MediaControlsOverlay>
             </>
           )}
-          <div style={{ position: "absolute", top: 12, left: 12, background: "rgba(0,0,0,0.6)", padding: "4px 12px", borderRadius: 16, display: "flex", alignItems: "center", gap: 8, zIndex: 100, fontSize: "clamp(0.6rem, 1vw, 0.8rem)" }}>
-            <span>Shared Media: {activeMedia.name || "Broadcast"}</span>
+          <div style={{ 
+            position: 'absolute', 
+            top: 16, 
+            left: 16, 
+            background: 'rgba(0,0,0,0.7)',
+            backdropFilter: 'blur(10px)',
+            padding: '6px 16px',
+            borderRadius: '12px',
+            fontSize: 'clamp(0.6rem, 0.9vw, 0.75rem)',
+            zIndex: 10
+          }}>
+            📺 {activeMedia.name || "Shared Media"}
           </div>
+        </>
+      );
+    }
+
+    // Show remote file broadcast overlay
+    if (remoteFileBroadcast && !isAdmin) {
+      return (
+        <div style={{ 
+          width: '100%', 
+          height: '100%', 
+          display: 'flex', 
+          flexDirection: 'column',
+          alignItems: 'center', 
+          justifyContent: 'center',
+          padding: '20px',
+          gap: '12px'
+        }}>
+          <FaDesktop size={48} style={{ opacity: 0.3 }} />
+          <div style={{ 
+            fontSize: 'clamp(0.8rem, 1.5vw, 1rem)',
+            fontWeight: 600,
+            background: 'linear-gradient(90deg, rgba(255,255,255,0.3), #ffffff, rgba(255,255,255,0.3))',
+            backgroundSize: '200% 100%',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            animation: `${shimmer} 2s linear infinite`,
+            textAlign: 'center'
+          }}>
+            {remoteFileBroadcast.sharerName || "Admin"} is streaming: {remoteFileBroadcast.name || "Media"}
+          </div>
+          <span style={{ fontSize: 'clamp(0.6rem, 1vw, 0.8rem)', opacity: 0.4, textAlign: 'center' }}>
+            Audio and video are streamed live via the call
+          </span>
         </div>
       );
     }
 
-    // Remote file broadcast overlay for non-admin when no activeMedia
-    if (remoteFileBroadcast && !isAdmin) {
-      return (
-        <FileBroadcastOverlay>
-          <FaDesktop size={48} style={{ opacity: 0.3 }} />
-          <div className="shimmer-text">{remoteFileBroadcast.sharerName || "Admin"} is streaming: {remoteFileBroadcast.name || "Media"}</div>
-          <span style={{ fontSize: "0.8rem", opacity: 0.4 }}>Audio and video are streamed live via the call</span>
-        </FileBroadcastOverlay>
-      );
-    }
-
-    // Empty stage
-    return <div style={{ opacity: 0.2 }}><FaDesktop size={100} /></div>;
+    // Empty state - show all participants in grid
+    return (
+      <div style={{ 
+        width: '100%', 
+        height: '100%', 
+        display: 'grid',
+        gridTemplateColumns: `repeat(${Math.min(totalParticipantsCount, 4)}, 1fr)`,
+        gap: '12px',
+        padding: '12px',
+        alignContent: 'center'
+      }}>
+        {renderParticipantTiles()}
+      </div>
+    );
   };
 
-  /* ═══════════════════════════════ RENDER ═══════════════════════════════ */
+  /* ═══════════════════════════════ MAIN RENDER ═══════════════════════════════ */
   return (
-    <MeetingOverlay ref={containerRef} $minimized={isMinimized} onClick={isMinimized ? () => setIsMinimized(false) : undefined}>
-      {/* ─── HEADER ─── */}
-      <MeetingHeader $minimized={isMinimized}>
+    <MeetingContainer ref={containerRef}>
+      <GradientBackground />
+      
+      {/* Header */}
+      <MeetingHeader>
         <HeaderLeft>
-          <div className="live-pulse" style={{ width: 8, height: 8, background: "#ff4757", borderRadius: "50%", flexShrink: 0 }} />
-          <h2 style={{ margin: 0, fontSize: "clamp(0.8rem, 1.5vw, 1rem)", fontWeight: 700, letterSpacing: "-0.5px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-            Video Call
-          </h2>
-          {!isMinimized && (
-            <>
-              <StatusChip>
-                {networkStatus === "good" && <span style={{ color: "#2ed573" }}>● Good</span>}
-                {networkStatus === "poor" && <span style={{ color: "#ffa502" }}>● Weak</span>}
-                {networkStatus === "fallback" && <span style={{ color: "#ff4757" }}>● Low BW</span>}
-              </StatusChip>
-              <TimerDisplay>{formatDuration(callDuration)}</TimerDisplay>
-              <div style={{ position: "relative" }}>
-                <ParticipantBadge onClick={(e) => { e.stopPropagation(); setShowParticipants(p => !p); }}>
-                  <FaUsers size={12} />
-                  {totalParticipantsCount}
-                </ParticipantBadge>
-                {showParticipants && (
-                  <ParticipantPopover onClick={(e) => e.stopPropagation()}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                      <span style={{ fontSize: "0.7rem", fontWeight: 700, opacity: 0.6 }}>IN THIS CALL</span>
-                      <button onClick={() => setShowParticipants(false)} style={{ background: "none", border: "none", color: "white", cursor: "pointer", opacity: 0.5, fontSize: "0.8rem" }}><FaTimes /></button>
-                    </div>
-                    {allParticipants.map(p => (
-                      <ParticipantRow key={p.id}>
-                        <ParticipantDot>{getInitials(p.name)}</ParticipantDot>
-                        <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: "clamp(0.65rem, 1vw, 0.75rem)" }}>{p.name}{p.id === "local" ? " (You)" : ""}</span>
-                        {p.isMuted && <FaMicrophoneSlash size={10} style={{ color: "#ff4757", flexShrink: 0 }} />}
-                        {p.isVideoOff && <FaVideoSlash size={10} style={{ color: "#ff4757", flexShrink: 0 }} />}
-                      </ParticipantRow>
-                    ))}
-                  </ParticipantPopover>
-                )}
-              </div>
-            </>
-          )}
+          <Logo>
+            <span className="logo-dot" />
+            <span>Meet</span>
+          </Logo>
+          <StatusIndicator $status={networkStatus}>
+            {networkStatus === 'good' && <FaWifi size={12} />}
+            {networkStatus === 'poor' && <FaSignal size={12} />}
+            {networkStatus === 'fallback' && <FaSignal size={12} />}
+            {networkStatus === 'good' ? 'Excellent' : networkStatus === 'poor' ? 'Weak' : 'Low BW'}
+          </StatusIndicator>
+          <span style={{ fontSize: 'clamp(0.6rem, 0.9vw, 0.75rem)', opacity: 0.5 }}>
+            {formatDuration(callDuration)}
+          </span>
         </HeaderLeft>
-        <HeaderRight onClick={(e) => e.stopPropagation()}>
-          {isMinimized ? (
-            <CircleButton style={{ width: "clamp(28px, 4vw, 32px)", height: "clamp(28px, 4vw, 32px)", fontSize: ".8rem" }} onClick={() => setIsMinimized(false)} title="Return to call"><FaExpand /></CircleButton>
-          ) : (
-            <>
-              <CircleButton
-                style={{ width: "clamp(28px, 4vw, 32px)", height: "clamp(28px, 4vw, 32px)", fontSize: "0.8rem" }}
-                onClick={() => {
-                  if (layoutMode === "grid") {
-                    setLayoutMode("stage");
-                    setFocusedPeerId(remoteEntries.length > 0 ? remoteEntries[0][0] : "local");
-                  } else {
-                    setLayoutMode("grid");
-                    setFocusedPeerId(null);
-                  }
-                }}
-                title={layoutMode === "grid" ? "Switch to Stage View" : "Switch to Grid View"}
-              >
-                {layoutMode === "grid" ? <FaDesktop /> : <FaThLarge />}
-              </CircleButton>
-              <CircleButton
-                style={{ width: "clamp(28px, 4vw, 32px)", height: "clamp(28px, 4vw, 32px)", fontSize: "0.8rem" }}
-                onClick={toggleFullscreen}
-                title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
-              >
-                {isFullscreen ? <FaCompress /> : <FaExpand />}
-              </CircleButton>
-              <CircleButton
-                style={{ width: "clamp(28px, 4vw, 32px)", height: "clamp(28px, 4vw, 32px)", fontSize: "0.8rem" }}
-                onClick={(event) => { event.stopPropagation(); setIsMinimized(true); }}
-                title="Minimize"
-              >
-                <FaWindowMinimize />
-              </CircleButton>
-            </>
-          )}
-          <Divider style={{ height: "clamp(14px, 2vw, 20px)", margin: "0 2px" }} />
-          <CircleButton
-            $active={true}
-            style={isMinimized ? { width: "clamp(28px, 4vw, 32px)", height: "clamp(28px, 4vw, 32px)", fontSize: ".8rem" } : undefined}
+        <HeaderRight>
+          <ControlButton
+            style={{ width: 'clamp(32px, 4vw, 38px)', height: 'clamp(32px, 4vw, 38px)', fontSize: '0.8rem' }}
+            onClick={() => setShowParticipants(!showParticipants)}
+            title="Participants"
+          >
+            <FaUsers />
+            {totalParticipantsCount > 1 && <span className="badge">{totalParticipantsCount}</span>}
+          </ControlButton>
+          <ControlButton
+            style={{ width: 'clamp(32px, 4vw, 38px)', height: 'clamp(32px, 4vw, 38px)', fontSize: '0.8rem' }}
+            onClick={() => {
+              if (layoutMode === "grid") {
+                setLayoutMode("stage");
+                setFocusedPeerId(remoteEntries.length > 0 ? remoteEntries[0][0] : "local");
+              } else {
+                setLayoutMode("grid");
+                setFocusedPeerId(null);
+              }
+            }}
+            title={layoutMode === "grid" ? "Stage View" : "Grid View"}
+          >
+            {layoutMode === "grid" ? <FaThLarge /> : <FaDesktop />}
+          </ControlButton>
+          <ControlButton
+            style={{ width: 'clamp(32px, 4vw, 38px)', height: 'clamp(32px, 4vw, 38px)', fontSize: '0.8rem' }}
+            onClick={toggleFullscreen}
+            title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+          >
+            {isFullscreen ? <FaCompress /> : <FaExpand />}
+          </ControlButton>
+          <ControlButton
+            $primary
+            style={{ width: 'clamp(32px, 4vw, 38px)', height: 'clamp(32px, 4vw, 38px)', fontSize: '0.8rem' }}
             onClick={handleLeaveCall}
             title="Leave Meeting"
           >
             <FaPhoneSlash />
-          </CircleButton>
+          </ControlButton>
         </HeaderRight>
       </MeetingHeader>
 
-      {/* ─── CONTENT ─── */}
-      <ContentLayout $isAdmin={isAdmin} $minimized={isMinimized}>
-        {isStageMode ? (
-          <>
-            <MainStage $minimized={isMinimized}>
-              {isConnecting && (
-                <ConnectingOverlay>
-                  <SpinnerRing />
-                  <span style={{ fontSize: "clamp(0.8rem, 1.5vw, 0.9rem)", fontWeight: 600 }}>Connecting to meeting...</span>
-                  <span style={{ fontSize: "clamp(0.65rem, 1.2vw, 0.75rem)", opacity: 0.5 }}>Setting up your camera and microphone</span>
-                </ConnectingOverlay>
-              )}
-              {!isAdmin && <PrivacyGuard $minimized={isMinimized} show={!isFocused}><h3>Privacy watermark active</h3><p>Your name and a live timestamp remain visible during this call.</p></PrivacyGuard>}
-              {!isMinimized && <div style={{ position: "absolute", top: 8, left: 8, zIndex: 60, fontSize: "clamp(0.5rem, 0.8vw, 0.6rem)", opacity: 0.3, color: "var(--chakra-colors-textPrimary, #ffffff)" }}>ID: {myPeerId || "Connecting..."}</div>}
-              {!isMinimized && <Watermark x={watermarkPos.x} y={watermarkPos.y}>{userName} | {new Date().toLocaleTimeString()} | CONFIDENTIAL</Watermark>}
-              {isPiPMode && (
-                <FloatingPiP onClick={flipCamera} title="Tap to flip camera">
-                  <video ref={el => { if (el && localStream && el.srcObject !== localStream) el.srcObject = localStream; }} autoPlay muted playsInline />
-                  <div style={{ position: "absolute", bottom: 4, right: 4, background: "rgba(0,0,0,0.5)", borderRadius: 6, padding: "2px 4px", fontSize: "clamp(0.4rem, 0.7vw, 0.6rem)", fontWeight: 600, display: "flex", alignItems: "center", gap: 2 }}>
-                    <FaExchangeAlt size={8} /> Flip
-                  </div>
-                </FloatingPiP>
-              )}
-              {reactions.map(r => (
-                <div key={r.id} style={{ position: "absolute", bottom: 0, left: `${r.x}%`, fontSize: "clamp(2rem, 4vw, 2.5rem)", animation: "floatUp 3s ease-out forwards", zIndex: 100 }}>{r.emoji}</div>
-              ))}
-              {!isMinimized && isSyncing && (
-                <div style={{ position: "absolute", top: 12, right: 12, color: "#4CAF50", display: "flex", alignItems: "center", gap: 8, background: "rgba(0,0,0,0.6)", padding: "6px 12px", borderRadius: "8px", backdropFilter: "blur(5px)", fontSize: "clamp(0.6rem, 1vw, 0.75rem)" }}>
-                  <FaSync style={{ animation: "spin 1s linear infinite" }} /> Syncing...
-                </div>
-              )}
-              {renderMainStageContent()}
-            </MainStage>
+      {/* Content Area */}
+      <ContentArea>
+        <MainVideoArea>
+          {renderMainContent()}
+          
+          {/* Reactions */}
+          {reactions.map(r => (
+            <ReactionFloat key={r.id} $x={r.x}>
+              {r.emoji}
+            </ReactionFloat>
+          ))}
+          
+          {/* Sync Indicator */}
+          {isSyncing && !isConnecting && (
+            <SyncIndicator>
+              <FaSync /> Syncing...
+            </SyncIndicator>
+          )}
+        </MainVideoArea>
 
-            {!isPiPMode && (
-              <ParticipantGrid className="participant-strip">
-                {renderParticipantTiles(true)}
-              </ParticipantGrid>
-            )}
-          </>
-        ) : (
-          <>
-            {isConnecting && (
-              <ConnectingOverlay style={{ borderRadius: 28 }}>
-                <SpinnerRing />
-                <span style={{ fontSize: "clamp(0.8rem, 1.5vw, 0.9rem)", fontWeight: 600 }}>Connecting to meeting...</span>
-                <span style={{ fontSize: "clamp(0.65rem, 1.2vw, 0.75rem)", opacity: 0.5 }}>Setting up your camera and microphone</span>
-              </ConnectingOverlay>
-            )}
-            <MeetingGrid $count={totalParticipantsCount} className="meeting-grid">
-              {renderParticipantTiles(false)}
-            </MeetingGrid>
-          </>
+        {/* Participant Sidebar */}
+        {!isStageMode && (
+          <ParticipantSidebar>
+            {renderParticipantTiles()}
+          </ParticipantSidebar>
         )}
-      </ContentLayout>
+      </ContentArea>
 
-      {/* ─── CONTROL BAR ─── */}
-      <ControlBar $minimized={isMinimized}>
-        <CircleButton $active={isMuted} onClick={toggleMute} title={isMuted ? "Unmute" : "Mute"}>
+      {/* Controls Bar */}
+      <ControlsBar>
+        <ControlButton
+          $active={isMuted}
+          onClick={toggleMute}
+          title={isMuted ? "Unmute" : "Mute"}
+        >
           {isMuted ? <FaMicrophoneSlash /> : <FaMicrophone />}
-          <ControlLabel>{isMuted ? "Unmute" : "Mute"}</ControlLabel>
-        </CircleButton>
-        <CircleButton $active={isVideoOff} onClick={toggleVideo} title={isVideoOff ? "Camera On" : "Camera Off"}>
+        </ControlButton>
+        
+        <ControlButton
+          $active={isVideoOff}
+          onClick={toggleVideo}
+          title={isVideoOff ? "Start Video" : "Stop Video"}
+        >
           {isVideoOff ? <FaVideoSlash /> : <FaVideo />}
-          <ControlLabel>{isVideoOff ? "Start" : "Stop"}</ControlLabel>
-        </CircleButton>
-        <CircleButton onClick={flipCamera} title="Flip Camera">
+        </ControlButton>
+        
+        <ControlButton
+          onClick={flipCamera}
+          title="Flip Camera"
+        >
           <FaExchangeAlt />
-          <ControlLabel>Flip</ControlLabel>
-        </CircleButton>
-        <CircleButton onClick={startScreenShare} title="Share Screen">
+        </ControlButton>
+        
+        <ControlButton
+          onClick={startScreenShare}
+          title="Share Screen"
+        >
           <FaDesktop />
-          <ControlLabel>Share</ControlLabel>
-        </CircleButton>
+        </ControlButton>
+
+        <ControlDivider />
 
         {isAdmin && (
           <>
-            <Divider />
             {streamMediaSource ? (
-              <CircleButton
+              <ControlButton
                 onClick={() => stopLocalFileBroadcast()}
-                title="Stop Local Video Broadcast"
-                style={{ background: "#ff4757", borderColor: "#ff4757" }}
+                style={{ background: 'rgba(255, 71, 87, 0.2)', borderColor: 'rgba(255, 71, 87, 0.3)', color: '#ff4757' }}
+                title="Stop Broadcast"
               >
                 <FaStop />
-                <ControlLabel>Stop File</ControlLabel>
-              </CircleButton>
+              </ControlButton>
             ) : (
               <label>
-                <CircleButton as="span" title="Share a media file from your device">
+                <ControlButton as="span" title="Share File">
                   <FaFolderOpen />
-                  <ControlLabel>File</ControlLabel>
                   <input type="file" hidden accept="video/*,audio/*" onChange={handleLocalFile} />
-                </CircleButton>
+                </ControlButton>
               </label>
             )}
 
-            <CircleButton
-              onClick={() => setShowUrlInput(prev => !prev)}
-              title="Share a URL (YouTube, MP4)"
-              style={{ background: showUrlInput ? "rgba(0,191,165,0.2)" : "transparent", borderColor: showUrlInput ? "var(--chakra-colors-brandPrimary, #4a9eff)" : "rgba(255,255,255,0.06)" }}
+            <ControlButton
+              onClick={() => setShowUrlInput(!showUrlInput)}
+              title="Share URL"
+              style={showUrlInput ? { background: 'rgba(74, 158, 255, 0.2)', borderColor: 'rgba(74, 158, 255, 0.3)' } : {}}
             >
               <FaLink />
-              <ControlLabel>URL</ControlLabel>
-            </CircleButton>
+            </ControlButton>
 
-            <CircleButton
+            <ControlButton
               $active={isRecording}
               onClick={toggleRecording}
-              title={isRecording ? "Stop Recording" : "Record Meeting"}
-              style={{ background: isRecording ? "#ff4757" : "transparent", borderColor: isRecording ? "#ff4757" : "rgba(255,71,87,0.3)" }}
+              title={isRecording ? "Stop Recording" : "Record"}
+              style={isRecording ? { background: 'rgba(255, 71, 87, 0.2)', borderColor: 'rgba(255, 71, 87, 0.3)', color: '#ff4757' } : {}}
             >
-              <FaRecordVinyl color={isRecording ? "white" : "#ff4757"} />
-              <ControlLabel>{isRecording ? "Stop Rec" : "Record"}</ControlLabel>
-            </CircleButton>
+              <FaRecordVinyl />
+            </ControlButton>
+
+            <ControlDivider />
           </>
         )}
 
-        <Divider />
-        <CircleButton onClick={() => sendReaction("👋")} title="Raise Hand" style={{ background: "transparent", border: "none" }}>
+        <ControlButton
+          onClick={() => sendReaction("👋")}
+          title="Raise Hand"
+        >
           <FaHandPaper />
-          <ControlLabel>Hand</ControlLabel>
-        </CircleButton>
-        {["❤️", "👏", "😂"].map(e => (
-          <CircleButton key={e} onClick={() => sendReaction(e)} title={`Send ${e}`} style={{ background: "transparent", border: "none" }}>
-            {e}
-          </CircleButton>
+        </ControlButton>
+        
+        {["❤️", "👏", "😂"].map(emoji => (
+          <ControlButton
+            key={emoji}
+            onClick={() => sendReaction(emoji)}
+            title={`Send ${emoji}`}
+            style={{ fontSize: 'clamp(0.9rem, 1.2vw, 1.1rem)' }}
+          >
+            {emoji}
+          </ControlButton>
         ))}
-      </ControlBar>
+      </ControlsBar>
 
-      {/* ─── URL INPUT OVERLAY ─── */}
+      {/* URL Input Overlay */}
       {showUrlInput && (
         <UrlInputOverlay>
           <input
@@ -2511,42 +2532,63 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
             value={broadcastUrl}
             onChange={(e) => setBroadcastUrl(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleUrlBroadcast()}
-            style={{
-              flex: 1, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)",
-              borderRadius: "10px", padding: "clamp(6px, 1vw, 8px) clamp(8px, 1.5vw, 12px)", 
-              color: "white", fontSize: "clamp(0.7rem, 1.2vw, 0.9rem)", outline: "none",
-              minWidth: "100px"
-            }}
           />
-          <button
-            onClick={handleUrlBroadcast}
-            style={{
-              background: "var(--chakra-colors-brandPrimary, #4a9eff)", border: "none", borderRadius: "10px",
-              padding: "clamp(6px, 1vw, 8px) clamp(12px, 2vw, 16px)", color: "white", 
-              fontSize: "clamp(0.7rem, 1.2vw, 0.9rem)", fontWeight: "600", cursor: "pointer",
-              whiteSpace: "nowrap"
-            }}
-          >
+          <button onClick={handleUrlBroadcast}>
             Broadcast
           </button>
         </UrlInputOverlay>
       )}
 
-      {/* ─── KEYFRAME STYLES ─── */}
-      <style>{`
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        @keyframes floatUp { 0% { transform: translateY(0) scale(1); opacity: 1; } 100% { transform: translateY(-700px) scale(2.5); opacity: 0; } }
-        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0.4); } 70% { box-shadow: 0 0 0 8px rgba(255, 71, 87, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0); } }
-        .live-pulse { animation: pulse 2s infinite; }
-        video { -webkit-user-select: none; -webkit-touch-callout: none; }
-        * { -webkit-tap-highlight-color: transparent; }
-        
-        @media (max-width: 480px) {
-          .meeting-grid {
-            grid-template-columns: 1fr 1fr !important;
-          }
-        }
-      `}</style>
-    </MeetingOverlay>
+      {/* Participant Popover */}
+      {showParticipants && (
+        <div style={{
+          position: 'absolute',
+          top: '70px',
+          right: '24px',
+          background: 'rgba(20, 20, 35, 0.95)',
+          backdropFilter: 'blur(20px)',
+          border: '1px solid rgba(255, 255, 255, 0.08)',
+          borderRadius: '16px',
+          padding: '16px',
+          minWidth: '220px',
+          maxHeight: '300px',
+          overflowY: 'auto',
+          zIndex: 100,
+          animation: `${slideUp} 0.2s ease-out`,
+          boxShadow: '0 20px 60px rgba(0,0,0,0.5)'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <span style={{ fontSize: '0.75rem', fontWeight: 700, opacity: 0.6 }}>Participants ({totalParticipantsCount})</span>
+            <button onClick={() => setShowParticipants(false)} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', opacity: 0.5 }}>✕</button>
+          </div>
+          {allParticipants.map(p => (
+            <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 4px', borderRadius: '8px' }}>
+              <div style={{
+                width: '28px',
+                height: '28px',
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, #4a9eff, #6c5ce7)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '0.6rem',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                color: 'white',
+                flexShrink: 0
+              }}>
+                {getInitials(p.name)}
+              </div>
+              <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.8rem' }}>
+                {p.name}{p.id === 'local' ? ' (You)' : ''}
+              </span>
+              {p.isMuted && <FaMicrophoneSlash size={12} style={{ color: '#ff4757', flexShrink: 0 }} />}
+              {p.isVideoOff && <FaVideoSlash size={12} style={{ color: '#ff4757', flexShrink: 0 }} />}
+              {speakingPeers[p.id] && <span style={{ color: '#2ed573', fontSize: '0.6rem', fontWeight: 600 }}>🔊</span>}
+            </div>
+          ))}
+        </div>
+      )}
+    </MeetingContainer>
   );
 }
