@@ -57,6 +57,8 @@ const breathe = keyframes`
 `;
 
 /* ═══════════════════════════════ STYLED COMPONENTS ═══════════════════════════════ */
+// ✅ FIXED: All styled components with proper animation handling
+
 const MeetingContainer = styled.div`
   position: fixed;
   inset: 0;
@@ -830,6 +832,18 @@ const SpeakingIndicator = styled.div`
   z-index: 10;
 `;
 
+// ✅ FIXED: New styled component for shimmer text with proper animation
+const ShimmerText = styled.div`
+  font-size: clamp(0.8rem, 1.5vw, 1rem);
+  font-weight: 600;
+  background: linear-gradient(90deg, rgba(255,255,255,0.3), #ffffff, rgba(255,255,255,0.3));
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: ${shimmer} 2s linear infinite;
+  text-align: center;
+`;
+
 const FocusedPeerOverlay = styled.div`
   position: absolute;
   top: 16px;
@@ -856,6 +870,29 @@ const FocusedPeerCloseButton = styled.button`
   
   &:hover {
     opacity: 1;
+  }
+`;
+
+// ✅ FIXED: New styled component for broadcast overlay with proper animation
+const BroadcastOverlay = styled.div`
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  gap: 12px;
+  background: radial-gradient(circle at center, var(--chakra-colors-badgeBg, rgba(255,255,255,0.03)), transparent 70%);
+
+  @media (max-width: 768px) {
+    gap: 8px;
+    padding: 16px;
+  }
+
+  @media (max-width: 480px) {
+    gap: 6px;
+    padding: 12px;
   }
 `;
 
@@ -2220,33 +2257,15 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
           {activeMedia.url?.includes("youtu") ? (
             <div id="youtube-sync-player" style={{ width: '100%', height: '100%' }} />
           ) : activeMedia.type === "local_stream" && !isAdmin ? (
-            <div style={{ 
-              width: '100%', 
-              height: '100%', 
-              display: 'flex', 
-              flexDirection: 'column',
-              alignItems: 'center', 
-              justifyContent: 'center',
-              padding: '20px',
-              gap: '12px'
-            }}>
+            <BroadcastOverlay>
               <FaDesktop size={48} style={{ opacity: 0.3 }} />
-              <div style={{ 
-                fontSize: 'clamp(0.8rem, 1.5vw, 1rem)',
-                fontWeight: 600,
-                background: 'linear-gradient(90deg, rgba(255,255,255,0.3), #ffffff, rgba(255,255,255,0.3))',
-                backgroundSize: '200% 100%',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                animation: `${shimmer} 2s linear infinite`,
-                textAlign: 'center'
-              }}>
+              <ShimmerText>
                 {remoteFileBroadcast?.sharerName || "Admin"} is streaming: {remoteFileBroadcast?.name || activeMedia.name || "Media"}
-              </div>
+              </ShimmerText>
               <span style={{ fontSize: 'clamp(0.6rem, 1vw, 0.8rem)', opacity: 0.4, textAlign: 'center' }}>
                 Audio and video are streamed live via the call
               </span>
-            </div>
+            </BroadcastOverlay>
           ) : (
             <>
               <video
@@ -2341,33 +2360,15 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     // Show remote file broadcast overlay
     if (remoteFileBroadcast && !isAdmin) {
       return (
-        <div style={{ 
-          width: '100%', 
-          height: '100%', 
-          display: 'flex', 
-          flexDirection: 'column',
-          alignItems: 'center', 
-          justifyContent: 'center',
-          padding: '20px',
-          gap: '12px'
-        }}>
+        <BroadcastOverlay>
           <FaDesktop size={48} style={{ opacity: 0.3 }} />
-          <div style={{ 
-            fontSize: 'clamp(0.8rem, 1.5vw, 1rem)',
-            fontWeight: 600,
-            background: 'linear-gradient(90deg, rgba(255,255,255,0.3), #ffffff, rgba(255,255,255,0.3))',
-            backgroundSize: '200% 100%',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            animation: `${shimmer} 2s linear infinite`,
-            textAlign: 'center'
-          }}>
+          <ShimmerText>
             {remoteFileBroadcast.sharerName || "Admin"} is streaming: {remoteFileBroadcast.name || "Media"}
-          </div>
+          </ShimmerText>
           <span style={{ fontSize: 'clamp(0.6rem, 1vw, 0.8rem)', opacity: 0.4, textAlign: 'center' }}>
             Audio and video are streamed live via the call
           </span>
-        </div>
+        </BroadcastOverlay>
       );
     }
 
