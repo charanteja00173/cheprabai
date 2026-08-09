@@ -291,6 +291,7 @@ const ParticipantSidebar = styled.div`
   }
 `;
 
+// ✅ FIXED: Animation properly wrapped with css helper
 const ParticipantTile = styled.div`
   background: rgba(255, 255, 255, 0.03);
   border-radius: 16px;
@@ -810,7 +811,7 @@ const SyncIndicator = styled.div`
   }
 `;
 
-// ═══════════════════════════════ SPEAKING INDICATOR ═══════════════════════════════
+// ✅ FIXED: Animation properly used in styled component
 const SpeakingIndicator = styled.div`
   position: absolute;
   bottom: 20px;
