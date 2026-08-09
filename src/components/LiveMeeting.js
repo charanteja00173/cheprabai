@@ -944,7 +944,6 @@ const BroadcastOverlay = styled.div`
   }
 `;
 
-// Participant Popover
 const ParticipantPopover = styled.div`
   position: absolute;
   top: calc(100% + 8px);
@@ -1047,6 +1046,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const [showControls, setShowControls] = useState(true);
   const [controlTimeout, setControlTimeout] = useState(null);
   const [isFrontCamera, setIsFrontCamera] = useState(true);
+  const [broadcastVideoElement, setBroadcastVideoElement] = useState(null);
 
   // Refs
   const containerRef = useRef();
@@ -1065,9 +1065,11 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
   // ─── Get controlled media element ───
   const getControlledMedia = useCallback(() => {
+    // For local file broadcast, use the broadcast video element
     if (activeMedia?.type === "local_stream") {
-      return localMediaRef.current || broadcastVideoRef.current;
+      return broadcastVideoRef.current || localMediaRef.current;
     }
+    // For URL media, use the media element
     return mediaRef.current;
   }, [activeMedia?.type]);
 
@@ -1700,29 +1702,39 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onClose, streamMediaSource]);
 
+  // ✅ FIXED: Properly handle local file broadcast with video/audio
   const startLocalFileBroadcast = async (file) => {
     try {
       // Create video element for broadcasting
       const videoElement = document.createElement("video");
       broadcastVideoRef.current = videoElement;
+      broadcastVideoElement.current = videoElement;
+      
+      // Set up the video element
       videoElement.src = URL.createObjectURL(file);
       videoElement.playsInline = true;
-      videoElement.muted = true;
+      videoElement.muted = false;
       videoElement.autoplay = true;
+      videoElement.controls = true;
+      videoElement.style.width = '100%';
+      videoElement.style.height = '100%';
 
+      // Wait for metadata to load
       await new Promise((resolve, reject) => {
         videoElement.onloadedmetadata = resolve;
         videoElement.onerror = reject;
         setTimeout(reject, 10000);
       });
+
+      // Start playing
       await videoElement.play();
 
-      // Capture stream from video
+      // Get the video stream for broadcasting
       let videoStream;
       if (videoElement.captureStream) {
-        videoStream = videoElement.captureStream(24);
+        videoStream = videoElement.captureStream(30);
       } else if (videoElement.mozCaptureStream) {
-        videoStream = videoElement.mozCaptureStream(24);
+        videoStream = videoElement.mozCaptureStream(30);
       } else {
         throw new Error("Video stream capture not supported in this browser.");
       }
@@ -1740,12 +1752,17 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         try {
           audioCtx = new (window.AudioContext || window.webkitAudioContext)();
           const dest = audioCtx.createMediaStreamDestination();
+          
+          // Add microphone audio
           const micStream = new MediaStream(localStream.getAudioTracks());
           const micSource = audioCtx.createMediaStreamSource(micStream);
           micSource.connect(dest);
+          
+          // Add video audio
           const fileStream = new MediaStream([videoAudioTrack]);
           const fileSource = audioCtx.createMediaStreamSource(fileStream);
           fileSource.connect(dest);
+          
           mixedAudioTrack = dest.stream.getAudioTracks()[0];
         } catch (e) {
           console.warn("Audio mixing failed:", e);
@@ -1758,15 +1775,15 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         videoElement,
         audioContext: audioCtx,
         localUrl: videoElement.src,
-        originalVideoTrack: localStream.getVideoTracks()[0],
-        originalAudioTrack: localStream.getAudioTracks()[0]
+        originalVideoTrack: localStream?.getVideoTracks()[0] || null,
+        originalAudioTrack: localStream?.getAudioTracks()[0] || null
       };
       setStreamMediaSource(mediaSourceObj);
 
-      // ✅ FIX: Show broadcast in admin's preview but keep original stream
-      // We'll use a separate video element for preview
+      // Show broadcast in admin's preview
       if (myVideoRef.current) {
         myVideoRef.current.srcObject = videoStream;
+        myVideoRef.current.style.display = 'block';
       }
 
       // Replace tracks for all peers
@@ -1789,17 +1806,40 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       // Set the media reference for controls
       localMediaRef.current = videoElement;
 
+      // Update state
       socket.emit("screenshare-started", { roomId, peerId: myPeerId });
       socket.emit("media-file-shared", { name: file.name, type: file.type, sharerName: userName });
       setFocusedPeerId("local");
-      setActiveMedia({ url: null, playing: true, time: 0, type: "local_stream", name: file.name });
+      setActiveMedia({ 
+        url: null, 
+        playing: true, 
+        time: 0, 
+        type: "local_stream", 
+        name: file.name 
+      });
 
-      videoElement.onended = () => stopLocalFileBroadcast(mediaSourceObj);
-      
+      // Handle video end
+      videoElement.onended = () => {
+        toast.info("Video playback ended");
+        stopLocalFileBroadcast(mediaSourceObj);
+      };
+
+      // Handle errors
+      videoElement.onerror = () => {
+        toast.error("Error playing video");
+        stopLocalFileBroadcast(mediaSourceObj);
+      };
+
       toast.success(`Now broadcasting: ${file.name}`);
     } catch (e) {
       console.error("Broadcast error:", e);
       toast.error(`Local file streaming failed: ${e.message}`);
+      // Clean up on error
+      if (broadcastVideoRef.current) {
+        broadcastVideoRef.current.pause();
+        broadcastVideoRef.current.removeAttribute("src");
+        broadcastVideoRef.current.load();
+      }
     }
   };
 
@@ -1829,6 +1869,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       // Restore admin's preview
       if (myVideoRef.current && localStream) {
         myVideoRef.current.srcObject = localStream;
+        myVideoRef.current.style.display = 'block';
       }
 
       // Cleanup video element
@@ -1843,6 +1884,9 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       setStreamMediaSource(null);
       setActiveMedia(null);
       localMediaRef.current = null;
+      broadcastVideoRef.current = null;
+      broadcastVideoElement.current = null;
+      
       socket.emit("syncMedia", null);
       socket.emit("screenshare-stopped", { peerId: myPeerId });
       socket.emit("media-file-stopped");
@@ -1858,7 +1902,14 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
   const handleLocalFile = (e) => {
     const file = e.target.files[0];
-    if (file) startLocalFileBroadcast(file);
+    if (file) {
+      // Check if it's a video file
+      if (file.type.startsWith('video/')) {
+        startLocalFileBroadcast(file);
+      } else {
+        toast.error("Please select a video file");
+      }
+    }
   };
 
   const handleUrlBroadcast = () => {
@@ -2125,7 +2176,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     
     try {
       if (v.paused) {
-        v.play();
+        v.play().catch(e => console.warn("Play error:", e));
         handleMediaAction("play");
       } else {
         v.pause();
@@ -2138,7 +2189,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
   /* ═══════════════════════════════ COMPUTED ═══════════════════════════════ */
   const remoteEntries = Object.entries(remoteStreams);
-  // const isStageMode = layoutMode === "stage" || !!activeMedia || focusedPeerId !== null || !!remoteFileBroadcast;
+  const isStageMode = layoutMode === "stage" || !!activeMedia || focusedPeerId !== null || !!remoteFileBroadcast;
   const totalParticipantsCount = 1 + remoteEntries.length;
 
   const allParticipants = [
@@ -2374,90 +2425,95 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         <>
           {activeMedia.url?.includes("youtu") ? (
             <div id="youtube-sync-player" style={{ width: '100%', height: '100%' }} />
-          ) : activeMedia.type === "local_stream" && !isAdmin ? (
-            <BroadcastOverlay>
-              <FaDesktop size={48} style={{ opacity: 0.3 }} />
-              <ShimmerText>
-                {remoteFileBroadcast?.sharerName || "Admin"} is streaming: {remoteFileBroadcast?.name || activeMedia.name || "Media"}
-              </ShimmerText>
-              <span style={{ fontSize: 'clamp(0.6rem, 1vw, 0.8rem)', opacity: 0.4, textAlign: 'center' }}>
-                Audio and video are streamed live via the call
-              </span>
-            </BroadcastOverlay>
+          ) : activeMedia.type === "local_stream" ? (
+            // Show the actual video element for local stream
+            <video
+              ref={broadcastVideoRef}
+              playsInline
+              autoPlay
+              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+              onPlay={() => handleMediaAction("play")}
+              onPause={() => handleMediaAction("pause")}
+              onSeeked={() => handleMediaAction("seek")}
+              onLoadedMetadata={(e) => setVideoDuration(e.target.duration)}
+            />
           ) : (
-            <>
-              <video
-                ref={mediaRef}
-                src={activeMedia.url}
-                playsInline
-                style={{ width: '100%', height: '100%' }}
-                onPlay={() => handleMediaAction("play")}
-                onPause={() => handleMediaAction("pause")}
-                onSeeked={() => handleMediaAction("seek")}
-                onLoadedMetadata={(e) => setVideoDuration(e.target.duration)}
-              />
-              <MediaControlsOverlay $visible={showControls}>
-                <MediaControlsRow>
-                  <MediaButton onClick={() => handleSkip(-30)}>
-                    <FaStepBackward /> -30s
-                  </MediaButton>
-                  <MediaButton onClick={() => handleSkip(-10)}>
-                    <FaStepBackward style={{ fontSize: '0.7rem' }} /> -10s
-                  </MediaButton>
-                  <MediaButton onClick={togglePlayPause} style={{ fontSize: 'clamp(1rem, 1.5vw, 1.2rem)', minWidth: '40px' }}>
-                    {localPlaybackState.playing ? <FaPause /> : <FaPlay />}
-                  </MediaButton>
-                  <MediaButton onClick={() => handleSkip(10)}>
-                    +10s <FaStepForward style={{ fontSize: '0.7rem' }} />
-                  </MediaButton>
-                  <MediaButton onClick={() => handleSkip(30)}>
-                    +30s <FaStepForward />
-                  </MediaButton>
-                  
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1, minWidth: '100px' }}>
-                    <span style={{ fontSize: 'clamp(0.5rem, 0.7vw, 0.65rem)', opacity: 0.7, whiteSpace: 'nowrap' }}>
-                      {formatDuration(localPlaybackState.time)} / {formatDuration(videoDuration)}
-                    </span>
-                    <SeekBar
-                      type="range"
-                      min="0"
-                      max={videoDuration || 1}
-                      step="0.1"
-                      value={localPlaybackState.time || 0}
-                      onChange={(e) => handleSeek(e.target.value)}
-                    />
-                  </div>
-                  
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <FaTachometerAlt style={{ fontSize: '0.7rem', opacity: 0.5 }} />
-                    <SpeedSelect
-                      value={playbackSpeed}
-                      onChange={(e) => handleSpeedChange(e.target.value)}
-                    >
-                      <option value="0.5">0.5x</option>
-                      <option value="0.75">0.75x</option>
-                      <option value="1">1x</option>
-                      <option value="1.25">1.25x</option>
-                      <option value="1.5">1.5x</option>
-                      <option value="2">2x</option>
-                    </SpeedSelect>
-                  </div>
-                  
-                  {isAdmin && (
-                    <MediaButton
-                      onClick={() => {
-                        if (activeMedia.type === "local_stream") stopLocalFileBroadcast();
-                        else { setActiveMedia(null); socket.emit("syncMedia", null); }
-                      }}
-                      style={{ background: 'rgba(255, 71, 87, 0.2)', borderColor: 'rgba(255, 71, 87, 0.3)', color: '#ff4757' }}
-                    >
-                      <FaStop /> Stop
-                    </MediaButton>
-                  )}
-                </MediaControlsRow>
-              </MediaControlsOverlay>
-            </>
+            <video
+              ref={mediaRef}
+              src={activeMedia.url}
+              playsInline
+              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+              onPlay={() => handleMediaAction("play")}
+              onPause={() => handleMediaAction("pause")}
+              onSeeked={() => handleMediaAction("seek")}
+              onLoadedMetadata={(e) => setVideoDuration(e.target.duration)}
+            />
           )}
+          
+          {/* Media Controls - Always shown for admin, shown for others if they have controls */}
+          {(isAdmin || activeMedia.type !== "local_stream") && (
+            <MediaControlsOverlay $visible={showControls}>
+              <MediaControlsRow>
+                <MediaButton onClick={() => handleSkip(-30)}>
+                  <FaStepBackward /> -30s
+                </MediaButton>
+                <MediaButton onClick={() => handleSkip(-10)}>
+                  <FaStepBackward style={{ fontSize: '0.7rem' }} /> -10s
+                </MediaButton>
+                <MediaButton onClick={togglePlayPause} style={{ fontSize: 'clamp(1rem, 1.5vw, 1.2rem)', minWidth: '40px' }}>
+                  {localPlaybackState.playing ? <FaPause /> : <FaPlay />}
+                </MediaButton>
+                <MediaButton onClick={() => handleSkip(10)}>
+                  +10s <FaStepForward style={{ fontSize: '0.7rem' }} />
+                </MediaButton>
+                <MediaButton onClick={() => handleSkip(30)}>
+                  +30s <FaStepForward />
+                </MediaButton>
+                
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1, minWidth: '100px' }}>
+                  <span style={{ fontSize: 'clamp(0.5rem, 0.7vw, 0.65rem)', opacity: 0.7, whiteSpace: 'nowrap' }}>
+                    {formatDuration(localPlaybackState.time)} / {formatDuration(videoDuration)}
+                  </span>
+                  <SeekBar
+                    type="range"
+                    min="0"
+                    max={videoDuration || 1}
+                    step="0.1"
+                    value={localPlaybackState.time || 0}
+                    onChange={(e) => handleSeek(e.target.value)}
+                  />
+                </div>
+                
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <FaTachometerAlt style={{ fontSize: '0.7rem', opacity: 0.5 }} />
+                  <SpeedSelect
+                    value={playbackSpeed}
+                    onChange={(e) => handleSpeedChange(e.target.value)}
+                  >
+                    <option value="0.5">0.5x</option>
+                    <option value="0.75">0.75x</option>
+                    <option value="1">1x</option>
+                    <option value="1.25">1.25x</option>
+                    <option value="1.5">1.5x</option>
+                    <option value="2">2x</option>
+                  </SpeedSelect>
+                </div>
+                
+                {isAdmin && (
+                  <MediaButton
+                    onClick={() => {
+                      if (activeMedia.type === "local_stream") stopLocalFileBroadcast();
+                      else { setActiveMedia(null); socket.emit("syncMedia", null); }
+                    }}
+                    style={{ background: 'rgba(255, 71, 87, 0.2)', borderColor: 'rgba(255, 71, 87, 0.3)', color: '#ff4757' }}
+                  >
+                    <FaStop /> Stop
+                  </MediaButton>
+                )}
+              </MediaControlsRow>
+            </MediaControlsOverlay>
+          )}
+          
           <div style={{ 
             position: 'absolute', 
             top: 16, 
