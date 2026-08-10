@@ -5312,6 +5312,10 @@ export default function ChatRoom() {
             )}
 
             <ActionButton onClick={() => {
+              if (!socketRef.current || !socketRef.current.connected) {
+                toast.error("Connecting to server. Please wait a moment before starting the call.");
+                return;
+              }
               socketRef.current.emit("start-call", { roomId, userName, avatar: userAvatar });
               setShowMeeting(true);
             }} title="Start Video Call">

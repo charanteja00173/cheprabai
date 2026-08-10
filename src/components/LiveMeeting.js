@@ -6,7 +6,7 @@ import {
   FaCompress, FaExpand, FaExchangeAlt, FaLink, 
   FaThLarge, FaStop, FaUsers, FaHandPaper, FaPlay, 
   FaPause, FaStepBackward, FaStepForward, FaTachometerAlt,
-  FaWifi, FaSignal, FaWindowMinimize, FaTimes
+  FaWifi, FaSignal, FaWindowMinimize, FaTimes, FaCheckCircle, FaTimesCircle
 } from "react-icons/fa";
 import { Peer } from "peerjs";
 import { toast } from "react-toastify";
@@ -1028,6 +1028,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const [reactions, setReactions] = useState([]);
   const [focusedPeerId, setFocusedPeerId] = useState(null);
   const [networkStatus, setNetworkStatus] = useState("good");
+  const [socketStatus, setSocketStatus] = useState(socket?.connected ? "connected" : "connecting");
   const [layoutMode, setLayoutMode] = useState("grid");
   const [participantStates, setParticipantStates] = useState({});
   const [showUrlInput, setShowUrlInput] = useState(false);
@@ -1046,7 +1047,6 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const [showControls, setShowControls] = useState(true);
   const [controlTimeout, setControlTimeout] = useState(null);
   const [isFrontCamera, setIsFrontCamera] = useState(true);
-  const [broadcastVideoElement, setBroadcastVideoElement] = useState(null);
 
   // Refs
   const containerRef = useRef();
@@ -1064,6 +1064,27 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const broadcastVideoRef = useRef(null);
   const reconnectAttempts = useRef(0);
   const maxReconnectAttempts = 5;
+  const connectionTimer = useRef(null);
+  const isConnectingRef = useRef(true);
+  const isMutedRef = useRef(isMuted);
+  const isVideoOffRef = useRef(isVideoOff);
+  const myPeerIdRef = useRef(null);
+
+  useEffect(() => {
+    isConnectingRef.current = isConnecting;
+  }, [isConnecting]);
+
+  useEffect(() => {
+    isMutedRef.current = isMuted;
+  }, [isMuted]);
+
+  useEffect(() => {
+    isVideoOffRef.current = isVideoOff;
+  }, [isVideoOff]);
+
+  useEffect(() => {
+    myPeerIdRef.current = myPeerId;
+  }, [myPeerId]);
 
   // ─── Get controlled media element ───
   const getControlledMedia = useCallback(() => {
@@ -1182,6 +1203,13 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
   // ─── Main PeerJS Initialization ───
   useEffect(() => {
+    if (!socket || typeof socket.on !== "function") {
+      console.error("LiveMeeting: invalid socket instance");
+      toast.error("Meeting socket is unavailable. Refresh the page and try again.");
+      setSocketStatus("disconnected");
+      setIsConnecting(false);
+      return;
+    }
     const backendUrl = new URL(process.env.REACT_APP_SOCKET_ENDPOINT || "https://cheprabai-backend.onrender.com");
 
     const cleanupPeer = (peerId) => {
@@ -1225,7 +1253,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     const callPeer = (peerId) => {
       if (!localStreamRef.current || !peerRef.current) return;
       if (peers.current[peerId]) return;
-      if (peerId === myPeerId) return;
+      if (peerId === myPeerIdRef.current) return;
 
       console.log(`📞 Attempting to call peer: ${peerId}`);
       try {
@@ -1245,6 +1273,17 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     const init = async () => {
       try {
         setIsConnecting(true);
+        if (socket && !socket.connected && typeof socket.connect === 'function') {
+          socket.connect();
+        }
+        if (connectionTimer.current) clearTimeout(connectionTimer.current);
+        connectionTimer.current = window.setTimeout(() => {
+          if (isConnectingRef.current) {
+            toast.error("Meeting connection timed out. Please check your network and refresh the page.");
+            setIsConnecting(false);
+          }
+        }, 20000);
+
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: 'user' },
           audio: {
@@ -1298,6 +1337,11 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         });
 
         peer.on("open", (id) => {
+          if (connectionTimer.current) {
+            clearTimeout(connectionTimer.current);
+            connectionTimer.current = null;
+          }
+          myPeerIdRef.current = id;
           setMyPeerId(id);
           setIsConnecting(false);
           reconnectAttempts.current = 0;
@@ -1317,6 +1361,13 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         // ✅ Enhanced error handling with reconnection
         peer.on("error", (err) => {
           console.error("❌ PeerJS error:", err);
+          if (connectionTimer.current) {
+            clearTimeout(connectionTimer.current);
+            connectionTimer.current = null;
+          }
+          if (isConnectingRef.current) {
+            setIsConnecting(false);
+          }
           if (err.type === "disconnected") {
             if (reconnectAttempts.current < maxReconnectAttempts) {
               reconnectAttempts.current++;
@@ -1378,7 +1429,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
           setTimeout(() => {
             callers.forEach(({ peerId, name }) => {
-              if (peerId !== myPeerId) {
+              if (peerId !== myPeerIdRef.current) {
                 callPeer(peerId);
               }
             });
@@ -1394,7 +1445,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
           }));
 
           setTimeout(() => {
-            if (peerId !== myPeerId) {
+            if (peerId !== myPeerIdRef.current) {
               const success = callPeer(peerId);
               if (!success) {
                 // Retry after delay
@@ -1420,7 +1471,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
           if (!connected) {
             console.warn("⚠️ Not connected to all peers, attempting reconnection...");
             peerIds.forEach(peerId => {
-              if (peerId !== myPeerId && !peers.current[peerId]) {
+              if (peerId !== myPeerIdRef.current && !peers.current[peerId]) {
                 callPeer(peerId);
               }
             });
@@ -1521,13 +1572,16 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         // ✅ Socket reconnection handling
         socket.on("connect", () => {
           console.log("🔌 Socket reconnected");
-          if (myPeerId) {
-            socket.emit("join-call", { roomId, peerId: myPeerId, userName, isMuted, isVideoOff });
+          setSocketStatus("connected");
+          const currentPeerId = myPeerIdRef.current;
+          if (currentPeerId) {
+            socket.emit("join-call", { roomId, peerId: currentPeerId, userName, isMuted: isMutedRef.current, isVideoOff: isVideoOffRef.current });
           }
         });
 
         socket.on("disconnect", (reason) => {
           console.log("🔌 Socket disconnected:", reason);
+          setSocketStatus("disconnected");
           if (reason === "io server disconnect") {
             socket.connect();
           }
@@ -1535,19 +1589,33 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
         socket.on("connect_error", (error) => {
           console.error("❌ Socket connection error:", error);
+          setSocketStatus("error");
+          if (connectionTimer.current) {
+            clearTimeout(connectionTimer.current);
+            connectionTimer.current = null;
+          }
+          if (isConnectingRef.current) {
+            setIsConnecting(false);
+          }
           toast.error("Connection error. Attempting to reconnect...");
         });
 
         socket.on("reconnect_attempt", (attemptNumber) => {
           console.log(`🔄 Reconnection attempt ${attemptNumber}`);
+          setSocketStatus("connecting");
         });
 
         socket.on("reconnect_failed", () => {
+          setSocketStatus("error");
           toast.error("Failed to reconnect to server. Please refresh the page.");
         });
 
         socket.emit("getMediaState", roomId);
       } catch (err) {
+        if (connectionTimer.current) {
+          clearTimeout(connectionTimer.current);
+          connectionTimer.current = null;
+        }
         console.error("Failed to initialize media devices:", err);
         setIsConnecting(false);
         toast.error("Could not access camera/microphone. Please check your permissions.");
@@ -1588,53 +1656,16 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       socket.off("peer-connection-status");
       socket.off("connect");
       socket.off("disconnect");
+      if (connectionTimer.current) {
+        clearTimeout(connectionTimer.current);
+        connectionTimer.current = null;
+      }
       socket.off("connect_error");
       socket.off("reconnect_attempt");
       socket.off("reconnect_failed");
       document.removeEventListener("contextmenu", handleContextMenu);
     };
-  }, [roomId, socket, userName, isAdmin, myPeerId]);
-
-  // ─── Force reconnection for all peers ───
-  const forceReconnectAll = useCallback(() => {
-    const remotePeerIds = Object.keys(remoteStreams);
-    remotePeerIds.forEach(peerId => {
-      if (!peers.current[peerId] && peerId !== myPeerId) {
-        console.log(`🔄 Force reconnecting to ${peerId}`);
-        try {
-          if (peerRef.current && localStreamRef.current) {
-            const call = peerRef.current.call(peerId, localStreamRef.current);
-            if (call) {
-              const handleCallEvents = (call, remotePeerId) => {
-                call.on("stream", (rem) => {
-                  setRemoteStreams(p => ({
-                    ...p,
-                    [remotePeerId]: {
-                      stream: rem,
-                      name: p[remotePeerId]?.name || "Participant"
-                    }
-                  }));
-                });
-                call.on("close", () => {
-                  if (peers.current[remotePeerId]) {
-                    try { peers.current[remotePeerId].close(); } catch (e) {}
-                    delete peers.current[remotePeerId];
-                  }
-                });
-                call.on("error", (e) => {
-                  console.error(`Call error with peer ${remotePeerId}:`, e);
-                });
-              };
-              handleCallEvents(call, peerId);
-              peers.current[peerId] = call;
-            }
-          }
-        } catch (e) {
-          console.error(`Error force reconnecting to ${peerId}:`, e);
-        }
-      }
-    });
-  }, [remoteStreams, myPeerId]);
+  }, [roomId, socket, userName, isAdmin]);
 
   // ─── Reconnect when remote streams change ───
   useEffect(() => {
@@ -1923,8 +1954,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     try {
       const videoElement = document.createElement("video");
       broadcastVideoRef.current = videoElement;
-      broadcastVideoElement.current = videoElement;
-      
+
       videoElement.src = URL.createObjectURL(file);
       videoElement.playsInline = true;
       videoElement.muted = false;
@@ -2083,8 +2113,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       setActiveMedia(null);
       localMediaRef.current = null;
       broadcastVideoRef.current = null;
-      broadcastVideoElement.current = null;
-      
+
       socket.emit("syncMedia", null);
       socket.emit("screenshare-stopped", { peerId: myPeerId });
       socket.emit("media-file-stopped");
@@ -2386,7 +2415,6 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
   /* ═══════════════════════════════ COMPUTED ═══════════════════════════════ */
   const remoteEntries = Object.entries(remoteStreams);
-  const isStageMode = layoutMode === "stage" || !!activeMedia || focusedPeerId !== null || !!remoteFileBroadcast;
   const totalParticipantsCount = 1 + remoteEntries.length;
 
   const allParticipants = [
@@ -2769,6 +2797,12 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                   {networkStatus === 'poor' && <FaSignal size={12} />}
                   {networkStatus === 'fallback' && <FaSignal size={12} />}
                   {networkStatus === 'good' ? 'Excellent' : networkStatus === 'poor' ? 'Weak' : 'Low BW'}
+                </StatusIndicator>
+                <StatusIndicator $status={socketStatus === 'connected' ? 'good' : socketStatus === 'connecting' ? 'poor' : 'fallback'}>
+                  {socketStatus === 'connected' && <FaCheckCircle size={12} />}
+                  {socketStatus === 'connecting' && <FaSync size={12} style={{ animation: `${spin} 1s linear infinite` }} />}
+                  {socketStatus !== 'connected' && socketStatus !== 'connecting' && <FaTimesCircle size={12} />}
+                  {socketStatus === 'connected' ? 'Socket Connected' : socketStatus === 'connecting' ? 'Socket Connecting' : 'Socket Disconnected'}
                 </StatusIndicator>
                 <span style={{ fontSize: 'clamp(0.6rem, 0.9vw, 0.75rem)', opacity: 0.5 }}>
                   {formatDuration(callDuration)}
