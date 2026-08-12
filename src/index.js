@@ -1,10 +1,15 @@
+import "./devConsoleFilter";
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
 
-/* ================= PRODUCTION SECURITY ================= */
-// Keep console output enabled for debugging.
+if (process.env.NODE_ENV === "production") {
+  const noop = () => {};
+  console.log = noop;
+  console.info = noop;
+  console.debug = noop;
+}
 
 // Disable right-click context menu
 document.addEventListener("contextmenu", (e) => e.preventDefault());
@@ -54,7 +59,5 @@ window.addEventListener("unhandledrejection", (e) => {
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
+  <App />
 );

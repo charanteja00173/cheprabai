@@ -1,9 +1,30 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import axios from "axios";
 import styled from "styled-components";
-import { FaTrash, FaSearch, FaEye, FaEyeSlash, FaDownload, FaSignOutAlt, FaFolder, FaDatabase, FaLock, FaUsers, FaCog, FaList, FaThLarge } from "react-icons/fa";
+import {
+  FaTrash,
+  FaSearch,
+  FaEye,
+  FaEyeSlash,
+  FaDownload,
+  FaSignOutAlt,
+  FaFolder,
+  FaDatabase,
+  FaLock,
+  FaUsers,
+  FaCog,
+  FaList,
+  FaThLarge,
+  FaDoorOpen,
+  FaFileAlt,
+  FaFileImage,
+  FaFileVideo,
+  FaFileAudio,
+  FaCalendarAlt,
+} from "react-icons/fa";
 import { toast, ToastContainer } from "react-toastify";
 import { generateKeyFromSecret, decryptBinary } from "../utils/crypto";
+import AdminControlCenter from "./AdminControlCenter";
 
 const AdminWrapper = styled.div`
   min-height: 100dvh;
@@ -20,10 +41,10 @@ const Header = styled.header`
   justify-content: space-between;
   align-items: center;
   padding: 18px 32px;
-  background: rgba(10, 10, 15, 0.45);
+  background: var(--chakra-colors-glassBg);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--chakra-colors-border);
   flex-shrink: 0;
 
   @media (max-width: 768px) {
@@ -67,14 +88,14 @@ const StatsGrid = styled.div`
 `;
 
 const StatCard = styled.div`
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--chakra-colors-surface);
+  border: 1px solid var(--chakra-colors-border);
   border-radius: 18px;
   padding: 24px;
   display: flex;
   align-items: center;
   gap: 20px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--chakra-shadows-cardShadow);
   transition: transform 0.2s ease, border-color 0.2s ease;
 
   &:hover {
@@ -133,8 +154,8 @@ const FilterSection = styled.div`
 
 const FilterSelect = styled.select`
   padding: 12px 36px 12px 16px;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--chakra-colors-badgeBg);
+  border: 1px solid var(--chakra-colors-border);
   border-radius: 12px;
   color: var(--chakra-colors-textPrimary);
   font-size: 0.95rem;
@@ -144,19 +165,19 @@ const FilterSelect = styled.select`
   max-width: 100%;
   transition: all 0.25s ease;
   appearance: none;
-  background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.4)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 12px center;
   background-size: 16px;
 
   option {
-    background: #12121a;
-    color: #fff;
+    background: var(--chakra-colors-surface);
+    color: var(--chakra-colors-textPrimary);
   }
 
   &:focus {
     border-color: var(--chakra-colors-brandPrimary);
-    background: rgba(0, 0, 0, 0.2);
+    background: var(--chakra-colors-surface);
     box-shadow: 0 0 0 1px var(--chakra-colors-brandPrimary), 0 0 15px var(--chakra-colors-brandGlow);
   }
 `;
@@ -175,8 +196,8 @@ const SearchInputWrapper = styled.div`
 const SearchInput = styled.input`
   width: 100%;
   padding: 12px 20px 12px 48px;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--chakra-colors-badgeBg);
+  border: 1px solid var(--chakra-colors-border);
   border-radius: 12px;
   color: var(--chakra-colors-textPrimary);
   font-size: 0.95rem;
@@ -186,17 +207,17 @@ const SearchInput = styled.input`
 
   &:focus {
     border-color: var(--chakra-colors-brandPrimary);
-    background: rgba(0, 0, 0, 0.2);
+    background: var(--chakra-colors-surface);
     box-shadow: 0 0 0 1px var(--chakra-colors-brandPrimary), 0 0 15px var(--chakra-colors-brandGlow);
   }
 `;
 
 const TableCard = styled.div`
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--chakra-colors-surface);
+  border: 1px solid var(--chakra-colors-border);
   border-radius: 18px;
   overflow: hidden;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--chakra-shadows-cardShadow);
 
   @media (max-width: 768px) {
     border: none;
@@ -214,14 +235,14 @@ const GridTable = styled.table`
 
   th, td {
     padding: 16px 24px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    border-bottom: 1px solid var(--chakra-colors-border);
   }
 
   th {
     font-size: 0.85rem;
     font-weight: 700;
     color: var(--chakra-colors-textSecondary);
-    background: rgba(255, 255, 255, 0.01);
+    background: var(--chakra-colors-badgeBg);
     text-transform: uppercase;
     letter-spacing: 0.5px;
   }
@@ -230,7 +251,7 @@ const GridTable = styled.table`
     transition: background 0.2s ease;
     
     &:hover {
-      background: rgba(255, 255, 255, 0.01);
+      background: var(--chakra-colors-surfaceHover);
     }
   }
 
@@ -254,14 +275,14 @@ const MobileCardList = styled.div`
 `;
 
 const MobileCard = styled.div`
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--chakra-colors-surface);
+  border: 1px solid var(--chakra-colors-border);
   border-radius: 16px;
   padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--chakra-shadows-cardShadow);
 `;
 
 const UploadGrid = styled.div`
@@ -271,16 +292,136 @@ const UploadGrid = styled.div`
 `;
 
 const UploadGridCard = styled.article`
-  background: rgba(255, 255, 255, 0.025);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.015) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 18px;
-  padding: 14px;
+  padding: 20px;
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
+  gap: 16px;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.25);
+
+  &:hover {
+    border-color: rgba(255, 63, 94, 0.25);
+    transform: translateY(-3px);
+    box-shadow: 0 16px 36px -4px rgba(0, 0, 0, 0.35), 0 0 1px 1px rgba(255, 63, 94, 0.12);
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 100%);
+  }
+`;
+
+const FileCardHeader = styled.div`
+  display: flex;
+  align-items: center;
   gap: 12px;
   min-width: 0;
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.16);
 `;
+
+const FileTypeIconWrapper = styled.div`
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: ${(p) => p.$color || "rgba(255,255,255,0.06)"};
+  display: grid;
+  place-items: center;
+  color: #fff;
+  flex-shrink: 0;
+`;
+
+const FileNameText = styled.h4`
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 750;
+  color: #fff;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+  flex: 1;
+`;
+
+const FileMetaGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.015);
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  border-radius: 12px;
+  padding: 12px;
+  font-size: 0.74rem;
+`;
+
+const FileMetaItem = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+
+  span:first-child {
+    font-size: 0.64rem;
+    text-transform: uppercase;
+    color: var(--chakra-colors-textSecondary);
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  strong {
+    font-weight: 750;
+    color: #fff;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+`;
+
+const FileCardActions = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: auto;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  padding-top: 12px;
+`;
+
+const RoundActionBtn = styled.button`
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid ${(p) => (p.$danger ? "rgba(255,71,87,0.25)" : "rgba(255,255,255,0.06)")};
+  background: ${(p) => (p.$danger ? "rgba(255,71,87,0.06)" : "rgba(255,255,255,0.02)")};
+  color: ${(p) => (p.$danger ? "#ff4757" : "var(--chakra-colors-textSecondary)")};
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: ${(p) => (p.$danger ? "#ff4757" : "rgba(255,255,255,0.08)")};
+    color: #fff;
+    border-color: ${(p) => (p.$danger ? "#ff4757" : "rgba(255,255,255,0.15)")};
+    transform: scale(1.05);
+  }
+`;
+
+const getFileTypeDetails = (type) => {
+  const mime = type || "";
+  if (mime.startsWith("image/")) {
+    return { color: "rgba(9, 132, 227, 0.15)", icon: <FaFileImage size={16} color="#0984e3" /> };
+  }
+  if (mime.startsWith("video/")) {
+    return { color: "rgba(108, 92, 231, 0.15)", icon: <FaFileVideo size={16} color="#6c5ce7" /> };
+  }
+  if (mime.startsWith("audio/")) {
+    return { color: "rgba(253, 150, 68, 0.15)", icon: <FaFileAudio size={16} color="#fd9644" /> };
+  }
+  return { color: "rgba(255, 71, 87, 0.15)", icon: <FaFileAlt size={16} color="#ff4757" /> };
+};
 
 const MobileCardRow = styled.div`
   display: flex;
@@ -306,9 +447,9 @@ const MobileCardRow = styled.div`
 `;
 
 const ActionButton = styled.button`
-  background: ${props => props.$danger ? "rgba(255, 71, 87, 0.1)" : "rgba(255, 255, 255, 0.06)"};
+  background: ${props => props.$danger ? "rgba(255, 71, 87, 0.1)" : "var(--chakra-colors-badgeBg)"};
   color: ${props => props.$danger ? "#ff4757" : "var(--chakra-colors-textPrimary)"};
-  border: 1px solid ${props => props.$danger ? "rgba(255, 71, 87, 0.2)" : "rgba(255, 255, 255, 0.1)"};
+  border: 1px solid ${props => props.$danger ? "rgba(255, 71, 87, 0.2)" : "var(--chakra-colors-badgeBorder)"};
   padding: 8px 12px;
   border-radius: 8px;
   cursor: pointer;
@@ -320,16 +461,16 @@ const ActionButton = styled.button`
   transition: all 0.2s ease;
 
   &:hover {
-    background: ${props => props.$danger ? "#ff4757" : "rgba(255, 255, 255, 0.15)"};
+    background: ${props => props.$danger ? "#ff4757" : "var(--chakra-colors-surfaceHover)"};
     color: #fff;
     transform: translateY(-1px);
   }
 `;
 
 const Badge = styled.span`
-  background: ${props => props.$brand ? "rgba(255, 63, 94, 0.08)" : "rgba(255, 255, 255, 0.06)"};
+  background: ${props => props.$brand ? "var(--chakra-colors-badgeBg)" : "var(--chakra-colors-surfaceHover)"};
   color: ${props => props.$brand ? "var(--chakra-colors-brandPrimary)" : "var(--chakra-colors-textSecondary)"};
-  border: 1px solid ${props => props.$brand ? "rgba(255, 63, 94, 0.15)" : "rgba(255, 255, 255, 0.1)"};
+  border: 1px solid ${props => props.$brand ? "var(--chakra-colors-badgeBorder)" : "var(--chakra-colors-border)"};
   padding: 4px 10px;
   border-radius: 20px;
   font-size: 0.75rem;
@@ -366,13 +507,13 @@ const LoginContainer = styled.div`
 `;
 
 const LoginCard = styled.div`
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--chakra-colors-surface);
+  border: 1px solid var(--chakra-colors-border);
   border-radius: 24px;
   padding: 40px;
   width: 100%;
   max-width: 420px;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--chakra-shadows-cardShadowHover);
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -388,8 +529,8 @@ const LoginInputContainer = styled.div`
 const LoginInput = styled.input`
   width: 100%;
   padding: 14px 48px 14px 18px;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--chakra-colors-badgeBg);
+  border: 1px solid var(--chakra-colors-border);
   border-radius: 14px;
   color: var(--chakra-colors-textPrimary);
   font-size: 1rem;
@@ -399,7 +540,7 @@ const LoginInput = styled.input`
 
   &:focus {
     border-color: var(--chakra-colors-brandPrimary);
-    background: rgba(0, 0, 0, 0.4);
+    background: var(--chakra-colors-surface);
     box-shadow: 0 0 0 1px var(--chakra-colors-brandPrimary), 0 0 15px var(--chakra-colors-brandGlow);
   }
 `;
@@ -466,6 +607,7 @@ export default function AdminDashboard() {
   const [decryptTarget, setDecryptTarget] = useState(null);
   const [decryptAction, setDecryptAction] = useState(""); // "download" or "preview"
   const [roomCode, setRoomCode] = useState("");
+  const [mainSection, setMainSection] = useState("live");
 
   const backendUrl = process.env.REACT_APP_SOCKET_ENDPOINT || "https://cheprabai-backend.onrender.com";
 
@@ -795,6 +937,55 @@ export default function AdminDashboard() {
       )}
 
       <ContentContainer>
+        <div style={{ display: "flex", gap: 8, marginBottom: 24, flexWrap: "wrap" }}>
+          <button
+            type="button"
+            onClick={() => setMainSection("live")}
+            aria-pressed={mainSection === "live"}
+            style={{
+              minHeight: 44,
+              padding: "10px 18px",
+              borderRadius: 12,
+              border: `1px solid ${mainSection === "live" ? "var(--chakra-colors-brandPrimary)" : "rgba(255,255,255,0.08)"}`,
+              background: mainSection === "live" ? "rgba(255, 63, 94, 0.12)" : "rgba(255,255,255,0.02)",
+              color: mainSection === "live" ? "var(--chakra-colors-brandPrimary)" : "var(--chakra-colors-textSecondary)",
+              fontWeight: 700,
+              fontSize: "0.88rem",
+              cursor: "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            <FaDoorOpen /> Live Rooms
+          </button>
+          <button
+            type="button"
+            onClick={() => setMainSection("uploads")}
+            aria-pressed={mainSection === "uploads"}
+            style={{
+              minHeight: 44,
+              padding: "10px 18px",
+              borderRadius: 12,
+              border: `1px solid ${mainSection === "uploads" ? "var(--chakra-colors-brandPrimary)" : "rgba(255,255,255,0.08)"}`,
+              background: mainSection === "uploads" ? "rgba(255, 63, 94, 0.12)" : "rgba(255,255,255,0.02)",
+              color: mainSection === "uploads" ? "var(--chakra-colors-brandPrimary)" : "var(--chakra-colors-textSecondary)",
+              fontWeight: 700,
+              fontSize: "0.88rem",
+              cursor: "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            <FaFolder /> File Uploads
+          </button>
+        </div>
+
+        {mainSection === "live" ? (
+          <AdminControlCenter token={token} backendUrl={backendUrl} />
+        ) : (
+        <>
         <StatsGrid>
           <StatCard>
             <StatIcon><FaFolder /></StatIcon>
@@ -956,13 +1147,99 @@ export default function AdminDashboard() {
                 </tbody>
               </GridTable>
             </TableCard> : <UploadGrid>
-              {filteredUploads.map((item) => (
-                    <UploadGridCard key={item.id}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}><button type="button" onClick={() => setPreviewItem(item)} title="Preview file" style={{ border: 0, padding: 0, background: "transparent", cursor: "pointer" }}>{renderPreview(item)}</button><div style={{ minWidth: 0, flex: 1 }}><FileLink href={item.url} onClick={(e) => { e.preventDefault(); setDecryptTarget(item); setDecryptAction('download'); }} style={{ padding: 0, border: 0, background: "transparent" }}>{item.name}</FileLink><div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}><Badge>{(item.source || "realtime") === "cloudinary" ? "Cloudinary" : "Realtime"}</Badge>{item.type && <Badge $brand>{item.type.split('/')[0]}</Badge>}</div></div><ActionButton onClick={() => setPreviewItem(item)} title="Preview file"><FaEye /></ActionButton></div>
-                  <div style={{ display: "grid", gap: 5, fontSize: ".78rem", color: "var(--chakra-colors-textSecondary)" }}><span>Room: <strong style={{ color: "var(--chakra-colors-textPrimary)" }}>{item.roomId}</strong></span><span>By: <strong style={{ color: "var(--chakra-colors-textPrimary)" }}>{item.uploadedBy}</strong></span><span>{new Date(item.timestamp).toLocaleString()}</span></div>
-                  <ActionButton $danger onClick={() => handleDelete(item.roomId, item.id)} style={{ justifyContent: "center" }}><FaTrash /> Delete permanently</ActionButton>
-                </UploadGridCard>
-              ))}
+              {filteredUploads.map((item) => {
+                const { color, icon } = getFileTypeDetails(item.type);
+                return (
+                  <UploadGridCard key={item.id}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                      <FileCardHeader>
+                        <FileTypeIconWrapper $color={color}>
+                          {icon}
+                        </FileTypeIconWrapper>
+                        <FileNameText
+                          title={item.name}
+                          onClick={() => {
+                            setDecryptTarget(item);
+                            setDecryptAction('download');
+                          }}
+                        >
+                          {item.name}
+                        </FileNameText>
+                      </FileCardHeader>
+
+                      <FileMetaGrid>
+                        <FileMetaItem>
+                          <span>
+                            <FaLock size={10} />
+                            Room
+                          </span>
+                          <strong>{item.roomId || "—"}</strong>
+                        </FileMetaItem>
+                        <FileMetaItem>
+                          <span>
+                            <FaUsers size={10} />
+                            By
+                          </span>
+                          <strong>{item.uploadedBy || "System"}</strong>
+                        </FileMetaItem>
+                        <FileMetaItem style={{ gridColumn: "span 2" }}>
+                          <span>
+                            <FaDatabase size={10} />
+                            Source
+                          </span>
+                          <div style={{ display: "flex", gap: 6, marginTop: 2 }}>
+                            <Badge style={{ fontSize: "0.65rem", padding: "2px 6px" }}>
+                              {(item.source || "realtime") === "cloudinary" ? "Cloudinary" : "Realtime"}
+                            </Badge>
+                            {item.type && (
+                              <Badge $brand style={{ fontSize: "0.65rem", padding: "2px 6px" }}>
+                                {item.type.split('/')[0]}
+                              </Badge>
+                            )}
+                          </div>
+                        </FileMetaItem>
+                        <FileMetaItem style={{ gridColumn: "span 2" }}>
+                          <span>
+                            <FaCalendarAlt size={10} />
+                            Uploaded
+                          </span>
+                          <span style={{ color: "var(--chakra-colors-textSecondary)", fontSize: "0.72rem", marginTop: 1 }}>
+                            {new Date(item.timestamp).toLocaleString()}
+                          </span>
+                        </FileMetaItem>
+                      </FileMetaGrid>
+                    </div>
+
+                    <FileCardActions>
+                      <RoundActionBtn
+                        type="button"
+                        onClick={() => setPreviewItem(item)}
+                        title="Preview file"
+                      >
+                        <FaEye size={12} />
+                      </RoundActionBtn>
+                      <RoundActionBtn
+                        type="button"
+                        onClick={() => {
+                          setDecryptTarget(item);
+                          setDecryptAction('download');
+                        }}
+                        title="Decrypt & Download"
+                      >
+                        <FaDownload size={12} />
+                      </RoundActionBtn>
+                      <RoundActionBtn
+                        type="button"
+                        $danger
+                        onClick={() => handleDelete(item.roomId, item.id)}
+                        title="Delete permanently"
+                      >
+                        <FaTrash size={12} />
+                      </RoundActionBtn>
+                    </FileCardActions>
+                  </UploadGridCard>
+                );
+              })}
             </UploadGrid>}
 
             {viewMode === "list" && <MobileCardList>
@@ -998,6 +1275,8 @@ export default function AdminDashboard() {
               ))}
             </MobileCardList>}
           </div>
+        )}
+        </>
         )}
       </ContentContainer>
       {previewItem && <div role="dialog" aria-modal="true" aria-label="File preview" onClick={closePreview} style={{ position: "fixed", inset: 0, zIndex: 12000, background: "rgba(0,0,0,.76)", backdropFilter: "blur(8px)", padding: 20, display: "grid", placeItems: "center" }}>

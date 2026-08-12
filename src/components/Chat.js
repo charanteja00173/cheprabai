@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, Suspense, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { io } from "socket.io-client";
-import { Link } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import axios from "axios";
 import styled, { keyframes } from "styled-components";
 import {
@@ -32,7 +32,7 @@ import { AiOutlineClose } from "react-icons/ai";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import ThemeSwitcher from "./ThemeSwitcher";
-import { ArrowRight, Hash, KeyRound, LockKeyhole, ShieldCheck, Upload, UserRound } from "lucide-react";
+import { ArrowRight, Copy, Hash, KeyRound, Link2, LockKeyhole, ShieldCheck, Upload, UserRound } from "lucide-react";
 import {
   generateKeyFromSecret,
   encryptMessage,
@@ -42,6 +42,7 @@ import {
   exportKey,
   importKey
 } from "../utils/crypto";
+import { copyRoomShareLink, parseRoomRouteParams } from "../utils/shareLink";
 import { ImNewTab } from "react-icons/im";
 import { AiFillCloseSquare } from "react-icons/ai";
 // Lazy-load heavy components
@@ -78,9 +79,7 @@ const getFileType = (file) => {
   return type;
 };
 
-const SECURITY_CODE = process.env.REACT_APP_SECURITY_CODES
-  ? process.env.REACT_APP_SECURITY_CODES.split(",").map(code => code.trim()).filter(Boolean)
-  : [];
+// Security code validation is handled server-side to support per-room passwords
 
 const urlRegex = /(https?:\/\/[^\s]+)/g;
 
@@ -321,8 +320,8 @@ const MessageBubble = styled.div`
   }
 
   ${p => p.isFile && `
-    width: min(80vw, 560px);
-    max-width: min(80vw, 560px);
+    width: min(75vw, 420px);
+    max-width: min(75vw, 420px);
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
@@ -533,14 +532,14 @@ const FloatingBlob = styled.div`
 const JoinContainer = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
   width: 100%;
-  max-width: min(460px, calc(100vw - 32px));
+  max-width: min(420px, calc(100vw - 32px));
   background: var(--chakra-colors-surface);
   backdrop-filter: blur(36px);
   -webkit-backdrop-filter: blur(36px);
-  padding: clamp(24px, 5vw, 38px);
-  border-radius: 24px;
+  padding: clamp(20px, 4vw, 32px);
+  border-radius: 22px;
   border: 1px solid var(--chakra-colors-border);
   box-shadow: 
     0 4px 30px rgba(0, 0, 0, 0.15),
@@ -556,8 +555,8 @@ const JoinContainer = styled.div`
     max-width: none;
     min-height: 100dvh;
     margin: 0;
-    padding: calc(env(safe-area-inset-top) + 28px) 24px calc(env(safe-area-inset-bottom) + 24px);
-    gap: 16px;
+    padding: calc(env(safe-area-inset-top) + 24px) 20px calc(env(safe-area-inset-bottom) + 20px);
+    gap: 12px;
     border: 0;
     border-radius: 0;
     background: var(--chakra-colors-bg);
@@ -565,22 +564,22 @@ const JoinContainer = styled.div`
   }
 
   @media (min-width: 900px) {
-    max-width: 500px;
-    padding: 40px;
+    max-width: 440px;
+    padding: 34px;
   }
 `;
 
 const JoinInput = styled.input`
   width: 100%;
   box-sizing: border-box;
-  min-height: 52px;
-  padding: 14px 16px 14px 46px;
-  border-radius: 12px;
+  min-height: 46px;
+  padding: 12px 14px 12px 42px;
+  border-radius: 11px;
   border: 1px solid var(--chakra-colors-border);
   background: var(--chakra-colors-badgeBg);
   color: var(--chakra-colors-textPrimary);
   outline: none;
-  font-size: 1rem;
+  font-size: 0.92rem;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
 
@@ -603,9 +602,10 @@ const JoinInput = styled.input`
   }
 
   @media (max-width: 480px) {
-    padding: 12px 16px 12px 46px;
-    font-size: 0.95rem;
-    border-radius: 12px;
+    padding: 10px 14px 10px 42px;
+    font-size: 0.9rem;
+    min-height: 42px;
+    border-radius: 10px;
   }
 `;
 
@@ -633,12 +633,12 @@ const FieldIcon = styled.span`
 `;
 
 const AvatarPicker = styled.label`
-  min-height: 58px;
+  min-height: 50px;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 7px 12px;
-  border-radius: 12px;
+  gap: 10px;
+  padding: 6px 10px;
+  border-radius: 11px;
   cursor: pointer;
   color: var(--chakra-colors-textPrimary);
   background: var(--chakra-colors-badgeBg);
@@ -683,17 +683,17 @@ const EyeButton = styled.button`
 `;
 
 const JoinButton = styled.button`
-  padding: 14px;
-  border-radius: 12px;
+  padding: 12px;
+  border-radius: 11px;
   border: none;
   background: linear-gradient(135deg, var(--chakra-colors-brandPrimary), var(--chakra-colors-brandSecondary));
   color: #fff;
-  font-size: 1.05rem;
+  font-size: 0.95rem;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  margin-top: 8px;
-  min-height: 52px;
+  margin-top: 4px;
+  min-height: 46px;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
   position: relative;
   overflow: hidden;
@@ -721,11 +721,11 @@ const JoinButton = styled.button`
   }
 
   @media (max-width: 480px) {
-    padding: 12px;
-    font-size: 0.95rem;
-    min-height: 46px;
-    border-radius: 12px;
-    margin-top: 8px;
+    padding: 10px;
+    font-size: 0.9rem;
+    min-height: 42px;
+    border-radius: 10px;
+    margin-top: 4px;
   }
 `;
 
@@ -748,15 +748,15 @@ const PreviewModal = styled.div`
   max-width: 1000px;
   height: ${(props) => (props.$isMobile ? "100vh" : "90vh")};
   max-height: ${(props) => (props.$isMobile ? "100dvh" : "90dvh")};
-  background: linear-gradient(135deg, rgba(20, 20, 30, 0.98) 0%, rgba(15, 15, 25, 0.98) 100%);
-  border: ${(props) => (props.$isMobile ? "none" : "1px solid rgba(255, 255, 255, 0.06)")};
+  background: var(--chakra-colors-surface);
+  border: ${(props) => (props.$isMobile ? "none" : "1px solid var(--chakra-colors-border)")};
   border-radius: ${(props) => (props.$isMobile ? "0" : "24px")};
   padding: ${(props) => (props.$isMobile ? "0" : "20px")};
   display: flex;
   flex-direction: column;
   gap: 0;
   overflow: hidden;
-  box-shadow: ${(props) => (props.$isMobile ? "none" : "0 20px 60px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.05)")};
+  box-shadow: ${(props) => (props.$isMobile ? "none" : "var(--chakra-shadows-cardShadowHover)")};
   animation: ${popIn} 0.35s cubic-bezier(0.16, 1, 0.3, 1);
   will-change: transform, opacity;
   margin: auto;
@@ -773,11 +773,11 @@ const PreviewHeader = styled.div`
   justify-content: space-between;
   gap: 14px;
   padding: 22px 24px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid var(--chakra-colors-border);
   flex-shrink: 0;
   position: sticky;
   top: 0;
-  background: linear-gradient(180deg, rgba(20, 20, 30, 0.98) 0%, rgba(15, 15, 25, 0.88) 100%);
+  background: var(--chakra-colors-glassBg);
   backdrop-filter: blur(20px);
   z-index: 3;
 `;
@@ -789,17 +789,14 @@ const PreviewTitleGroup = styled.div`
 `;
 
 const PreviewTitle = styled.div`
-  background: linear-gradient(135deg, #fff 0%, rgba(255, 255, 255, 0.92) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--chakra-colors-textPrimary);
   font-size: 1.18rem;
   font-weight: 800;
   letter-spacing: -0.02em;
 `;
 
 const PreviewSubtitle = styled.div`
-  color: rgba(255, 255, 255, 0.65);
+  color: var(--chakra-colors-textSecondary);
   font-size: 0.95rem;
   line-height: 1.5;
   max-width: 760px;
@@ -872,9 +869,9 @@ const PreviewCard = styled.div`
   display: flex;
   flex-direction: column;
   border-radius: ${(props) => (props.$singleFile ? "20px" : "22px")};
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  background: var(--chakra-colors-badgeBg);
+  border: 1px solid var(--chakra-colors-border);
+  box-shadow: var(--chakra-shadows-cardShadow);
   overflow: hidden;
   transition: all 0.24s cubic-bezier(0.2, 0, 0, 1);
   will-change: transform, border-color;
@@ -883,8 +880,8 @@ const PreviewCard = styled.div`
   @media (hover: hover) {
     &:hover {
       transform: ${(props) => (props.$singleFile ? "none" : "translateY(-3px)")};
-      border-color: rgba(255, 255, 255, 0.12);
-      box-shadow: 0 28px 80px rgba(0, 0, 0, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      border-color: var(--chakra-colors-brandPrimary);
+      box-shadow: var(--chakra-shadows-cardShadowHover);
     }
   }
 
@@ -944,8 +941,8 @@ const PreviewFilePlaceholder = styled.div`
   align-items: center;
   justify-content: center;
   padding: 16px;
-  background: rgba(255, 255, 255, 0.02);
-  color: rgba(255, 255, 255, 0.75);
+  background: var(--chakra-colors-badgeBg);
+  color: var(--chakra-colors-textSecondary);
   text-align: center;
   box-sizing: border-box;
 `;
@@ -973,7 +970,7 @@ const PreviewFileName = styled.div`
 `;
 
 const PreviewFileMeta = styled.div`
-  color: rgba(255, 255, 255, 0.58);
+  color: var(--chakra-colors-textMuted);
   font-size: 0.82rem;
 `;
 
@@ -983,10 +980,10 @@ const PreviewRemoveButton = styled.button`
   right: 12px;
   width: 32px;
   height: 32px;
-  border: none;
+  border: 1px solid var(--chakra-colors-border);
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.12);
-  color: #fff;
+  background: var(--chakra-colors-badgeBg);
+  color: var(--chakra-colors-textPrimary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -996,7 +993,7 @@ const PreviewRemoveButton = styled.button`
 
   &:hover {
     transform: translateY(-1px);
-    background: rgba(255, 255, 255, 0.2);
+    background: var(--chakra-colors-surfaceHover);
   }
 
   @media (max-width: 767px) {
@@ -1015,8 +1012,8 @@ const PreviewActions = styled.div`
   gap: 12px;
   flex-wrap: wrap;
   padding: 22px 24px 24px;
-  border-top: 1px solid rgba(255, 255, 255, 0.04);
-  background: linear-gradient(180deg, rgba(15, 15, 25, 0.5) 0%, rgba(20, 20, 30, 0.6) 100%);
+  border-top: 1px solid var(--chakra-colors-border);
+  background: var(--chakra-colors-glassBg);
 
   @media (max-width: 767px) {
     justify-content: stretch;
@@ -1052,13 +1049,13 @@ const PreviewButton = styled.button`
 `;
 
 const CancelBtn = styled(PreviewButton)`
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--chakra-colors-badgeBg);
+  border: 1px solid var(--chakra-colors-border);
   color: var(--chakra-colors-textPrimary);
 
   &:hover {
-    background: rgba(255, 255, 255, 0.1);
-    border-color: rgba(255, 255, 255, 0.2);
+    background: var(--chakra-colors-surfaceHover);
+    border-color: var(--chakra-colors-brandPrimary);
   }
 `;
 
@@ -1076,13 +1073,13 @@ const MessageInputContainer = styled.div`
   display: flex;
   align-items: center;
   padding: 10px 16px;
-  background: rgba(10, 10, 14, 0.5);
+  background: var(--chakra-colors-glassBg);
   backdrop-filter: blur(30px);
   -webkit-backdrop-filter: blur(30px);
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid var(--chakra-colors-border);
   gap: 12px;
   padding-bottom: calc(10px + var(--safe-bottom));
-  box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.1);
   flex-shrink: 0;
   box-sizing: border-box;
 
@@ -1103,21 +1100,21 @@ const InputPill = styled.div`
   display: flex;
   align-items: center;
   flex: 1;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--chakra-colors-badgeBg);
+  border: 1px solid var(--chakra-colors-border);
   border-radius: 24px;
   padding: 4px 8px;
   gap: 4px;
   min-width: 0;
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05);
   transition: all 0.25s ease;
 
   &:focus-within {
     border-color: var(--chakra-colors-brandPrimary);
     box-shadow: 
-      inset 0 2px 4px rgba(0, 0, 0, 0.2),
+      inset 0 2px 4px rgba(0, 0, 0, 0.05),
       0 0 15px var(--chakra-colors-brandGlow);
-    background: rgba(0, 0, 0, 0.2);
+    background: var(--chakra-colors-surface);
   }
 
   @media (max-width: 480px) {
@@ -1131,8 +1128,8 @@ const AccessoryRow = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-around;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: var(--chakra-colors-badgeBg);
+  border: 1px solid var(--chakra-colors-border);
   border-radius: 16px;
   padding: 6px 12px;
   margin-bottom: 4px;
@@ -1169,7 +1166,7 @@ const IconButton = styled.button`
 
   &:hover {
     color: var(--chakra-colors-textPrimary);
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--chakra-colors-surfaceHover);
   }
 
   &:active {
@@ -1189,7 +1186,7 @@ const EphemeralToggle = styled(IconButton)`
 
   &:hover {
     color: ${(p) => (p.$active ? "#ff6b72" : "var(--chakra-colors-textPrimary)")};
-    background: ${(p) => (p.$active ? "rgba(255, 71, 87, 0.18)" : "rgba(255, 255, 255, 0.05)")};
+    background: ${(p) => (p.$active ? "rgba(255, 71, 87, 0.18)" : "var(--chakra-colors-surfaceHover)")};
   }
 `;
 
@@ -1318,14 +1315,14 @@ const GifPickerModal = styled.div`
   width: ${(props) => (props.$isMobile ? "100vw" : "85vw")};
   max-width: 1200px;
   height: ${(props) => (props.$isMobile ? "100vh" : "85vh")};
-  background: linear-gradient(135deg, rgba(20, 20, 30, 0.98) 0%, rgba(15, 15, 25, 0.98) 100%);
-  border: ${(props) => (props.$isMobile ? "none" : "1px solid rgba(255, 255, 255, 0.06)")};
+  background: var(--chakra-colors-surface);
+  border: ${(props) => (props.$isMobile ? "none" : "1px solid var(--chakra-colors-border)")};
   border-radius: ${(props) => (props.$isMobile ? "0" : "24px")};
   display: flex;
   flex-direction: column;
   overflow: hidden;
   margin: auto;
-  box-shadow: ${(props) => (props.$isMobile ? "none" : "0 20px 60px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.05)")};
+  box-shadow: ${(props) => (props.$isMobile ? "none" : "var(--chakra-shadows-cardShadowHover)")};
   animation: ${scaleUp} 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
 
   @media (max-width: 767px) {
@@ -1351,15 +1348,13 @@ const EphemeralMenuCard = styled.div`
   bottom: 54px;
   right: 0;
   width: 250px;
-  background: rgba(10, 10, 15, 0.85);
+  background: var(--chakra-colors-glassBg);
   backdrop-filter: blur(28px);
   -webkit-backdrop-filter: blur(28px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--chakra-colors-border);
   border-radius: 18px;
   padding: 16px;
-  box-shadow: 
-    0 10px 30px rgba(0, 0, 0, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  box-shadow: var(--chakra-shadows-cardShadowHover);
   z-index: 10000;
   display: flex;
   flex-direction: column;
@@ -1377,7 +1372,7 @@ const EphemeralMenuCard = styled.div`
 
   .subtitle {
     font-size: 0.72rem;
-    color: rgba(255, 255, 255, 0.4);
+    color: var(--chakra-colors-textMuted);
     line-height: 1.35;
   }
 
@@ -1396,7 +1391,7 @@ const EphemeralMenuCard = styled.div`
     background: none;
     border: none;
     border-radius: 8px;
-    color: rgba(255, 255, 255, 0.7);
+    color: var(--chakra-colors-textSecondary);
     font-size: 0.82rem;
     font-weight: 500;
     cursor: pointer;
@@ -1404,8 +1399,8 @@ const EphemeralMenuCard = styled.div`
     text-align: left;
 
     &:hover {
-      background: rgba(255, 255, 255, 0.05);
-      color: #fff;
+      background: var(--chakra-colors-surfaceHover);
+      color: var(--chakra-colors-textPrimary);
     }
 
     &.active {
@@ -1415,10 +1410,10 @@ const EphemeralMenuCard = styled.div`
     }
 
     &.custom-btn {
-      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      border-top: 1px solid var(--chakra-colors-border);
       margin-top: 4px;
       border-radius: 0 0 8px 8px;
-      color: rgba(255, 255, 255, 0.5);
+      color: var(--chakra-colors-textMuted);
       font-style: italic;
 
       &:hover {
@@ -1445,13 +1440,13 @@ const GifDrawerHandle = styled.div`
     display: flex;
     justify-content: center;
     padding: 10px 0 2px;
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--chakra-colors-badgeBg);
     &::after {
       content: '';
       width: 42px;
       height: 4px;
       border-radius: 999px;
-      background: rgba(255, 255, 255, 0.22);
+      background: var(--chakra-colors-border);
     }
   }
 `;
@@ -1465,10 +1460,7 @@ const GifPickerTitle = styled.div`
   span.title {
     font-size: 1.3rem;
     font-weight: 800;
-    background: linear-gradient(135deg, #fff 0%, rgba(255, 255, 255, 0.8) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    color: var(--chakra-colors-textPrimary);
     letter-spacing: -0.02em;
   }
 
@@ -1478,7 +1470,7 @@ const GifPickerTitle = styled.div`
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: #ff6b6b;
-    background: linear-gradient(135deg, rgba(255, 107, 107, 0.15) 0%, rgba(255, 63, 94, 0.1) 100%);
+    background: rgba(255, 107, 107, 0.15);
     border: 1px solid rgba(255, 107, 107, 0.25);
     padding: 6px 14px;
     border-radius: 999px;
@@ -1492,12 +1484,11 @@ const GifPickerTitle = styled.div`
 `;
 
 const GifPickerSubtitle = styled.div`
-  color: rgba(255, 255, 255, 0.65);
+  color: var(--chakra-colors-textSecondary);
   font-size: 0.95rem;
   line-height: 1.55;
   max-width: 780px;
   letter-spacing: 0.01em;
-  opacity: 0.95;
 
   @media (max-width: 767px) {
     font-size: 0.9rem;
@@ -1505,8 +1496,8 @@ const GifPickerSubtitle = styled.div`
 `;
 
 const CloseGifPickerButton = styled.button`
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--chakra-colors-badgeBg);
+  border: 1px solid var(--chakra-colors-border);
   color: var(--chakra-colors-textPrimary);
   cursor: pointer;
   width: 38px;
@@ -1548,8 +1539,8 @@ const GifPickerHeader = styled.div`
   gap: 14px;
   padding: 24px 28px 18px;
   flex-shrink: 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-  background: linear-gradient(180deg, rgba(20, 20, 30, 0.98) 0%, rgba(15, 15, 25, 0.88) 100%);
+  border-bottom: 1px solid var(--chakra-colors-border);
+  background: var(--chakra-colors-glassBg);
   backdrop-filter: blur(20px);
   position: sticky;
   top: 0;
@@ -1578,7 +1569,7 @@ const GifSearchContainer = styled.div`
 const GifSearchIcon = styled.div`
   position: absolute;
   left: 16px;
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--chakra-colors-textMuted);
   display: flex;
   align-items: center;
   pointer-events: none;
@@ -1605,8 +1596,8 @@ const GifSearchClearButton = styled.button`
   transition: all 0.18s ease;
 
   &:hover {
-    color: #fff;
-    background: rgba(255, 255, 255, 0.1);
+    color: var(--chakra-colors-textPrimary);
+    background: var(--chakra-colors-surfaceHover);
   }
 
   @media (max-width: 767px) {
@@ -1621,12 +1612,12 @@ const GifEmptyState = styled.div`
   justify-content: center;
   padding: 60px 24px;
   text-align: center;
-  color: rgba(255, 255, 255, 0.38);
+  color: var(--chakra-colors-textMuted);
   flex: 1;
 
   .icon {
     font-size: 2.4rem;
-    color: rgba(255, 255, 255, 0.18);
+    color: var(--chakra-colors-border);
     margin-bottom: 14px;
   }
 
@@ -1634,12 +1625,12 @@ const GifEmptyState = styled.div`
     font-size: 1rem;
     font-weight: 700;
     margin-bottom: 6px;
-    color: rgba(255, 255, 255, 0.78);
+    color: var(--chakra-colors-textPrimary);
   }
 
   .subtext {
     font-size: 0.8rem;
-    color: rgba(255, 255, 255, 0.45);
+    color: var(--chakra-colors-textSecondary);
   }
 `;
 
@@ -1648,10 +1639,10 @@ const GiphyAttribution = styled.div`
   justify-content: center;
   align-items: center;
   padding: 12px 16px;
-  background: rgba(11, 11, 18, 0.92);
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--chakra-colors-glassBg);
+  border-top: 1px solid var(--chakra-colors-border);
   font-size: 0.72rem;
-  color: rgba(255, 255, 255, 0.38);
+  color: var(--chakra-colors-textMuted);
   gap: 6px;
   flex-shrink: 0;
 
@@ -1670,8 +1661,8 @@ const GifSearchInput = styled.input`
   min-width: 0;
   padding: 11px 16px 11px 40px;
   border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--chakra-colors-border);
+  background: var(--chakra-colors-badgeBg);
   color: var(--chakra-colors-textPrimary);
   font-size: max(16px, 0.9rem);
   font-weight: 500;
@@ -1681,12 +1672,12 @@ const GifSearchInput = styled.input`
 
   &:focus {
     border-color: var(--chakra-colors-brandPrimary);
-    background: rgba(0, 0, 0, 0.4);
-    box-shadow: 0 0 0 3px rgba(255, 63, 94, 0.08);
+    background: var(--chakra-colors-surface);
+    box-shadow: 0 0 0 3px var(--chakra-colors-brandGlow);
   }
 
   &::placeholder {
-    color: rgba(255, 255, 255, 0.3);
+    color: var(--chakra-colors-textSecondary);
     font-weight: 400;
   }
 
@@ -1804,18 +1795,16 @@ const SearchPopup = styled.div`
   top: 76px;
   right: 20px;
   z-index: 100;
-  background: rgba(10, 10, 14, 0.65);
+  background: var(--chakra-colors-glassBg);
   padding: 10px 18px;
   border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--chakra-colors-border);
   backdrop-filter: blur(28px);
   -webkit-backdrop-filter: blur(28px);
   display: flex;
   gap: 12px;
   align-items: center;
-  box-shadow: 
-    0 10px 30px rgba(0, 0, 0, 0.35),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  box-shadow: var(--chakra-shadows-cardShadowHover);
   animation: slide-down-fade 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 
   @media (max-width: 600px) {
@@ -1853,15 +1842,12 @@ const RoomInfoDropdown = styled.div`
   width: min(360px, calc(100vw - 32px));
   max-height: calc(100dvh - 84px);
   overflow-y: auto;
-  background: #111217;
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: var(--chakra-colors-surface);
+  border: 1px solid var(--chakra-colors-border);
   border-radius: 18px;
   padding: 18px;
   z-index: 9001;
-  box-shadow: 
-    0 12px 40px rgba(0, 0, 0, 0.55),
-    0 32px 84px rgba(0, 0, 0, 0.72),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  box-shadow: var(--chakra-shadows-cardShadowHover);
   box-sizing: border-box;
   animation: slide-down-fade 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 
@@ -2353,6 +2339,256 @@ function LinkPreviewCard({ url, renderLinkActions }) {
   );
 }
 
+const PlaybackSpeedAudio = ({ file, decryptedUrl }) => {
+  const audioElRef = React.useRef(null);
+  const canvasRef = React.useRef(null);
+  const [speed, setSpeed] = React.useState(1);
+  const [isPlaying, setIsPlaying] = React.useState(false);
+  const [currentTime, setCurrentTime] = React.useState(0);
+  const [duration, setDuration] = React.useState(0);
+  const [peaks, setPeaks] = React.useState([]);
+
+  // Fetch and decode audio to generate peaks
+  React.useEffect(() => {
+    if (!decryptedUrl) return;
+    let active = true;
+    const generatePeaks = async () => {
+      try {
+        const response = await fetch(decryptedUrl);
+        const arrayBuffer = await response.arrayBuffer();
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+        const channelData = audioBuffer.getChannelData(0);
+        const step = Math.floor(channelData.length / 50);
+        const generatedPeaks = [];
+        for (let i = 0; i < 50; i++) {
+          let max = 0;
+          for (let j = 0; j < step; j++) {
+            const val = Math.abs(channelData[i * step + j]);
+            if (val > max) max = val;
+          }
+          generatedPeaks.push(max);
+        }
+        if (active) {
+          setPeaks(generatedPeaks);
+          setDuration(audioBuffer.duration);
+        }
+        audioCtx.close();
+      } catch (err) {
+        const fallback = Array.from({ length: 50 }, () => 0.1 + Math.random() * 0.8);
+        if (active) {
+          setPeaks(fallback);
+        }
+      }
+    };
+    generatePeaks();
+    return () => { active = false; };
+  }, [decryptedUrl]);
+
+  // Sync canvas redraw with currentTime
+  React.useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || peaks.length === 0) return;
+    const ctx = canvas.getContext("2d");
+    const width = canvas.width;
+    const height = canvas.height;
+    ctx.clearRect(0, 0, width, height);
+
+    const progress = duration > 0 ? currentTime / duration : 0;
+    const activeColor = "#00bfa5";
+    const inactiveColor = "rgba(255, 255, 255, 0.25)";
+
+    const barWidth = 3;
+    const gap = 2;
+    const totalBars = peaks.length;
+
+    for (let i = 0; i < totalBars; i++) {
+      const x = i * (barWidth + gap);
+      const peakVal = peaks[i];
+      const barHeight = Math.max(3, peakVal * height * 0.9);
+      const y = (height - barHeight) / 2;
+
+      ctx.fillStyle = (i / totalBars) <= progress ? activeColor : inactiveColor;
+      ctx.beginPath();
+      if (ctx.roundRect) {
+        ctx.roundRect(x, y, barWidth, barHeight, 1.5);
+      } else {
+        ctx.rect(x, y, barWidth, barHeight);
+      }
+      ctx.fill();
+    }
+  }, [peaks, currentTime, duration]);
+
+  const togglePlay = () => {
+    if (!audioElRef.current) return;
+    if (isPlaying) {
+      audioElRef.current.pause();
+    } else {
+      audioElRef.current.play().catch(() => { });
+    }
+  };
+
+  const handleTimeUpdate = () => {
+    if (audioElRef.current) {
+      setCurrentTime(audioElRef.current.currentTime);
+    }
+  };
+
+  const handleLoadedMetadata = () => {
+    if (audioElRef.current) {
+      setDuration(audioElRef.current.duration);
+    }
+  };
+
+  const handleCanvasClick = (e) => {
+    const canvas = canvasRef.current;
+    if (!canvas || !audioElRef.current || duration === 0) return;
+    const rect = canvas.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const percentage = clickX / rect.width;
+    const targetTime = percentage * duration;
+    audioElRef.current.currentTime = targetTime;
+    setCurrentTime(targetTime);
+  };
+
+  const formatTime = (time) => {
+    if (isNaN(time)) return "00:00";
+    const minutes = Math.floor(time / 60);
+    const seconds = Math.floor(time % 60);
+    return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+  };
+
+  const cycleSpeed = () => {
+    const nextSpeed = speed === 1 ? 1.5 : speed === 1.5 ? 2 : 1;
+    setSpeed(nextSpeed);
+    if (audioElRef.current) {
+      audioElRef.current.playbackRate = nextSpeed;
+    }
+  };
+
+  return (
+    <div style={{ background: "rgba(20, 20, 30, 0.35)", borderRadius: "14px", padding: "12px", border: "1px solid rgba(255,255,255,0.06)", width: "100%", boxSizing: "border-box" }}>
+      <audio
+        ref={audioElRef}
+        src={decryptedUrl}
+        onPlay={() => setIsPlaying(true)}
+        onPause={() => setIsPlaying(false)}
+        onTimeUpdate={handleTimeUpdate}
+        onLoadedMetadata={handleLoadedMetadata}
+        onEnded={() => setIsPlaying(false)}
+        style={{ display: "none" }}
+      />
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+          <span style={{ fontSize: "1.1rem" }}>🎙️</span>
+          <span style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--chakra-colors-textPrimary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.name}</span>
+        </div>
+        <button
+          type="button"
+          onClick={cycleSpeed}
+          style={{
+            background: "rgba(255,255,255,0.06)",
+            border: "1px solid rgba(255,255,255,0.1)",
+            borderRadius: "12px",
+            color: "var(--chakra-colors-brandPrimary)",
+            fontSize: "0.72rem",
+            fontWeight: 750,
+            padding: "2px 8px",
+            cursor: "pointer",
+            transition: "all 0.2s"
+          }}
+        >
+          {speed}x
+        </button>
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <button
+          type="button"
+          onClick={togglePlay}
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: "50%",
+            background: "var(--chakra-colors-brandPrimary)",
+            border: "none",
+            color: "#fff",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "pointer",
+            fontSize: "1rem",
+            boxShadow: "0 4px 10px rgba(0, 191, 165, 0.3)",
+            transition: "transform 0.1s"
+          }}
+        >
+          {isPlaying ? "⏸" : "▶"}
+        </button>
+
+        <div style={{ flex: 1, position: "relative", cursor: "pointer" }}>
+          <canvas
+            ref={canvasRef}
+            width={250}
+            height={32}
+            onClick={handleCanvasClick}
+            style={{ width: "100%", height: 32, display: "block" }}
+          />
+        </div>
+      </div>
+
+      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: "0.7rem", opacity: 0.6, fontWeight: 500 }}>
+        <span>{formatTime(currentTime)}</span>
+        <span>{formatTime(duration)}</span>
+      </div>
+    </div>
+  );
+};
+
+const downloadMedia = (decryptedUrl, name) => {
+  if (!decryptedUrl) return;
+  const link = document.createElement("a");
+  link.href = decryptedUrl;
+  link.download = name || "download";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
+
+const copyImageToClipboard = async (decryptedUrl) => {
+  if (!decryptedUrl) return;
+  try {
+    const response = await fetch(decryptedUrl);
+    const blob = await response.blob();
+    if (blob.type.includes("png")) {
+      await navigator.clipboard.write([
+        new ClipboardItem({ "image/png": blob })
+      ]);
+      toast.success("📋 Image copied to clipboard!");
+    } else {
+      await navigator.clipboard.writeText(decryptedUrl);
+      toast.success("📋 Image URL copied to clipboard!");
+    }
+  } catch (err) {
+    console.error(err);
+    try {
+      await navigator.clipboard.writeText(decryptedUrl);
+      toast.success("📋 Image link copied!");
+    } catch (e2) {
+      toast.error("Failed to copy image.");
+    }
+  }
+};
+
+const copyLinkToClipboard = async (url) => {
+  if (!url) return;
+  try {
+    await navigator.clipboard.writeText(url);
+    toast.success("📋 Link copied to clipboard!");
+  } catch (err) {
+    toast.error("Failed to copy link.");
+  }
+};
+
 // Stateful component to handle downloading, decrypting and displaying E2EE files
 function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile }) {
   const fileType = getFileType(file);
@@ -2495,211 +2731,9 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile }) {
   }
 
   if (fileType && fileType.startsWith("audio")) {
-    const PlaybackSpeedAudio = () => {
-      const audioElRef = React.useRef(null);
-      const canvasRef = React.useRef(null);
-      const [speed, setSpeed] = React.useState(1);
-      const [isPlaying, setIsPlaying] = React.useState(false);
-      const [currentTime, setCurrentTime] = React.useState(0);
-      const [duration, setDuration] = React.useState(0);
-      const [peaks, setPeaks] = React.useState([]);
-
-      // Fetch and decode audio to generate peaks
-      React.useEffect(() => {
-        if (!decryptedUrl) return;
-        const generatePeaks = async () => {
-          try {
-            const response = await fetch(decryptedUrl);
-            const arrayBuffer = await response.arrayBuffer();
-            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-            const channelData = audioBuffer.getChannelData(0);
-            const step = Math.floor(channelData.length / 50);
-            const generatedPeaks = [];
-            for (let i = 0; i < 50; i++) {
-              let max = 0;
-              for (let j = 0; j < step; j++) {
-                const val = Math.abs(channelData[i * step + j]);
-                if (val > max) max = val;
-              }
-              generatedPeaks.push(max);
-            }
-            setPeaks(generatedPeaks);
-            setDuration(audioBuffer.duration);
-            audioCtx.close();
-          } catch (err) {
-            // Fallback peaks if decoding fails
-            const fallback = Array.from({ length: 50 }, () => 0.1 + Math.random() * 0.8);
-            setPeaks(fallback);
-          }
-        };
-        generatePeaks();
-      }, []);
-
-      // Sync canvas redraw with currentTime
-      React.useEffect(() => {
-        const canvas = canvasRef.current;
-        if (!canvas || peaks.length === 0) return;
-        const ctx = canvas.getContext("2d");
-        const width = canvas.width;
-        const height = canvas.height;
-        ctx.clearRect(0, 0, width, height);
-
-        const progress = duration > 0 ? currentTime / duration : 0;
-        const activeColor = "#00bfa5"; // var(--chakra-colors-brandPrimary)
-        const inactiveColor = "rgba(255, 255, 255, 0.25)";
-
-        const barWidth = 3;
-        const gap = 2;
-        const totalBars = peaks.length;
-
-        for (let i = 0; i < totalBars; i++) {
-          const x = i * (barWidth + gap);
-          const peakVal = peaks[i];
-          // Normalize peak height to fit canvas height
-          const barHeight = Math.max(3, peakVal * height * 0.9);
-          const y = (height - barHeight) / 2;
-
-          ctx.fillStyle = (i / totalBars) <= progress ? activeColor : inactiveColor;
-          // Draw rounded rectangle for bars
-          ctx.beginPath();
-          if (ctx.roundRect) {
-            ctx.roundRect(x, y, barWidth, barHeight, 1.5);
-          } else {
-            ctx.rect(x, y, barWidth, barHeight);
-          }
-          ctx.fill();
-        }
-      }, [peaks, currentTime, duration]);
-
-      const togglePlay = () => {
-        if (!audioElRef.current) return;
-        if (isPlaying) {
-          audioElRef.current.pause();
-        } else {
-          audioElRef.current.play().catch(() => { });
-        }
-      };
-
-      const handleTimeUpdate = () => {
-        if (audioElRef.current) {
-          setCurrentTime(audioElRef.current.currentTime);
-        }
-      };
-
-      const handleLoadedMetadata = () => {
-        if (audioElRef.current) {
-          setDuration(audioElRef.current.duration);
-        }
-      };
-
-      const handleCanvasClick = (e) => {
-        const canvas = canvasRef.current;
-        if (!canvas || !audioElRef.current || duration === 0) return;
-        const rect = canvas.getBoundingClientRect();
-        const clickX = e.clientX - rect.left;
-        const percentage = clickX / rect.width;
-        const targetTime = percentage * duration;
-        audioElRef.current.currentTime = targetTime;
-        setCurrentTime(targetTime);
-      };
-
-      const formatTime = (time) => {
-        if (isNaN(time)) return "00:00";
-        const minutes = Math.floor(time / 60);
-        const seconds = Math.floor(time % 60);
-        return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
-      };
-
-      const cycleSpeed = () => {
-        const nextSpeed = speed === 1 ? 1.5 : speed === 1.5 ? 2 : 1;
-        setSpeed(nextSpeed);
-        if (audioElRef.current) {
-          audioElRef.current.playbackRate = nextSpeed;
-        }
-      };
-
-      return (
-        <div style={{ background: "rgba(20, 20, 30, 0.35)", borderRadius: "14px", padding: "12px", border: "1px solid rgba(255,255,255,0.06)", width: "100%", boxSizing: "border-box" }}>
-          <audio
-            ref={audioElRef}
-            src={decryptedUrl}
-            onPlay={() => setIsPlaying(true)}
-            onPause={() => setIsPlaying(false)}
-            onTimeUpdate={handleTimeUpdate}
-            onLoadedMetadata={handleLoadedMetadata}
-            onEnded={() => setIsPlaying(false)}
-            style={{ display: "none" }}
-          />
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 10 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-              <span style={{ fontSize: "1.1rem" }}>🎙️</span>
-              <span style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--chakra-colors-textPrimary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.name}</span>
-            </div>
-            <button
-              type="button"
-              onClick={cycleSpeed}
-              style={{
-                background: "rgba(255,255,255,0.06)",
-                border: "1px solid rgba(255,255,255,0.1)",
-                borderRadius: "12px",
-                color: "var(--chakra-colors-brandPrimary)",
-                fontSize: "0.72rem",
-                fontWeight: 750,
-                padding: "2px 8px",
-                cursor: "pointer",
-                transition: "all 0.2s"
-              }}
-            >
-              {speed}x
-            </button>
-          </div>
-
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <button
-              type="button"
-              onClick={togglePlay}
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: "50%",
-                background: "var(--chakra-colors-brandPrimary)",
-                border: "none",
-                color: "#fff",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: "pointer",
-                fontSize: "1rem",
-                boxShadow: "0 4px 10px rgba(0, 191, 165, 0.3)",
-                transition: "transform 0.1s"
-              }}
-            >
-              {isPlaying ? "⏸" : "▶"}
-            </button>
-
-            <div style={{ flex: 1, position: "relative", cursor: "pointer" }}>
-              <canvas
-                ref={canvasRef}
-                width={250}
-                height={32}
-                onClick={handleCanvasClick}
-                style={{ width: "100%", height: 32, display: "block" }}
-              />
-            </div>
-          </div>
-
-          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: "0.7rem", opacity: 0.6, fontWeight: 500 }}>
-            <span>{formatTime(currentTime)}</span>
-            <span>{formatTime(duration)}</span>
-          </div>
-        </div>
-      );
-    };
-
     return (
       <FileAttachmentWrapper ref={containerRef} style={{ padding: "10px 12px", background: "rgba(255, 255, 255, 0.02)", cursor: "default", width: "100%", maxWidth: 320, boxSizing: "border-box" }}>
-        <PlaybackSpeedAudio />
+        <PlaybackSpeedAudio file={file} decryptedUrl={decryptedUrl} />
       </FileAttachmentWrapper>
     );
   }
@@ -2716,17 +2750,40 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile }) {
             src={decryptedUrl}
             loading="lazy"
             decoding="async"
-            style={{ width: "100%", height: "auto", maxHeight: isMobile ? "320px" : "420px", objectFit: "cover", display: "block", borderRadius: 0, background: "rgba(0,0,0,0.25)" }}
+            style={{ width: "100%", height: "auto", maxHeight: isMobile ? "240px" : "300px", objectFit: "cover", display: "block", borderRadius: 0, background: "rgba(0,0,0,0.25)" }}
           />
-          <div style={{ padding: "8px 12px", background: "rgba(10, 10, 10, 0.75)", backdropFilter: "blur(12px)", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-            <span style={{ fontSize: "0.72rem", color: "#eee", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "80%", fontWeight: 500 }}>{file.name}</span>
-            <button
-              className="expand-btn"
-              onClick={(e) => { e.stopPropagation(); setFullscreen({ ...file, url: decryptedUrl }); }}
-              style={{ background: "rgba(255,255,255,0.12)", border: "none", color: "#fff", cursor: "pointer", borderRadius: 6, padding: "3px 8px", fontSize: "0.72rem", fontWeight: "bold" }}
-            >
-              Expand
-            </button>
+          <div style={{ padding: "8px 12px", background: "rgba(10, 10, 10, 0.75)", backdropFilter: "blur(12px)", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.06)", gap: 6 }}>
+            <span style={{ fontSize: "0.72rem", color: "#eee", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, marginRight: 4, fontWeight: 500 }}>{file.name}</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              {!file.viewOnce && (
+                <>
+                  <button
+                    type="button"
+                    title="Copy to clipboard"
+                    onClick={(e) => { e.stopPropagation(); copyImageToClipboard(decryptedUrl); }}
+                    style={{ background: "rgba(255,255,255,0.12)", border: "none", color: "#fff", cursor: "pointer", borderRadius: 6, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center" }}
+                  >
+                    <Copy size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    title="Download"
+                    onClick={(e) => { e.stopPropagation(); downloadMedia(decryptedUrl, file.name); }}
+                    style={{ background: "rgba(255,255,255,0.12)", border: "none", color: "#fff", cursor: "pointer", borderRadius: 6, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center" }}
+                  >
+                    <FaDownload size={12} />
+                  </button>
+                </>
+              )}
+              <button
+                type="button"
+                className="expand-btn"
+                onClick={(e) => { e.stopPropagation(); setFullscreen({ ...file, url: decryptedUrl }); }}
+                style={{ background: "rgba(255,255,255,0.12)", border: "none", color: "#fff", cursor: "pointer", borderRadius: 6, padding: "0 8px", height: 28, fontSize: "0.72rem", fontWeight: "bold" }}
+              >
+                Expand
+              </button>
+            </div>
           </div>
         </div>
       ) : fileType && fileType.startsWith("video") ? (
@@ -2736,17 +2793,40 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile }) {
             controls
             playsInline
             preload="none"
-            style={{ width: "100%", height: "auto", maxHeight: isMobile ? "320px" : "420px", objectFit: "contain", display: "block", background: "#000" }}
+            style={{ width: "100%", height: "auto", maxHeight: isMobile ? "240px" : "300px", objectFit: "contain", display: "block", background: "#000" }}
           />
-          <div style={{ padding: "8px 12px", background: "rgba(10, 10, 10, 0.75)", backdropFilter: "blur(12px)", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-            <span style={{ fontSize: "0.72rem", color: "#eee", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "80%", fontWeight: 500 }}>{file.name}</span>
-            <button
-              className="expand-btn"
-              onClick={(e) => { e.stopPropagation(); setFullscreen({ ...file, url: decryptedUrl }); }}
-              style={{ background: "rgba(255,255,255,0.12)", border: "none", color: "#fff", cursor: "pointer", borderRadius: 6, padding: "3px 8px", fontSize: "0.72rem", fontWeight: "bold" }}
-            >
-              Fullscreen
-            </button>
+          <div style={{ padding: "8px 12px", background: "rgba(10, 10, 10, 0.75)", backdropFilter: "blur(12px)", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.06)", gap: 6 }}>
+            <span style={{ fontSize: "0.72rem", color: "#eee", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, marginRight: 4, fontWeight: 500 }}>{file.name}</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              {!file.viewOnce && (
+                <>
+                  <button
+                    type="button"
+                    title="Copy video link"
+                    onClick={(e) => { e.stopPropagation(); copyLinkToClipboard(decryptedUrl); }}
+                    style={{ background: "rgba(255,255,255,0.12)", border: "none", color: "#fff", cursor: "pointer", borderRadius: 6, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center" }}
+                  >
+                    <Copy size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    title="Download"
+                    onClick={(e) => { e.stopPropagation(); downloadMedia(decryptedUrl, file.name); }}
+                    style={{ background: "rgba(255,255,255,0.12)", border: "none", color: "#fff", cursor: "pointer", borderRadius: 6, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center" }}
+                  >
+                    <FaDownload size={12} />
+                  </button>
+                </>
+              )}
+              <button
+                type="button"
+                className="expand-btn"
+                onClick={(e) => { e.stopPropagation(); setFullscreen({ ...file, url: decryptedUrl }); }}
+                style={{ background: "rgba(255,255,255,0.12)", border: "none", color: "#fff", cursor: "pointer", borderRadius: 6, padding: "0 8px", height: 28, fontSize: "0.72rem", fontWeight: "bold" }}
+              >
+                Fullscreen
+              </button>
+            </div>
           </div>
         </div>
       ) : (
@@ -2760,17 +2840,17 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile }) {
             document.body.removeChild(link);
           }}
           style={{
-            display: "flex", alignItems: "center", gap: "12px", padding: "12px",
-            background: "rgba(255, 255, 255, 0.02)", borderRadius: "12px", border: "1px solid rgba(255, 255, 255, 0.05)",
-            boxShadow: "0 4px 10px rgba(0,0,0,0.15)", minWidth: 0
+            display: "flex", alignItems: "center", gap: "10px", padding: "10px",
+            background: "rgba(255, 255, 255, 0.02)", borderRadius: "10px", border: "1px solid rgba(255, 255, 255, 0.05)",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.12)", minWidth: 0
           }}
         >
           <div style={{
             display: "flex", alignItems: "center", justifyContent: "center",
-            width: 42, height: 42, borderRadius: "10px",
+            width: 34, height: 34, borderRadius: "8px",
             background: "rgba(255, 255, 255, 0.03)",
             border: "1px solid rgba(255, 255, 255, 0.06)",
-            fontSize: "1.5rem", flexShrink: 0
+            fontSize: "1.2rem", flexShrink: 0
           }}>
             {file.name.match(/\.(xlsx|xls|csv)$/i) ? "📊" :
               file.name.match(/\.(docx|doc)$/i) ? "📝" :
@@ -2778,16 +2858,16 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile }) {
                   file.name.match(/\.pdf$/i) ? "📕" : "📎"}
           </div>
           <div style={{ display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0, flex: 1 }}>
-            <span style={{ fontWeight: "600", fontSize: "0.85rem", color: "var(--chakra-colors-textPrimary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            <span style={{ fontWeight: "600", fontSize: "0.8rem", color: "var(--chakra-colors-textPrimary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
               {file.name}
             </span>
-            <span style={{ fontSize: "0.72rem", color: "var(--chakra-colors-brandPrimary)", marginTop: "2px", fontWeight: "600" }}>
+            <span style={{ fontSize: "0.68rem", color: "var(--chakra-colors-brandPrimary)", marginTop: "1px", fontWeight: "600" }}>
               🔒 Secure E2EE Payload
             </span>
           </div>
           <div style={{
             display: "flex", alignItems: "center", justifyContent: "center",
-            width: 32, height: 32, borderRadius: "50%",
+            width: 28, height: 28, borderRadius: "50%",
             background: "rgba(33, 150, 243, 0.1)",
             border: "1px solid rgba(33, 150, 243, 0.25)",
             color: "#2196F3", flexShrink: 0
@@ -2840,13 +2920,19 @@ function GifCardComponent({ gif, onSelect }) {
 /* ================= COMPONENT ================= */
 
 export default function ChatRoom() {
+  const { roomId: routeRoomId } = useParams();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const socketRef = useRef(null);
+  const onResolvedRef = useRef(null);
   const audioRef = useRef(new Audio(notificationSound));
   const userColorsRef = useRef({});
 
   const [joined, setJoined] = useState(false);
   const [roomKey, setRoomKey] = useState(null);
-  const [roomId, setRoomId] = useState("");
+  const [roomId, setRoomId] = useState(() => {
+    return routeRoomId ? decodeURIComponent(routeRoomId) : "";
+  });
   const [userName, setUserName] = useState("");
   const [userAvatar, setUserAvatar] = useState(() => localStorage.getItem("cheprabai:user-avatar") || "");
   const [avatarCrop, setAvatarCrop] = useState(null);
@@ -2880,6 +2966,7 @@ export default function ChatRoom() {
   const fileInputRef = useRef(null);
   const [ownerToken, setOwnerToken] = useState("");
   const [onlineUsers, setOnlineUsers] = useState([]);
+  const [screenLocked, setScreenLocked] = useState(false);
 
   const [showGifPicker, setShowGifPicker] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -2952,13 +3039,171 @@ export default function ChatRoom() {
     try { return JSON.parse(localStorage.getItem("cheprabai:bookmarks") || "[]"); } catch { return []; }
   });
   const [showBookmarks, setShowBookmarks] = useState(false);
+
+  const [stealthToken, setStealthToken] = useState(() => {
+    return new URLSearchParams(window.location.search).get("stealth") || "";
+  });
+  const [isStealthMode, setIsStealthMode] = useState(false);
+  const [requireRoomApproval, setRequireRoomApproval] = useState(false);
+  const [showApprovalConfirm, setShowApprovalConfirm] = useState(false);
+  const [roomExists, setRoomExists] = useState(true);
+  const [roomRequestPending, setRoomRequestPending] = useState(false);
+  const [pendingRequestId, setPendingRequestId] = useState("");
+  const stealthTokenRef = useRef("");
+
+  const backendUrl = process.env.REACT_APP_SOCKET_ENDPOINT || "https://cheprabai-backend.onrender.com";
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
+
+  const getJoinPayload = useCallback(() => ({
+    roomId: roomId.trim(),
+    userName: userName.trim(),
+    securityCode,
+    avatar: userAvatarRef.current,
+    stealthToken: stealthTokenRef.current || undefined,
+  }), [roomId, userName, securityCode]);
+
+  const handleJoinResult = useCallback((result) => {
+    if (result?.error) {
+      if (result.code === "NEEDS_APPROVAL") {
+        setShowApprovalConfirm(true);
+        setJoined(false);
+        setRoomKey(null);
+        toast.info("This room does not exist yet. Please request creation approval.");
+        return;
+      }
+      toast.error(result.error);
+      setJoined(false);
+      setRoomKey(null);
+      return;
+    }
+    if (result?.success) {
+      setIsStealthMode(Boolean(result.isStealth));
+      setOnlineUsers((users) => users.length ? users : [{ id: socketRef.current?.id || "local", name: userName }]);
+      if (!result.isStealth && roomId.trim()) {
+        navigate(`/room/${encodeURIComponent(roomId.trim())}`, { replace: true });
+      }
+    }
+  }, [roomId, userName, navigate]);
+
+  const attemptJoin = useCallback(async () => {
+    const code = securityCode.trim();
+    const trimmedRoom = roomId.trim();
+    const trimmedName = userName.trim();
+
+    if (!trimmedRoom) {
+      toast.error("Please enter a room ID.");
+      return;
+    }
+    if (!trimmedName) {
+      toast.error("Please enter a display name.");
+      return;
+    }
+    if (!code) {
+      toast.error("Please enter a security code.");
+      return;
+    }
+
+    try {
+      const key = await generateKeyFromSecret(code + trimmedRoom);
+      setRoomId(trimmedRoom);
+      setRoomKey(key);
+      setJoined(true);
+    } catch {
+      toast.error("Failed to initialize secure session keys");
+    }
+  }, [roomId, userName, securityCode]);
+
+  const submitRoomRequest = useCallback(() => {
+    const trimmedRoom = roomId.trim();
+    const trimmedName = userName.trim();
+    const trimmedCode = securityCode.trim();
+    if (!trimmedRoom || !trimmedName || !trimmedCode) {
+      toast.error("Room ID, display name, and security code are required.");
+      return;
+    }
+    if (!socketRef.current?.connected) {
+      toast.error("Connecting to server. Please wait a moment.");
+      return;
+    }
+    socketRef.current.emit("requestRoomCreation", {
+      roomId: trimmedRoom,
+      userName: trimmedName,
+      personalPassword: trimmedCode,
+    }, (result) => {
+      if (result?.error) {
+        toast.error(result.error);
+        return;
+      }
+      setRoomRequestPending(true);
+      setPendingRequestId(result.requestId || "");
+      setShowApprovalConfirm(false);
+      toast.success("Creation request submitted successfully.");
+    });
+  }, [roomId, userName, securityCode]);
+
+  const handleShareRoomLink = useCallback(async () => {
+    if (!roomId.trim()) return;
+    try {
+      await copyRoomShareLink(roomId.trim());
+      toast.success("Room link copied!");
+    } catch {
+      toast.error("Could not copy link. Try again.");
+    }
+  }, [roomId]);
   const isScrollingRef = useRef(false);
 
   // ── Drag & Drop ──
   const [isDragOver, setIsDragOver] = useState(false);
   const dragCounterRef = useRef(0);
 
+
+  useEffect(() => {
+    if (ownerToken || isStealthMode) {
+      setScreenLocked(false);
+      return;
+    }
+
+    const handleBlur = () => {
+      setScreenLocked(true);
+    };
+
+    const handleFocus = () => {
+      setScreenLocked(false);
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        setScreenLocked(true);
+      } else {
+        setScreenLocked(false);
+      }
+    };
+
+    const handleKeyDown = (e) => {
+      if (
+        e.key === "PrintScreen" ||
+        (e.metaKey && e.shiftKey && (e.key === "3" || e.key === "4" || e.key === "5")) ||
+        (e.ctrlKey && e.shiftKey && (e.key === "3" || e.key === "4" || e.key === "5"))
+      ) {
+        setScreenLocked(true);
+        toast.warning("🔒 Screenshot attempt blocked. Content is protected.");
+        navigator.clipboard?.writeText?.("");
+        e.preventDefault();
+      }
+    };
+
+    window.addEventListener("blur", handleBlur);
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("blur", handleBlur);
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [ownerToken, isStealthMode]);
 
   useEffect(() => {
     const handleOutsideClick = (e) => {
@@ -3002,6 +3247,103 @@ export default function ChatRoom() {
   useEffect(() => {
     userAvatarRef.current = userAvatar;
   }, [userAvatar]);
+
+  useEffect(() => {
+    const { roomId: parsedRoomId, stealthToken: parsedStealth } = parseRoomRouteParams(
+      { roomId: routeRoomId },
+      searchParams
+    );
+    if (parsedRoomId) setRoomId(parsedRoomId);
+    if (parsedStealth) {
+      setStealthToken(parsedStealth);
+      stealthTokenRef.current = parsedStealth;
+    }
+  }, [routeRoomId, searchParams]);
+
+  useEffect(() => {
+    stealthTokenRef.current = stealthToken;
+  }, [stealthToken]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${backendUrl}/api/platform/settings`)
+      .then((res) => (res.ok ? res.json() : { requireRoomApproval: false }))
+      .then((data) => {
+        if (!cancelled) setRequireRoomApproval(Boolean(data.requireRoomApproval));
+      })
+      .catch(() => {
+        if (!cancelled) setRequireRoomApproval(false);
+      });
+    return () => { cancelled = true; };
+  }, [backendUrl]);
+
+  const isInitialCheckRef = useRef(true);
+
+  useEffect(() => {
+    const trimmed = roomId.trim();
+    if (!trimmed) {
+      setRoomExists(true);
+      return;
+    }
+    const checkExistence = () => {
+      fetch(`${backendUrl}/api/platform/rooms/${encodeURIComponent(trimmed)}/exists`)
+        .then((res) => (res.ok ? res.json() : { exists: true }))
+        .then((data) => {
+          setRoomExists(Boolean(data.exists));
+        })
+        .catch(() => {
+          setRoomExists(true);
+        });
+    };
+    if (isInitialCheckRef.current) {
+      isInitialCheckRef.current = false;
+      checkExistence();
+      return;
+    }
+    const delayDebounce = setTimeout(checkExistence, 300);
+    return () => clearTimeout(delayDebounce);
+  }, [roomId, backendUrl]);
+
+  const getButtonText = () => {
+    if (roomRequestPending) return "Request Pending...";
+    if (!roomExists && requireRoomApproval) return "Request Create Secure Room";
+    if (!roomExists && !requireRoomApproval) return "Create & Join Room";
+    return "Join secure room";
+  };
+
+  const onResolved = async ({ status, roomId: resolvedRoomId, reason }) => {
+    if (status === "approved" && resolvedRoomId) {
+      setRoomRequestPending(false);
+      setPendingRequestId("");
+      setShowApprovalConfirm(false);
+      toast.success(`Room "${resolvedRoomId}" approved! Joining now…`);
+      // Auto-join: ensure roomId is set to the approved room, then trigger join
+      setRoomId(resolvedRoomId);
+      const code = securityCode.trim();
+      const trimmedName = userName.trim();
+      if (code && trimmedName) {
+        try {
+          const key = await generateKeyFromSecret(code + resolvedRoomId);
+          setRoomKey(key);
+          setJoined(true);
+        } catch {
+          toast.error("Room approved but failed to initialize session. Please join manually.");
+        }
+      }
+    } else if (status === "rejected") {
+      setRoomRequestPending(false);
+      setPendingRequestId("");
+      setShowApprovalConfirm(false);
+      setRoomExists(true); // Reset so the button reverts to normal state
+      toast.error(
+        reason
+          ? `Request rejected: ${reason}`
+          : "Your room creation request was rejected by the admin.",
+        { autoClose: 6000 }
+      );
+    }
+  };
+  onResolvedRef.current = onResolved;
 
   useEffect(() => {
     const handleOnline = () => setIsConnected(true);
@@ -3325,6 +3667,7 @@ export default function ChatRoom() {
   };
 
   const leaveRoomNow = () => {
+    toast.dismiss();
     if (socketRef.current) {
       socketRef.current.emit("leaveRoom", { roomId, userName });
     }
@@ -3344,18 +3687,29 @@ export default function ChatRoom() {
     setIncomingCall(null);
     if (ringtoneRef.current) { ringtoneRef.current.stop(); ringtoneRef.current = null; }
     setLatency(0);
+    setIsStealthMode(false);
+    setStealthToken("");
+    stealthTokenRef.current = "";
+    setShowApprovalConfirm(false);
+    setRoomRequestPending(false);
+    setPendingRequestId("");
+    navigate("/", { replace: true });
   };
   leaveRoomNowRef.current = leaveRoomNow;
   const handleLeaveRoom = () => setConfirmation({ title: "Leave this room?", body: "You can rejoin later with the room credentials.", confirmLabel: "Leave room", onConfirm: leaveRoomNow });
   /* ================= SOCKET ================= */
 
   useEffect(() => {
-    socketRef.current = io(process.env.REACT_APP_SOCKET_ENDPOINT || "https://cheprabai-backend.onrender.com", {
-      transports: ["polling", "websocket"],
-      upgrade: true,
-      rememberUpgrade: false
+    const socket = io(process.env.REACT_APP_SOCKET_ENDPOINT || "https://cheprabai-backend.onrender.com", {
+      transports: ["websocket", "polling"],
     });
-    return () => socketRef.current.disconnect();
+    socketRef.current = socket;
+
+    socket.on("roomRequestResolved", (data) => {
+      onResolvedRef.current?.(data);
+    });
+
+    return () => socket.disconnect();
   }, []);
 
   // ── Ephemeral message auto-delete timer ──
@@ -3518,7 +3872,7 @@ export default function ChatRoom() {
     socketRef.current.on("connect", () => {
       setIsConnected(true);
       if (joined && roomId && userName) {
-        socketRef.current.emit("joinRoom", { roomId, userName, securityCode, avatar: userAvatarRef.current });
+        socketRef.current.emit("joinRoom", getJoinPayload(), handleJoinResult);
       }
     });
 
@@ -3653,14 +4007,7 @@ export default function ChatRoom() {
       ]);
     });
 
-    socketRef.current.emit("joinRoom", { roomId, userName, securityCode, avatar: userAvatarRef.current }, (result) => {
-      if (result?.error) {
-        toast.error(result.error);
-        setJoined(false);
-      } else if (result?.success) {
-        setOnlineUsers((users) => users.length ? users : [{ id: socketRef.current?.id || "local", name: userName }]);
-      }
-    });
+    socketRef.current.emit("joinRoom", getJoinPayload(), handleJoinResult);
 
 
 
@@ -3720,11 +4067,22 @@ export default function ChatRoom() {
     }, 5000);
 
     return () => {
-      socketRef.current.off();
+      const registeredEvents = [
+        "chatHistory", "hasMoreMessages", "olderMessages", "newMessage", "presence",
+        "typing", "user-left", "mediaState", "room-theme-changed", "screenShareState",
+        "screencastFrame", "screencastStarted", "screencastStopped", "syncMedia",
+        "roomProfiles", "roomBackgroundUpdated", "roomBackgroundPolicy", "profileUpdated",
+        "connect", "disconnect", "fileUrlUpdated", "messageDeleted", "syncRoomMetadata",
+        "pinnedMessagesUpdated", "scheduledMessagesUpdated", "messageEdited",
+        "pollVotesUpdated", "roomEphemeralUpdated", "incoming-call", "call-ended"
+      ];
+      if (socketRef.current) {
+        registeredEvents.forEach(evt => socketRef.current.off(evt));
+      }
       clearInterval(pingInterval);
       if (ringtoneRef.current) { ringtoneRef.current.stop(); ringtoneRef.current = null; }
     };
-  }, [joined, roomId, userName, roomKey, securityCode, showMeeting]);
+  }, [joined, roomId, userName, roomKey, securityCode, showMeeting, getJoinPayload, handleJoinResult]);
 
   useEffect(() => {
     if (!joined) return;
@@ -3891,7 +4249,10 @@ export default function ChatRoom() {
       });
     });
 
-    if (!customData) setMessage("");
+    if (!customData) {
+      setMessage("");
+      stopTyping();
+    }
     setReplyTo(null);
     localStorage.removeItem(`cheprabai:draft:${roomId}`);
   };
@@ -3920,6 +4281,11 @@ export default function ChatRoom() {
       () => socketRef.current.emit("typing", { isTyping: false, roomId }),
       1000,
     );
+  };
+
+  const stopTyping = () => {
+    clearTimeout(typingTimeout.current);
+    socketRef.current?.emit("typing", { isTyping: false, roomId });
   };
 
   /* ================= LOAD MORE MESSAGES ================= */
@@ -4265,9 +4631,7 @@ export default function ChatRoom() {
     const targetRoomId = forwardRoomId.trim();
     const code = forwardSecurityCode.trim();
     if (!targetRoomId || !code) return toast.warn("Please enter target Room ID and Security Code.");
-    if (!SECURITY_CODE.includes(code)) {
-      return toast.error("Invalid security code! Please check and try again.");
-    }
+    // Server validates per-room passwords; client only checks non-empty
 
     try {
       let fileData = null;
@@ -4810,26 +5174,99 @@ export default function ChatRoom() {
   if (!joined) {
     return (
       <>
-        <ToastContainer position="top-center" />
         <LandingWrapper>
           <FloatingBlob />
           <JoinContainer>
-            <div style={{ textAlign: "center", marginBottom: 8 }}>
+            <div style={{ textAlign: "center", marginBottom: 4 }}>
               <div style={{
                 display: "inline-flex",
                 background: "rgba(255, 63, 94, 0.10)",
                 border: "1px solid rgba(255, 63, 94, 0.30)",
-                boxShadow: "0 0 0 7px rgba(255,63,94,.045), 0 12px 30px rgba(0,0,0,.22)",
-                padding: 14,
-                borderRadius: 16,
-                marginBottom: 16
+                boxShadow: "0 0 0 5px rgba(255,63,94,.04), 0 8px 20px rgba(0,0,0,.18)",
+                padding: 11,
+                borderRadius: 14,
+                marginBottom: 12
               }}>
-                <ShieldCheck size={30} strokeWidth={2.2} color="var(--chakra-colors-brandPrimary)" />
+                <ShieldCheck size={24} strokeWidth={2.2} color="var(--chakra-colors-brandPrimary)" />
               </div>
-              <div style={{ color: "var(--chakra-colors-brandPrimary)", fontSize: ".71rem", fontWeight: 850, letterSpacing: ".13em", textTransform: "uppercase", marginBottom: 8 }}>Private workspace</div>
-              <h2 style={{ color: "var(--chakra-colors-textPrimary)", margin: 0, fontSize: "clamp(1.6rem, 4vw, 2.05rem)", fontWeight: 800, letterSpacing: "-.045em" }}>Join a secure room</h2>
-              <p style={{ color: "var(--chakra-colors-textSecondary)", fontSize: "clamp(.86rem, 2vw, .96rem)", margin: "10px auto 0", maxWidth: 310, lineHeight: 1.55 }}>Your messages and files are encrypted before they leave this device.</p>
+              <div style={{ color: "var(--chakra-colors-brandPrimary)", fontSize: ".67rem", fontWeight: 850, letterSpacing: ".13em", textTransform: "uppercase", marginBottom: 6 }}>Private workspace</div>
+              <h2 style={{ color: "var(--chakra-colors-textPrimary)", margin: 0, fontSize: "clamp(1.35rem, 3.5vw, 1.7rem)", fontWeight: 800, letterSpacing: "-.04em" }}>
+                {roomId.trim() ? `Join room ${roomId.trim()}` : "Join a secure room"}
+              </h2>
+              <p style={{ color: "var(--chakra-colors-textSecondary)", fontSize: "clamp(.8rem, 1.8vw, .88rem)", margin: "8px auto 0", maxWidth: 290, lineHeight: 1.5 }}>
+                {roomId.trim()
+                  ? "You've been invited. Enter your details to join this encrypted room."
+                  : "Your messages and files are encrypted before they leave this device."}
+              </p>
             </div>
+
+            {requireRoomApproval && !roomRequestPending && !showApprovalConfirm && (
+              <div style={{
+                padding: "8px 10px",
+                borderRadius: 8,
+                border: "1px solid rgba(255, 183, 3, 0.25)",
+                background: "rgba(255, 183, 3, 0.05)",
+                color: "var(--chakra-colors-textSecondary)",
+                fontSize: "0.74rem",
+                lineHeight: 1.4,
+              }}>
+                <span style={{ color: "#ffb703", fontWeight: 700 }}>Note:</span> New rooms require admin approval before creation.
+              </div>
+            )}
+
+            {roomRequestPending && (
+              <div style={{
+                padding: "10px 12px",
+                borderRadius: 9,
+                border: "1px solid rgba(76, 201, 240, 0.25)",
+                background: "rgba(76, 201, 240, 0.06)",
+                textAlign: "center",
+              }}>
+                <div style={{ fontWeight: 800, marginBottom: 2, color: "var(--chakra-colors-brandPrimary)", fontSize: "0.82rem" }}>Request pending</div>
+                <div style={{ fontSize: "0.76rem", color: "var(--chakra-colors-textSecondary)", lineHeight: 1.4 }}>
+                  Waiting for admin approval{pendingRequestId ? ` (${pendingRequestId.slice(0, 8)}…)` : ""}. You'll be notified here.
+                </div>
+              </div>
+            )}
+
+            {showApprovalConfirm && (
+              <div style={{
+                padding: "12px",
+                borderRadius: 10,
+                border: "1px solid rgba(255,183,3,0.25)",
+                background: "rgba(255,183,3,0.04)",
+                display: "flex",
+                flexDirection: "column",
+                gap: 10,
+              }}>
+                <div style={{ fontWeight: 800, fontSize: "0.85rem", color: "#ffb703" }}>Room Creation Approval</div>
+                <div style={{ fontSize: "0.76rem", color: "var(--chakra-colors-textSecondary)", lineHeight: 1.45 }}>
+                  Room <strong>{roomId}</strong> does not exist yet. Submit a creation request using your display name and security code?
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowApprovalConfirm(false)}
+                    style={{
+                      flex: 1, minHeight: 34, borderRadius: 8, border: "1px solid rgba(255,255,255,0.08)",
+                      background: "transparent", color: "inherit", cursor: "pointer", fontSize: "0.78rem"
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={submitRoomRequest}
+                    style={{
+                      flex: 1, minHeight: 34, borderRadius: 8, border: 0,
+                      background: "var(--chakra-colors-brandPrimary)", color: "white", fontWeight: 700, cursor: "pointer", fontSize: "0.78rem"
+                    }}
+                  >
+                    Request
+                  </button>
+                </div>
+              </div>
+            )}
 
             <JoinField>
               <JoinLabel htmlFor="room-id">Room ID</JoinLabel>
@@ -4846,9 +5283,9 @@ export default function ChatRoom() {
             <JoinField>
               <JoinLabel>Profile photo <span style={{ opacity: .65, fontWeight: 500 }}>(optional)</span></JoinLabel>
               <AvatarPicker>
-                {userAvatar ? <img src={userAvatar} alt="Selected profile" style={{ width: 42, height: 42, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(255,255,255,.17)" }} /> : <span style={{ width: 42, height: 42, borderRadius: "50%", display: "grid", placeItems: "center", background: "rgba(255,255,255,.08)", color: "var(--chakra-colors-textSecondary)" }}><UserRound size={20} /></span>}
-                <span style={{ minWidth: 0, flex: 1 }}><span style={{ display: "block", fontWeight: 750, fontSize: ".86rem" }}>{userAvatar ? "Photo selected" : "Add a profile photo"}</span><span style={{ display: "block", marginTop: 2, fontSize: ".74rem", color: "var(--chakra-colors-textSecondary)" }}>Any image · crop and optimise before sharing</span></span>
-                <Upload size={18} aria-hidden="true" color="var(--chakra-colors-brandPrimary)" />
+                {userAvatar ? <img src={userAvatar} alt="Selected profile" style={{ width: 36, height: 36, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(255,255,255,.17)" }} /> : <span style={{ width: 36, height: 36, borderRadius: "50%", display: "grid", placeItems: "center", background: "rgba(255,255,255,.08)", color: "var(--chakra-colors-textSecondary)" }}><UserRound size={17} /></span>}
+                <span style={{ minWidth: 0, flex: 1 }}><span style={{ display: "block", fontWeight: 750, fontSize: ".82rem" }}>{userAvatar ? "Photo selected" : "Add a profile photo"}</span><span style={{ display: "block", marginTop: 1, fontSize: ".7rem", color: "var(--chakra-colors-textSecondary)" }}>Any image · crop and optimise before sharing</span></span>
+                <Upload size={16} aria-hidden="true" color="var(--chakra-colors-brandPrimary)" />
                 <input type="file" accept="image/*" hidden onChange={(e) => openAvatarCrop(e.target.files?.[0])} />
               </AvatarPicker>
             </JoinField>
@@ -4865,17 +5302,10 @@ export default function ChatRoom() {
                   onChange={(e) => setSecurityCode(e.target.value)}
                   onKeyDown={async (e) => {
                     if (e.key === "Enter") {
-                      const code = securityCode.trim();
-                      if (!SECURITY_CODE.includes(code)) {
-                        toast.error("Invalid security code! Please check and try again.");
-                        return;
-                      }
-                      try {
-                        const key = await generateKeyFromSecret(code + roomId);
-                        setRoomKey(key);
-                        setJoined(true);
-                      } catch (err) {
-                        toast.error("Failed to initialize secure session keys");
+                      if (!roomExists && requireRoomApproval) {
+                        submitRoomRequest();
+                      } else {
+                        await attemptJoin();
                       }
                     }
                   }}
@@ -4893,26 +5323,9 @@ export default function ChatRoom() {
 
             <JoinButton
               type="button"
-              onClick={async () => {
-                const code = securityCode.trim();
-
-                if (!SECURITY_CODE.includes(code)) {
-                  toast.error(
-                    "Invalid security code! Please check and try again.",
-                  );
-                  return;
-                }
-
-                try {
-                  const key = await generateKeyFromSecret(code + roomId);
-                  setRoomKey(key);
-                  setJoined(true);
-                } catch (err) {
-                  toast.error("Failed to initialize secure session keys");
-                }
-              }}
+              onClick={!roomExists && requireRoomApproval ? submitRoomRequest : attemptJoin}
             >
-              <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 9 }}>Join secure room <ArrowRight size={18} /></span>
+              <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 9 }}>{getButtonText()} <ArrowRight size={18} /></span>
             </JoinButton>
 
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7, color: "var(--chakra-colors-textSecondary)", fontSize: ".75rem", lineHeight: 1.4, textAlign: "center" }}><LockKeyhole size={14} aria-hidden="true" /> End-to-end encrypted session</div>
@@ -5205,6 +5618,38 @@ export default function ChatRoom() {
 
   return (
     <>
+      <ToastContainer position="top-center" autoClose={3000} limit={3} />
+      {!ownerToken && !isStealthMode && (
+        <style>{`
+          @media print {
+            body {
+              display: none !important;
+            }
+          }
+        `}</style>
+      )}
+      {screenLocked && (
+        <div style={{
+          position: "fixed",
+          inset: 0,
+          background: "#000",
+          zIndex: 999999,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "#fff",
+          fontFamily: "sans-serif",
+          textAlign: "center",
+          padding: "20px"
+        }}>
+          <div style={{ fontSize: "3rem", marginBottom: "15px" }}>🔒</div>
+          <h2 style={{ fontSize: "1.5rem", fontWeight: "bold", marginBottom: "10px" }}>Protected Content</h2>
+          <p style={{ opacity: 0.7, maxWidth: "350px", fontSize: "0.9rem", lineHeight: 1.5 }}>
+            Screenshots, video recordings, and background tab viewing are disabled for security.
+          </p>
+        </div>
+      )}
       <ChatContainer
         onDragEnter={handleDragEnter}
         onDragLeave={handleDragLeave}
@@ -5212,6 +5657,24 @@ export default function ChatRoom() {
         onDrop={handleDrop}
         style={roomBackground ? { backgroundImage: `linear-gradient(rgba(8,9,13,.78), rgba(8,9,13,.88)), url(${roomBackground})`, backgroundSize: "cover", backgroundPosition: "center", backgroundAttachment: isMobile ? "scroll" : "fixed" } : undefined}
       >
+        {isStealthMode && (
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+            padding: "8px 14px",
+            background: "rgba(123, 97, 255, 0.12)",
+            borderBottom: "1px solid rgba(123, 97, 255, 0.25)",
+            color: "#c9beff",
+            fontSize: "0.78rem",
+            fontWeight: 700,
+            flexShrink: 0,
+          }}>
+            <FaEyeSlash size={12} aria-hidden="true" />
+            Stealth observer — invisible to other participants
+          </div>
+        )}
         <Header>
           <Avatar src={userAvatar || image} alt={userAvatar ? `${userName || "User"} avatar` : "Logo"} />
           <RoomInfoTrigger
@@ -5280,6 +5743,19 @@ export default function ChatRoom() {
                       >
                         <FaDownload /> Export Chat History
                       </button>
+                      <button
+                        type="button"
+                        onClick={handleShareRoomLink}
+                        style={{
+                          display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                          width: "100%", padding: "8px 12px", borderRadius: 10,
+                          background: "rgba(76, 201, 240, 0.08)", border: "1px solid rgba(76, 201, 240, 0.25)",
+                          color: "#4cc9f0", cursor: "pointer", fontSize: "0.8rem", fontWeight: 600,
+                          transition: "all 0.2s"
+                        }}
+                      >
+                        <Copy size={14} aria-hidden="true" /> Copy invite link
+                      </button>
                       <Link
                         to="/admin"
                         target="_blank"
@@ -5304,6 +5780,9 @@ export default function ChatRoom() {
 
           <RoomActions>
             <ThemeSwitcher />
+            <ActionButton onClick={handleShareRoomLink} title="Copy room invite link" aria-label="Copy room invite link">
+              <Link2 size={16} />
+            </ActionButton>
             {(showWhiteboard || showMeeting) && (
               <LiveBadge>
                 <div style={{ width: 6, height: 6, background: "white", borderRadius: "50%" }} />
@@ -6050,6 +6529,20 @@ export default function ChatRoom() {
           </PreviewOverlay>
         )}
 
+        {isStealthMode ? (
+          <div style={{
+            padding: "14px 16px",
+            textAlign: "center",
+            color: "var(--chakra-colors-textSecondary)",
+            fontSize: "0.85rem",
+            borderTop: "1px solid var(--chakra-colors-border)",
+            background: "rgba(123, 97, 255, 0.06)",
+            flexShrink: 0,
+          }}>
+            <FaEyeSlash style={{ marginRight: 6, verticalAlign: "middle" }} aria-hidden="true" />
+            Stealth observer mode — read-only access
+          </div>
+        ) : (
         <MessageInputContainer style={{ flexDirection: "column", alignItems: "stretch", gap: 8 }}>
           {replyTo && (
             <div style={{
@@ -6383,6 +6876,7 @@ export default function ChatRoom() {
             </SendButton>
           </div>
         </MessageInputContainer>
+        )}
 
         <style>{`
           @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(255, 71, 87, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0); } }
@@ -6615,31 +7109,94 @@ export default function ChatRoom() {
                 position: "absolute",
                 top: "24px",
                 right: "24px",
-                background: "rgba(255, 107, 107, 0.12)",
-                border: "1px solid rgba(255, 107, 107, 0.22)",
-                color: "var(--chakra-colors-textPrimary)",
-                width: "44px",
-                height: "44px",
-                borderRadius: "12px",
                 display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: "pointer",
-                transition: "all 0.22s ease",
+                gap: "10px",
+                zIndex: 10
               }}
-              onClick={(e) => { e.stopPropagation(); setFullscreen(null); }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = "rgba(255, 107, 107, 0.15)";
-                e.currentTarget.style.borderColor = "rgba(255, 107, 107, 0.3)";
-                e.currentTarget.style.color = "#ff8a8a";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = "rgba(255, 107, 107, 0.12)";
-                e.currentTarget.style.borderColor = "rgba(255, 107, 107, 0.22)";
-                e.currentTarget.style.color = "var(--chakra-colors-textPrimary)";
-              }}
+              onClick={(e) => e.stopPropagation()}
             >
-              <AiOutlineClose />
+              {!fullscreen.viewOnce && (
+                <>
+                  <button
+                    type="button"
+                    title="Copy media"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (fullscreen.type?.startsWith("image")) {
+                        copyImageToClipboard(fullscreen.url);
+                      } else {
+                        copyLinkToClipboard(fullscreen.url);
+                      }
+                    }}
+                    style={{
+                      background: "rgba(255, 255, 255, 0.08)",
+                      border: "1px solid rgba(255, 255, 255, 0.16)",
+                      color: "var(--chakra-colors-textPrimary)",
+                      width: "44px",
+                      height: "44px",
+                      borderRadius: "12px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      cursor: "pointer",
+                      transition: "all 0.22s ease",
+                    }}
+                  >
+                    <Copy size={18} />
+                  </button>
+                  <button
+                    type="button"
+                    title="Download file"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      downloadMedia(fullscreen.url, fullscreen.name);
+                    }}
+                    style={{
+                      background: "rgba(255, 255, 255, 0.08)",
+                      border: "1px solid rgba(255, 255, 255, 0.16)",
+                      color: "var(--chakra-colors-textPrimary)",
+                      width: "44px",
+                      height: "44px",
+                      borderRadius: "12px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      cursor: "pointer",
+                      transition: "all 0.22s ease",
+                    }}
+                  >
+                    <FaDownload size={16} />
+                  </button>
+                </>
+              )}
+              <div
+                style={{
+                  background: "rgba(255, 107, 107, 0.12)",
+                  border: "1px solid rgba(255, 107, 107, 0.22)",
+                  color: "var(--chakra-colors-textPrimary)",
+                  width: "44px",
+                  height: "44px",
+                  borderRadius: "12px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "pointer",
+                  transition: "all 0.22s ease",
+                }}
+                onClick={(e) => { e.stopPropagation(); setFullscreen(null); }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "rgba(255, 107, 107, 0.15)";
+                  e.currentTarget.style.borderColor = "rgba(255, 107, 107, 0.3)";
+                  e.currentTarget.style.color = "#ff8a8a";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "rgba(255, 107, 107, 0.12)";
+                  e.currentTarget.style.borderColor = "rgba(255, 107, 107, 0.22)";
+                  e.currentTarget.style.color = "var(--chakra-colors-textPrimary)";
+                }}
+              >
+                <AiOutlineClose />
+              </div>
             </div>
 
             {(fullscreen.type && (fullscreen.type.startsWith("image") || fullscreen.type.startsWith("video"))) && (

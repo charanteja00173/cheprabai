@@ -30,8 +30,8 @@ const WhiteboardContainer = styled.div`
   height: ${(props) => (props.$isFullScreen && props.$isMobile ? "100dvh" : "85dvh")};
   background: var(--chakra-colors-surface);
   border-radius: ${(props) => (props.$isFullScreen && props.$isMobile ? "0" : "clamp(12px, 2vw, 16px)")};
-  box-shadow: ${(props) => (props.$isFullScreen && props.$isMobile ? "none" : "0 25px 50px -12px rgba(0, 0, 0, 0.7)")};
-  border: ${(props) => (props.$isFullScreen && props.$isMobile ? "none" : "1px solid rgba(255, 255, 255, 0.1)")};
+  box-shadow: ${(props) => (props.$isFullScreen && props.$isMobile ? "none" : "var(--chakra-shadows-cardShadowHover)")};
+  border: ${(props) => (props.$isFullScreen && props.$isMobile ? "none" : "1px solid var(--chakra-colors-border)")};
   padding: ${(props) => (props.$isFullScreen && props.$isMobile ? "0" : "clamp(16px, 3vw, 24px)")};
   box-sizing: border-box;
   display: flex;
@@ -55,7 +55,7 @@ const CanvasWrapper = styled.div`
   position: relative;
   border-radius: ${(props) => (props.$isFullScreen && props.$isMobile ? "0" : "clamp(8px, 1.5vw, 12px)")};
   overflow: hidden;
-  border: ${(props) => (props.$isFullScreen && props.$isMobile ? "none" : "1px solid rgba(255, 255, 255, 0.08)")};
+  border: ${(props) => (props.$isFullScreen && props.$isMobile ? "none" : "1px solid var(--chakra-colors-border)")};
   background: var(--chakra-colors-bg);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   flex: 1;
@@ -103,9 +103,9 @@ const HeaderActions = styled.div`
 `;
 
 const IconButton = styled.button`
-  background: ${(props) => (props.$danger ? "rgba(255, 71, 87, 0.1)" : "rgba(255, 255, 255, 0.08)")};
-  color: ${(props) => (props.$danger ? "#ff4757" : "#fff")};
-  border: 1px solid ${(props) => (props.$danger ? "rgba(255, 71, 87, 0.25)" : "rgba(255, 255, 255, 0.15)")};
+  background: ${(props) => (props.$danger ? "rgba(255, 71, 87, 0.1)" : "var(--chakra-colors-badgeBg)")};
+  color: ${(props) => (props.$danger ? "#ff4757" : "var(--chakra-colors-textPrimary)")};
+  border: 1px solid ${(props) => (props.$danger ? "rgba(255, 71, 87, 0.25)" : "var(--chakra-colors-border)")};
   width: clamp(36px, 4vw, 44px);
   height: clamp(36px, 4vw, 44px);
   border-radius: clamp(8px, 1.5vw, 12px);
@@ -123,7 +123,7 @@ const IconButton = styled.button`
     bottom: -36px;
     left: 50%;
     transform: translateX(-50%) translateY(-5px);
-    background: rgba(20, 20, 20, 0.95);
+    background: var(--chakra-colors-surface);
     color: var(--chakra-colors-textPrimary);
     padding: 6px 12px;
     border-radius: 6px;
@@ -135,8 +135,8 @@ const IconButton = styled.button`
     transition: all 0.2s ease;
     pointer-events: none;
     z-index: 10001;
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    border: 1px solid var(--chakra-colors-border);
+    box-shadow: var(--chakra-shadows-cardShadow);
   }
 
   &:hover::after {
@@ -146,7 +146,7 @@ const IconButton = styled.button`
   }
 
   &:hover {
-    background: ${(props) => (props.$danger ? "#ff4757" : "rgba(255, 255, 255, 0.1)")};
+    background: ${(props) => (props.$danger ? "#ff4757" : "var(--chakra-colors-surfaceHover)")};
     color: var(--chakra-colors-textPrimary);
     transform: translateY(-2px);
   }

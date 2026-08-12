@@ -6,7 +6,7 @@ import {
   FaCompress, FaExpand, FaExchangeAlt, FaLink, 
   FaThLarge, FaStop, FaUsers, FaHandPaper, FaPlay, 
   FaPause, FaStepBackward, FaStepForward, FaTachometerAlt,
-  FaWifi, FaSignal, FaWindowMinimize, FaTimes, FaCheckCircle, FaTimesCircle
+  FaWifi, FaSignal, FaWindowMinimize, FaTimes, FaCheckCircle, FaTimesCircle, FaThumbtack
 } from "react-icons/fa";
 import { Peer } from "peerjs";
 import { toast } from "react-toastify";
@@ -346,26 +346,33 @@ const ParticipantSidebar = styled.div`
 `;
 
 const ParticipantTile = styled.div`
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--chakra-colors-surface, rgba(255, 255, 255, 0.03));
   border-radius: 16px;
   overflow: hidden;
   position: relative;
   aspect-ratio: 16/9;
   border: 2px solid ${props => 
+    props.$isPinned ? 'rgba(255, 193, 7, 0.7)' :
     props.$isTalking ? 'rgba(46, 213, 115, 0.6)' : 
     props.$isActive ? 'rgba(74, 158, 255, 0.4)' : 
-    'rgba(255, 255, 255, 0.06)'
+    'var(--chakra-colors-border, rgba(255, 255, 255, 0.06))'
   };
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   animation: ${tileEnter} 0.4s ease-out;
 
+  ${props => props.$isPinned && css`
+    box-shadow: 0 0 0 2px rgba(255, 193, 7, 0.25), 0 4px 16px rgba(255, 193, 7, 0.12);
+  `}
+
   &:hover {
     transform: scale(1.02);
-    border-color: ${props => props.$isTalking ? 'rgba(46, 213, 115, 0.8)' : 'rgba(74, 158, 255, 0.6)'};
+    border-color: ${props => 
+      props.$isPinned ? 'rgba(255, 193, 7, 0.9)' :
+      props.$isTalking ? 'rgba(46, 213, 115, 0.8)' : 'rgba(74, 158, 255, 0.6)'};
   }
 
-  ${props => props.$isActive && css`
+  ${props => props.$isActive && !props.$isPinned && css`
     animation: ${breathe} 2s ease-in-out infinite;
   `}
 
@@ -694,6 +701,155 @@ const StatusBadge = styled.div`
     font-size: 0.4rem;
     top: 3px;
     right: 3px;
+  }
+`;
+
+const BadgeContainer = styled.div`
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  gap: 6px;
+  z-index: 5;
+
+  @media (max-width: 768px) {
+    top: 4px;
+    right: 4px;
+    gap: 4px;
+  }
+`;
+
+const InfoIndicatorContainer = styled.div`
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: flex;
+  gap: 6px;
+  z-index: 5;
+
+  @media (max-width: 768px) {
+    top: 4px;
+    left: 4px;
+    gap: 4px;
+  }
+`;
+
+const IndicatorBadge = styled.div`
+  background: rgba(10, 10, 18, 0.75);
+  backdrop-filter: blur(10px);
+  color: ${props => props.$color || 'white'};
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: clamp(0.55rem, 0.8vw, 0.7rem);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  height: clamp(20px, 3vw, 26px);
+
+  @media (max-width: 768px) {
+    padding: 2px 6px;
+    border-radius: 6px;
+    font-size: 0.5rem;
+    height: 18px;
+  }
+
+  @media (max-width: 480px) {
+    padding: 2px 4px;
+    border-radius: 4px;
+    font-size: 0.45rem;
+    height: 14px;
+  }
+`;
+
+const PipContainer = styled.div`
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+  overflow: hidden;
+  border-radius: 16px;
+
+  @media (max-width: 768px) {
+    border-radius: 12px;
+  }
+  @media (max-width: 480px) {
+    border-radius: 10px;
+  }
+  
+  video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+`;
+
+const PipAvatarWrapper = styled.div`
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #1e1e30, #0f0f1b);
+`;
+
+const PipAvatar = styled.div`
+  width: clamp(50px, 8vw, 70px);
+  height: clamp(50px, 8vw, 70px);
+  border-radius: 50%;
+  background: linear-gradient(135deg, #4a9eff, #6c5ce7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: white;
+  box-shadow: 0 8px 24px rgba(108, 92, 231, 0.3);
+`;
+
+const PipControlsOverlay = styled.div`
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: rgba(0, 0, 0, 0.55);
+  opacity: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  transition: opacity 0.2s ease-in-out;
+
+  &:hover {
+    opacity: 1;
+  }
+`;
+
+const PipBubbleButton = styled.button`
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: ${props => props.$active ? 'rgba(255, 71, 87, 0.9)' : 'rgba(255, 255, 255, 0.2)'};
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+  transition: all 0.2s ease;
+
+  &:hover {
+    transform: scale(1.1);
+    background: ${props => props.$active ? 'rgba(255, 71, 87, 1)' : 'rgba(255, 255, 255, 0.35)'};
+  }
+
+  svg {
+    font-size: 14px;
   }
 `;
 
@@ -1047,8 +1203,13 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const [showControls, setShowControls] = useState(true);
   const [controlTimeout, setControlTimeout] = useState(null);
   const [isFrontCamera, setIsFrontCamera] = useState(true);
+  const [pinnedPeerId, setPinnedPeerId] = useState(null);
+  const [peerNetworkStatus, setPeerNetworkStatus] = useState({});
+  const [volumes, setVolumes] = useState({});
+  const [screenLocked, setScreenLocked] = useState(false);
 
   // Refs
+  const audioAnalyzersRef = useRef({});
   const containerRef = useRef();
   const peerRef = useRef(null);
   const myVideoRef = useRef();
@@ -1074,6 +1235,36 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     isConnectingRef.current = isConnecting;
   }, [isConnecting]);
 
+  // ── Screenshot & Recording Protection ──
+  useEffect(() => {
+    if (isAdmin) { setScreenLocked(false); return; }
+    const onBlur = () => setScreenLocked(true);
+    const onFocus = () => setScreenLocked(false);
+    const onVis = () => setScreenLocked(document.hidden);
+    const onKey = (e) => {
+      if (
+        e.key === "PrintScreen" ||
+        (e.metaKey && e.shiftKey && ["3","4","5"].includes(e.key)) ||
+        (e.ctrlKey && e.shiftKey && ["3","4","5"].includes(e.key))
+      ) {
+        setScreenLocked(true);
+        toast.warning("🔒 Screenshot blocked — content is protected.");
+        navigator.clipboard?.writeText?.("");
+        e.preventDefault();
+      }
+    };
+    window.addEventListener("blur", onBlur);
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("blur", onBlur);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [isAdmin]);
+
   useEffect(() => {
     isMutedRef.current = isMuted;
   }, [isMuted]);
@@ -1085,6 +1276,114 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   useEffect(() => {
     myPeerIdRef.current = myPeerId;
   }, [myPeerId]);
+
+  // Play dynamic synthetic sound effects (join/leave) using Web Audio API
+  const playChime = useCallback((type) => {
+    try {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) return;
+      const ctx = new AudioContextClass();
+      
+      const playTone = (freq, startTime, duration, typeNode = "sine") => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = typeNode;
+        osc.frequency.setValueAtTime(freq, startTime);
+        
+        gain.gain.setValueAtTime(0.08, startTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+        
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(startTime);
+        osc.stop(startTime + duration);
+      };
+
+      const now = ctx.currentTime;
+      if (type === "join") {
+        playTone(523.25, now, 0.12, "triangle"); // C5
+        playTone(659.25, now + 0.08, 0.12, "triangle"); // E5
+        playTone(783.99, now + 0.16, 0.25, "triangle"); // G5
+      } else if (type === "leave") {
+        playTone(783.99, now, 0.12, "triangle"); // G5
+        playTone(659.25, now + 0.08, 0.12, "triangle"); // E5
+        playTone(523.25, now + 0.16, 0.25, "triangle"); // C5
+      }
+    } catch (e) {
+      console.warn("Chime failed:", e);
+    }
+  }, []);
+
+  // Setup dynamic audio analyzers for remote streams
+  const setupStreamAudioAnalysis = useCallback((peerId, stream) => {
+    if (!stream || !stream.getAudioTracks().length) return;
+    if (audioAnalyzersRef.current[peerId]) return;
+
+    try {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) return;
+      
+      if (!window.__globalMeetingAudioCtx) {
+        window.__globalMeetingAudioCtx = new AudioContextClass();
+      }
+      const ctx = window.__globalMeetingAudioCtx;
+      if (ctx.state === "suspended") {
+        ctx.resume();
+      }
+
+      const source = ctx.createMediaStreamSource(stream);
+      const analyzer = ctx.createAnalyser();
+      analyzer.fftSize = 256;
+      source.connect(analyzer);
+      
+      audioAnalyzersRef.current[peerId] = {
+        analyzer,
+        dataArray: new Uint8Array(analyzer.frequencyBinCount)
+      };
+      console.log(`🎙 Audio analyzer setup for remote peer: ${peerId}`);
+    } catch (e) {
+      console.warn(`Failed to setup audio analysis for ${peerId}:`, e);
+    }
+  }, []);
+
+  // Volume level checking loop
+  useEffect(() => {
+    let active = true;
+    const updateVolumes = () => {
+      if (!active) return;
+      
+      const newVolumes = {};
+      let changed = false;
+      
+      Object.entries(audioAnalyzersRef.current).forEach(([peerId, item]) => {
+        try {
+          item.analyzer.getByteFrequencyData(item.dataArray);
+          const sum = item.dataArray.reduce((a, b) => a + b, 0);
+          const volume = Math.min(100, Math.round((sum / item.dataArray.length) * 1.5));
+          newVolumes[peerId] = volume;
+          changed = true;
+        } catch (e) {
+          // Ignore
+        }
+      });
+      
+      if (changed) {
+        setVolumes(prev => {
+          const isDifferent = Object.keys(newVolumes).some(k => Math.abs((prev[k] || 0) - newVolumes[k]) > 4);
+          if (isDifferent) return { ...prev, ...newVolumes };
+          return prev;
+        });
+      }
+      
+      requestAnimationFrame(updateVolumes);
+    };
+    
+    requestAnimationFrame(updateVolumes);
+    
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // ─── Get controlled media element ───
   const getControlledMedia = useCallback(() => {
@@ -1129,13 +1428,14 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     };
   }, [activeMedia, controlTimeout]);
 
-  // ─── Auto-focus active talker ───
+  // ─── Auto-focus active talker (skipped when user has manually pinned) ───
   useEffect(() => {
+    if (pinnedPeerId) return; // Don't auto-focus when manually pinned
     const activeTalker = Object.entries(speakingPeers).find(([id, isTalking]) => isTalking && id !== "local");
     if (activeTalker && layoutMode !== "stage") {
       setFocusedPeerId(activeTalker[0]);
     }
-  }, [speakingPeers, layoutMode]);
+  }, [speakingPeers, layoutMode, pinnedPeerId]);
 
   // ─── Adaptive Bitrate Control ───
   useEffect(() => {
@@ -1146,28 +1446,39 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         let totalPacketsLost = 0;
         let totalRTT = 0;
         let rttCount = 0;
+        const newPeerStatus = {};
 
-        const promises = Object.values(peers.current).map(async (call) => {
+        const promises = Object.entries(peers.current).map(async ([peerId, call]) => {
           if (!call.peerConnection) return;
           try {
+            let peerRTT = 0;
+            let peerPacketsLost = 0;
             const stats = await call.peerConnection.getStats();
             stats.forEach((report) => {
               if (report.type === "candidate-pair" && report.state === "succeeded") {
                 if (report.currentRoundTripTime !== undefined) {
+                  peerRTT = report.currentRoundTripTime * 1000;
                   totalRTT += report.currentRoundTripTime;
                   rttCount++;
                 }
               }
               if (report.type === "inbound-rtp" && report.kind === "video") {
                 if (report.packetsLost !== undefined) {
+                  peerPacketsLost = report.packetsLost;
                   totalPacketsLost += report.packetsLost;
                 }
               }
             });
+            let status = "good";
+            if (peerRTT > 300 || peerPacketsLost > 50) status = "poor";
+            if (peerRTT > 600 || peerPacketsLost > 150) status = "fallback";
+            newPeerStatus[peerId] = status;
           } catch (e) { /* ignore */ }
         });
 
         await Promise.all(promises);
+        setPeerNetworkStatus(newPeerStatus);
+
         const avgRTT = rttCount > 0 ? (totalRTT / rttCount) * 1000 : 0;
 
         let nextStatus = "good";
@@ -1217,6 +1528,10 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         try { peers.current[peerId].close(); } catch (e) {}
         delete peers.current[peerId];
       }
+      // Clean up audio analyzer for this peer
+      if (audioAnalyzersRef.current[peerId]) {
+        delete audioAnalyzersRef.current[peerId];
+      }
       setRemoteStreams(p => {
         const n = { ...p };
         delete n[peerId];
@@ -1224,6 +1539,11 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       });
       setParticipantStates(p => {
         const n = { ...p };
+        delete n[peerId];
+        return n;
+      });
+      setVolumes(v => {
+        const n = { ...v };
         delete n[peerId];
         return n;
       });
@@ -1239,6 +1559,8 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
             name: p[remotePeerId]?.name || "Participant"
           }
         }));
+        // Setup audio analyzer for remote stream
+        setupStreamAudioAnalysis(remotePeerId, rem);
       });
       call.on("close", () => {
         console.log(`🔴 Call closed with ${remotePeerId}`);
@@ -1438,6 +1760,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
         socket.on("user-connected-call", ({ peerId, name, isMuted: peerMuted, isVideoOff: peerVideoOff }) => {
           console.log(`👤 User connected: ${name} (${peerId})`);
+          playChime("join");
           setRemoteStreams(p => ({ ...p, [peerId]: { stream: p[peerId]?.stream || null, name } }));
           setParticipantStates(p => ({
             ...p,
@@ -1492,8 +1815,15 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
               if (!analyzer) return;
               try {
                 analyzer.getByteFrequencyData(data);
-                const volume = data.reduce((a, b) => a + b) / data.length;
+                const rawVolume = data.reduce((a, b) => a + b) / data.length;
+                const volume = rawVolume;
                 const isTalking = volume > 30;
+                // Update local volume in volumes state
+                setVolumes(v => {
+                  const diff = Math.abs((v.local || 0) - Math.min(100, Math.round(volume * 1.5)));
+                  if (diff > 4) return { ...v, local: Math.min(100, Math.round(volume * 1.5)) };
+                  return v;
+                });
                 setSpeakingPeers(p => {
                   if (p.local === isTalking) return p;
                   const currentPeerId = peerRef.current?.id;
@@ -1515,7 +1845,10 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
         socket.on("user-disconnected-call", (id) => {
           console.log(`👋 User disconnected: ${id}`);
+          playChime("leave");
           cleanupPeer(id);
+          // Unpin if pinned peer left
+          setPinnedPeerId(prev => prev === id ? null : prev);
         });
 
         socket.on("user-media-change", ({ peerId, isMuted: peerMuted, isVideoOff: peerVideoOff }) => {
@@ -1665,7 +1998,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       socket.off("reconnect_failed");
       document.removeEventListener("contextmenu", handleContextMenu);
     };
-  }, [roomId, socket, userName, isAdmin]);
+  }, [roomId, socket, userName, isAdmin, playChime, setupStreamAudioAnalysis]);
 
   // ─── Reconnect when remote streams change ───
   useEffect(() => {
@@ -2432,6 +2765,20 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     setLayoutMode("stage");
   };
 
+  const handleTileDoubleClick = (peerId) => {
+    setPinnedPeerId(prev => {
+      const next = prev === peerId ? null : peerId;
+      if (next) {
+        setFocusedPeerId(next);
+        setLayoutMode("stage");
+      } else {
+        setFocusedPeerId(null);
+        setLayoutMode("grid");
+      }
+      return next;
+    });
+  };
+
   const isLocalBroadcasting = !!streamMediaSource || activeMedia?.type === "local_stream";
 
   /* ═══════════════════════════════ RENDER HELPERS ═══════════════════════════════ */
@@ -2440,13 +2787,34 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     const tiles = [];
 
     const isLocalActive = focusedPeerId === "local" || (!focusedPeerId && !activeMedia);
+    const localPinned = pinnedPeerId === "local";
+    
+    const localNetwork = networkStatus;
+    const localNetworkColor = localNetwork === "good" ? "#2ed573" : localNetwork === "poor" ? "#ffa502" : "#ff4757";
+
+    const localVolume = volumes.local || 0;
+
     tiles.push(
       <ParticipantTile
         key="local"
         $isTalking={speakingPeers.local}
         $isActive={isLocalActive}
+        $isPinned={localPinned}
         onClick={() => handleTileClick("local")}
+        onDoubleClick={() => handleTileDoubleClick("local")}
       >
+        {/* Info indicators top-left */}
+        <InfoIndicatorContainer>
+          {localPinned && (
+            <IndicatorBadge $color="#ffc107">
+              <FaThumbtack size={10} />
+            </IndicatorBadge>
+          )}
+          <IndicatorBadge $color={localNetworkColor}>
+            <FaSignal size={10} />
+          </IndicatorBadge>
+        </InfoIndicatorContainer>
+
         {isVideoOff || isLocalBroadcasting ? (
           <div style={{ 
             width: '100%', 
@@ -2491,10 +2859,26 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
           {userName} (You)
           {isMuted && <span style={{ color: '#ff4757' }}>🔇</span>}
           {isLocalBroadcasting && <span style={{ color: '#4a9eff' }}>📡</span>}
+          {/* Dynamic volume meter */}
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'flex-end',
+            gap: '2px',
+            marginLeft: '6px',
+            height: '8px'
+          }}>
+            <div style={{ width: '2px', height: `${Math.max(2, localVolume * 0.08)}px`, backgroundColor: '#2ed573', borderRadius: '1px', transition: 'height 0.1s ease' }} />
+            <div style={{ width: '2px', height: `${Math.max(2, localVolume * 0.12)}px`, backgroundColor: '#2ed573', borderRadius: '1px', transition: 'height 0.1s ease' }} />
+            <div style={{ width: '2px', height: `${Math.max(2, localVolume * 0.06)}px`, backgroundColor: '#2ed573', borderRadius: '1px', transition: 'height 0.1s ease' }} />
+          </div>
         </NameTag>
-        {isMuted && <StatusBadge $type="muted"><FaMicrophoneSlash /></StatusBadge>}
-        {isVideoOff && <StatusBadge $type="video"><FaVideoSlash /></StatusBadge>}
-        {isLocalBroadcasting && <StatusBadge $type="broadcast" style={{ background: '#4a9eff' }}><FaDesktop /></StatusBadge>}
+        
+        {/* Badge container top-right */}
+        <BadgeContainer>
+          {isMuted && <StatusBadge $type="muted"><FaMicrophoneSlash /></StatusBadge>}
+          {isVideoOff && <StatusBadge $type="video"><FaVideoSlash /></StatusBadge>}
+          {isLocalBroadcasting && <StatusBadge $type="broadcast" style={{ background: '#4a9eff' }}><FaDesktop /></StatusBadge>}
+        </BadgeContainer>
       </ParticipantTile>
     );
 
@@ -2503,14 +2887,34 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       const peerVideoOff = peerState.isVideoOff;
       const peerMuted = peerState.isMuted;
       const isActive = focusedPeerId === id;
+      const isPinned = pinnedPeerId === id;
+
+      const peerNetwork = peerNetworkStatus[id] || "good";
+      const peerNetworkColor = peerNetwork === "good" ? "#2ed573" : peerNetwork === "poor" ? "#ffa502" : "#ff4757";
+
+      const peerVolume = volumes[id] || 0;
 
       tiles.push(
         <ParticipantTile
           key={id}
           $isTalking={speakingPeers[id]}
           $isActive={isActive}
+          $isPinned={isPinned}
           onClick={() => handleTileClick(id)}
+          onDoubleClick={() => handleTileDoubleClick(id)}
         >
+          {/* Info indicators top-left */}
+          <InfoIndicatorContainer>
+            {isPinned && (
+              <IndicatorBadge $color="#ffc107">
+                <FaThumbtack size={10} />
+              </IndicatorBadge>
+            )}
+            <IndicatorBadge $color={peerNetworkColor}>
+              <FaSignal size={10} />
+            </IndicatorBadge>
+          </InfoIndicatorContainer>
+
           {peerVideoOff ? (
             <div style={{ 
               width: '100%', 
@@ -2549,9 +2953,25 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
           <NameTag>
             {info.name}
             {peerMuted && <span style={{ color: '#ff4757' }}>🔇</span>}
+            {/* Dynamic volume meter */}
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'flex-end',
+              gap: '2px',
+              marginLeft: '6px',
+              height: '8px'
+            }}>
+              <div style={{ width: '2px', height: `${Math.max(2, peerVolume * 0.08)}px`, backgroundColor: '#2ed573', borderRadius: '1px', transition: 'height 0.1s ease' }} />
+              <div style={{ width: '2px', height: `${Math.max(2, peerVolume * 0.12)}px`, backgroundColor: '#2ed573', borderRadius: '1px', transition: 'height 0.1s ease' }} />
+              <div style={{ width: '2px', height: `${Math.max(2, peerVolume * 0.06)}px`, backgroundColor: '#2ed573', borderRadius: '1px', transition: 'height 0.1s ease' }} />
+            </div>
           </NameTag>
-          {peerMuted && <StatusBadge $type="muted"><FaMicrophoneSlash /></StatusBadge>}
-          {peerVideoOff && <StatusBadge $type="video"><FaVideoSlash /></StatusBadge>}
+          
+          {/* Badge container top-right */}
+          <BadgeContainer>
+            {peerMuted && <StatusBadge $type="muted"><FaMicrophoneSlash /></StatusBadge>}
+            {peerVideoOff && <StatusBadge $type="video"><FaVideoSlash /></StatusBadge>}
+          </BadgeContainer>
         </ParticipantTile>
       );
     });
@@ -2778,11 +3198,91 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     );
   };
 
+  const getActiveMiniStream = () => {
+    if (focusedPeerId) {
+      if (focusedPeerId === "local") return { type: "local", stream: localStream, name: userName, isVideoOff, isMuted };
+      const info = remoteStreams[focusedPeerId];
+      const peerState = participantStates[focusedPeerId] || {};
+      return { type: "remote", stream: info?.stream, name: info?.name || "Participant", isVideoOff: peerState.isVideoOff, isMuted: peerState.isMuted, id: focusedPeerId };
+    }
+    const remKeys = Object.keys(remoteStreams);
+    if (remKeys.length > 0) {
+      const id = remKeys[0];
+      const info = remoteStreams[id];
+      const peerState = participantStates[id] || {};
+      return { type: "remote", stream: info?.stream, name: info?.name || "Participant", isVideoOff: peerState.isVideoOff, isMuted: peerState.isMuted, id };
+    }
+    return { type: "local", stream: localStream, name: userName, isVideoOff, isMuted };
+  };
+
   /* ═══════════════════════════════ MAIN RENDER ═══════════════════════════════ */
   return (
     <StyleSheetManager shouldForwardProp={(prop) => !prop.startsWith('$')}>
+      {!isAdmin && (
+        <style>{`@media print { body { display: none !important; } }`}</style>
+      )}
+      {screenLocked && (
+        <div style={{
+          position: "fixed", inset: 0, background: "#000", zIndex: 999999,
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+          color: "#fff", fontFamily: "sans-serif", textAlign: "center", padding: 20
+        }}>
+          <div style={{ fontSize: "3rem", marginBottom: 15 }}>🔒</div>
+          <h2 style={{ fontSize: "1.4rem", fontWeight: 700, marginBottom: 8 }}>Protected Content</h2>
+          <p style={{ opacity: .7, maxWidth: 340, fontSize: "0.85rem", lineHeight: 1.5 }}>
+            Screenshots, recordings, and background viewing are disabled during this call.
+          </p>
+        </div>
+      )}
       <MeetingContainer ref={containerRef} $minimized={isMinimized} onClick={isMinimized ? () => setIsMinimized(false) : undefined}>
         <GradientBackground />
+
+        {isMinimized && (() => {
+          const mini = getActiveMiniStream();
+          return (
+            <PipContainer onClick={(e) => { e.stopPropagation(); setIsMinimized(false); }}>
+              {mini.isVideoOff || !mini.stream ? (
+                <PipAvatarWrapper>
+                  <PipAvatar>{getInitials(mini.name)}</PipAvatar>
+                </PipAvatarWrapper>
+              ) : (
+                <video
+                  autoPlay
+                  playsInline
+                  muted={mini.type === "local"}
+                  ref={el => {
+                    if (el && mini.stream && el.srcObject !== mini.stream) {
+                      el.srcObject = mini.stream;
+                    }
+                  }}
+                />
+              )}
+              {/* Floating controls overlays */}
+              <PipControlsOverlay>
+                <PipBubbleButton 
+                  title={isMuted ? "Unmute" : "Mute"} 
+                  $active={isMuted} 
+                  onClick={(e) => { e.stopPropagation(); toggleMute(); }}
+                >
+                  {isMuted ? <FaMicrophoneSlash /> : <FaMicrophone />}
+                </PipBubbleButton>
+                <PipBubbleButton 
+                  title={isVideoOff ? "Start Video" : "Stop Video"} 
+                  $active={isVideoOff} 
+                  onClick={(e) => { e.stopPropagation(); toggleVideo(); }}
+                >
+                  {isVideoOff ? <FaVideoSlash /> : <FaVideo />}
+                </PipBubbleButton>
+                <PipBubbleButton 
+                  title="Expand" 
+                  onClick={(e) => { e.stopPropagation(); setIsMinimized(false); }}
+                >
+                  <FaExpand />
+                </PipBubbleButton>
+              </PipControlsOverlay>
+            </PipContainer>
+          );
+        })()}
         
         <MeetingHeader className="meeting-header">
           <HeaderLeft>
