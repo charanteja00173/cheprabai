@@ -2964,8 +2964,21 @@ export default function ChatRoom() {
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const typingTimeout = useRef(null);
   const fileInputRef = useRef(null);
-  const [ownerToken, setOwnerToken] = useState("");
+  const [ownerToken, setOwnerToken] = useState(() => {
+    const match = window.location.pathname.match(/\/room\/([^/]+)/);
+    const rId = match ? match[1] : "";
+    return rId ? sessionStorage.getItem(`cheprabai:owner-token:${rId}`) || "" : "";
+  });
   const [onlineUsers, setOnlineUsers] = useState([]);
+
+  React.useEffect(() => {
+    if (roomId) {
+      const savedToken = sessionStorage.getItem(`cheprabai:owner-token:${roomId}`);
+      setOwnerToken(savedToken || "");
+    } else {
+      setOwnerToken("");
+    }
+  }, [roomId]);
   const [screenLocked, setScreenLocked] = useState(false);
 
   const [showGifPicker, setShowGifPicker] = useState(false);
@@ -3060,6 +3073,7 @@ export default function ChatRoom() {
     securityCode,
     avatar: userAvatarRef.current,
     stealthToken: stealthTokenRef.current || undefined,
+    ownerToken: sessionStorage.getItem(`cheprabai:owner-token:${roomId.trim()}`) || undefined,
   }), [roomId, userName, securityCode]);
 
   const handleJoinResult = useCallback((result) => {
@@ -3850,7 +3864,12 @@ export default function ChatRoom() {
       leaveRoomNowRef.current?.();
     });
 
-    socketRef.current.on("roomOwner", (token) => setOwnerToken(token));
+    socketRef.current.on("roomOwner", (token) => {
+      setOwnerToken(token);
+      if (token && roomId) {
+        sessionStorage.setItem(`cheprabai:owner-token:${roomId}`, token);
+      }
+    });
     socketRef.current.on("messageViewUpdated", ({ messageId, viewedBy }) => {
       setMessages((items) => items.map((item) => item.id === messageId ? { ...item, viewedBy } : item));
     });
