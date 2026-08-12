@@ -21,6 +21,7 @@ import {
   FaFileVideo,
   FaFileAudio,
   FaCalendarAlt,
+  FaShieldAlt,
 } from "react-icons/fa";
 import { toast, ToastContainer } from "react-toastify";
 import { generateKeyFromSecret, decryptBinary } from "../utils/crypto";
@@ -943,24 +944,10 @@ export default function AdminDashboard() {
                 borderRadius: "14px",
                 marginBottom: "16px"
               }}>
-                <FaLock size={24} color="var(--chakra-colors-brandPrimary)" />
+                <FaShieldAlt size={24} color="var(--chakra-colors-brandPrimary)" />
               </div>
-              <div style={{ color: "var(--chakra-colors-brandPrimary)", fontSize: ".67rem", fontWeight: 850, letterSpacing: ".13em", textTransform: "uppercase", marginBottom: 6 }}>Super Admin Console</div>
-              <h2 style={{ margin: 0, fontSize: "clamp(1.35rem, 3.5vw, 1.7rem)", fontWeight: 800, letterSpacing: "-.04em", color: "var(--chakra-colors-textPrimary)" }}>Verify credentials</h2>
-              <p style={{ color: "var(--chakra-colors-textSecondary)", fontSize: "0.85rem", margin: "8px auto 0", maxWidth: 290, lineHeight: 1.5 }}>Enter admin password key to access management dashboard.</p>
-            </div>
-
-            <div style={{
-              padding: "10px 12px",
-              borderRadius: 9,
-              border: "1px solid rgba(255, 183, 3, 0.22)",
-              background: "rgba(255, 183, 3, 0.05)",
-              color: "var(--chakra-colors-textSecondary)",
-              fontSize: "0.75rem",
-              lineHeight: 1.45,
-              textAlign: "left"
-            }}>
-              <span style={{ color: "#ffb703", fontWeight: 700 }}>Security Notice:</span> Authorized access only. Platform activity and login attempts are logged for system audit.
+              <h2 style={{ margin: 0, fontSize: "clamp(1.35rem, 3.5vw, 1.6rem)", fontWeight: 800, letterSpacing: "-.04em", color: "var(--chakra-colors-textPrimary)" }}>Admin Panel</h2>
+              <p style={{ color: "var(--chakra-colors-textSecondary)", fontSize: "0.82rem", margin: "6px auto 0", maxWidth: 280, lineHeight: 1.45 }}>Enter your security key to access the control panel.</p>
             </div>
 
             <LoginInputContainer>
@@ -998,7 +985,7 @@ export default function AdminDashboard() {
       </div>}
       <Header>
         <Brand>
-          <FaDatabase /> Super Admin Console
+          <FaShieldAlt /> Admin Panel
         </Brand>
         <div style={{ display: "flex", gap: "10px" }}>
           <ActionButton onClick={() => setShowChangePassword(true)}>

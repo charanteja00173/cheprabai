@@ -5793,12 +5793,14 @@ export default function ChatRoom() {
                         style={{
                           display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
                           width: "100%", padding: "8px 12px", borderRadius: 10,
-                          background: "rgba(255, 63, 94, 0.08)", border: "1px solid rgba(255, 63, 94, 0.25)",
-                          color: "var(--chakra-colors-brandPrimary)", cursor: "pointer", fontSize: "0.8rem", fontWeight: 600,
+                          background: "rgba(255, 255, 255, 0.04)", border: "1px solid rgba(255, 255, 255, 0.08)",
+                          color: "var(--chakra-colors-textSecondary)", cursor: "pointer", fontSize: "0.8rem", fontWeight: 600,
                           textDecoration: "none", boxSizing: "border-box", transition: "all 0.2s"
                         }}
+                        onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.15)"; e.currentTarget.style.color = "var(--chakra-colors-textPrimary)"; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.08)"; e.currentTarget.style.color = "var(--chakra-colors-textSecondary)"; }}
                       >
-                        🛡️ Super Admin Panel
+                        <ShieldCheck size={14} aria-hidden="true" /> Admin Panel
                       </Link>
                       {ownerToken && (
                         <button
