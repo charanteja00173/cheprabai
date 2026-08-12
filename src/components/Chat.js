@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef, Suspense, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { io } from "socket.io-client";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { 
+  // Link, 
+  useNavigate, useParams, useSearchParams } from "react-router-dom";
 import axios from "axios";
 import styled, { keyframes } from "styled-components";
 import {
@@ -5786,7 +5788,7 @@ export default function ChatRoom() {
                       >
                         <Copy size={14} aria-hidden="true" /> Copy invite link
                       </button>
-                      <Link
+                      {/* <Link
                         to="/admin"
                         target="_blank"
                         rel="noreferrer"
@@ -5801,7 +5803,7 @@ export default function ChatRoom() {
                         onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.08)"; e.currentTarget.style.color = "var(--chakra-colors-textSecondary)"; }}
                       >
                         <ShieldCheck size={14} aria-hidden="true" /> Admin Panel
-                      </Link>
+                      </Link> */}
                       {ownerToken && (
                         <button
                           type="button"
