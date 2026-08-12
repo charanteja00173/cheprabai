@@ -32,7 +32,7 @@ import { AiOutlineClose } from "react-icons/ai";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import ThemeSwitcher from "./ThemeSwitcher";
-import { ArrowRight, Copy, Hash, KeyRound, Link2, LockKeyhole, ShieldCheck, Upload, UserRound } from "lucide-react";
+import { ArrowRight, Copy, Hash, KeyRound, LockKeyhole, ShieldCheck, Upload, UserRound } from "lucide-react";
 import {
   generateKeyFromSecret,
   encryptMessage,
@@ -2728,7 +2728,7 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile }) {
 
   if (fileType && fileType.startsWith("audio")) {
     return (
-      <FileAttachmentWrapper ref={containerRef} style={{ padding: "10px 12px", background: "rgba(255, 255, 255, 0.02)", cursor: "default", width: "100%", maxWidth: 320, boxSizing: "border-box" }}>
+      <FileAttachmentWrapper ref={containerRef} style={{ padding: "10px 12px", background: "rgba(255, 255, 255, 0.02)", cursor: "default", width: "100%", boxSizing: "border-box" }}>
         <PlaybackSpeedAudio file={file} decryptedUrl={decryptedUrl} />
       </FileAttachmentWrapper>
     );
@@ -3058,6 +3058,7 @@ export default function ChatRoom() {
   const [roomExists, setRoomExists] = useState(true);
   const [roomRequestPending, setRoomRequestPending] = useState(false);
   const [pendingRequestId, setPendingRequestId] = useState("");
+  const [authenticated, setAuthenticated] = useState(false);
   const stealthTokenRef = useRef("");
 
   const backendUrl = process.env.REACT_APP_SOCKET_ENDPOINT || "https://cheprabai-backend.onrender.com";
@@ -3077,12 +3078,14 @@ export default function ChatRoom() {
       if (result.code === "NEEDS_APPROVAL") {
         setShowApprovalConfirm(true);
         setJoined(false);
+        setAuthenticated(false);
         setRoomKey(null);
         toast.info("This room does not exist yet. Please request creation approval.");
         return;
       }
       toast.error(result.error);
       setJoined(false);
+      setAuthenticated(false);
       setRoomKey(null);
       return;
     }
@@ -3092,6 +3095,7 @@ export default function ChatRoom() {
       if (!result.isStealth && roomId.trim()) {
         navigate(`/room/${encodeURIComponent(roomId.trim())}`, { replace: true });
       }
+      setAuthenticated(true);
     }
   }, [roomId, userName, navigate]);
 
@@ -3110,6 +3114,11 @@ export default function ChatRoom() {
     }
     if (!code) {
       toast.error("Please enter a security code.");
+      return;
+    }
+
+    if (!socketRef.current || !socketRef.current.connected) {
+      toast.error("Connecting to server. Please wait a moment and try again.");
       return;
     }
 
@@ -3264,9 +3273,28 @@ export default function ChatRoom() {
       searchParams
     );
     if (parsedRoomId) setRoomId(parsedRoomId);
+    const parsedKey = searchParams.get("key") || "";
     if (parsedStealth) {
       setStealthToken(parsedStealth);
       stealthTokenRef.current = parsedStealth;
+      if (parsedRoomId) {
+        setUserName("Stealth Admin");
+        if (parsedKey) {
+          setSecurityCode(parsedKey);
+          generateKeyFromSecret(parsedKey + parsedRoomId)
+            .then((key) => {
+              setRoomKey(key);
+              setJoined(true);
+            })
+            .catch(() => {
+              toast.error("Failed to generate secure keys for stealth mode.");
+            });
+        } else {
+          setJoined(true);
+        }
+        const cleanUrl = `${window.location.origin}/room/${encodeURIComponent(parsedRoomId)}`;
+        window.history.replaceState(null, "", cleanUrl);
+      }
     }
   }, [routeRoomId, searchParams]);
 
@@ -3672,6 +3700,7 @@ export default function ChatRoom() {
         socketRef.current.emit("destroyRoom", { roomId, token: ownerToken });
         setMessages([]);
         setJoined(false);
+        setAuthenticated(false);
       }
     });
   };
@@ -3684,6 +3713,7 @@ export default function ChatRoom() {
 
     // Reset local state completely
     setJoined(false);
+    setAuthenticated(false);
     setMessages([]);
     setRoomId("");
     setUserName("");
@@ -3711,7 +3741,9 @@ export default function ChatRoom() {
 
   useEffect(() => {
     const socket = io(process.env.REACT_APP_SOCKET_ENDPOINT || "https://cheprabai-backend.onrender.com", {
-      transports: ["websocket", "polling"],
+      transports: ["polling", "websocket"],
+      upgrade: true,
+      rememberUpgrade: false
     });
     socketRef.current = socket;
 
@@ -5187,7 +5219,7 @@ export default function ChatRoom() {
 
   /* ================= UI ================= */
 
-  if (!joined) {
+  if (!joined || !authenticated) {
     return (
       <>
         <LandingWrapper>
@@ -5864,16 +5896,6 @@ export default function ChatRoom() {
               </SearchPopup>
             )}
 
-            {ownerToken && (
-              <ActionButton
-                onClick={handleDestroyRoom}
-                style={{ color: "#ff4757", background: "rgba(255,71,87,0.12)", borderRadius: 8 }}
-                title="Delete Room (Owner only)"
-                aria-label="Delete Room"
-              >
-                <FaTrash size={14} />
-              </ActionButton>
-            )}
           </RoomActions>
         </Header>
         {renderPinnedMessagesBanner()}

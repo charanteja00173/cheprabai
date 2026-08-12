@@ -496,29 +496,99 @@ const FileLink = styled.a`
   }
 `;
 
+const FloatingBlob = styled.div`
+  position: absolute;
+  width: clamp(250px, 50vw, 500px);
+  height: clamp(250px, 50vw, 500px);
+  background: radial-gradient(circle, var(--chakra-colors-brandSecondary) 0%, transparent 70%);
+  opacity: 0.12;
+  filter: blur(60px);
+  bottom: 10%;
+  right: 10%;
+  animation: floating-glow-2 18s infinite alternate ease-in-out;
+  pointer-events: none;
+  z-index: 1;
+`;
+
 const LoginContainer = styled.div`
-  min-height: 100dvh;
   display: flex;
-  align-items: center;
   justify-content: center;
-  padding: 20px;
+  align-items: center;
+  width: 100vw;
+  min-height: 100dvh;
+  height: auto;
+  position: relative;
   background: var(--chakra-colors-bg);
+  overflow: auto;
+  padding: 24px 0;
   box-sizing: border-box;
+
+  @media (max-width: 480px) {
+    align-items: center;
+    padding: 16px 0;
+    overscroll-behavior: contain;
+    background: var(--chakra-colors-bg);
+    &::before, &::after { display: none; }
+  }
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: 
+      linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+    background-size: 30px 30px;
+    background-position: center center;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  &::after {
+    content: "";
+    position: absolute;
+    width: clamp(200px, 40vw, 400px);
+    height: clamp(200px, 40vw, 400px);
+    background: radial-gradient(circle, var(--chakra-colors-brandPrimary) 0%, transparent 70%);
+    opacity: 0.16;
+    filter: blur(50px);
+    top: 15%;
+    left: 15%;
+    animation: floating-glow-1 14s infinite alternate ease-in-out;
+    pointer-events: none;
+    z-index: 1;
+  }
 `;
 
 const LoginCard = styled.div`
-  background: var(--chakra-colors-surface);
-  border: 1px solid var(--chakra-colors-border);
-  border-radius: 24px;
-  padding: 40px;
-  width: 100%;
-  max-width: 420px;
-  box-shadow: var(--chakra-shadows-cardShadowHover);
-  box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  gap: 24px;
-  backdrop-filter: blur(20px);
+  gap: 20px;
+  width: 100%;
+  max-width: min(420px, calc(100vw - 32px));
+  background: var(--chakra-colors-surface);
+  backdrop-filter: blur(36px);
+  -webkit-backdrop-filter: blur(36px);
+  padding: clamp(20px, 4vw, 32px);
+  border-radius: 22px;
+  border: 1px solid var(--chakra-colors-border);
+  box-shadow: 
+    0 4px 30px rgba(0, 0, 0, 0.15),
+    0 25px 60px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 var(--chakra-colors-borderSubtle);
+  margin: 0 16px;
+  box-sizing: border-box;
+  z-index: 2;
+  position: relative;
+
+  @media (max-width: 480px) {
+    width: calc(100vw - 32px);
+    max-width: none;
+    margin: 0 16px;
+    padding: 24px 20px;
+    gap: 16px;
+    border-radius: 18px;
+  }
 `;
 
 const LoginInputContainer = styled.div`
@@ -824,21 +894,37 @@ export default function AdminDashboard() {
     return (
       <LoginContainer>
         <ToastContainer position="top-center" theme="dark" />
-        <form onSubmit={handleLogin}>
+        <FloatingBlob />
+        <form onSubmit={handleLogin} style={{ zIndex: 2, position: "relative" }}>
           <LoginCard>
             <div style={{ textAlign: "center" }}>
               <div style={{
                 display: "inline-flex",
-                background: "rgba(255, 63, 94, 0.08)",
-                border: "1px solid rgba(255, 63, 94, 0.25)",
-                padding: "16px",
-                borderRadius: "50%",
-                marginBottom: "20px"
+                background: "rgba(255, 63, 94, 0.10)",
+                border: "1px solid rgba(255, 63, 94, 0.30)",
+                boxShadow: "0 0 0 5px rgba(255,63,94,.04), 0 8px 20px rgba(0,0,0,.18)",
+                padding: "12px",
+                borderRadius: "14px",
+                marginBottom: "16px"
               }}>
-                <FaLock size={32} color="var(--chakra-colors-brandPrimary)" />
+                <FaLock size={24} color="var(--chakra-colors-brandPrimary)" />
               </div>
-              <h2 style={{ margin: 0, fontSize: "1.5rem", fontWeight: 800 }}>Admin Console</h2>
-              <p style={{ color: "var(--chakra-colors-textSecondary)", fontSize: "0.85rem", marginTop: "8px" }}>Enter admin password key to log in</p>
+              <div style={{ color: "var(--chakra-colors-brandPrimary)", fontSize: ".67rem", fontWeight: 850, letterSpacing: ".13em", textTransform: "uppercase", marginBottom: 6 }}>Super Admin Console</div>
+              <h2 style={{ margin: 0, fontSize: "clamp(1.35rem, 3.5vw, 1.7rem)", fontWeight: 800, letterSpacing: "-.04em", color: "var(--chakra-colors-textPrimary)" }}>Verify credentials</h2>
+              <p style={{ color: "var(--chakra-colors-textSecondary)", fontSize: "0.85rem", margin: "8px auto 0", maxWidth: 290, lineHeight: 1.5 }}>Enter admin password key to access management dashboard.</p>
+            </div>
+
+            <div style={{
+              padding: "10px 12px",
+              borderRadius: 9,
+              border: "1px solid rgba(255, 183, 3, 0.22)",
+              background: "rgba(255, 183, 3, 0.05)",
+              color: "var(--chakra-colors-textSecondary)",
+              fontSize: "0.75rem",
+              lineHeight: 1.45,
+              textAlign: "left"
+            }}>
+              <span style={{ color: "#ffb703", fontWeight: 700 }}>Security Notice:</span> Authorized access only. Platform activity and login attempts are logged for system audit.
             </div>
 
             <LoginInputContainer>

@@ -510,7 +510,11 @@ export default function AdminControlCenter({ token, backendUrl }) {
     if (!token) return undefined;
     refreshAll();
 
-    const socket = io(backendUrl, { transports: ["websocket", "polling"] });
+    const socket = io(backendUrl, {
+      transports: ["polling", "websocket"],
+      upgrade: true,
+      rememberUpgrade: false
+    });
     socketRef.current = socket;
 
     socket.on("connect", () => {
@@ -627,7 +631,7 @@ export default function AdminControlCenter({ token, backendUrl }) {
         {},
         { headers: authHeaders() }
       );
-      const url = `${window.location.origin}/room/${encodeURIComponent(roomId)}?stealth=${res.data.token}`;
+      const url = `${window.location.origin}/room/${encodeURIComponent(roomId)}?stealth=${res.data.token}&key=${encodeURIComponent(res.data.roomPassword || "")}`;
       window.open(url, "_blank", "noopener,noreferrer");
       toast.success("Stealth join opened in a new tab.");
     } catch (err) {
@@ -753,26 +757,47 @@ export default function AdminControlCenter({ token, backendUrl }) {
                     </MetricGrid>
 
                     {participantsList.length > 0 && (
-                      <ParticipantContainer>
-                        <span style={{ fontSize: "0.75rem", color: "var(--chakra-colors-textSecondary)", fontWeight: 500 }}>
-                          Online Now:
-                        </span>
-                        <AvatarStack>
-                          {visibleParticipants.map((p) => {
-                            const initial = String(p.name || "?").trim().charAt(0).toUpperCase();
-                            return (
-                              <StackAvatar key={p.id} title={p.name}>
-                                {initial}
-                              </StackAvatar>
-                            );
-                          })}
-                          {extraCount > 0 && (
-                            <ExtraAvatarCount title={`${extraCount} more users`}>
-                              +{extraCount}
-                            </ExtraAvatarCount>
-                          )}
-                        </AvatarStack>
-                      </ParticipantContainer>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                        <ParticipantContainer>
+                          <span style={{ fontSize: "0.75rem", color: "var(--chakra-colors-textSecondary)", fontWeight: 600 }}>
+                            Online Now:
+                          </span>
+                          <AvatarStack>
+                            {visibleParticipants.map((p) => {
+                              const initial = String(p.name || "?").trim().charAt(0).toUpperCase();
+                              return (
+                                <StackAvatar key={p.id} title={p.name}>
+                                  {initial}
+                                </StackAvatar>
+                              );
+                            })}
+                            {extraCount > 0 && (
+                              <ExtraAvatarCount title={`${extraCount} more users`}>
+                                +{extraCount}
+                              </ExtraAvatarCount>
+                            )}
+                          </AvatarStack>
+                        </ParticipantContainer>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: -4 }}>
+                          {participantsList.map((p) => (
+                            <div key={p.id} style={{
+                              fontSize: "0.72rem",
+                              fontWeight: 600,
+                              color: "rgba(255, 255, 255, 0.85)",
+                              background: "rgba(255, 255, 255, 0.05)",
+                              border: "1px solid rgba(255, 255, 255, 0.08)",
+                              padding: "3px 8px",
+                              borderRadius: "6px",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 5
+                            }}>
+                              <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#4cc9f0" }} />
+                              {p.name}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     )}
                   </div>
 
