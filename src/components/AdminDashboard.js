@@ -85,6 +85,12 @@ const StatsGrid = styled.div`
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 20px;
   margin-bottom: 32px;
+
+  @media (max-width: 480px) {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-bottom: 20px;
+  }
 `;
 
 const StatCard = styled.div`
@@ -102,6 +108,12 @@ const StatCard = styled.div`
     transform: translateY(-2px);
     border-color: var(--chakra-colors-brandPrimary);
   }
+
+  @media (max-width: 480px) {
+    padding: 12px;
+    gap: 8px;
+    border-radius: 12px;
+  }
 `;
 
 const StatIcon = styled.div`
@@ -115,12 +127,24 @@ const StatIcon = styled.div`
   align-items: center;
   justify-content: center;
   font-size: 1.25rem;
+
+  @media (max-width: 480px) {
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    svg {
+      width: 14px;
+      height: 14px;
+    }
+  }
 `;
 
 const StatInfo = styled.div`
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-width: 0;
 
   span:first-child {
     font-size: 0.8rem;
@@ -128,12 +152,24 @@ const StatInfo = styled.div`
     text-transform: uppercase;
     letter-spacing: 0.5px;
     font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    @media (max-width: 480px) {
+      font-size: 0.62rem;
+      letter-spacing: 0.1px;
+    }
   }
 
   span:last-child {
     font-size: 1.5rem;
     font-weight: 800;
     color: var(--chakra-colors-textPrimary);
+
+    @media (max-width: 480px) {
+      font-size: 1.1rem;
+    }
   }
 `;
 

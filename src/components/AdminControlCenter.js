@@ -67,6 +67,11 @@ const RoomGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 20px;
+
+  @media (max-width: 480px) {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
 `;
 
 const RoomCard = styled.article`
@@ -104,6 +109,11 @@ const RoomCard = styled.article`
     &::before {
       opacity: 1;
     }
+  }
+
+  @media (max-width: 480px) {
+    padding: 16px;
+    gap: 12px;
   }
 `;
 

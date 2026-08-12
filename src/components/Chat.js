@@ -5223,6 +5223,7 @@ export default function ChatRoom() {
     return (
       <>
         <LandingWrapper>
+          <ToastContainer position="top-center" autoClose={3000} limit={3} theme="dark" />
           <FloatingBlob />
           <JoinContainer>
             <div style={{ textAlign: "center", marginBottom: 4 }}>
