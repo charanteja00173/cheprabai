@@ -4690,6 +4690,7 @@ export default function ChatRoom() {
         userName: userName,
         senderAvatar: userAvatar,
         roomId: forwardRoomId.trim(),
+        securityCode: forwardSecurityCode.trim(),
         ts: Date.now(),
         ephemeral: false
       };
