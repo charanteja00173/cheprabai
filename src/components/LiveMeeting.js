@@ -2620,6 +2620,12 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const flipCamera = async () => {
     try {
       const newFacing = isFrontCamera ? "environment" : "user";
+
+      // Stop old stream tracks to release camera hardware
+      if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach(t => t.stop());
+      }
+
       const newStream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: newFacing },
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
@@ -2633,8 +2639,15 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       Object.values(peers.current).forEach(call => {
         try {
           if (call.peerConnection) {
-            const sender = call.peerConnection.getSenders().find(s => s.track?.kind === "video");
-            if (sender) sender.replaceTrack(newVideoTrack);
+            const senders = call.peerConnection.getSenders();
+            const videoSender = senders.find(s => s.track?.kind === "video");
+            if (videoSender) videoSender.replaceTrack(newVideoTrack);
+            // Also replace audio track to keep stream consistent
+            const newAudioTrack = newStream.getAudioTracks()[0];
+            if (newAudioTrack) {
+              const audioSender = senders.find(s => s.track?.kind === "audio");
+              if (audioSender) audioSender.replaceTrack(newAudioTrack);
+            }
           }
         } catch (e) {
           console.warn("Camera flip track error:", e);
@@ -3183,14 +3196,20 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       );
     }
 
+    // Responsive grid: on small screens cap at 2 cols, on medium 3, on large up to 4
+    const isMobile = window.innerWidth <= 480;
+    const isTablet = window.innerWidth <= 768;
+    const maxCols = isMobile ? 2 : isTablet ? 3 : 4;
+    const cols = Math.min(totalParticipantsCount, maxCols);
+
     return (
       <div style={{ 
         width: '100%', 
         height: '100%', 
         display: 'grid',
-        gridTemplateColumns: `repeat(${Math.min(totalParticipantsCount, 4)}, 1fr)`,
-        gap: '12px',
-        padding: '12px',
+        gridTemplateColumns: `repeat(${cols}, 1fr)`,
+        gap: isMobile ? '6px' : '12px',
+        padding: isMobile ? '6px' : '12px',
         alignContent: 'center'
       }}>
         {renderParticipantTiles()}
