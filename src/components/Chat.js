@@ -475,8 +475,8 @@ const LandingWrapper = styled.div`
   box-sizing: border-box;
 
   @media (max-width: 480px) {
-    align-items: flex-start;
-    padding: 0;
+    align-items: center;
+    padding: 16px 0;
     overscroll-behavior: contain;
     background: var(--chakra-colors-bg);
     &::before, &::after { display: none; }
@@ -551,16 +551,12 @@ const JoinContainer = styled.div`
   position: relative;
 
   @media (max-width: 480px) {
-    width: 100vw;
+    width: calc(100vw - 32px);
     max-width: none;
-    min-height: 100dvh;
-    margin: 0;
-    padding: calc(env(safe-area-inset-top) + 24px) 20px calc(env(safe-area-inset-bottom) + 20px);
+    margin: 0 16px;
+    padding: 24px 20px;
     gap: 12px;
-    border: 0;
-    border-radius: 0;
-    background: var(--chakra-colors-bg);
-    box-shadow: none;
+    border-radius: 18px;
   }
 
   @media (min-width: 900px) {
@@ -5817,9 +5813,6 @@ export default function ChatRoom() {
 
           <RoomActions>
             <ThemeSwitcher />
-            <ActionButton onClick={handleShareRoomLink} title="Copy room invite link" aria-label="Copy room invite link">
-              <Link2 size={16} />
-            </ActionButton>
             {(showWhiteboard || showMeeting) && (
               <LiveBadge>
                 <div style={{ width: 6, height: 6, background: "white", borderRadius: "50%" }} />
