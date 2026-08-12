@@ -5378,25 +5378,6 @@ export default function ChatRoom() {
 
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7, color: "var(--chakra-colors-textSecondary)", fontSize: ".75rem", lineHeight: 1.4, textAlign: "center" }}><LockKeyhole size={14} aria-hidden="true" /> End-to-end encrypted session</div>
 
-            <Link
-              to="/admin"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "8px",
-                marginTop: "4px",
-                color: "var(--chakra-colors-textSecondary)",
-                fontSize: "0.85rem",
-                textDecoration: "none",
-                fontWeight: "600",
-                transition: "color 0.2s"
-              }}
-              onMouseEnter={(e) => e.target.style.color = "var(--chakra-colors-brandPrimary)"}
-              onMouseLeave={(e) => e.target.style.color = "var(--chakra-colors-textSecondary)"}
-            >
-              <ShieldCheck size={16} aria-hidden="true" /> Super Admin Console
-            </Link>
           </JoinContainer>
           {renderAvatarCropDialog()}
           {confirmation && <div role="dialog" aria-modal="true" style={{ position: "fixed", inset: 0, zIndex: 23000, background: "rgba(0,0,0,.68)", display: "grid", placeItems: "center", padding: 20 }}><div style={{ width: "min(420px, 100%)", padding: 24, borderRadius: 18, background: "var(--chakra-colors-surface)", border: "1px solid rgba(255,255,255,.12)" }}><h3 style={{ margin: "0 0 8px" }}>{confirmation.title}</h3><p style={{ margin: "0 0 22px", color: "var(--chakra-colors-textSecondary)", lineHeight: 1.5 }}>{confirmation.body}</p><div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}><button type="button" onClick={() => setConfirmation(null)} style={{ minHeight: 44, padding: "9px 14px", borderRadius: 10, border: "1px solid rgba(255,255,255,.15)", background: "transparent", color: "inherit", cursor: "pointer" }}>Cancel</button><button type="button" onClick={() => { confirmation.onConfirm(); setConfirmation(null); }} style={{ minHeight: 44, padding: "9px 14px", borderRadius: 10, border: 0, background: "var(--chakra-colors-brandPrimary)", color: "white", fontWeight: 700, cursor: "pointer" }}>{confirmation.confirmLabel}</button></div></div></div>}
