@@ -5789,6 +5789,23 @@ export default function ChatRoom() {
                       >
                         🛡️ Super Admin Panel
                       </Link>
+                      {ownerToken && (
+                        <button
+                          type="button"
+                          onClick={() => { setShowRoomInfo(false); handleDestroyRoom(); }}
+                          style={{
+                            display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                            width: "100%", padding: "10px 12px", borderRadius: 10,
+                            background: "rgba(255, 71, 87, 0.15)", border: "1px solid rgba(255, 71, 87, 0.5)",
+                            color: "#ff4757", cursor: "pointer", fontSize: "0.82rem", fontWeight: 700,
+                            transition: "all 0.2s", marginTop: 4
+                          }}
+                          onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,71,87,0.28)"; }}
+                          onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,71,87,0.15)"; }}
+                        >
+                          🗑️ Delete Room
+                        </button>
+                      )}
                     </div>
                   </div>
                 </RoomInfoDropdown>
@@ -5856,11 +5873,11 @@ export default function ChatRoom() {
             {ownerToken && (
               <ActionButton
                 onClick={handleDestroyRoom}
-                style={{ color: "red" }}
-                title="Destroy Room"
+                style={{ color: "#ff4757", background: "rgba(255,71,87,0.12)", borderRadius: 8 }}
+                title="Delete Room (Owner only)"
+                aria-label="Delete Room"
               >
-                {" "}
-                ✖{" "}
+                <FaTrash size={14} />
               </ActionButton>
             )}
           </RoomActions>
