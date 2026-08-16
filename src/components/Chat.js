@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef, Suspense, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { io } from "socket.io-client";
-import { 
+import {
   // Link, 
-  useNavigate, useParams, useSearchParams } from "react-router-dom";
+  useNavigate, useParams, useSearchParams
+} from "react-router-dom";
 import axios from "axios";
 import styled, { keyframes } from "styled-components";
 import {
@@ -5858,7 +5859,7 @@ export default function ChatRoom() {
             </ActionButton>
 
             <ActionButton onClick={handleLeaveRoom} title="Leave Room" style={{ color: "var(--chakra-colors-brandPrimary)" }}>
-              <FaSignOutAlt />
+              <FaSignOutAlt color="white" />
             </ActionButton>
 
             <ActionButton onClick={() => setShowBookmarks(!showBookmarks)} title="Saved messages / Bookmarks" style={{ color: showBookmarks ? "var(--chakra-colors-brandPrimary)" : "inherit" }}>
@@ -6581,339 +6582,339 @@ export default function ChatRoom() {
             Stealth observer mode — read-only access
           </div>
         ) : (
-        <MessageInputContainer style={{ flexDirection: "column", alignItems: "stretch", gap: 8 }}>
-          {replyTo && (
-            <div style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              padding: "10px 14px",
-              background: "rgba(255,255,255,.06)",
-              borderRadius: 12,
-              borderLeft: "3px solid var(--chakra-colors-brandPrimary)",
-              animation: "fadeIn .15s ease",
-            }}>
-              <ReplyAttachmentPreview reply={replyTo} roomKey={roomKey} />
-              <div style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
-                <div style={{ fontSize: ".75rem", fontWeight: 700, color: "var(--chakra-colors-brandPrimary)", marginBottom: 2 }}>
-                  Replying to {replyTo.userName || "Message"}
-                </div>
-                <div style={{ fontSize: ".8rem", opacity: .72, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {replyTo.file?.viewOnce ? "View-once media" : (replyTo.preview || "Attachment")}
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setReplyTo(null)}
-                aria-label="Cancel reply"
-                style={{
-                  background: "rgba(255,255,255,.08)",
-                  border: "none",
-                  color: "var(--chakra-colors-textSecondary)",
-                  cursor: "pointer",
-                  borderRadius: "50%",
-                  width: 28,
-                  height: 28,
-                  display: "grid",
-                  placeItems: "center",
-                  flexShrink: 0,
-                  fontSize: ".85rem",
-                  transition: "background .2s, color .2s",
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,71,87,.18)"; e.currentTarget.style.color = "#ff6b6b"; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,.08)"; e.currentTarget.style.color = "var(--chakra-colors-textSecondary)"; }}
-              >
-                ✕
-              </button>
-            </div>
-          )}
-          {showMobileActions && isMobile && (
-            <AccessoryRow>
-              <div style={{ position: "relative" }}>
-                <IconButton type="button" className="emoji-picker-toggle-btn" onClick={() => setShowEmojiPicker((value) => !value)} title="Choose an emoji" aria-label="Choose an emoji">😊</IconButton>
-                {showEmojiPicker && (
-                  <PremiumEmojiPicker
-                    onSelect={(emoji) => {
-                      setMessage((current) => `${current}${emoji}`);
-                      setShowEmojiPicker(false);
-                    }}
-                    onClose={() => setShowEmojiPicker(false)}
-                    isMobile={isMobile}
-                  />
-                )}
-              </div>
-              <IconButton
-                onClick={() => {
-                  setShowGifPicker(true);
-                  fetchGifs();
-                }}
-                title="Send GIF"
-              >
-                <HiGif />
-              </IconButton>
-              <IconButton
-                onClick={() => setShowPollCreator(true)}
-                title="Create Poll"
-              >
-                📊
-              </IconButton>
-              <IconButton
-                onClick={() => setShowScheduler(!showScheduler)}
-                title="Schedule Message"
-                style={{ color: showScheduler ? "var(--chakra-colors-brandPrimary)" : "inherit" }}
-              >
-                ⏰
-              </IconButton>
-              <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
-                <EphemeralToggle
-                  $active={roomEphemeralDuration > 0}
-                  onClick={() => setShowEphemeralMenu(!showEphemeralMenu)}
-                  title={roomEphemeralDuration > 0 ? `Disappearing messages ON` : "Disappearing messages OFF"}
-                >
-                  <FaClock />
-                </EphemeralToggle>
-                {showEphemeralMenu && (
-                  <>
-                    <EphemeralMenuOverlay onClick={() => setShowEphemeralMenu(false)} />
-                    <EphemeralMenuCard onClick={(e) => e.stopPropagation()}>
-                      <div className="title">💨 Disappearing Messages</div>
-                      <div className="subtitle">All new messages in this room will vanish after the selected time.</div>
-                      <div className="options">
-                        {[
-                          { label: "Off", value: 0 },
-                          { label: "1 Hour", value: 3600 },
-                          { label: "24 Hours", value: 86400 },
-                          { label: "7 Days", value: 604800 },
-                          { label: "30 Days", value: 2592000 }
-                        ].map((opt) => (
-                          <button
-                            key={opt.value}
-                            type="button"
-                            className={`option-btn ${roomEphemeralDuration === opt.value ? 'active' : ''}`}
-                            onClick={() => {
-                              socketRef.current.emit("updateRoomEphemeral", { roomId, ephemeralDuration: opt.value });
-                              setShowEphemeralMenu(false);
-                            }}
-                          >
-                            <span>{opt.label}</span>
-                            {roomEphemeralDuration === opt.value && <span className="check">✓</span>}
-                          </button>
-                        ))}
-                      </div>
-                    </EphemeralMenuCard>
-                  </>
-                )}
-              </div>
-            </AccessoryRow>
-          )}
-
-          {showMentionSuggestions && mentionSuggestions.length > 0 && (
-            <div
-              className="mention-suggestions"
-              style={{
-                position: "absolute",
-                bottom: "calc(100% + 4px)",
-                left: isMobile ? 12 : 24,
-                right: isMobile ? 12 : 24,
-                background: "rgba(20, 20, 25, 0.95)",
-                backdropFilter: "blur(20px)",
-                border: "1px solid rgba(255, 255, 255, 0.08)",
-                borderRadius: "14px",
-                boxShadow: "0 -8px 24px rgba(0, 0, 0, 0.4), 0 10px 30px rgba(0, 0, 0, 0.3)",
-                maxHeight: "200px",
-                overflowY: "auto",
-                zIndex: 21000,
+          <MessageInputContainer style={{ flexDirection: "column", alignItems: "stretch", gap: 8 }}>
+            {replyTo && (
+              <div style={{
                 display: "flex",
-                flexDirection: "column",
-                padding: "6px"
-              }}
-            >
-              {mentionSuggestions.map((user, idx) => {
-                const profile = participantProfiles[user.id] || Object.values(participantProfiles).find(p => p.name === user.name);
-                const avatar = profile?.avatar;
-                return (
-                  <div
-                    key={user.id}
-                    onClick={() => selectMention(idx)}
-                    style={{
-                      padding: "8px 12px",
-                      borderRadius: "8px",
-                      cursor: "pointer",
-                      background: idx === mentionIndex ? "rgba(255, 63, 94, 0.15)" : "transparent",
-                      color: idx === mentionIndex ? "var(--chakra-colors-brandPrimary)" : "var(--chakra-colors-textPrimary)",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "10px",
-                      transition: "all 0.2s ease",
-                      fontWeight: idx === mentionIndex ? "bold" : "normal"
-                    }}
+                alignItems: "center",
+                gap: 10,
+                padding: "10px 14px",
+                background: "rgba(255,255,255,.06)",
+                borderRadius: 12,
+                borderLeft: "3px solid var(--chakra-colors-brandPrimary)",
+                animation: "fadeIn .15s ease",
+              }}>
+                <ReplyAttachmentPreview reply={replyTo} roomKey={roomKey} />
+                <div style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
+                  <div style={{ fontSize: ".75rem", fontWeight: 700, color: "var(--chakra-colors-brandPrimary)", marginBottom: 2 }}>
+                    Replying to {replyTo.userName || "Message"}
+                  </div>
+                  <div style={{ fontSize: ".8rem", opacity: .72, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {replyTo.file?.viewOnce ? "View-once media" : (replyTo.preview || "Attachment")}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setReplyTo(null)}
+                  aria-label="Cancel reply"
+                  style={{
+                    background: "rgba(255,255,255,.08)",
+                    border: "none",
+                    color: "var(--chakra-colors-textSecondary)",
+                    cursor: "pointer",
+                    borderRadius: "50%",
+                    width: 28,
+                    height: 28,
+                    display: "grid",
+                    placeItems: "center",
+                    flexShrink: 0,
+                    fontSize: ".85rem",
+                    transition: "background .2s, color .2s",
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,71,87,.18)"; e.currentTarget.style.color = "#ff6b6b"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,.08)"; e.currentTarget.style.color = "var(--chakra-colors-textSecondary)"; }}
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+            {showMobileActions && isMobile && (
+              <AccessoryRow>
+                <div style={{ position: "relative" }}>
+                  <IconButton type="button" className="emoji-picker-toggle-btn" onClick={() => setShowEmojiPicker((value) => !value)} title="Choose an emoji" aria-label="Choose an emoji">😊</IconButton>
+                  {showEmojiPicker && (
+                    <PremiumEmojiPicker
+                      onSelect={(emoji) => {
+                        setMessage((current) => `${current}${emoji}`);
+                        setShowEmojiPicker(false);
+                      }}
+                      onClose={() => setShowEmojiPicker(false)}
+                      isMobile={isMobile}
+                    />
+                  )}
+                </div>
+                <IconButton
+                  onClick={() => {
+                    setShowGifPicker(true);
+                    fetchGifs();
+                  }}
+                  title="Send GIF"
+                >
+                  <HiGif />
+                </IconButton>
+                <IconButton
+                  onClick={() => setShowPollCreator(true)}
+                  title="Create Poll"
+                >
+                  📊
+                </IconButton>
+                <IconButton
+                  onClick={() => setShowScheduler(!showScheduler)}
+                  title="Schedule Message"
+                  style={{ color: showScheduler ? "var(--chakra-colors-brandPrimary)" : "inherit" }}
+                >
+                  ⏰
+                </IconButton>
+                <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                  <EphemeralToggle
+                    $active={roomEphemeralDuration > 0}
+                    onClick={() => setShowEphemeralMenu(!showEphemeralMenu)}
+                    title={roomEphemeralDuration > 0 ? `Disappearing messages ON` : "Disappearing messages OFF"}
                   >
-                    {avatar ? (
-                      <img
-                        src={avatar}
-                        alt={user.name}
-                        style={{ width: "24px", height: "24px", borderRadius: "50%", objectFit: "cover" }}
-                      />
-                    ) : (
-                      <div style={{
-                        width: "24px",
-                        height: "24px",
-                        borderRadius: "50%",
-                        background: "rgba(255, 255, 255, 0.1)",
+                    <FaClock />
+                  </EphemeralToggle>
+                  {showEphemeralMenu && (
+                    <>
+                      <EphemeralMenuOverlay onClick={() => setShowEphemeralMenu(false)} />
+                      <EphemeralMenuCard onClick={(e) => e.stopPropagation()}>
+                        <div className="title">💨 Disappearing Messages</div>
+                        <div className="subtitle">All new messages in this room will vanish after the selected time.</div>
+                        <div className="options">
+                          {[
+                            { label: "Off", value: 0 },
+                            { label: "1 Hour", value: 3600 },
+                            { label: "24 Hours", value: 86400 },
+                            { label: "7 Days", value: 604800 },
+                            { label: "30 Days", value: 2592000 }
+                          ].map((opt) => (
+                            <button
+                              key={opt.value}
+                              type="button"
+                              className={`option-btn ${roomEphemeralDuration === opt.value ? 'active' : ''}`}
+                              onClick={() => {
+                                socketRef.current.emit("updateRoomEphemeral", { roomId, ephemeralDuration: opt.value });
+                                setShowEphemeralMenu(false);
+                              }}
+                            >
+                              <span>{opt.label}</span>
+                              {roomEphemeralDuration === opt.value && <span className="check">✓</span>}
+                            </button>
+                          ))}
+                        </div>
+                      </EphemeralMenuCard>
+                    </>
+                  )}
+                </div>
+              </AccessoryRow>
+            )}
+
+            {showMentionSuggestions && mentionSuggestions.length > 0 && (
+              <div
+                className="mention-suggestions"
+                style={{
+                  position: "absolute",
+                  bottom: "calc(100% + 4px)",
+                  left: isMobile ? 12 : 24,
+                  right: isMobile ? 12 : 24,
+                  background: "rgba(20, 20, 25, 0.95)",
+                  backdropFilter: "blur(20px)",
+                  border: "1px solid rgba(255, 255, 255, 0.08)",
+                  borderRadius: "14px",
+                  boxShadow: "0 -8px 24px rgba(0, 0, 0, 0.4), 0 10px 30px rgba(0, 0, 0, 0.3)",
+                  maxHeight: "200px",
+                  overflowY: "auto",
+                  zIndex: 21000,
+                  display: "flex",
+                  flexDirection: "column",
+                  padding: "6px"
+                }}
+              >
+                {mentionSuggestions.map((user, idx) => {
+                  const profile = participantProfiles[user.id] || Object.values(participantProfiles).find(p => p.name === user.name);
+                  const avatar = profile?.avatar;
+                  return (
+                    <div
+                      key={user.id}
+                      onClick={() => selectMention(idx)}
+                      style={{
+                        padding: "8px 12px",
+                        borderRadius: "8px",
+                        cursor: "pointer",
+                        background: idx === mentionIndex ? "rgba(255, 63, 94, 0.15)" : "transparent",
+                        color: idx === mentionIndex ? "var(--chakra-colors-brandPrimary)" : "var(--chakra-colors-textPrimary)",
                         display: "flex",
                         alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: "0.75rem",
-                        fontWeight: "bold"
-                      }}>
-                        {user.name ? user.name.slice(0, 2).toUpperCase() : "?"}
-                      </div>
-                    )}
-                    <span style={{ fontSize: "0.9rem" }}>{user.name}</span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 12, width: "100%" }}>
-            <InputPill>
-              {isMobile && (
-                <IconButton
-                  type="button"
-                  onClick={() => setShowMobileActions(!showMobileActions)}
-                  title="More Actions"
-                  style={{ color: showMobileActions ? "var(--chakra-colors-brandPrimary)" : "inherit", transform: showMobileActions ? "rotate(45deg)" : "none", transition: "transform 0.2s" }}
-                >
-                  ➕
-                </IconButton>
-              )}
-
-              <IconButton as="label" htmlFor="file-input" title="Upload File">
-                <FaPaperclip />
-              </IconButton>
-
-              <FileInput
-                ref={fileInputRef}
-                id="file-input"
-                type="file"
-                multiple
-                onChange={(e) => {
-                  const files = Array.from(e.target.files);
-                  if (files.length === 0) return;
-                  setPendingFiles((prev) => [...prev, ...files]);
-                }}
-              />
-
-              {isRecording ? (
-                <RecordingIndicator onClick={stopVoiceRecording} title="Stop recording">
-                  <span className="dot" />
-                  <span className="timer">
-                    {Math.floor(recordingTime / 60)}:{String(recordingTime % 60).padStart(2, '0')}
-                  </span>
-                </RecordingIndicator>
-              ) : (
-                <IconButton onClick={startVoiceRecording} title="Record voice note">
-                  <FaMicrophone />
-                </IconButton>
-              )}
-
-              <MessageInput
-                placeholder={ephemeralMode ? "💨 Ephemeral message..." : "Type a message..."}
-                value={message}
-                onChange={handleInputChange}
-                onKeyDown={handleInputKeyDown}
-              />
-
-              {!isMobile && (
-                <>
-                  <div style={{ position: "relative" }}>
-                    <IconButton type="button" className="emoji-picker-toggle-btn" onClick={() => setShowEmojiPicker((value) => !value)} title="Choose an emoji" aria-label="Choose an emoji">😊</IconButton>
-                    {showEmojiPicker && (
-                      <PremiumEmojiPicker
-                        onSelect={(emoji) => {
-                          setMessage((current) => `${current}${emoji}`);
-                          setShowEmojiPicker(false);
-                        }}
-                        onClose={() => setShowEmojiPicker(false)}
-                        isMobile={isMobile}
-                      />
-                    )}
-                  </div>
-                  <IconButton
-                    onClick={() => {
-                      setShowGifPicker(true);
-                      fetchGifs();
-                    }}
-                    title="Send GIF"
-                  >
-                    <HiGif />
-                  </IconButton>
-
-                  <IconButton
-                    onClick={() => setShowPollCreator(true)}
-                    title="Create Poll"
-                  >
-                    📊
-                  </IconButton>
-
-                  <IconButton
-                    onClick={() => setShowScheduler(!showScheduler)}
-                    title="Schedule Message"
-                    style={{ color: showScheduler ? "var(--chakra-colors-brandPrimary)" : "inherit" }}
-                  >
-                    ⏰
-                  </IconButton>
-
-                  <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
-                    <EphemeralToggle
-                      $active={roomEphemeralDuration > 0}
-                      onClick={() => setShowEphemeralMenu(!showEphemeralMenu)}
-                      title={roomEphemeralDuration > 0 ? `Disappearing messages ON` : "Disappearing messages OFF"}
+                        gap: "10px",
+                        transition: "all 0.2s ease",
+                        fontWeight: idx === mentionIndex ? "bold" : "normal"
+                      }}
                     >
-                      <FaClock />
-                    </EphemeralToggle>
-                    {showEphemeralMenu && (
-                      <>
-                        <EphemeralMenuOverlay onClick={() => setShowEphemeralMenu(false)} />
-                        <EphemeralMenuCard onClick={(e) => e.stopPropagation()}>
-                          <div className="title">💨 Disappearing Messages</div>
-                          <div className="subtitle">All new messages in this room will vanish after the selected time.</div>
-                          <div className="options">
-                            {[
-                              { label: "Off", value: 0 },
-                              { label: "1 Hour", value: 3600 },
-                              { label: "24 Hours", value: 86400 },
-                              { label: "7 Days", value: 604800 },
-                              { label: "30 Days", value: 2592000 }
-                            ].map((opt) => (
-                              <button
-                                key={opt.value}
-                                type="button"
-                                className={`option-btn ${roomEphemeralDuration === opt.value ? 'active' : ''}`}
-                                onClick={() => {
-                                  socketRef.current.emit("updateRoomEphemeral", { roomId, ephemeralDuration: opt.value });
-                                  setShowEphemeralMenu(false);
-                                }}
-                              >
-                                <span>{opt.label}</span>
-                                {roomEphemeralDuration === opt.value && <span className="check">✓</span>}
-                              </button>
-                            ))}
-                          </div>
-                        </EphemeralMenuCard>
-                      </>
-                    )}
-                  </div>
-                </>
-              )}
-            </InputPill>
+                      {avatar ? (
+                        <img
+                          src={avatar}
+                          alt={user.name}
+                          style={{ width: "24px", height: "24px", borderRadius: "50%", objectFit: "cover" }}
+                        />
+                      ) : (
+                        <div style={{
+                          width: "24px",
+                          height: "24px",
+                          borderRadius: "50%",
+                          background: "rgba(255, 255, 255, 0.1)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: "0.75rem",
+                          fontWeight: "bold"
+                        }}>
+                          {user.name ? user.name.slice(0, 2).toUpperCase() : "?"}
+                        </div>
+                      )}
+                      <span style={{ fontSize: "0.9rem" }}>{user.name}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
-            <SendButton onClick={() => handleSend()} disabled={!message.trim()}>
-              <FaPaperPlane />
-            </SendButton>
-          </div>
-        </MessageInputContainer>
+            <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 12, width: "100%" }}>
+              <InputPill>
+                {isMobile && (
+                  <IconButton
+                    type="button"
+                    onClick={() => setShowMobileActions(!showMobileActions)}
+                    title="More Actions"
+                    style={{ color: showMobileActions ? "var(--chakra-colors-brandPrimary)" : "inherit", transform: showMobileActions ? "rotate(45deg)" : "none", transition: "transform 0.2s" }}
+                  >
+                    ➕
+                  </IconButton>
+                )}
+
+                <IconButton as="label" htmlFor="file-input" title="Upload File">
+                  <FaPaperclip />
+                </IconButton>
+
+                <FileInput
+                  ref={fileInputRef}
+                  id="file-input"
+                  type="file"
+                  multiple
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files);
+                    if (files.length === 0) return;
+                    setPendingFiles((prev) => [...prev, ...files]);
+                  }}
+                />
+
+                {isRecording ? (
+                  <RecordingIndicator onClick={stopVoiceRecording} title="Stop recording">
+                    <span className="dot" />
+                    <span className="timer">
+                      {Math.floor(recordingTime / 60)}:{String(recordingTime % 60).padStart(2, '0')}
+                    </span>
+                  </RecordingIndicator>
+                ) : (
+                  <IconButton onClick={startVoiceRecording} title="Record voice note">
+                    <FaMicrophone />
+                  </IconButton>
+                )}
+
+                <MessageInput
+                  placeholder={ephemeralMode ? "💨 Ephemeral message..." : "Type a message..."}
+                  value={message}
+                  onChange={handleInputChange}
+                  onKeyDown={handleInputKeyDown}
+                />
+
+                {!isMobile && (
+                  <>
+                    <div style={{ position: "relative" }}>
+                      <IconButton type="button" className="emoji-picker-toggle-btn" onClick={() => setShowEmojiPicker((value) => !value)} title="Choose an emoji" aria-label="Choose an emoji">😊</IconButton>
+                      {showEmojiPicker && (
+                        <PremiumEmojiPicker
+                          onSelect={(emoji) => {
+                            setMessage((current) => `${current}${emoji}`);
+                            setShowEmojiPicker(false);
+                          }}
+                          onClose={() => setShowEmojiPicker(false)}
+                          isMobile={isMobile}
+                        />
+                      )}
+                    </div>
+                    <IconButton
+                      onClick={() => {
+                        setShowGifPicker(true);
+                        fetchGifs();
+                      }}
+                      title="Send GIF"
+                    >
+                      <HiGif />
+                    </IconButton>
+
+                    <IconButton
+                      onClick={() => setShowPollCreator(true)}
+                      title="Create Poll"
+                    >
+                      📊
+                    </IconButton>
+
+                    <IconButton
+                      onClick={() => setShowScheduler(!showScheduler)}
+                      title="Schedule Message"
+                      style={{ color: showScheduler ? "var(--chakra-colors-brandPrimary)" : "inherit" }}
+                    >
+                      ⏰
+                    </IconButton>
+
+                    <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                      <EphemeralToggle
+                        $active={roomEphemeralDuration > 0}
+                        onClick={() => setShowEphemeralMenu(!showEphemeralMenu)}
+                        title={roomEphemeralDuration > 0 ? `Disappearing messages ON` : "Disappearing messages OFF"}
+                      >
+                        <FaClock />
+                      </EphemeralToggle>
+                      {showEphemeralMenu && (
+                        <>
+                          <EphemeralMenuOverlay onClick={() => setShowEphemeralMenu(false)} />
+                          <EphemeralMenuCard onClick={(e) => e.stopPropagation()}>
+                            <div className="title">💨 Disappearing Messages</div>
+                            <div className="subtitle">All new messages in this room will vanish after the selected time.</div>
+                            <div className="options">
+                              {[
+                                { label: "Off", value: 0 },
+                                { label: "1 Hour", value: 3600 },
+                                { label: "24 Hours", value: 86400 },
+                                { label: "7 Days", value: 604800 },
+                                { label: "30 Days", value: 2592000 }
+                              ].map((opt) => (
+                                <button
+                                  key={opt.value}
+                                  type="button"
+                                  className={`option-btn ${roomEphemeralDuration === opt.value ? 'active' : ''}`}
+                                  onClick={() => {
+                                    socketRef.current.emit("updateRoomEphemeral", { roomId, ephemeralDuration: opt.value });
+                                    setShowEphemeralMenu(false);
+                                  }}
+                                >
+                                  <span>{opt.label}</span>
+                                  {roomEphemeralDuration === opt.value && <span className="check">✓</span>}
+                                </button>
+                              ))}
+                            </div>
+                          </EphemeralMenuCard>
+                        </>
+                      )}
+                    </div>
+                  </>
+                )}
+              </InputPill>
+
+              <SendButton onClick={() => handleSend()} disabled={!message.trim()}>
+                <FaPaperPlane />
+              </SendButton>
+            </div>
+          </MessageInputContainer>
         )}
 
         <style>{`
