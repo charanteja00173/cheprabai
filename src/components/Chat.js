@@ -6178,7 +6178,7 @@ export default function ChatRoom() {
             </ActionButton>
             )}
 
-            {features.messageSearch !== false && (
+            {!isMobile && features.messageSearch !== false && (
             <ActionButton onClick={() => { setShowSearch(!showSearch); if (showSearch) setSearchQuery(""); }} title="Search Messages">
               <FaSearch />
             </ActionButton>
@@ -6188,13 +6188,13 @@ export default function ChatRoom() {
               <FaSignOutAlt color="white" />
             </ActionButton>
 
-            {features.bookmarks !== false && (
+            {!isMobile && features.bookmarks !== false && (
             <ActionButton onClick={() => setShowBookmarks(!showBookmarks)} title="Saved messages / Bookmarks" style={{ color: showBookmarks ? "var(--chakra-colors-brandPrimary)" : "inherit" }}>
               🔖
             </ActionButton>
             )}
 
-            {features.keyboardShortcuts !== false && (
+            {!isMobile && features.keyboardShortcuts !== false && (
             <ActionButton onClick={() => setShowShortcutsHelp(true)} title="Keyboard Shortcuts Guide" style={{ fontSize: "1.1rem" }}>
               ⌨️
             </ActionButton>
@@ -6217,9 +6217,20 @@ export default function ChatRoom() {
         </Header>
         {renderPinnedMessagesBanner()}
         {Object.entries(features).some(([, v]) => v === false) && (
-          <div style={{ background: "linear-gradient(135deg, rgba(234,179,8,0.12), rgba(234,179,8,0.06))", border: "1px solid rgba(234,179,8,0.3)", borderRadius: 10, padding: "10px 16px", margin: "8px 16px", display: "flex", alignItems: "center", gap: 10, fontSize: "0.85rem", color: "var(--chakra-colors-textPrimary)" }}>
-            <span style={{ fontSize: "1.1rem" }}>⚠️</span>
-            <span>Some features are currently unavailable. Contact admin or upgrade your plan to access them.</span>
+          <div style={{
+            background: "var(--chakra-colors-surface, rgba(255,255,255,0.04))",
+            border: "1px solid var(--chakra-colors-border, rgba(255,255,255,0.08))",
+            borderRadius: 10,
+            padding: "8px 14px",
+            margin: "0 16px 4px",
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            fontSize: "0.78rem",
+            color: "var(--chakra-colors-textSecondary, #999)",
+          }}>
+            <span style={{ fontSize: "0.85rem", opacity: 0.7 }}>ℹ</span>
+            <span>Some features are limited. <span style={{ color: "var(--chakra-colors-brandPrimary, #818cf8)", cursor: "pointer", fontWeight: 600 }}>Contact admin</span> to enable more.</span>
           </div>
         )}
         {viewer && (() => {
@@ -7003,8 +7014,6 @@ export default function ChatRoom() {
                 <SendBtn
                   onClick={() => {
                     handleSend();
-                    setPendingFiles([]);
-                    if (fileInputRef.current) fileInputRef.current.value = "";
                   }}
                 >
                   <FaPaperPlane />
@@ -7381,7 +7390,7 @@ export default function ChatRoom() {
                 )}
               </InputPill>
 
-              <SendButton onClick={() => handleSend()} disabled={!message.trim()}>
+              <SendButton onClick={() => handleSend()} disabled={!message.trim() && pendingFiles.length === 0}>
                 <FaPaperPlane />
               </SendButton>
             </div>
