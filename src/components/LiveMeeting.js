@@ -92,6 +92,12 @@ const MeetingContainer = styled.div`
       border-radius: 14px;
     `}
   }
+
+  @media (max-width: 600px) {
+    .hide-mobile {
+      display: none !important;
+    }
+  }
 `;
 
 const BackgroundAtmosphere = styled.div`
@@ -155,6 +161,12 @@ const BrandBadge = styled.div`
     background: #00f2fe;
     animation: ${pulseGlow} 2s infinite;
   }
+
+  @media (max-width: 480px) {
+    span:not(.live-dot) {
+      display: none;
+    }
+  }
 `;
 
 const RoomTag = styled.span`
@@ -207,6 +219,14 @@ const StatusPill = styled.div`
   &:hover {
     transform: translateY(-1px);
     filter: brightness(1.1);
+  }
+
+  @media (max-width: 500px) {
+    padding: 4px 8px;
+    font-size: 0.65rem;
+    .status-label {
+      display: none !important;
+    }
   }
 `;
 
@@ -494,6 +514,17 @@ const ControlsDock = styled.footer`
     padding: 10px;
     gap: 6px;
   }
+
+  @media (max-width: 600px) {
+    justify-content: space-evenly;
+    flex-wrap: nowrap;
+    padding: 12px 8px;
+    gap: 4px;
+
+    .leave-btn {
+      margin-left: 0 !important;
+    }
+  }
 `;
 
 const DockButton = styled.button`
@@ -533,11 +564,29 @@ const DockButton = styled.button`
     transform: translateY(-2px);
   }
 
+  span {
+    transition: display 0.2s;
+  }
+
   @media (max-width: 600px) {
-    min-width: 40px;
-    height: 40px;
-    padding: 0 10px;
-    font-size: 0.8rem;
+    min-width: 38px;
+    height: 38px;
+    padding: 0;
+    border-radius: 50%;
+    font-size: 0.85rem;
+    
+    span {
+      display: none !important;
+    }
+  }
+`;
+
+const EmojiTray = styled.div`
+  display: flex;
+  gap: 6px;
+
+  @media (max-width: 600px) {
+    display: none !important;
   }
 `;
 
@@ -706,6 +755,7 @@ const PipWidget = styled.div`
 export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin, ownerToken, userAvatar }) {
   // ── States ──
   const [localStream, setLocalStream] = useState(null);
+  const [displayStream, setDisplayStream] = useState(null); // tracks active display (camera or screenshare)
   const [remoteStreams, setRemoteStreams] = useState({}); // { [peerId]: { stream, name, isMuted, isVideoOff, volume } }
   const [participantStates, setParticipantStates] = useState({}); // { [peerId]: { isMuted, isVideoOff, role } }
   const [myPeerId, setMyPeerId] = useState(null);
@@ -726,10 +776,10 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const [reactions, setReactions] = useState([]);
   const [isRecording, setIsRecording] = useState(false);
   const [kickTarget, setKickTarget] = useState(null); // { id, name }
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
 
   // ── Refs ──
   const containerRef = useRef(null);
-  const myVideoRef = useRef(null);
   const peerRef = useRef(null);
   const peers = useRef({}); // { [peerId]: MediaConnection }
   const localStreamRef = useRef(null);
@@ -739,7 +789,16 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const recordedChunksRef = useRef([]);
   const durationTimerRef = useRef(null);
   const callStartTimeRef = useRef(Date.now());
+  const pendingCallsRef = useRef([]); // queued incoming calls before local stream is ready
   const isRoomHost = useMemo(() => Boolean(isAdmin || ownerToken), [isAdmin, ownerToken]);
+
+  // ── Reactive callback ref for local video element ──
+  // Binds displayStream to any <video> element it is attached to, surviving mount/unmount cycles (PiP, minimize)
+  const localVideoCallbackRef = useCallback((videoEl) => {
+    if (videoEl && displayStream) {
+      videoEl.srcObject = displayStream;
+    }
+  }, [displayStream]);
 
   const getInitials = (name) => {
     if (!name) return "?";
@@ -987,6 +1046,33 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     }
   }, [isRoomHost, socket, roomId]);
 
+  // ─── Graceful Leave with Cleanup ───
+  const handleLeaveCall = useCallback(() => {
+    // Stop recording if active
+    if (recorderRef.current && recorderRef.current.state !== "inactive") {
+      try { recorderRef.current.stop(); } catch (e) {}
+    }
+    // Stop local tracks
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach(t => t.stop());
+    }
+    // Close all peer connections
+    Object.values(peers.current).forEach(c => {
+      try { c.close(); } catch (e) {}
+    });
+    peers.current = {};
+    // Destroy PeerJS instance
+    if (peerRef.current) {
+      try { peerRef.current.destroy(); } catch (e) {}
+    }
+    // Notify server
+    if (socket && typeof socket.emit === "function") {
+      socket.emit("leave-call", { roomId });
+    }
+    setShowLeaveConfirm(false);
+    onClose();
+  }, [socket, roomId, onClose]);
+
   // ─── Main WebRTC & PeerJS Lifecycle ───
   useEffect(() => {
     let isCancelled = false;
@@ -1042,8 +1128,20 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
       localStreamRef.current = stream;
       setLocalStream(stream);
-      if (myVideoRef.current) myVideoRef.current.srcObject = stream;
+      setDisplayStream(stream); // bind to callback ref
       setupAudioAnalysis(stream, "local");
+
+      // Answer any calls that arrived before our stream was ready
+      if (pendingCallsRef.current.length > 0) {
+        pendingCallsRef.current.forEach(pendingCall => {
+          try {
+            pendingCall.answer(stream);
+            peers.current[pendingCall.peer] = pendingCall;
+            handleCallEvents(pendingCall, pendingCall.peer);
+          } catch (e) { console.warn("Failed to answer pending call:", e); }
+        });
+        pendingCallsRef.current = [];
+      }
 
       // 2. Multi-tier ICE Configuration
       const iceServers = [
@@ -1070,11 +1168,25 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         });
       }
 
-      // 3. Resilient PeerJS Initialization (Uses Cloud/STUN signaling fallback)
+      // 3. Resilient PeerJS Initialization — auto-detect signaling server from socket endpoint
       const peerOptions = {
-        config: { iceServers }
+        config: { iceServers },
+        debug: 1 // 0=none, 1=errors, 2=warnings, 3=all
       };
 
+      // Auto-detect PeerJS host: use the same server as our socket connection
+      const socketEndpoint = process.env.REACT_APP_SOCKET_ENDPOINT || window.location.origin;
+      try {
+        const parsed = new URL(socketEndpoint);
+        peerOptions.host = parsed.hostname;
+        peerOptions.port = parsed.port || (parsed.protocol === "https:" ? 443 : 80);
+        peerOptions.path = "/peerjs";
+        peerOptions.secure = parsed.protocol === "https:";
+      } catch (urlErr) {
+        console.warn("Could not parse socket endpoint for PeerJS, using defaults:", urlErr);
+      }
+
+      // Allow explicit overrides if set
       if (process.env.REACT_APP_PEER_HOST) {
         peerOptions.host = process.env.REACT_APP_PEER_HOST;
         peerOptions.port = process.env.REACT_APP_PEER_PORT || 443;
@@ -1102,12 +1214,28 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         }
       });
 
-      // Handle incoming calls (Answer with local stream)
+      // Handle incoming calls — queue if local stream not ready yet
       peer.on("call", (incomingCall) => {
         if (localStreamRef.current) {
           incomingCall.answer(localStreamRef.current);
           peers.current[incomingCall.peer] = incomingCall;
           handleCallEvents(incomingCall, incomingCall.peer);
+        } else {
+          // Stream not acquired yet — queue and answer once ready
+          console.log("[PeerJS] Incoming call queued — local stream not ready yet");
+          pendingCallsRef.current.push(incomingCall);
+        }
+      });
+
+      // Auto-reconnect if signaling server drops
+      peer.on("disconnected", () => {
+        console.warn("[PeerJS] Signaling server disconnected. Attempting reconnect...");
+        if (peerRef.current && !peerRef.current.destroyed) {
+          try {
+            peerRef.current.reconnect();
+          } catch (e) {
+            console.error("[PeerJS] Reconnect failed:", e);
+          }
         }
       });
 
@@ -1188,13 +1316,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         socket.on("kicked-from-call", ({ peerId, targetName, adminName }) => {
           if (peerId === peerRef.current?.id || targetName === userName) {
             toast.error(`🚫 You have been removed from the video call by ${adminName || 'the room host'}.`);
-            if (localStreamRef.current) {
-              localStreamRef.current.getTracks().forEach(t => t.stop());
-            }
-            if (peerRef.current) {
-              try { peerRef.current.destroy(); } catch (e) {}
-            }
-            onClose();
+            handleLeaveCall();
           } else {
             toast.info(`ℹ️ ${targetName || 'A participant'} was removed by the host.`);
             if (peers.current[peerId]) {
@@ -1212,9 +1334,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         socket.on("admin-kick-user", ({ peerId, name, adminName }) => {
           if (peerId === peerRef.current?.id || name === userName) {
             toast.error(`🚫 You have been removed from the call by ${adminName || 'an admin'}.`);
-            if (localStreamRef.current) localStreamRef.current.getTracks().forEach(t => t.stop());
-            if (peerRef.current) try { peerRef.current.destroy(); } catch (e) {}
-            onClose();
+            handleLeaveCall();
           }
         });
 
@@ -1259,11 +1379,12 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         try { c.close(); } catch (e) {}
       });
       peers.current = {};
+      pendingCallsRef.current = [];
       if (peerRef.current) {
         try { peerRef.current.destroy(); } catch (e) {}
       }
     };
-  }, [roomId, socket, userName, isRoomHost, userAvatar, onClose, handleCallEvents, callPeer, setupAudioAnalysis, isVideoOff]);
+  }, [roomId, socket, userName, isRoomHost, userAvatar, handleLeaveCall, handleCallEvents, callPeer, setupAudioAnalysis, isVideoOff]);
 
   // ─── Actions & Toggles ───
   const toggleMute = () => {
@@ -1288,9 +1409,8 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         if (socket) {
           socket.emit("media-state-change", { peerId: myPeerId, isMuted, isVideoOff: !vTrack.enabled });
         }
-        if (myVideoRef.current) {
-          myVideoRef.current.srcObject = localStreamRef.current;
-        }
+        // Re-bind display stream so callback ref picks it up
+        setDisplayStream(localStreamRef.current);
       }
     }
   };
@@ -1317,7 +1437,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         if (sender) sender.replaceTrack(newVideoTrack);
       });
 
-      if (myVideoRef.current) myVideoRef.current.srcObject = localStreamRef.current;
+      setDisplayStream(localStreamRef.current);
       toast.success("Camera flipped");
     } catch (e) {
       toast.error("Camera flip unavailable on this device.");
@@ -1334,7 +1454,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         if (sender) sender.replaceTrack(screenTrack);
       });
 
-      if (myVideoRef.current) myVideoRef.current.srcObject = screenStream;
+      setDisplayStream(screenStream); // show screenshare in local tile
 
       screenTrack.onended = () => {
         const originalTrack = localStreamRef.current?.getVideoTracks()[0];
@@ -1343,7 +1463,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
             const sender = call.peerConnection?.getSenders().find(s => s.track?.kind === "video");
             if (sender) sender.replaceTrack(originalTrack);
           });
-          if (myVideoRef.current) myVideoRef.current.srcObject = localStreamRef.current;
+          setDisplayStream(localStreamRef.current); // revert to camera
         }
         toast.info("Screen sharing ended.");
       };
@@ -1435,7 +1555,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                 <div className="circle">{getInitials(userName)}</div>
               </AvatarPlaceholder>
             ) : (
-              <video ref={myVideoRef} autoPlay playsInline muted />
+              <video ref={localVideoCallbackRef} autoPlay playsInline muted />
             )}
             <div className="pip-controls" onClick={e => e.stopPropagation()}>
               <IconButton $active={isMuted} onClick={toggleMute}>
@@ -1467,7 +1587,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
               title="Click for Connection Diagnostics"
             >
               {networkQuality.status === "good" ? <FaWifi size={10} /> : <FaSignal size={10} />}
-              <span>{networkQuality.rtt}ms • {networkQuality.status.toUpperCase()}</span>
+              <span>{networkQuality.rtt}ms<span className="status-label"> • {networkQuality.status.toUpperCase()}</span></span>
             </StatusPill>
 
             {/* Bandwidth Mode Pill */}
@@ -1518,7 +1638,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
           <HeaderRight>
             {/* Diagnostics Button */}
-            <IconButton onClick={() => setShowDiagnostics(true)} title="Connection Diagnostics">
+            <IconButton className="hide-mobile" onClick={() => setShowDiagnostics(true)} title="Connection Diagnostics">
               <FaChartLine />
             </IconButton>
 
@@ -1541,17 +1661,13 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
             </IconButton>
 
             {/* Fullscreen Toggle */}
-            <IconButton onClick={toggleFullscreen} title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}>
+            <IconButton className="hide-mobile" onClick={toggleFullscreen} title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}>
               {isFullscreen ? <FaCompress /> : <FaExpand />}
             </IconButton>
 
             {/* Minimize */}
-            <IconButton onClick={() => setIsMinimized(true)} title="Picture-in-Picture">
+            <IconButton className="hide-mobile" onClick={() => setIsMinimized(true)} title="Picture-in-Picture">
               <FaWindowMinimize />
-            </IconButton>
-
-            <IconButton $primary onClick={onClose} title="Leave Meeting">
-              <FaPhoneSlash />
             </IconButton>
           </HeaderRight>
         </MeetingHeader>
@@ -1578,7 +1694,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                       <div className="circle">{getInitials(userName)}</div>
                     </AvatarPlaceholder>
                   ) : (
-                    <video ref={myVideoRef} autoPlay playsInline muted />
+                    <video ref={localVideoCallbackRef} autoPlay playsInline muted />
                   )}
 
                   <TileUserInfo>
@@ -1777,11 +1893,13 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
           <DockDivider />
 
           {/* Emoji Reactions */}
-          {["👏", "❤️", "😂", "🔥"].map(emoji => (
-            <DockButton key={emoji} onClick={() => sendReaction(emoji)} style={{ minWidth: 38, padding: "0 8px" }}>
-              {emoji}
-            </DockButton>
-          ))}
+          <EmojiTray>
+            {["👏", "❤️", "😂", "🔥"].map(emoji => (
+              <DockButton key={emoji} onClick={() => sendReaction(emoji)} style={{ minWidth: 38, padding: "0 8px" }}>
+                {emoji}
+              </DockButton>
+            ))}
+          </EmojiTray>
 
           <DockButton onClick={() => sendReaction("✋")} title="Raise Hand">
             <FaHandPaper />
@@ -1798,7 +1916,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
           )}
 
           {/* End Call Button */}
-          <DockButton $danger onClick={onClose} style={{ padding: "0 18px", marginLeft: "auto" }}>
+          <DockButton $danger className="leave-btn" onClick={() => setShowLeaveConfirm(true)} style={{ padding: "0 18px" }}>
             <FaPhoneSlash />
             <span>Leave</span>
           </DockButton>
@@ -1878,6 +1996,31 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
               <div style={{ fontSize: "0.75rem", opacity: 0.7, lineHeight: 1.5, background: "rgba(99,102,241,0.08)", padding: 12, borderRadius: 10, border: "1px solid rgba(99,102,241,0.2)" }}>
                 💡 <strong>Tip for Low Bandwidth:</strong> Switch to <em>Data Saver</em> (120kbps) or <em>Audio-Only</em> mode in the top bar to preserve smooth audio when your connection is slow.
+              </div>
+            </ModalContent>
+          </ModalBackdrop>
+        )}
+
+        {/* ═══ LEAVE CONFIRMATION MODAL ═══ */}
+        {showLeaveConfirm && (
+          <ModalBackdrop onClick={() => setShowLeaveConfirm(false)}>
+            <ModalContent onClick={e => e.stopPropagation()}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+                <div style={{ width: 44, height: 44, borderRadius: "50%", background: "rgba(255,71,87,0.15)", display: "flex", alignItems: "center", justifyContent: "center", color: "#ff4757" }}>
+                  <FaPhoneSlash size={20} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 800 }}>Leave Meeting?</h3>
+                  <p style={{ margin: "2px 0 0", fontSize: "0.78rem", opacity: 0.6 }}>You will be disconnected from all participants.</p>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+                <DockButton onClick={() => setShowLeaveConfirm(false)}>Cancel</DockButton>
+                <DockButton $danger onClick={handleLeaveCall}>
+                  <FaPhoneSlash size={12} />
+                  Leave Meeting
+                </DockButton>
               </div>
             </ModalContent>
           </ModalBackdrop>
