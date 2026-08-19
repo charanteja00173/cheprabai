@@ -2588,6 +2588,41 @@ const copyLinkToClipboard = async (url) => {
   }
 };
 
+// Skeleton placeholder for media loading — MUST be defined outside E2EEFileAttachment
+// to avoid React treating it as a new component type on every render (which resets onLoad)
+const MediaSkeleton = ({ isMobile }) => (
+  <div style={{
+    width: "100%",
+    height: isMobile ? "240px" : "300px",
+    background: "linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.03) 75%)",
+    backgroundSize: "200% 100%",
+    animation: "shimmer 1.5s infinite",
+    borderRadius: 12,
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    color: "rgba(255,255,255,0.4)"
+  }}>
+    <div style={{
+      width: 24, height: 24, border: "2px solid rgba(255,255,255,0.1)",
+      borderTop: "2px solid var(--chakra-colors-brandPrimary)",
+      borderRadius: "50%", animation: "spin 0.8s linear infinite"
+    }} />
+    <span style={{ fontSize: "0.75rem", fontWeight: 600 }}>Loading media...</span>
+    <style>{`
+      @keyframes shimmer {
+        0% { background-position: -200% 0; }
+        100% { background-position: 200% 0; }
+      }
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+    `}</style>
+  </div>
+);
+
 // Stateful component to handle downloading, decrypting and displaying E2EE files
 function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile }) {
   const fileType = getFileType(file);
@@ -2601,39 +2636,6 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile }) {
 
   const lastDecryptedIvRef = useRef(null);
   const lastDecryptedSourceUrlRef = useRef(null);
-
-  const MediaSkeleton = () => (
-    <div style={{
-      width: "100%",
-      height: isMobile ? "240px" : "300px",
-      background: "linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.03) 75%)",
-      backgroundSize: "200% 100%",
-      animation: "shimmer 1.5s infinite",
-      borderRadius: 12,
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 10,
-      color: "rgba(255,255,255,0.4)"
-    }}>
-      <div style={{
-        width: 24, height: 24, border: "2px solid rgba(255,255,255,0.1)",
-        borderTop: "2px solid var(--chakra-colors-brandPrimary)",
-        borderRadius: "50%", animation: "spin 0.8s linear infinite"
-      }} />
-      <span style={{ fontSize: "0.75rem", fontWeight: 600 }}>Loading media...</span>
-      <style>{`
-        @keyframes shimmer {
-          0% { background-position: -200% 0; }
-          100% { background-position: 200% 0; }
-        }
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
-    </div>
-  );
 
   useEffect(() => {
     if (typeof IntersectionObserver === "undefined") {
@@ -2778,7 +2780,7 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile }) {
           onClick={() => mediaLoaded && setFullscreen({ ...file, url: decryptedUrl })}
           style={{ position: "relative", borderRadius: 16, overflow: "hidden" }}
         >
-          {!mediaLoaded && <MediaSkeleton />}
+          {!mediaLoaded && <MediaSkeleton isMobile={isMobile} />}
           <img
             alt={file.name}
             src={decryptedUrl}
@@ -2826,7 +2828,7 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile }) {
         </div>
       ) : fileType && fileType.startsWith("video") ? (
         <div style={{ position: "relative", borderRadius: 16, overflow: "hidden" }}>
-          {!mediaLoaded && <MediaSkeleton />}
+          {!mediaLoaded && <MediaSkeleton isMobile={isMobile} />}
           <video
             src={decryptedUrl}
             controls

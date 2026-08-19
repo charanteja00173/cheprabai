@@ -8,8 +8,8 @@ import {
   FaWifi, FaSignal, FaWindowMinimize, FaTimes, 
   FaTrash, FaVolumeUp, FaVolumeMute, FaVolumeDown, FaChartLine, FaCrown,
   FaLeaf, FaBolt, FaHeadphones, FaGem, FaExclamationTriangle,
-  FaPlay, FaPause, FaPlayCircle, FaForward, FaBackward,
-  FaRedo, FaUndo, FaTachometerAlt, FaStop, FaThumbtack
+  FaPlay, FaPause, FaPlayCircle,
+  FaRedo, FaUndo, FaStop, FaThumbtack
 } from "react-icons/fa";
 import * as PeerModule from "peerjs";
 import { toast } from "react-toastify";
@@ -1600,20 +1600,27 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         pendingCallsRef.current = [];
       }
 
-      // 2. Multi-tier ICE Configuration
+      // 2. Multi-tier ICE Configuration (reliable STUN + TURN for production NAT traversal)
       const iceServers = [
+        // Google STUN (fast, reliable — works when both peers are on open networks)
         { urls: "stun:stun.l.google.com:19302" },
         { urls: "stun:stun1.l.google.com:19302" },
         { urls: "stun:stun2.l.google.com:19302" },
-        { urls: "stun:stun3.l.google.com:19302" },
-        { urls: "stun:stun4.l.google.com:19302" },
+        // Open Relay TURN (free, reliable — needed when peers are behind symmetric NAT/firewalls)
         {
-          urls: [
-            "turn:turn.anyfirewall.com:443?transport=tcp",
-            "turn:turn.anyfirewall.com:3478?transport=udp"
-          ],
-          username: "anyfirewall",
-          credential: "anyfirewall"
+          urls: "turn:openrelay.metered.ca:80",
+          username: "openrelayproject",
+          credential: "openrelayproject"
+        },
+        {
+          urls: "turn:openrelay.metered.ca:443",
+          username: "openrelayproject",
+          credential: "openrelayproject"
+        },
+        {
+          urls: "turn:openrelay.metered.ca:443?transport=tcp",
+          username: "openrelayproject",
+          credential: "openrelayproject"
         }
       ];
 
@@ -1625,31 +1632,22 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         });
       }
 
-      // 3. Resilient PeerJS Initialization — auto-detect signaling server from socket endpoint
+      // 3. PeerJS Signaling Server Configuration
+      // Default: use PeerJS Cloud (0.peerjs.com) — free, reliable, works everywhere
+      // Only override if REACT_APP_PEER_HOST is explicitly set (e.g., self-hosted PeerJS)
       const peerOptions = {
         config: { iceServers },
         debug: 1 // 0=none, 1=errors, 2=warnings, 3=all
       };
 
-      // Auto-detect PeerJS host: use the same server as our socket connection
-      const socketEndpoint = process.env.REACT_APP_SOCKET_ENDPOINT || window.location.origin;
-      try {
-        const parsed = new URL(socketEndpoint);
-        peerOptions.host = parsed.hostname;
-        peerOptions.port = parsed.port ? Number(parsed.port) : (parsed.protocol === "https:" ? 443 : 80);
-        peerOptions.path = "/peerjs";
-        peerOptions.secure = parsed.protocol === "https:";
-      } catch (urlErr) {
-        console.warn("Could not parse socket endpoint for PeerJS, using defaults:", urlErr);
-      }
-
-      // Allow explicit overrides if set
+      // Use custom PeerJS signaling server ONLY if explicitly configured
       if (process.env.REACT_APP_PEER_HOST) {
         peerOptions.host = process.env.REACT_APP_PEER_HOST;
-        peerOptions.port = process.env.REACT_APP_PEER_PORT || 443;
+        peerOptions.port = Number(process.env.REACT_APP_PEER_PORT) || 443;
         peerOptions.path = process.env.REACT_APP_PEER_PATH || "/peerjs";
         peerOptions.secure = true;
       }
+      // Otherwise, PeerJS uses its built-in cloud server at 0.peerjs.com (no config needed)
 
       const peer = new Peer(undefined, peerOptions);
       peerRef.current = peer;
