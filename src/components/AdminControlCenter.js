@@ -655,7 +655,7 @@ export default function AdminControlCenter({ token, backendUrl }) {
     refreshAll();
 
     const socket = io(backendUrl, {
-      transports: ["polling", "websocket"],
+      transports: ["polling"],
       upgrade: true,
       rememberUpgrade: false
     });
