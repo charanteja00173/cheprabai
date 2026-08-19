@@ -74,9 +74,14 @@ const MeetingContainer = styled.div`
     height: 190px;
     border-radius: 18px;
     box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.12);
-    cursor: pointer;
+    cursor: grab;
     overflow: hidden;
     z-index: 10010;
+    touch-action: none;
+    
+    &:active {
+      cursor: grabbing;
+    }
     
     .meeting-header, .controls-bar, .participant-sidebar, .main-video-area {
       display: none !important;
@@ -370,7 +375,7 @@ const VideoGridContainer = styled.div`
   }};
 
   @media (max-width: 640px) {
-    grid-template-columns: ${props => props.$count <= 1 ? "1fr" : "repeat(2, minmax(0, 1fr))"};
+    grid-template-columns: ${props => props.$count <= 2 ? "1fr" : "repeat(2, minmax(0, 1fr))"};
     grid-template-rows: auto;
     gap: 8px;
   }
@@ -516,10 +521,10 @@ const ControlsDock = styled.footer`
   }
 
   @media (max-width: 600px) {
-    justify-content: space-evenly;
-    flex-wrap: nowrap;
-    padding: 12px 8px;
-    gap: 4px;
+    justify-content: center;
+    flex-wrap: wrap;
+    padding: 10px 6px;
+    gap: 8px;
 
     .leave-btn {
       margin-left: 0 !important;
@@ -751,6 +756,81 @@ const PipWidget = styled.div`
   }
 `;
 
+const SpotlightContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  gap: 12px;
+  position: relative;
+  box-sizing: border-box;
+
+  @media (max-width: 768px) {
+    gap: 8px;
+  }
+`;
+
+const SpotlightMain = styled.div`
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+  box-sizing: border-box;
+`;
+
+const SpotlightStrip = styled.div`
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 4px 0 12px;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  -webkit-overflow-scrolling: touch;
+
+  &::-webkit-scrollbar {
+    height: 6px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 3px;
+  }
+`;
+
+const SpotlightThumbnail = styled.div`
+  width: 160px;
+  height: 100px;
+  flex-shrink: 0;
+  position: relative;
+  background: #11131e;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 2px solid ${props => props.$isSpeaking ? "#00f2fe" : props.$isActive ? "#f59e0b" : "rgba(255, 255, 255, 0.08)"};
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+
+  &:hover {
+    transform: translateY(-2px);
+    border-color: rgba(255, 255, 255, 0.25);
+  }
+
+  video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  @media (max-width: 600px) {
+    width: 120px;
+    height: 80px;
+  }
+`;
+
 /* ═══════════════════════════════ MAIN COMPONENT ═══════════════════════════════ */
 export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin, ownerToken, userAvatar }) {
   // ── States ──
@@ -764,6 +844,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const [isConnecting, setIsConnecting] = useState(true);
   const [isMinimized, setIsMinimized] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [pipPosition, setPipPosition] = useState({ x: 0, y: 0 });
   const [layoutMode, setLayoutMode] = useState("grid"); // "grid" | "spotlight"
   const [pinnedPeerId, setPinnedPeerId] = useState(null);
   const [speakingPeers, setSpeakingPeers] = useState({});
@@ -782,6 +863,9 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const containerRef = useRef(null);
   const peerRef = useRef(null);
   const peers = useRef({}); // { [peerId]: MediaConnection }
+  const dragStartRef = useRef({ x: 0, y: 0 });
+  const isDraggingRef = useRef(false);
+  const hasDraggedRef = useRef(false); // true if mouse moved during drag (prevents click-to-expand)
   const localStreamRef = useRef(null);
   const audioContextRef = useRef(null);
   const statsIntervalRef = useRef(null);
@@ -790,7 +874,11 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const durationTimerRef = useRef(null);
   const callStartTimeRef = useRef(Date.now());
   const pendingCallsRef = useRef([]); // queued incoming calls before local stream is ready
+  const isVideoOffRef = useRef(false); // stable ref for isVideoOff (avoids effect re-trigger)
   const isRoomHost = useMemo(() => Boolean(isAdmin || ownerToken), [isAdmin, ownerToken]);
+
+  // Keep isVideoOffRef in sync with state
+  useEffect(() => { isVideoOffRef.current = isVideoOff; }, [isVideoOff]);
 
   // ── Reactive callback ref for local video element ──
   // Binds displayStream to any <video> element it is attached to, surviving mount/unmount cycles (PiP, minimize)
@@ -799,6 +887,74 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       videoEl.srcObject = displayStream;
     }
   }, [displayStream]);
+
+  // Reset PIP position on state change
+  useEffect(() => {
+    if (!isMinimized) {
+      setPipPosition({ x: 0, y: 0 });
+    }
+  }, [isMinimized]);
+
+  // Minimized Window Drag & Drop Handler (supports Mouse and Touch Events)
+  const handleDragStart = useCallback((e) => {
+    if (e.type === "mousedown" && e.button !== 0) return;
+    
+    // Prevent dragging if target is inside pip-controls or clicking buttons
+    if (e.target.closest(".pip-controls") || e.target.closest("button")) {
+      return;
+    }
+
+    isDraggingRef.current = true;
+    hasDraggedRef.current = false; // reset — will be set true if mouse actually moves
+    const clientX = e.type === "touchstart" ? e.touches[0].clientX : e.clientX;
+    const clientY = e.type === "touchstart" ? e.touches[0].clientY : e.clientY;
+
+    dragStartRef.current = {
+      x: clientX - pipPosition.x,
+      y: clientY - pipPosition.y
+    };
+
+    const handleDragMove = (moveEvent) => {
+      if (!isDraggingRef.current) return;
+      const currentX = moveEvent.type === "touchmove" ? moveEvent.touches[0].clientX : moveEvent.clientX;
+      const currentY = moveEvent.type === "touchmove" ? moveEvent.touches[0].clientY : moveEvent.clientY;
+
+      let newX = currentX - dragStartRef.current.x;
+      let newY = currentY - dragStartRef.current.y;
+
+      // Keep within bounds of the viewport
+      const boundsPadding = 10;
+      const pipWidth = window.innerWidth <= 768 ? 260 : 320;
+      const pipHeight = window.innerWidth <= 768 ? 160 : 190;
+      
+      const initialRight = window.innerWidth <= 768 ? 16 : 24;
+      const initialBottom = window.innerWidth <= 768 ? 16 : 24;
+
+      const minX = -(window.innerWidth - pipWidth - initialRight - boundsPadding);
+      const maxX = initialRight - boundsPadding;
+      const minY = -(window.innerHeight - pipHeight - initialBottom - boundsPadding);
+      const maxY = initialBottom - boundsPadding;
+
+      newX = Math.max(minX, Math.min(maxX, newX));
+      newY = Math.max(minY, Math.min(maxY, newY));
+
+      hasDraggedRef.current = true; // actual movement occurred
+      setPipPosition({ x: newX, y: newY });
+    };
+
+    const handleDragEnd = () => {
+      isDraggingRef.current = false;
+      document.removeEventListener("mousemove", handleDragMove);
+      document.removeEventListener("mouseup", handleDragEnd);
+      document.removeEventListener("touchmove", handleDragMove);
+      document.removeEventListener("touchend", handleDragEnd);
+    };
+
+    document.addEventListener("mousemove", handleDragMove);
+    document.addEventListener("mouseup", handleDragEnd);
+    document.addEventListener("touchmove", handleDragMove, { passive: false });
+    document.addEventListener("touchend", handleDragEnd);
+  }, [pipPosition]);
 
   const getInitials = (name) => {
     if (!name) return "?";
@@ -984,7 +1140,8 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   // ─── Call Peer Function ───
   const callPeer = useCallback((targetPeerId) => {
     if (!peerRef.current || !localStreamRef.current) return false;
-    if (peers.current[targetPeerId] || targetPeerId === myPeerId) return false;
+    // Use ref instead of myPeerId state to avoid dependency loop
+    if (peers.current[targetPeerId] || targetPeerId === peerRef.current?.id) return false;
 
     try {
       const call = peerRef.current.call(targetPeerId, localStreamRef.current);
@@ -997,7 +1154,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       console.error(`Failed to call peer ${targetPeerId}:`, e);
     }
     return false;
-  }, [myPeerId, handleCallEvents]);
+  }, [handleCallEvents]);
 
   // ─── Kick / Remove User Capability (Admin / Room Owner) ───
   const handleKickParticipant = useCallback((targetPeerId, targetName) => {
@@ -1179,7 +1336,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       try {
         const parsed = new URL(socketEndpoint);
         peerOptions.host = parsed.hostname;
-        peerOptions.port = parsed.port || (parsed.protocol === "https:" ? 443 : 80);
+        peerOptions.port = parsed.port ? Number(parsed.port) : (parsed.protocol === "https:" ? 443 : 80);
         peerOptions.path = "/peerjs";
         peerOptions.secure = parsed.protocol === "https:";
       } catch (urlErr) {
@@ -1207,7 +1364,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
             peerId: id,
             userName,
             isMuted: false,
-            isVideoOff: isVideoOff,
+            isVideoOff: isVideoOffRef.current,
             isAdmin: isRoomHost,
             avatar: userAvatar
           });
@@ -1384,7 +1541,8 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         try { peerRef.current.destroy(); } catch (e) {}
       }
     };
-  }, [roomId, socket, userName, isRoomHost, userAvatar, handleLeaveCall, handleCallEvents, callPeer, setupAudioAnalysis, isVideoOff]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomId, socket]);
 
   // ─── Actions & Toggles ───
   const toggleMute = () => {
@@ -1542,14 +1700,36 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const remoteEntries = Object.entries(remoteStreams);
   const totalCount = 1 + remoteEntries.length;
 
+  // ─── Spotlight Peer Computation ───
+  const spotlightPeerId = useMemo(() => {
+    if (pinnedPeerId && (pinnedPeerId === "local" || remoteStreams[pinnedPeerId])) {
+      return pinnedPeerId;
+    }
+    const activeSpeakers = Object.keys(speakingPeers).filter(id => speakingPeers[id]);
+    if (activeSpeakers.length > 0) {
+      const remoteSpeaker = activeSpeakers.find(id => id !== "local" && remoteStreams[id]);
+      if (remoteSpeaker) return remoteSpeaker;
+      if (activeSpeakers.includes("local")) return "local";
+    }
+    const remotes = Object.keys(remoteStreams);
+    if (remotes.length > 0) return remotes[0];
+    return "local";
+  }, [pinnedPeerId, speakingPeers, remoteStreams]);
+
   return (
     <StyleSheetManager shouldForwardProp={(prop) => !prop.startsWith('$')}>
-      <MeetingContainer ref={containerRef} $minimized={isMinimized}>
+      <MeetingContainer 
+        ref={containerRef} 
+        $minimized={isMinimized}
+        style={isMinimized ? { transform: `translate3d(${pipPosition.x}px, ${pipPosition.y}px, 0)` } : {}}
+        onMouseDown={isMinimized ? handleDragStart : undefined}
+        onTouchStart={isMinimized ? handleDragStart : undefined}
+      >
         <BackgroundAtmosphere />
 
         {/* ═══ MINIMIZED PIP VIEW ═══ */}
         {isMinimized && (
-          <PipWidget onClick={() => setIsMinimized(false)}>
+          <PipWidget onClick={() => { if (!hasDraggedRef.current) setIsMinimized(false); }}>
             {isVideoOff || !localStream ? (
               <AvatarPlaceholder>
                 <div className="circle">{getInitials(userName)}</div>
@@ -1557,7 +1737,12 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
             ) : (
               <video ref={localVideoCallbackRef} autoPlay playsInline muted />
             )}
-            <div className="pip-controls" onClick={e => e.stopPropagation()}>
+            <div 
+              className="pip-controls" 
+              onClick={e => e.stopPropagation()}
+              onMouseDown={e => e.stopPropagation()}
+              onTouchStart={e => e.stopPropagation()}
+            >
               <IconButton $active={isMuted} onClick={toggleMute}>
                 {isMuted ? <FaMicrophoneSlash /> : <FaMicrophone />}
               </IconButton>
@@ -1681,6 +1866,160 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                 <h3 style={{ margin: 0, fontSize: "1.1rem" }}>Connecting to meeting...</h3>
                 <p style={{ margin: 0, opacity: 0.6, fontSize: "0.8rem" }}>Optimizing network & media devices</p>
               </AvatarPlaceholder>
+            ) : layoutMode === "spotlight" ? (
+              <SpotlightContainer>
+                {/* 1. Large Main Spotlight View */}
+                <SpotlightMain>
+                  {spotlightPeerId === "local" ? (
+                    <VideoTile 
+                      $isSpeaking={speakingPeers.local}
+                      $isPinned={pinnedPeerId === "local"}
+                      onDoubleClick={() => setPinnedPeerId(prev => prev === "local" ? null : "local")}
+                      style={{ width: "100%", height: "100%" }}
+                    >
+                      {isVideoOff || !localStream || bandwidthMode === "audio-only" ? (
+                        <AvatarPlaceholder>
+                          <div className="circle">{getInitials(userName)}</div>
+                        </AvatarPlaceholder>
+                      ) : (
+                        <video ref={localVideoCallbackRef} autoPlay playsInline muted />
+                      )}
+                      <TileUserInfo>
+                        <span>{userName} (You)</span>
+                        {isRoomHost && <FaCrown color="#fbbf24" size={11} title="Room Owner / Admin" />}
+                        {isMuted && <FaMicrophoneSlash color="#ff4757" size={11} />}
+                        {speakingPeers.local && (
+                          <EqualizerWaves>
+                            <span /><span /><span />
+                          </EqualizerWaves>
+                        )}
+                      </TileUserInfo>
+                    </VideoTile>
+                  ) : (() => {
+                    const info = remoteStreams[spotlightPeerId];
+                    if (!info) return null;
+                    const state = participantStates[spotlightPeerId] || {};
+                    const isPeerMuted = state.isMuted;
+                    const isPeerVideoOff = state.isVideoOff || bandwidthMode === "audio-only";
+                    const isSpeaking = speakingPeers[spotlightPeerId];
+                    return (
+                      <VideoTile 
+                        $isSpeaking={isSpeaking}
+                        $isPinned={pinnedPeerId === spotlightPeerId}
+                        onDoubleClick={() => setPinnedPeerId(prev => prev === spotlightPeerId ? null : spotlightPeerId)}
+                        style={{ width: "100%", height: "100%" }}
+                      >
+                        {isRoomHost && (
+                          <TileOverlay className="tile-overlay">
+                            <TileActionButton 
+                              $danger 
+                              onClick={() => setKickTarget({ id: spotlightPeerId, name: info.name || "Participant" })}
+                              title="Remove participant from call"
+                            >
+                              <FaTrash />
+                            </TileActionButton>
+                            <TileActionButton 
+                              onClick={() => handleMuteParticipant(spotlightPeerId, info.name || "Participant")}
+                              title="Mute for everyone"
+                            >
+                              <FaVolumeMute />
+                            </TileActionButton>
+                          </TileOverlay>
+                        )}
+                        {isPeerVideoOff || !info.stream ? (
+                          <AvatarPlaceholder>
+                            <div className="circle">{getInitials(info.name)}</div>
+                          </AvatarPlaceholder>
+                        ) : (
+                          <video
+                            autoPlay
+                            playsInline
+                            ref={el => {
+                              if (el && info.stream && el.srcObject !== info.stream) {
+                                el.srcObject = info.stream;
+                                el.volume = (info.volume || 100) / 100;
+                              }
+                            }}
+                          />
+                        )}
+                        <TileUserInfo>
+                          <span>{info.name || "Participant"}</span>
+                          {isPeerMuted && <FaMicrophoneSlash color="#ff4757" size={11} />}
+                          {isSpeaking && (
+                            <EqualizerWaves>
+                              <span /><span /><span />
+                            </EqualizerWaves>
+                          )}
+                        </TileUserInfo>
+                      </VideoTile>
+                    );
+                  })()}
+                </SpotlightMain>
+
+                {/* 2. Horizontal Strip of Thumbnails */}
+                {totalCount > 1 && (
+                  <SpotlightStrip>
+                    {/* Local Thumbnail */}
+                    {spotlightPeerId !== "local" && (
+                      <SpotlightThumbnail 
+                        $isSpeaking={speakingPeers.local}
+                        $isActive={false}
+                        onClick={() => setPinnedPeerId("local")}
+                      >
+                        {isVideoOff || !localStream || bandwidthMode === "audio-only" ? (
+                          <AvatarPlaceholder>
+                            <div className="circle" style={{ fontSize: "1.2rem", width: 44, height: 44 }}>{getInitials(userName)}</div>
+                          </AvatarPlaceholder>
+                        ) : (
+                          <video ref={localVideoCallbackRef} autoPlay playsInline muted />
+                        )}
+                        <div style={{ position: "absolute", bottom: 6, left: 6, display: "flex", alignItems: "center", gap: 4, background: "rgba(0,0,0,0.6)", padding: "2px 6px", borderRadius: 8, fontSize: "0.68rem" }}>
+                          <span>You</span>
+                          {isMuted && <FaMicrophoneSlash color="#ff4757" size={9} />}
+                        </div>
+                      </SpotlightThumbnail>
+                    )}
+
+                    {/* Remote Thumbnails */}
+                    {remoteEntries.map(([peerId, info]) => {
+                      if (spotlightPeerId === peerId) return null;
+                      const state = participantStates[peerId] || {};
+                      const isPeerMuted = state.isMuted;
+                      const isPeerVideoOff = state.isVideoOff || bandwidthMode === "audio-only";
+                      const isSpeaking = speakingPeers[peerId];
+                      return (
+                        <SpotlightThumbnail 
+                          key={peerId}
+                          $isSpeaking={isSpeaking}
+                          $isActive={pinnedPeerId === peerId}
+                          onClick={() => setPinnedPeerId(peerId)}
+                        >
+                          {isPeerVideoOff || !info.stream ? (
+                            <AvatarPlaceholder>
+                              <div className="circle" style={{ fontSize: "1.2rem", width: 44, height: 44 }}>{getInitials(info.name)}</div>
+                            </AvatarPlaceholder>
+                          ) : (
+                            <video
+                              autoPlay
+                              playsInline
+                              ref={el => {
+                                if (el && info.stream && el.srcObject !== info.stream) {
+                                  el.srcObject = info.stream;
+                                  el.volume = (info.volume || 100) / 100;
+                                }
+                              }}
+                            />
+                          )}
+                          <div style={{ position: "absolute", bottom: 6, left: 6, display: "flex", alignItems: "center", gap: 4, background: "rgba(0,0,0,0.6)", padding: "2px 6px", borderRadius: 8, fontSize: "0.68rem" }}>
+                            <span>{info.name || "Participant"}</span>
+                            {isPeerMuted && <FaMicrophoneSlash color="#ff4757" size={9} />}
+                          </div>
+                        </SpotlightThumbnail>
+                      );
+                    })}
+                  </SpotlightStrip>
+                )}
+              </SpotlightContainer>
             ) : (
               <VideoGridContainer $count={totalCount}>
                 {/* Local Video Tile */}

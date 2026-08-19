@@ -3028,6 +3028,7 @@ export default function ChatRoom() {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showWhiteboard, setShowWhiteboard] = useState(false);
   const [showMeeting, setShowMeeting] = useState(false);
+  const closeMeeting = useCallback(() => setShowMeeting(false), []);
   const [incomingCall, setIncomingCall] = useState(null);
   const ringtoneRef = useRef(null);
   const [showRoomInfo, setShowRoomInfo] = useState(false);
@@ -7595,7 +7596,7 @@ export default function ChatRoom() {
             isAdmin={!!ownerToken}
             ownerToken={ownerToken}
             userAvatar={userAvatar}
-            onClose={() => setShowMeeting(false)}
+            onClose={closeMeeting}
           />
         </Suspense>
       )}
