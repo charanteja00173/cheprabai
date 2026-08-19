@@ -2513,6 +2513,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   // ─── Video/Audio & Link Media Streaming Capabilities ───
   const startMediaStream = async ({ file, url, name }) => {
     try {
+      const backendUrl = process.env.REACT_APP_SOCKET_ENDPOINT || "https://cheprabai-backend.onrender.com";
       let mediaSrc = "";
       let mediaName = name || "Media Stream";
 
@@ -2520,8 +2521,8 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         mediaSrc = URL.createObjectURL(file);
         mediaName = file.name;
       } else if (url) {
-        mediaSrc = url;
-        mediaName = url.length > 32 ? url.substring(0, 32) + "..." : url;
+        mediaSrc = `${backendUrl}/api/proxy-file?url=${encodeURIComponent(url)}`;
+        mediaName = url.length > 40 ? url.substring(0, 40) + "..." : url;
       }
 
       if (!mediaSrc) return;
@@ -2543,6 +2544,20 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       fileVideoRef.current = video;
       setFileStreamName(mediaName);
       setIsFileStreamPaused(false);
+
+      video.onerror = () => {
+        const errCode = video.error?.code || 0;
+        const errMsg = video.error?.message || "Unknown error";
+        console.error(`Video load error (code ${errCode}):`, errMsg);
+        if (errCode === 3) {
+          toast.error("Failed to load media — decoding error. The file format may not be supported.");
+        } else if (errCode === 4) {
+          toast.error("Failed to load media — source not found or network error. Check the URL and try again.");
+        } else {
+          toast.error(`Failed to load media: ${errMsg}`);
+        }
+        video.remove();
+      };
 
       video.onloadedmetadata = () => {
         setFileStreamDuration(video.duration || 0);
