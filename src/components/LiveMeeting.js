@@ -845,6 +845,17 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     return () => clearInterval(durationTimerRef.current);
   }, []);
 
+  // ─── Fullscreen Change Event Listener (Sync State on Escape Key) ───
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+    };
+  }, []);
+
   // ─── Web Audio Activity Detection (Speaking Indicator) ───
   const setupAudioAnalysis = useCallback((stream, id) => {
     if (!stream || !stream.getAudioTracks().length) return;
