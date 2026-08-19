@@ -2593,6 +2593,7 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile }) {
   const fileType = getFileType(file);
   const [decryptedUrl, setDecryptedUrl] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [mediaLoaded, setMediaLoaded] = useState(false);
   const [error, setError] = useState(false);
   const [viewedOnce, setViewedOnce] = useState(false);
   const containerRef = useRef(null);
@@ -2600,6 +2601,39 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile }) {
 
   const lastDecryptedIvRef = useRef(null);
   const lastDecryptedSourceUrlRef = useRef(null);
+
+  const MediaSkeleton = () => (
+    <div style={{
+      width: "100%",
+      height: isMobile ? "240px" : "300px",
+      background: "linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.03) 75%)",
+      backgroundSize: "200% 100%",
+      animation: "shimmer 1.5s infinite",
+      borderRadius: 12,
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 10,
+      color: "rgba(255,255,255,0.4)"
+    }}>
+      <div style={{
+        width: 24, height: 24, border: "2px solid rgba(255,255,255,0.1)",
+        borderTop: "2px solid var(--chakra-colors-brandPrimary)",
+        borderRadius: "50%", animation: "spin 0.8s linear infinite"
+      }} />
+      <span style={{ fontSize: "0.75rem", fontWeight: 600 }}>Loading media...</span>
+      <style>{`
+        @keyframes shimmer {
+          0% { background-position: -200% 0; }
+          100% { background-position: 200% 0; }
+        }
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
+    </div>
+  );
 
   useEffect(() => {
     if (typeof IntersectionObserver === "undefined") {
@@ -2741,92 +2775,102 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile }) {
     <FileAttachmentWrapper ref={containerRef} style={{ padding: 0 }}>
       {fileType && fileType.startsWith("image") ? (
         <div
-          onClick={() => setFullscreen({ ...file, url: decryptedUrl })}
+          onClick={() => mediaLoaded && setFullscreen({ ...file, url: decryptedUrl })}
           style={{ position: "relative", borderRadius: 16, overflow: "hidden" }}
         >
+          {!mediaLoaded && <MediaSkeleton />}
           <img
             alt={file.name}
             src={decryptedUrl}
             loading="lazy"
             decoding="async"
-            style={{ width: "100%", height: "auto", maxHeight: isMobile ? "240px" : "300px", objectFit: "cover", display: "block", borderRadius: 0, background: "rgba(0,0,0,0.25)" }}
+            onLoad={() => setMediaLoaded(true)}
+            onError={() => setMediaLoaded(true)}
+            style={{ width: "100%", height: "auto", maxHeight: isMobile ? "240px" : "300px", objectFit: "cover", display: mediaLoaded ? "block" : "none", borderRadius: 0, background: "rgba(0,0,0,0.25)" }}
           />
-          <div style={{ padding: "8px 12px", background: "rgba(10, 10, 10, 0.75)", backdropFilter: "blur(12px)", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.06)", gap: 6 }}>
-            <span style={{ fontSize: "0.72rem", color: "#eee", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, marginRight: 4, fontWeight: 500 }}>{file.name}</span>
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              {!file.viewOnce && (
-                <>
-                  <button
-                    type="button"
-                    title="Copy to clipboard"
-                    onClick={(e) => { e.stopPropagation(); copyImageToClipboard(decryptedUrl); }}
-                    style={{ background: "rgba(255,255,255,0.12)", border: "none", color: "#fff", cursor: "pointer", borderRadius: 6, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center" }}
-                  >
-                    <Copy size={14} />
-                  </button>
-                  <button
-                    type="button"
-                    title="Download"
-                    onClick={(e) => { e.stopPropagation(); downloadMedia(decryptedUrl, file.name); }}
-                    style={{ background: "rgba(255,255,255,0.12)", border: "none", color: "#fff", cursor: "pointer", borderRadius: 6, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center" }}
-                  >
-                    <FaDownload size={12} />
-                  </button>
-                </>
-              )}
-              <button
-                type="button"
-                className="expand-btn"
-                onClick={(e) => { e.stopPropagation(); setFullscreen({ ...file, url: decryptedUrl }); }}
-                style={{ background: "rgba(255,255,255,0.12)", border: "none", color: "#fff", cursor: "pointer", borderRadius: 6, padding: "0 8px", height: 28, fontSize: "0.72rem", fontWeight: "bold" }}
-              >
-                Expand
-              </button>
+          {mediaLoaded && (
+            <div style={{ padding: "8px 12px", background: "rgba(10, 10, 10, 0.75)", backdropFilter: "blur(12px)", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.06)", gap: 6 }}>
+              <span style={{ fontSize: "0.72rem", color: "#eee", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, marginRight: 4, fontWeight: 500 }}>{file.name}</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                {!file.viewOnce && (
+                  <>
+                    <button
+                      type="button"
+                      title="Copy to clipboard"
+                      onClick={(e) => { e.stopPropagation(); copyImageToClipboard(decryptedUrl); }}
+                      style={{ background: "rgba(255,255,255,0.12)", border: "none", color: "#fff", cursor: "pointer", borderRadius: 6, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center" }}
+                    >
+                      <Copy size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      title="Download"
+                      onClick={(e) => { e.stopPropagation(); downloadMedia(decryptedUrl, file.name); }}
+                      style={{ background: "rgba(255,255,255,0.12)", border: "none", color: "#fff", cursor: "pointer", borderRadius: 6, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center" }}
+                    >
+                      <FaDownload size={12} />
+                    </button>
+                  </>
+                )}
+                <button
+                  type="button"
+                  className="expand-btn"
+                  onClick={(e) => { e.stopPropagation(); setFullscreen({ ...file, url: decryptedUrl }); }}
+                  style={{ background: "rgba(255,255,255,0.12)", border: "none", color: "#fff", cursor: "pointer", borderRadius: 6, padding: "0 8px", height: 28, fontSize: "0.72rem", fontWeight: "bold" }}
+                >
+                  Expand
+                </button>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       ) : fileType && fileType.startsWith("video") ? (
         <div style={{ position: "relative", borderRadius: 16, overflow: "hidden" }}>
+          {!mediaLoaded && <MediaSkeleton />}
           <video
             src={decryptedUrl}
             controls
             playsInline
-            preload="none"
-            style={{ width: "100%", height: "auto", maxHeight: isMobile ? "240px" : "300px", objectFit: "contain", display: "block", background: "#000" }}
+            preload="auto"
+            onLoadedData={() => setMediaLoaded(true)}
+            onError={() => setMediaLoaded(true)}
+            style={{ width: "100%", height: "auto", maxHeight: isMobile ? "240px" : "300px", objectFit: "contain", display: mediaLoaded ? "block" : "none", background: "#000" }}
           />
-          <div style={{ padding: "8px 12px", background: "rgba(10, 10, 10, 0.75)", backdropFilter: "blur(12px)", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.06)", gap: 6 }}>
-            <span style={{ fontSize: "0.72rem", color: "#eee", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, marginRight: 4, fontWeight: 500 }}>{file.name}</span>
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              {!file.viewOnce && (
-                <>
-                  <button
-                    type="button"
-                    title="Copy video link"
-                    onClick={(e) => { e.stopPropagation(); copyLinkToClipboard(decryptedUrl); }}
-                    style={{ background: "rgba(255,255,255,0.12)", border: "none", color: "#fff", cursor: "pointer", borderRadius: 6, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center" }}
-                  >
-                    <Copy size={14} />
-                  </button>
-                  <button
-                    type="button"
-                    title="Download"
-                    onClick={(e) => { e.stopPropagation(); downloadMedia(decryptedUrl, file.name); }}
-                    style={{ background: "rgba(255,255,255,0.12)", border: "none", color: "#fff", cursor: "pointer", borderRadius: 6, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center" }}
-                  >
-                    <FaDownload size={12} />
-                  </button>
-                </>
-              )}
-              <button
-                type="button"
-                className="expand-btn"
-                onClick={(e) => { e.stopPropagation(); setFullscreen({ ...file, url: decryptedUrl }); }}
-                style={{ background: "rgba(255,255,255,0.12)", border: "none", color: "#fff", cursor: "pointer", borderRadius: 6, padding: "0 8px", height: 28, fontSize: "0.72rem", fontWeight: "bold" }}
-              >
-                Fullscreen
-              </button>
+          {mediaLoaded && (
+            <div style={{ padding: "8px 12px", background: "rgba(10, 10, 10, 0.75)", backdropFilter: "blur(12px)", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.06)", gap: 6 }}>
+              <span style={{ fontSize: "0.72rem", color: "#eee", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, marginRight: 4, fontWeight: 500 }}>{file.name}</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                {!file.viewOnce && (
+                  <>
+                    <button
+                      type="button"
+                      title="Copy video link"
+                      onClick={(e) => { e.stopPropagation(); copyLinkToClipboard(decryptedUrl); }}
+                      style={{ background: "rgba(255,255,255,0.12)", border: "none", color: "#fff", cursor: "pointer", borderRadius: 6, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center" }}
+                    >
+                      <Copy size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      title="Download"
+                      onClick={(e) => { e.stopPropagation(); downloadMedia(decryptedUrl, file.name); }}
+                      style={{ background: "rgba(255,255,255,0.12)", border: "none", color: "#fff", cursor: "pointer", borderRadius: 6, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center" }}
+                    >
+                      <FaDownload size={12} />
+                    </button>
+                  </>
+                )}
+                <button
+                  type="button"
+                  className="expand-btn"
+                  onClick={(e) => { e.stopPropagation(); setFullscreen({ ...file, url: decryptedUrl }); }}
+                  style={{ background: "rgba(255,255,255,0.12)", border: "none", color: "#fff", cursor: "pointer", borderRadius: 6, padding: "0 8px", height: 28, fontSize: "0.72rem", fontWeight: "bold" }}
+                >
+                  Fullscreen
+                </button>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       ) : (
         <div
