@@ -9,7 +9,8 @@ import {
   FaTrash, FaVolumeUp, FaVolumeMute, FaVolumeDown, FaChartLine, FaCrown,
   FaLeaf, FaBolt, FaHeadphones, FaGem, FaExclamationTriangle,
   FaPlay, FaPause, FaPlayCircle,
-  FaRedo, FaUndo, FaStop, FaThumbtack, FaPaintBrush
+  FaRedo, FaUndo, FaStop, FaThumbtack, FaPaintBrush,
+  FaMagic, FaPalette
 } from "react-icons/fa";
 import * as PeerModule from "peerjs";
 import { toast } from "react-toastify";
@@ -1127,7 +1128,11 @@ const FileStreamControlsCard = styled.div`
 /* ═══════════════════════════════ STREAM MIXER UTILITY ═══════════════════════════════ */
 // Dynamically overlays local camera as a PiP circle/card onto the main screen/file track,
 // and mixes computer audio with the local microphone so everyone can hear both.
-const createMixedStream = (mainStream, cameraStream, options = { mixAudio: true }) => {
+const createMixedStream = (mainStream, cameraStream, options = {}) => {
+  const mixAudio = options.mixAudio !== false;
+  const getVideoFilter = options.getVideoFilter || (() => "none");
+  const getVoiceFilter = options.getVoiceFilter || (() => "none");
+
   const mainVideoTrack = mainStream.getVideoTracks()[0];
   const cameraVideoTrack = cameraStream?.getVideoTracks()[0];
   
@@ -1186,6 +1191,16 @@ const createMixedStream = (mainStream, cameraStream, options = { mixAudio: true 
         ctx.closePath();
         ctx.clip();
         
+        // 🔮 Apply dynamic camera video filters
+        const activeFilter = getVideoFilter();
+        if (activeFilter && activeFilter !== "none") {
+          if (activeFilter === "grayscale") ctx.filter = "grayscale(100%)";
+          else if (activeFilter === "sepia") ctx.filter = "sepia(100%)";
+          else if (activeFilter === "invert") ctx.filter = "invert(100%)";
+          else if (activeFilter === "blur") ctx.filter = "blur(6px)";
+          else if (activeFilter === "vintage") ctx.filter = "contrast(125%) sepia(45%) saturate(140%)";
+        }
+        
         ctx.drawImage(cameraVideo, x, y, pipW, pipH);
         ctx.restore();
       }
@@ -1215,7 +1230,7 @@ const createMixedStream = (mainStream, cameraStream, options = { mixAudio: true 
   const mainAudioTrack = mainStream.getAudioTracks()[0];
   const cameraAudioTrack = cameraStream?.getAudioTracks()[0];
   
-  if (options.mixAudio && cameraAudioTrack && mainAudioTrack) {
+  if (mixAudio && cameraAudioTrack && mainAudioTrack) {
     try {
       const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       const mainSrc = audioCtx.createMediaStreamSource(new MediaStream([mainAudioTrack]));
@@ -1223,7 +1238,89 @@ const createMixedStream = (mainStream, cameraStream, options = { mixAudio: true 
       const dst = audioCtx.createMediaStreamDestination();
       
       mainSrc.connect(dst);
-      camSrc.connect(dst);
+      
+      // Dynamic DSP effects routing
+      const camGain = audioCtx.createGain();
+      camGain.gain.value = 1.0;
+      camSrc.connect(camGain);
+      
+      const effects = {
+        clean: audioCtx.createGain(),
+        robot: audioCtx.createGain(),
+        telephone: audioCtx.createGain(),
+        echo: audioCtx.createGain(),
+      };
+      
+      // Clean path
+      effects.clean.gain.value = 1.0;
+      camGain.connect(effects.clean);
+      effects.clean.connect(dst);
+      
+      // Robot path
+      const carrier = audioCtx.createOscillator();
+      carrier.type = "sine";
+      carrier.frequency.value = 55;
+      const multiplier = audioCtx.createGain();
+      multiplier.gain.value = 1.0;
+      const carrierGain = audioCtx.createGain();
+      carrierGain.gain.value = 0.5;
+      carrier.connect(carrierGain);
+      carrierGain.connect(multiplier.gain);
+      camGain.connect(multiplier);
+      effects.robot.gain.value = 0.0;
+      multiplier.connect(effects.robot);
+      effects.robot.connect(dst);
+      carrier.start();
+      
+      // Telephone path
+      const filterNode = audioCtx.createBiquadFilter();
+      filterNode.type = "bandpass";
+      filterNode.frequency.value = 1000;
+      filterNode.Q.value = 8;
+      const teleGain = audioCtx.createGain();
+      teleGain.gain.value = 2.0;
+      camGain.connect(filterNode);
+      filterNode.connect(teleGain);
+      effects.telephone.gain.value = 0.0;
+      teleGain.connect(effects.telephone);
+      effects.telephone.connect(dst);
+      
+      // Echo path
+      const delayNode = audioCtx.createDelay(1.0);
+      delayNode.delayTime.value = 0.18;
+      const feedbackNode = audioCtx.createGain();
+      feedbackNode.gain.value = 0.4;
+      const echoOut = audioCtx.createGain();
+      camGain.connect(delayNode);
+      delayNode.connect(feedbackNode);
+      feedbackNode.connect(delayNode);
+      feedbackNode.connect(echoOut);
+      effects.echo.gain.value = 0.0;
+      echoOut.connect(effects.echo);
+      effects.echo.connect(dst);
+
+      // Smoothly fade between effects based on current options
+      let filterInterval = setInterval(() => {
+        try {
+          const currentFilter = getVoiceFilter();
+          effects.clean.gain.setTargetAtTime(currentFilter === "none" ? 1.0 : 0.0, audioCtx.currentTime, 0.05);
+          effects.robot.gain.setTargetAtTime(currentFilter === "robot" ? 1.0 : 0.0, audioCtx.currentTime, 0.05);
+          effects.telephone.gain.setTargetAtTime(currentFilter === "telephone" ? 1.0 : 0.0, audioCtx.currentTime, 0.05);
+          effects.echo.gain.setTargetAtTime(currentFilter === "echo" ? 1.0 : 0.0, audioCtx.currentTime, 0.05);
+        } catch (e) {
+          clearInterval(filterInterval);
+        }
+      }, 100);
+      
+      const originalCleanup = mixerCleanup;
+      mixerCleanup = () => {
+        originalCleanup();
+        clearInterval(filterInterval);
+        try {
+          carrier.stop();
+          audioCtx.close();
+        } catch (err) {}
+      };
       
       mixedAudioTrack = dst.stream.getAudioTracks()[0];
     } catch (e) {
@@ -1247,6 +1344,20 @@ const createMixedStream = (mainStream, cameraStream, options = { mixAudio: true 
 export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin, ownerToken, userAvatar, onOpenWhiteboard }) {
   // ── States ──
   const [localStream, setLocalStream] = useState(null);
+
+  // 🎙️ Voice & Video Filters (All-In-One Studio)
+  const [voiceFilter, setVoiceFilter] = useState("none");
+  const [videoFilter, setVideoFilter] = useState("none");
+  const voiceFilterRef = useRef("none");
+  const videoFilterRef = useRef("none");
+
+  useEffect(() => {
+    voiceFilterRef.current = voiceFilter;
+  }, [voiceFilter]);
+
+  useEffect(() => {
+    videoFilterRef.current = videoFilter;
+  }, [videoFilter]);
   const [displayStream, setDisplayStream] = useState(null); // tracks active display (camera or screenshare)
   const [remoteStreams, setRemoteStreams] = useState({}); // { [peerId]: { stream, name, isMuted, isVideoOff, volume } }
   const [participantStates, setParticipantStates] = useState({}); // { [peerId]: { isMuted, isVideoOff, role } }
@@ -1263,6 +1374,8 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const [callDuration, setCallDuration] = useState(0);
   const [showParticipants, setShowParticipants] = useState(false);
   const [showBandwidthMenu, setShowBandwidthMenu] = useState(false);
+  const [showVoiceMenu, setShowVoiceMenu] = useState(false);
+  const [showVideoMenu, setShowVideoMenu] = useState(false);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
   const [bandwidthMode, setBandwidthMode] = useState("auto"); // "auto" | "saver" | "audio-only" | "hd"
   const [networkQuality, setNetworkQuality] = useState({ rtt: 35, loss: 0, bitrate: 650, status: "good" });
@@ -2093,7 +2206,11 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         toast.info("💡 Tip: To share computer sound, select 'Tab' or check 'Share audio' in the browser popup.", { autoClose: 7000 });
       }
 
-      const mixed = createMixedStream(screenStream, localStreamRef.current, { mixAudio: true });
+      const mixed = createMixedStream(screenStream, localStreamRef.current, {
+        mixAudio: true,
+        getVideoFilter: () => videoFilterRef.current,
+        getVoiceFilter: () => voiceFilterRef.current
+      });
       mixedStreamCleanupRef.current = mixed.cleanup;
 
       const origVideo = localStreamRef.current?.getVideoTracks()[0];
@@ -2182,7 +2299,11 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
           return;
         }
 
-        const mixed = createMixedStream(stream, localStreamRef.current, { mixAudio: true });
+        const mixed = createMixedStream(stream, localStreamRef.current, {
+          mixAudio: true,
+          getVideoFilter: () => videoFilterRef.current,
+          getVoiceFilter: () => voiceFilterRef.current
+        });
         fileStreamRef.current = mixed.stream;
         mixedStreamCleanupRef.current = mixed.cleanup;
 
@@ -3091,6 +3212,52 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
           <DockButton onClick={flipCamera} title="Flip Camera">
             <FaExchangeAlt />
           </DockButton>
+
+          {/* Voice Changer */}
+          <div style={{ position: "relative" }}>
+            <DockButton $active={voiceFilter !== "none"} onClick={() => { setShowVoiceMenu(!showVoiceMenu); setShowVideoMenu(false); }} title="Voice Changer">
+              <FaMagic />
+              <span style={{ fontSize: "0.75rem" }}>Voice</span>
+            </DockButton>
+            {showVoiceMenu && (
+              <div style={{ position: "absolute", bottom: "calc(100% + 10px)", left: "50%", transform: "translateX(-50%)", width: 220, background: "rgba(18,20,32,0.96)", backdropFilter: "blur(24px)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 14, padding: 8, boxShadow: "0 16px 40px rgba(0,0,0,0.6)", zIndex: 1000 }}>
+                {[
+                  { id: "none", label: "🎙️ Normal Voice", desc: "No effects" },
+                  { id: "robot", label: "🤖 Robot", desc: "Ring modulation 55Hz" },
+                  { id: "telephone", label: "📞 Telephone", desc: "Bandpass megaphone" },
+                  { id: "echo", label: "🏔️ Echo / Cave", desc: "Delay + feedback loop" },
+                ].map(opt => (
+                  <button key={opt.id} onClick={() => { setVoiceFilter(opt.id); setShowVoiceMenu(false); toast.info(`Voice: ${opt.label}`, { autoClose: 1500 }); }} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 10, border: "none", background: voiceFilter === opt.id ? "rgba(99,102,241,0.18)" : "transparent", color: voiceFilter === opt.id ? "#a5b4fc" : "rgba(255,255,255,0.85)", fontSize: "0.78rem", fontWeight: 600, textAlign: "left", cursor: "pointer" }}>
+                    <div><span>{opt.label}</span><br /><span style={{ fontSize: "0.65rem", opacity: 0.6 }}>{opt.desc}</span></div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Video Filter */}
+          <div style={{ position: "relative" }}>
+            <DockButton $active={videoFilter !== "none"} onClick={() => { setShowVideoMenu(!showVideoMenu); setShowVoiceMenu(false); }} title="Video Filter">
+              <FaPalette />
+              <span style={{ fontSize: "0.75rem" }}>Filter</span>
+            </DockButton>
+            {showVideoMenu && (
+              <div style={{ position: "absolute", bottom: "calc(100% + 10px)", left: "50%", transform: "translateX(-50%)", width: 220, background: "rgba(18,20,32,0.96)", backdropFilter: "blur(24px)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 14, padding: 8, boxShadow: "0 16px 40px rgba(0,0,0,0.6)", zIndex: 1000 }}>
+                {[
+                  { id: "none", label: "✨ Normal", desc: "No filter" },
+                  { id: "grayscale", label: "🖤 Grayscale", desc: "Black & white" },
+                  { id: "sepia", label: "🟤 Sepia", desc: "Warm vintage tone" },
+                  { id: "blur", label: "🌫️ Privacy Blur", desc: "Background blur" },
+                  { id: "invert", label: "🔄 Invert", desc: "Inverted colors" },
+                  { id: "vintage", label: "📸 Vintage", desc: "Retro film look" },
+                ].map(opt => (
+                  <button key={opt.id} onClick={() => { setVideoFilter(opt.id); setShowVideoMenu(false); toast.info(`Filter: ${opt.label}`, { autoClose: 1500 }); }} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 10, border: "none", background: videoFilter === opt.id ? "rgba(99,102,241,0.18)" : "transparent", color: videoFilter === opt.id ? "#a5b4fc" : "rgba(255,255,255,0.85)", fontSize: "0.78rem", fontWeight: 600, textAlign: "left", cursor: "pointer" }}>
+                    <div><span>{opt.label}</span><br /><span style={{ fontSize: "0.65rem", opacity: 0.6 }}>{opt.desc}</span></div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
           <DockButton onClick={startScreenShare} title="Share Screen">
             <FaDesktop />

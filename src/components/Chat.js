@@ -46,6 +46,7 @@ import {
   exportKey,
   importKey
 } from "../utils/crypto";
+import { createDecryptionHtmlTemplate } from "../utils/exportTemplate";
 import { copyRoomShareLink, parseRoomRouteParams } from "../utils/shareLink";
 import { ImNewTab } from "react-icons/im";
 import { AiFillCloseSquare } from "react-icons/ai";
@@ -3150,6 +3151,11 @@ export default function ChatRoom() {
   const [confirmation, setConfirmation] = useState(null);
   const DEFAULT_EPHEMERAL_DURATION = 15; // fallback seconds if single message timer fails
 
+  // ── Session Exporting ──
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportPassword, setExportPassword] = useState("");
+  const [isExporting, setIsExporting] = useState(false);
+
   // ── Voice Notes ──
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
@@ -3864,6 +3870,69 @@ export default function ChatRoom() {
   };
   leaveRoomNowRef.current = leaveRoomNow;
   const handleLeaveRoom = () => setConfirmation({ title: "Leave this room?", body: "You can rejoin later with the room credentials.", confirmLabel: "Leave room", onConfirm: leaveRoomNow });
+
+  // ── Encrypted Session Export ──
+  const handleExportSession = async (password) => {
+    if (!password || password.length < 4) { toast.error("Password must be at least 4 characters."); return; }
+    setIsExporting(true);
+    try {
+      const activeMessages = messages.filter(m => m.type !== "system");
+      if (activeMessages.length === 0) { toast.warn("No messages to export."); setIsExporting(false); return; }
+      toast.info("Encrypting session... please wait.", { autoClose: false, toastId: "export-toast" });
+
+      const processedMessages = [];
+      for (const m of activeMessages) {
+        let fileData = null;
+        if (m.file && !m.file.loading && !m.file.viewOnce && m.file.url && m.file.iv) {
+          try {
+            let fetchUrl = m.file.url;
+            if (!m.file.url.startsWith(window.location.origin) && !m.file.url.includes("/uploads/")) {
+              const backendUrl = process.env.REACT_APP_SOCKET_ENDPOINT || "https://cheprabai-backend.onrender.com";
+              fetchUrl = `${backendUrl}/api/proxy-file?url=${encodeURIComponent(m.file.url)}`;
+            }
+            const res = await fetch(fetchUrl);
+            if (res.ok) {
+              const encBuf = await res.arrayBuffer();
+              const ivBytes = new Uint8Array(atob(m.file.iv).split("").map(c => c.charCodeAt(0)));
+              let dk = roomKey;
+              if (m.file.keyB64) dk = await importKey(m.file.keyB64);
+              if (dk) {
+                const decBuf = await decryptBinary(dk, { iv: ivBytes, data: encBuf });
+                const blob = new Blob([decBuf], { type: m.file.type || "application/octet-stream" });
+                const dataUrl = await new Promise(r => { const fr = new FileReader(); fr.onloadend = () => r(fr.result); fr.readAsDataURL(blob); });
+                fileData = { name: m.file.name, type: m.file.type, dataUrl };
+              }
+            }
+          } catch (err) { console.warn("Export file decrypt fail:", m.file.name, err); }
+        }
+        processedMessages.push({ userName: m.userName, text: m.text || "", ts: m.ts, file: fileData });
+      }
+
+      const exportSalt = window.crypto.getRandomValues(new Uint8Array(16));
+      const exportIv = window.crypto.getRandomValues(new Uint8Array(12));
+      const enc = new TextEncoder();
+      const rawKey = await window.crypto.subtle.importKey("raw", enc.encode(password), "PBKDF2", false, ["deriveKey"]);
+      const aesKey = await window.crypto.subtle.deriveKey({ name: "PBKDF2", salt: exportSalt, iterations: 100000, hash: "SHA-256" }, rawKey, { name: "AES-GCM", length: 256 }, true, ["encrypt"]);
+      const payload = JSON.stringify({ room: roomId, exportedAt: Date.now(), messages: processedMessages });
+      const encrypted = await window.crypto.subtle.encrypt({ name: "AES-GCM", iv: exportIv }, aesKey, enc.encode(payload));
+
+      const b64Data = btoa(String.fromCharCode(...new Uint8Array(encrypted)));
+      const b64Salt = btoa(String.fromCharCode(...exportSalt));
+      const b64Iv = btoa(String.fromCharCode(...exportIv));
+      const html = createDecryptionHtmlTemplate(roomId, b64Data, b64Salt, b64Iv);
+
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(new Blob([html], { type: "text/html" }));
+      link.download = `cheprabai-session-${roomId}.html`;
+      document.body.appendChild(link); link.click(); document.body.removeChild(link);
+
+      toast.update("export-toast", { render: "🔒 Encrypted session exported!", type: "success", autoClose: 3000 });
+      setShowExportModal(false); setExportPassword("");
+    } catch (e) {
+      console.error(e);
+      toast.update("export-toast", { render: "Export failed.", type: "error", autoClose: 3000 });
+    } finally { setIsExporting(false); }
+  };
   const handleKickFromRoom = (targetSocketId, targetName) => {
     setConfirmation({
       title: "Remove participant?",
