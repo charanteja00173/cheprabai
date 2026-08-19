@@ -1066,6 +1066,47 @@ export default function AdminControlCenter({ token, backendUrl }) {
             />
           </ToggleRow>
 
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <SettingsSectionTitle>
+              <span>🎛️</span> Feature Flags
+            </SettingsSectionTitle>
+            <div style={{ fontSize: "0.82rem", color: "var(--chakra-colors-textSecondary)", lineHeight: 1.5, marginBottom: 8 }}>
+              Toggle individual features on or off for all users. Disabled features show a banner to users.
+            </div>
+            {[
+              { key: "fileSharing", label: "File Sharing", desc: "Allow users to upload and share files" },
+              { key: "voiceCalls", label: "Voice & Video Calls", desc: "Enable audio/video call functionality" },
+              { key: "videoCalls", label: "Video Calls", desc: "Enable video call functionality" },
+              { key: "screenSharing", label: "Screen Sharing", desc: "Allow users to share their screen during calls" },
+              { key: "whiteboard", label: "Collaborative Whiteboard", desc: "Enable the shared drawing whiteboard" },
+              { key: "polls", label: "Polls", desc: "Allow users to create and vote on polls" },
+              { key: "scheduledMessages", label: "Scheduled Messages", desc: "Allow scheduling messages for later delivery" },
+              { key: "reactions", label: "Message Reactions", desc: "Allow users to react to messages with emojis" },
+              { key: "messageEditing", label: "Message Editing", desc: "Allow users to edit their sent messages" },
+              { key: "giphySearch", label: "GIPHY Search", desc: "Allow users to search and send GIFs" },
+              { key: "profiles", label: "User Profiles", desc: "Allow users to set display names and avatars" },
+              { key: "linkPreviews", label: "Link Previews", desc: "Show preview cards for shared links" },
+            ].map((f) => (
+              <ToggleRow key={f.key} style={{ marginTop: 0 }}>
+                <div>
+                  <div style={{ fontWeight: 700, marginBottom: 2 }}>{f.label}</div>
+                  <div style={{ fontSize: "0.8rem", color: "var(--chakra-colors-textSecondary)", lineHeight: 1.4 }}>{f.desc}</div>
+                </div>
+                <ToggleSwitch
+                  $checked={settings.features?.[f.key] !== false}
+                  onClick={() => {
+                    const newVal = settings.features?.[f.key] === false;
+                    const updatedFeatures = { ...(settings.features || {}), [f.key]: newVal };
+                    setSettings((prev) => ({ ...prev, features: updatedFeatures }));
+                    axios.patch(`${backendUrl}/api/admin/settings`, { features: updatedFeatures }, { headers: authHeaders() }).catch(() => {});
+                  }}
+                  role="checkbox"
+                  aria-checked={settings.features?.[f.key] !== false}
+                />
+              </ToggleRow>
+            ))}
+          </div>
+
           <SettingsForm onSubmit={handleSaveWhatsAppSettings}>
             <SettingsSectionTitle>
               <span>🔔</span> WhatsApp Alerts (CallMeBot)

@@ -2661,6 +2661,11 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile, setViewer 
 
   useEffect(() => {
     if (!isInView) return;
+    if (!file || !file.url) {
+      setError(true);
+      setLoading(false);
+      return;
+    }
     if (!file.iv || (!roomKey && !file.keyB64)) {
       setDecryptedUrl(file.url);
       setLoading(false);
@@ -3187,6 +3192,10 @@ export default function ChatRoom() {
   });
   const [isStealthMode, setIsStealthMode] = useState(false);
   const [requireRoomApproval, setRequireRoomApproval] = useState(false);
+  const [features, setFeatures] = useState(() => {
+    const defaults = { fileSharing: true, voiceCalls: true, videoCalls: true, screenSharing: true, whiteboard: true, polls: true, scheduledMessages: true, reactions: true, messageEditing: true, giphySearch: true, profiles: true, linkPreviews: true };
+    return defaults;
+  });
   const [showApprovalConfirm, setShowApprovalConfirm] = useState(false);
   const [roomExists, setRoomExists] = useState(true);
   const [roomRequestPending, setRoomRequestPending] = useState(false);
@@ -3445,6 +3454,12 @@ export default function ChatRoom() {
       .catch(() => {
         if (!cancelled) setRequireRoomApproval(false);
       });
+    fetch(`${backendUrl}/api/platform/features`)
+      .then((res) => (res.ok ? res.json() : { features: {} }))
+      .then((data) => {
+        if (!cancelled && data.features) setFeatures((prev) => ({ ...prev, ...data.features }));
+      })
+      .catch(() => {});
     return () => { cancelled = true; };
   }, [backendUrl]);
 
@@ -4404,12 +4419,6 @@ export default function ChatRoom() {
         fileToUpload = new File([encryptedBlob], file.name + ".enc", { type: "application/octet-stream" });
         ivString = btoa(String.fromCharCode(...new Uint8Array(encrypted.iv)));
         keyB64 = await exportKey(roomKey);
-      } else if (roomKey) {
-        // For large files (> 200MB), generate IV and export key directly for ultra-fast streaming without memory spikes
-        keyB64 = await exportKey(roomKey);
-        const iv = window.crypto.getRandomValues(new Uint8Array(12));
-        ivString = btoa(String.fromCharCode(...iv));
-        fileToUpload = file;
       }
 
       const backendUrl = process.env.REACT_APP_SOCKET_ENDPOINT || "https://cheprabai-backend.onrender.com";
@@ -4450,7 +4459,7 @@ export default function ChatRoom() {
           const encrypted = await encryptMessage(roomKey, JSON.stringify(plainPayload));
           payload = {
             encryptedPayload: encrypted,
-            file: fileData
+            file: { ...plainPayload.file, url: fileData.url }
           };
         }
         await new Promise((resolve, reject) => {
@@ -4525,7 +4534,7 @@ export default function ChatRoom() {
       const encrypted = await encryptMessage(roomKey, JSON.stringify(plainPayload));
       payload = {
         encryptedPayload: encrypted,
-        ...(customData && customData.file && { file: customData.file })
+        ...(customData && customData.file && { file: { ...plainPayload.file, url: customData.file.url } })
       };
     }
 
@@ -6114,6 +6123,7 @@ export default function ChatRoom() {
               </LiveBadge>
             )}
 
+            {features.voiceCalls !== false && (
             <ActionButton onClick={() => {
               if (!socketRef.current || !socketRef.current.connected) {
                 toast.error("Connecting to server. Please wait a moment before starting the call.");
@@ -6124,10 +6134,13 @@ export default function ChatRoom() {
             }} title="Start Video Call">
               <FaVideo />
             </ActionButton>
+            )}
 
+            {features.whiteboard !== false && (
             <ActionButton onClick={() => setShowWhiteboard(true)} title="Open Whiteboard">
               <FaPenNib />
             </ActionButton>
+            )}
 
             <ActionButton onClick={() => { setShowSearch(!showSearch); if (showSearch) setSearchQuery(""); }} title="Search Messages">
               <FaSearch />
@@ -6161,6 +6174,12 @@ export default function ChatRoom() {
           </RoomActions>
         </Header>
         {renderPinnedMessagesBanner()}
+        {Object.entries(features).some(([, v]) => v === false) && (
+          <div style={{ background: "linear-gradient(135deg, rgba(234,179,8,0.12), rgba(234,179,8,0.06))", border: "1px solid rgba(234,179,8,0.3)", borderRadius: 10, padding: "10px 16px", margin: "8px 16px", display: "flex", alignItems: "center", gap: 10, fontSize: "0.85rem", color: "var(--chakra-colors-textPrimary)" }}>
+            <span style={{ fontSize: "1.1rem" }}>⚠️</span>
+            <span>Some features are currently unavailable. Contact admin or upgrade your plan to access them.</span>
+          </div>
+        )}
         {viewer && (() => {
           const isObject = typeof viewer === "object" && viewer !== null;
           const url = isObject ? viewer.url : viewer;
@@ -6592,7 +6611,7 @@ export default function ChatRoom() {
                           </BubbleActionButton>
                         )}
 
-                        {m.userName === userName && m.text && !m.file && !m.poll && (Date.now() - m.ts < 15 * 60 * 1000) && (
+                        {features.messageEditing !== false && m.userName === userName && m.text && !m.file && !m.poll && (Date.now() - m.ts < 15 * 60 * 1000) && (
                           <BubbleActionButton
                             type="button"
                             onClick={() => {
@@ -7028,6 +7047,7 @@ export default function ChatRoom() {
                     />
                   )}
                 </div>
+                {features.giphySearch !== false && (
                 <IconButton
                   onClick={() => {
                     setShowGifPicker(true);
@@ -7037,12 +7057,16 @@ export default function ChatRoom() {
                 >
                   <HiGif />
                 </IconButton>
+                )}
+                {features.polls !== false && (
                 <IconButton
                   onClick={() => setShowPollCreator(true)}
                   title="Create Poll"
                 >
                   📊
                 </IconButton>
+                )}
+                {features.scheduledMessages !== false && (
                 <IconButton
                   onClick={() => setShowScheduler(!showScheduler)}
                   title="Schedule Message"
@@ -7050,6 +7074,7 @@ export default function ChatRoom() {
                 >
                   ⏰
                 </IconButton>
+                )}
                 <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
                   <EphemeralToggle
                     $active={roomEphemeralDuration > 0}
@@ -7175,9 +7200,11 @@ export default function ChatRoom() {
                   </IconButton>
                 )}
 
+                {features.fileSharing !== false && (
                 <IconButton as="label" htmlFor="file-input" title="Upload File">
                   <FaPaperclip />
                 </IconButton>
+                )}
 
                 <FileInput
                   ref={fileInputRef}
@@ -7226,6 +7253,7 @@ export default function ChatRoom() {
                         />
                       )}
                     </div>
+                    {features.giphySearch !== false && (
                     <IconButton
                       onClick={() => {
                         setShowGifPicker(true);
@@ -7235,14 +7263,18 @@ export default function ChatRoom() {
                     >
                       <HiGif />
                     </IconButton>
+                    )}
 
+                    {features.polls !== false && (
                     <IconButton
                       onClick={() => setShowPollCreator(true)}
                       title="Create Poll"
                     >
                       📊
                     </IconButton>
+                    )}
 
+                    {features.scheduledMessages !== false && (
                     <IconButton
                       onClick={() => setShowScheduler(!showScheduler)}
                       title="Schedule Message"
@@ -7250,6 +7282,7 @@ export default function ChatRoom() {
                     >
                       ⏰
                     </IconButton>
+                    )}
 
                     <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
                       <EphemeralToggle
