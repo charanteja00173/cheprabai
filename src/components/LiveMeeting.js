@@ -882,6 +882,119 @@ const SpotlightThumbnail = styled.div`
   }
 `;
 
+const ParticipantStrip = styled.div`
+  display: flex;
+  gap: 10px;
+  padding: 10px 16px;
+  overflow-x: auto;
+  flex-shrink: 0;
+  background: rgba(13, 15, 24, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  box-sizing: border-box;
+  -webkit-overflow-scrolling: touch;
+
+  &::-webkit-scrollbar { height: 4px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 2px; }
+
+  @media (max-width: 768px) {
+    padding: 8px 10px;
+    gap: 8px;
+  }
+`;
+
+const ParticipantWidget = styled.div`
+  width: 180px;
+  height: 110px;
+  flex-shrink: 0;
+  position: relative;
+  background: #11131e;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 2px solid ${props => props.$isHighlighted ? "#f59e0b" : props.$isSpeaking ? "#00f2fe" : props.$isMinimized ? "rgba(255,255,255,0.04)" : "rgba(255, 255, 255, 0.08)"};
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+  opacity: ${props => props.$isMinimized ? 0.55 : 1};
+
+  &:hover {
+    transform: translateY(-2px);
+    border-color: rgba(255, 255, 255, 0.25);
+    opacity: 1;
+
+    .widget-controls {
+      opacity: 1;
+    }
+  }
+
+  video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  @media (max-width: 768px) {
+    width: 140px;
+    height: 90px;
+  }
+
+  @media (max-width: 480px) {
+    width: 110px;
+    height: 75px;
+  }
+`;
+
+const WidgetControls = styled.div`
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: flex;
+  gap: 3px;
+  opacity: 0;
+  transition: opacity 0.2s;
+  z-index: 5;
+`;
+
+const WidgetBtn = styled.button`
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 0.65rem;
+  transition: all 0.15s;
+  background: ${props => props.$active ? "rgba(245, 158, 11, 0.3)" : "rgba(0,0,0,0.6)"};
+  color: ${props => props.$active ? "#fbbf24" : "rgba(255,255,255,0.8)"};
+
+  &:hover {
+    background: ${props => props.$active ? "rgba(245, 158, 11, 0.5)" : "rgba(255,255,255,0.2)"};
+  }
+`;
+
+const WidgetNameTag = styled.div`
+  position: absolute;
+  bottom: 4px;
+  left: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(0,0,0,0.65);
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-size: 0.65rem;
+  color: rgba(255,255,255,0.9);
+  max-width: calc(100% - 8px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  backdrop-filter: blur(4px);
+`;
+
 const FileStreamControlsCard = styled.div`
   position: absolute;
   bottom: 96px;
@@ -1392,6 +1505,26 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const [fileStreamVolume, setFileStreamVolume] = useState(1);
   const [showStreamModal, setShowStreamModal] = useState(false);
   const [streamUrlInput, setStreamUrlInput] = useState("");
+  const [minimizedPeers, setMinimizedPeers] = useState(new Set());
+  const [highlightedPeers, setHighlightedPeers] = useState(new Set());
+
+  const toggleMinimizePeer = useCallback((peerId) => {
+    setMinimizedPeers(prev => {
+      const next = new Set(prev);
+      if (next.has(peerId)) next.delete(peerId);
+      else next.add(peerId);
+      return next;
+    });
+  }, []);
+
+  const toggleHighlightPeer = useCallback((peerId) => {
+    setHighlightedPeers(prev => {
+      const next = new Set(prev);
+      if (next.has(peerId)) next.delete(peerId);
+      else next.add(peerId);
+      return next;
+    });
+  }, []);
 
   // ── Refs ──
   const containerRef = useRef(null);
@@ -2512,6 +2645,8 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
   // ─── Computed Participants ───
   const remoteEntries = Object.entries(remoteStreams);
+  const gridRemoteEntries = remoteEntries.filter(([peerId]) => !minimizedPeers.has(peerId));
+  const gridCount = 1 + gridRemoteEntries.length;
   const totalCount = 1 + remoteEntries.length;
 
   // ─── Spotlight Peer Computation ───
@@ -2914,7 +3049,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                 )}
               </SpotlightContainer>
             ) : (
-              <VideoGridContainer $count={totalCount}>
+              <VideoGridContainer $count={gridCount}>
                 {/* Local Video Tile */}
                 <VideoTile 
                   className="video-tile"
@@ -2958,7 +3093,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                 </VideoTile>
 
                 {/* Remote Participant Tiles */}
-                {remoteEntries.map(([peerId, info]) => {
+                {gridRemoteEntries.map(([peerId, info]) => {
                   const state = participantStates[peerId] || {};
                   const isPeerMuted = state.isMuted;
                   const isPeerVideoOff = state.isVideoOff || bandwidthMode === "audio-only";
@@ -3044,6 +3179,105 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
               </ReactionParticle>
             ))}
           </MainVideoArea>
+
+          {/* ═══ PARTICIPANT STRIP (Teams-style bottom bar) ═══ */}
+          {totalCount > 1 && (
+            <ParticipantStrip>
+              {/* Local Widget */}
+              <ParticipantWidget
+                $isSpeaking={speakingPeers.local}
+                $isHighlighted={highlightedPeers.has("local")}
+                $isMinimized={minimizedPeers.has("local")}
+                onClick={() => toggleHighlightPeer("local")}
+                title={`${userName} (You) - Click to ${highlightedPeers.has("local") ? "unhighlight" : "highlight"}`}
+              >
+                {isVideoOff || !localStream || bandwidthMode === "audio-only" ? (
+                  <AvatarPlaceholder>
+                    <div className="circle" style={{ fontSize: "1rem", width: 36, height: 36 }}>{getInitials(userName)}</div>
+                  </AvatarPlaceholder>
+                ) : (
+                  <video ref={localVideoCallbackRef} autoPlay playsInline muted />
+                )}
+                <WidgetControls className="widget-controls">
+                  <WidgetBtn
+                    $active={minimizedPeers.has("local")}
+                    onClick={(e) => { e.stopPropagation(); toggleMinimizePeer("local"); }}
+                    title={minimizedPeers.has("local") ? "Restore to grid" : "Minimize from grid"}
+                  >
+                    {minimizedPeers.has("local") ? "↗" : "↙"}
+                  </WidgetBtn>
+                  <WidgetBtn
+                    $active={highlightedPeers.has("local")}
+                    onClick={(e) => { e.stopPropagation(); toggleHighlightPeer("local"); }}
+                    title={highlightedPeers.has("local") ? "Remove highlight" : "Highlight for me"}
+                  >
+                    ★
+                  </WidgetBtn>
+                </WidgetControls>
+                <WidgetNameTag>
+                  <span>You</span>
+                  {isMuted && <FaMicrophoneSlash color="#ff4757" size={8} />}
+                  {speakingPeers.local && <span style={{ color: "#00f2fe" }}>●</span>}
+                </WidgetNameTag>
+              </ParticipantWidget>
+
+              {/* Remote Participant Widgets */}
+              {remoteEntries.map(([peerId, info]) => {
+                const state = participantStates[peerId] || {};
+                const isPeerMuted = state.isMuted;
+                const isPeerVideoOff = state.isVideoOff || bandwidthMode === "audio-only";
+                const isSpeaking = speakingPeers[peerId];
+                return (
+                  <ParticipantWidget
+                    key={peerId}
+                    $isSpeaking={isSpeaking}
+                    $isHighlighted={highlightedPeers.has(peerId)}
+                    $isMinimized={minimizedPeers.has(peerId)}
+                    onClick={() => toggleHighlightPeer(peerId)}
+                    title={`${info.name || "Participant"} - Click to ${highlightedPeers.has(peerId) ? "unhighlight" : "highlight"}`}
+                  >
+                    {isPeerVideoOff || !info.stream ? (
+                      <AvatarPlaceholder>
+                        <div className="circle" style={{ fontSize: "1rem", width: 36, height: 36 }}>{getInitials(info.name)}</div>
+                      </AvatarPlaceholder>
+                    ) : (
+                      <video
+                        autoPlay
+                        playsInline
+                        ref={el => {
+                          if (el && info.stream && el.srcObject !== info.stream) {
+                            el.srcObject = info.stream;
+                            el.volume = (info.volume || 100) / 100;
+                          }
+                        }}
+                      />
+                    )}
+                    <WidgetControls className="widget-controls">
+                      <WidgetBtn
+                        $active={minimizedPeers.has(peerId)}
+                        onClick={(e) => { e.stopPropagation(); toggleMinimizePeer(peerId); }}
+                        title={minimizedPeers.has(peerId) ? "Restore to grid" : "Minimize from grid"}
+                      >
+                        {minimizedPeers.has(peerId) ? "↗" : "↙"}
+                      </WidgetBtn>
+                      <WidgetBtn
+                        $active={highlightedPeers.has(peerId)}
+                        onClick={(e) => { e.stopPropagation(); toggleHighlightPeer(peerId); }}
+                        title={highlightedPeers.has(peerId) ? "Remove highlight" : "Highlight for me"}
+                      >
+                        ★
+                      </WidgetBtn>
+                    </WidgetControls>
+                    <WidgetNameTag>
+                      <span>{info.name || "Participant"}</span>
+                      {isPeerMuted && <FaMicrophoneSlash color="#ff4757" size={8} />}
+                      {isSpeaking && <span style={{ color: "#00f2fe" }}>●</span>}
+                    </WidgetNameTag>
+                  </ParticipantWidget>
+                );
+              })}
+            </ParticipantStrip>
+          )}
 
           {/* ═══ PARTICIPANTS SLIDE-OVER DRAWER ═══ */}
           {showParticipants && (

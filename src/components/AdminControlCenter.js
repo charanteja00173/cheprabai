@@ -1068,6 +1068,39 @@ export default function AdminControlCenter({ token, backendUrl }) {
 
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <SettingsSectionTitle>
+              <span>💎</span> Subscription Plan
+            </SettingsSectionTitle>
+            <div style={{ fontSize: "0.82rem", color: "var(--chakra-colors-textSecondary)", lineHeight: 1.5, marginBottom: 8 }}>
+              Choose the plan tier. Free plan has limited participants and features.
+            </div>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              {[
+                { id: "free", label: "Free", desc: "4 participants, 3 rooms, 30min calls", color: "#94a3b8" },
+                { id: "pro", label: "Pro", desc: "25 participants, unlimited rooms & calls", color: "#818cf8" },
+                { id: "enterprise", label: "Enterprise", desc: "Unlimited everything, priority support", color: "#f59e0b" },
+              ].map(p => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => {
+                    const newPlan = p.id;
+                    setSettings((prev) => ({ ...prev, plan: newPlan }));
+                    axios.patch(`${backendUrl}/api/admin/settings`, { plan: newPlan }, { headers: authHeaders() }).catch(() => {});
+                  }}
+                  style={{
+                    flex: "1 1 140px", padding: "14px 16px", borderRadius: 12, border: `2px solid ${settings.plan === p.id ? p.color : "rgba(255,255,255,0.08)"}`,
+                    background: settings.plan === p.id ? `${p.color}15` : "rgba(255,255,255,0.03)", cursor: "pointer", textAlign: "left", transition: "all 0.2s"
+                  }}
+                >
+                  <div style={{ fontWeight: 800, fontSize: "0.9rem", color: settings.plan === p.id ? p.color : "var(--chakra-colors-textPrimary)", marginBottom: 4 }}>{p.label}</div>
+                  <div style={{ fontSize: "0.72rem", color: "var(--chakra-colors-textSecondary)", lineHeight: 1.4 }}>{p.desc}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <SettingsSectionTitle>
               <span>🎛️</span> Feature Flags
             </SettingsSectionTitle>
             <div style={{ fontSize: "0.82rem", color: "var(--chakra-colors-textSecondary)", lineHeight: 1.5, marginBottom: 8 }}>
@@ -1086,6 +1119,19 @@ export default function AdminControlCenter({ token, backendUrl }) {
               { key: "giphySearch", label: "GIPHY Search", desc: "Allow users to search and send GIFs" },
               { key: "profiles", label: "User Profiles", desc: "Allow users to set display names and avatars" },
               { key: "linkPreviews", label: "Link Previews", desc: "Show preview cards for shared links" },
+              { key: "voiceRecordings", label: "Voice Recordings", desc: "Allow sending audio voice notes" },
+              { key: "bookmarks", label: "Bookmarks", desc: "Allow users to save messages" },
+              { key: "ephemeralMessages", label: "Ephemeral Messages", desc: "Allow disappearing messages" },
+              { key: "messageSearch", label: "Message Search", desc: "Allow searching through message history" },
+              { key: "messageForwarding", label: "Message Forwarding", desc: "Allow forwarding messages to other rooms" },
+              { key: "pinnedMessages", label: "Pinned Messages", desc: "Allow pinning important messages" },
+              { key: "typingIndicators", label: "Typing Indicators", desc: "Show when users are typing" },
+              { key: "stealthMode", label: "Stealth Mode", desc: "Allow anonymous joining without name reveal" },
+              { key: "meetingRecording", label: "Meeting Recording", desc: "Allow recording live calls" },
+              { key: "handRaise", label: "Hand Raise", desc: "Allow raising hand during calls" },
+              { key: "chatInCall", label: "Chat in Call", desc: "Allow text chat during live calls" },
+              { key: "themes", label: "Theme Switching", desc: "Allow users to change chat themes" },
+              { key: "keyboardShortcuts", label: "Keyboard Shortcuts", desc: "Show keyboard shortcuts help panel" },
             ].map((f) => (
               <ToggleRow key={f.key} style={{ marginTop: 0 }}>
                 <div>

@@ -1227,7 +1227,7 @@ const RecordingIndicator = styled.div`
   }
 `;
 
-const MessageInput = styled.input`
+const MessageInput = styled.textarea`
   flex: 1;
   min-width: 0;
   padding: 8px 10px;
@@ -1237,6 +1237,11 @@ const MessageInput = styled.input`
   outline: none;
   font-size: 0.95rem;
   box-shadow: none;
+  resize: none;
+  overflow-y: auto;
+  max-height: 150px;
+  line-height: 1.4;
+  font-family: inherit;
 
   &::placeholder {
     color: var(--chakra-colors-textSecondary);
@@ -3193,7 +3198,15 @@ export default function ChatRoom() {
   const [isStealthMode, setIsStealthMode] = useState(false);
   const [requireRoomApproval, setRequireRoomApproval] = useState(false);
   const [features, setFeatures] = useState(() => {
-    const defaults = { fileSharing: true, voiceCalls: true, videoCalls: true, screenSharing: true, whiteboard: true, polls: true, scheduledMessages: true, reactions: true, messageEditing: true, giphySearch: true, profiles: true, linkPreviews: true };
+    const defaults = {
+      fileSharing: true, voiceCalls: true, videoCalls: true, screenSharing: true,
+      whiteboard: true, polls: true, scheduledMessages: true, reactions: true,
+      messageEditing: true, giphySearch: true, profiles: true, linkPreviews: true,
+      voiceRecordings: true, bookmarks: true, ephemeralMessages: true,
+      messageSearch: true, messageForwarding: true, pinnedMessages: true,
+      typingIndicators: true, stealthMode: true, meetingRecording: true,
+      handRaise: true, chatInCall: true, themes: true, keyboardShortcuts: true,
+    };
     return defaults;
   });
   const [showApprovalConfirm, setShowApprovalConfirm] = useState(false);
@@ -4498,6 +4511,29 @@ export default function ChatRoom() {
         .filter(Boolean);
       if (pastedFiles.length > 0) {
         setPendingFiles((prev) => [...prev, ...pastedFiles]);
+        return;
+      }
+      const text = e.clipboardData.getData("text");
+      if (!text) return;
+      const lines = text.split("\n");
+      if (lines.length >= 3) {
+        let codeLineCount = 0;
+        for (const line of lines) {
+          if (
+            /^\s{2,}\S/.test(line) ||
+            /[{}();]\s*$/.test(line) ||
+            /=>/.test(line) ||
+            /^\s*(import|export|const|let|var|function|class|def |if\s*\(|else|for\s*\(|while\s*\(|return |public |private |protected |static |void |int |String |package |from |require\()/.test(line)
+          ) {
+            codeLineCount++;
+          }
+        }
+        if (codeLineCount / lines.length > 0.4) {
+          e.preventDefault();
+          const wrapped = "```\n" + text + "\n```";
+          setMessage((prev) => (prev ? prev + "\n" + wrapped : wrapped));
+          return;
+        }
       }
     };
     window.addEventListener("paste", onPaste);
@@ -6115,7 +6151,7 @@ export default function ChatRoom() {
           </RoomInfoTrigger>
 
           <RoomActions>
-            <ThemeSwitcher />
+            {features.themes !== false && <ThemeSwitcher />}
             {(showWhiteboard || showMeeting) && (
               <LiveBadge>
                 <div style={{ width: 6, height: 6, background: "white", borderRadius: "50%" }} />
@@ -6142,21 +6178,27 @@ export default function ChatRoom() {
             </ActionButton>
             )}
 
+            {features.messageSearch !== false && (
             <ActionButton onClick={() => { setShowSearch(!showSearch); if (showSearch) setSearchQuery(""); }} title="Search Messages">
               <FaSearch />
             </ActionButton>
+            )}
 
             <ActionButton onClick={handleLeaveRoom} title="Leave Room" style={{ color: "var(--chakra-colors-brandPrimary)" }}>
               <FaSignOutAlt color="white" />
             </ActionButton>
 
+            {features.bookmarks !== false && (
             <ActionButton onClick={() => setShowBookmarks(!showBookmarks)} title="Saved messages / Bookmarks" style={{ color: showBookmarks ? "var(--chakra-colors-brandPrimary)" : "inherit" }}>
               🔖
             </ActionButton>
+            )}
 
+            {features.keyboardShortcuts !== false && (
             <ActionButton onClick={() => setShowShortcutsHelp(true)} title="Keyboard Shortcuts Guide" style={{ fontSize: "1.1rem" }}>
               ⌨️
             </ActionButton>
+            )}
 
             {showSearch && (
               <SearchPopup onClick={(e) => e.stopPropagation()}>
@@ -6591,7 +6633,7 @@ export default function ChatRoom() {
                           </BubbleActionButton>
                         )}
 
-                        {ownerToken && (
+                        {features.pinnedMessages !== false && ownerToken && (
                           <BubbleActionButton
                             type="button"
                             onClick={() => {
@@ -7075,6 +7117,7 @@ export default function ChatRoom() {
                   ⏰
                 </IconButton>
                 )}
+                {features.ephemeralMessages !== false && (
                 <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
                   <EphemeralToggle
                     $active={roomEphemeralDuration > 0}
@@ -7115,6 +7158,7 @@ export default function ChatRoom() {
                     </>
                   )}
                 </div>
+                )}
               </AccessoryRow>
             )}
 
@@ -7218,6 +7262,8 @@ export default function ChatRoom() {
                   }}
                 />
 
+                {features.voiceRecordings !== false && (
+                <>
                 {isRecording ? (
                   <RecordingIndicator onClick={stopVoiceRecording} title="Stop recording">
                     <span className="dot" />
@@ -7230,12 +7276,19 @@ export default function ChatRoom() {
                     <FaMicrophone />
                   </IconButton>
                 )}
+                </>
+                )}
 
                 <MessageInput
+                  rows={1}
                   placeholder={ephemeralMode ? "💨 Ephemeral message..." : "Type a message..."}
                   value={message}
                   onChange={handleInputChange}
                   onKeyDown={handleInputKeyDown}
+                  onInput={(e) => {
+                    e.target.style.height = "auto";
+                    e.target.style.height = Math.min(e.target.scrollHeight, 150) + "px";
+                  }}
                 />
 
                 {!isMobile && (
