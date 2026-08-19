@@ -77,41 +77,41 @@ const MeetingContainer = styled.div`
     right: 24px;
     width: 320px;
     height: 190px;
-    border-radius: 18px;
-    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.12);
+    border-radius: 16px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.1);
     cursor: grab;
     overflow: hidden;
     z-index: 10010;
     touch-action: none;
-    
-    &:active {
-      cursor: grabbing;
-    }
-    
-    .meeting-header, .controls-bar, .participant-sidebar, .main-video-area, .file-stream-controls {
+    &:active { cursor: grabbing; }
+    .meeting-header, .controls-bar, .participant-sidebar, .main-video-area, .file-stream-controls,
+    .desktop-only-controls, .mobile-primary-row, .mobile-secondary-row {
       display: none !important;
     }
   `}
 
   @media (max-width: 768px) {
     ${props => props.$minimized && css`
-      width: 260px;
-      height: 160px;
-      bottom: 16px;
-      right: 16px;
-      border-radius: 14px;
+      width: 200px;
+      height: 120px;
+      bottom: 80px;
+      right: 12px;
+      border-radius: 12px;
     `}
   }
 
-  @media (max-width: 600px) {
-    .hide-mobile {
-      display: none !important;
-    }
-
-    .desktop-only-controls {
-      display: none !important;
-    }
+  @media (max-width: 480px) {
+    ${props => props.$minimized && css`
+      width: 160px;
+      height: 100px;
+      bottom: 70px;
+      right: 8px;
+      border-radius: 10px;
+    `}
   }
+
+  .hide-mobile { @media (max-width: 600px) { display: none !important; } }
+  .desktop-only-controls { @media (max-width: 768px) { display: none !important; } }
 `;
 
 const BackgroundAtmosphere = styled.div`
@@ -308,44 +308,50 @@ const BandwidthOption = styled.button`
 `;
 
 const IconButton = styled.button`
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: ${props => props.$primary ? "#ff4757" : props.$active ? "rgba(99, 102, 241, 0.25)" : "rgba(255, 255, 255, 0.05)"};
-  border: 1px solid ${props => props.$primary ? "rgba(255, 71, 87, 0.4)" : props.$active ? "rgba(99, 102, 241, 0.4)" : "rgba(255, 255, 255, 0.08)"};
-  color: ${props => props.$primary ? "#fff" : props.$active ? "#a5b4fc" : "rgba(255, 255, 255, 0.8)"};
-  font-size: 0.85rem;
+  background: ${props => props.$primary ? "#ff4757" : props.$active ? "rgba(99, 102, 241, 0.2)" : "rgba(255, 255, 255, 0.05)"};
+  border: 1px solid ${props => props.$primary ? "rgba(255, 71, 87, 0.35)" : props.$active ? "rgba(99, 102, 241, 0.35)" : "rgba(255, 255, 255, 0.07)"};
+  color: ${props => props.$primary ? "#fff" : props.$active ? "#a5b4fc" : "rgba(255, 255, 255, 0.75)"};
+  font-size: 0.82rem;
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;
   flex-shrink: 0;
 
   &:hover {
     background: ${props => props.$primary ? "#ff3344" : "rgba(255, 255, 255, 0.1)"};
     color: #fff;
-    transform: translateY(-1px);
+  }
+  &:active { transform: scale(0.94); }
+
+  @media (max-width: 768px) {
+    width: 32px;
+    height: 32px;
+    font-size: 0.78rem;
   }
 
   @media (max-width: 480px) {
-    width: 34px;
-    height: 34px;
-    font-size: 0.8rem;
+    width: 30px;
+    height: 30px;
+    font-size: 0.72rem;
     border-radius: 8px;
   }
 
   .badge {
     position: absolute;
-    top: -4px;
-    right: -4px;
+    top: -3px;
+    right: -3px;
     background: #4f46e5;
     color: #fff;
-    font-size: 0.65rem;
+    font-size: 0.6rem;
     font-weight: 800;
-    width: 16px;
-    height: 16px;
+    width: 15px;
+    height: 15px;
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -357,37 +363,39 @@ const IconButton = styled.button`
 const ContentArea = styled.main`
   flex: 1;
   display: flex;
+  flex-direction: column;
   position: relative;
   overflow: hidden;
   z-index: 1;
-  padding: 12px 16px;
-  gap: 12px;
+  padding: 10px 14px;
+  gap: 8px;
+  min-height: 0;
 
   @media (max-width: 768px) {
-    padding: 8px;
-    gap: 8px;
+    padding: 6px 8px;
+    gap: 6px;
   }
 
-  @media (max-width: 480px) {
-    padding: 4px;
+  @media (max-width: 600px) {
+    padding: 4px 4px;
     gap: 4px;
   }
 `;
 
 const MainVideoArea = styled.div`
   flex: 1;
-  height: 100%;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   position: relative;
-  border-radius: 18px;
+  border-radius: 16px;
   overflow: hidden;
 
-  @media (max-width: 640px) {
+  @media (max-width: 768px) {
     border-radius: 12px;
   }
 
-  @media (max-width: 380px) {
+  @media (max-width: 480px) {
     border-radius: 8px;
   }
 `;
@@ -396,62 +404,67 @@ const VideoGridContainer = styled.div`
   width: 100%;
   height: 100%;
   display: grid;
-  gap: 12px;
+  gap: 8px;
   align-content: center;
   justify-content: center;
-  
+  padding: 4px;
+
   grid-template-columns: ${props => {
     const c = props.$count;
     if (c <= 1) return "1fr";
-    if (c === 2) return "repeat(2, minmax(0, 1fr))";
-    if (c <= 4) return "repeat(2, minmax(0, 1fr))";
-    if (c <= 6) return "repeat(3, minmax(0, 1fr))";
-    if (c <= 9) return "repeat(3, minmax(0, 1fr))";
-    return "repeat(4, minmax(0, 1fr))";
+    if (c === 2) return "repeat(2, 1fr)";
+    if (c <= 4) return "repeat(2, 1fr)";
+    if (c <= 6) return "repeat(3, 1fr)";
+    if (c <= 9) return "repeat(3, 1fr)";
+    return "repeat(4, 1fr)";
   }};
 
   grid-template-rows: ${props => {
     const c = props.$count;
     if (c <= 2) return "1fr";
-    if (c <= 4) return "repeat(2, minmax(0, 1fr))";
-    if (c <= 6) return "repeat(2, minmax(0, 1fr))";
-    if (c <= 9) return "repeat(3, minmax(0, 1fr))";
-    return "repeat(3, minmax(0, 1fr))";
+    if (c <= 4) return "repeat(2, 1fr)";
+    if (c <= 6) return "repeat(2, 1fr)";
+    if (c <= 9) return "repeat(3, 1fr)";
+    return "repeat(3, 1fr)";
   }};
 
-  @media (max-width: 640px) {
-    grid-template-columns: ${props => props.$count <= 1 ? "1fr" : "repeat(2, minmax(0, 1fr))"};
-    grid-template-rows: auto;
-    gap: 8px;
-    padding: 4px;
+  @media (max-width: 768px) {
+    gap: 6px;
+    padding: 3px;
   }
 
-  @media (max-width: 380px) {
-    gap: 6px;
+  @media (max-width: 600px) {
+    grid-template-columns: ${props => {
+      const c = props.$count;
+      if (c <= 1) return "1fr";
+      return "repeat(2, 1fr)";
+    }};
+    grid-template-rows: auto;
+    gap: 4px;
     padding: 2px;
+    align-content: ${props => props.$count <= 2 ? "center" : "start"};
   }
 `;
 
 const VideoTile = styled.div`
   position: relative;
   background: #11131e;
-  border-radius: 16px;
+  border-radius: 14px;
   overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-  border: 2px solid ${props => props.$isSpeaking ? "#00f2fe" : props.$isPinned ? "#f59e0b" : "rgba(255, 255, 255, 0.08)"};
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  border: 2px solid ${props => props.$isSpeaking ? "#00f2fe" : props.$isPinned ? "#f59e0b" : "rgba(255, 255, 255, 0.06)"};
+  transition: border-color 0.25s, box-shadow 0.25s;
   min-height: 0;
+  min-width: 0;
 
   ${props => props.$isSpeaking && css`
-    box-shadow: 0 0 20px rgba(0, 242, 254, 0.25);
+    box-shadow: 0 0 16px rgba(0, 242, 254, 0.2);
   `}
 
-  &:hover .tile-overlay {
-    opacity: 1;
-  }
+  &:hover .tile-overlay { opacity: 1; }
 
   video {
     width: 100%;
@@ -460,58 +473,58 @@ const VideoTile = styled.div`
     background: #000;
   }
 
-  @media (max-width: 640px) {
-    border-radius: 12px;
+  @media (max-width: 768px) {
+    border-radius: 10px;
     border-width: 1.5px;
   }
 
-  @media (max-width: 380px) {
-    border-radius: 10px;
+  @media (max-width: 480px) {
+    border-radius: 8px;
   }
 `;
 
 const TileOverlay = styled.div`
   position: absolute;
-  top: 8px;
-  right: 8px;
+  top: 6px;
+  right: 6px;
   display: flex;
-  gap: 5px;
+  gap: 4px;
   opacity: 0;
   transition: opacity 0.2s ease;
   z-index: 10;
 
   @media (max-width: 768px) {
-    opacity: 0.85 !important;
-    top: 6px;
-    right: 6px;
-    gap: 4px;
-  }
-
-  @media (max-width: 480px) {
-    opacity: 1 !important;
+    opacity: 0.8;
     top: 4px;
     right: 4px;
     gap: 3px;
   }
+
+  @media (max-width: 480px) {
+    opacity: 1;
+    top: 3px;
+    right: 3px;
+    gap: 2px;
+  }
 `;
 
 const TileActionButton = styled.button`
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   border-radius: 8px;
   border: none;
   background: ${props => {
     if (props.$danger) return "rgba(239, 68, 68, 0.85)";
     if (props.$active) return "rgba(245, 158, 11, 0.9)";
-    return "rgba(0, 0, 0, 0.65)";
+    return "rgba(0, 0, 0, 0.6)";
   }};
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   color: ${props => props.$active ? "#000" : "#fff"};
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   cursor: pointer;
   transition: all 0.15s;
 
@@ -524,47 +537,47 @@ const TileActionButton = styled.button`
     }};
   }
 
-  @media (max-width: 480px) {
-    width: 28px;
-    height: 28px;
-    font-size: 0.75rem;
+  @media (max-width: 600px) {
+    width: 26px;
+    height: 26px;
+    font-size: 0.7rem;
     border-radius: 6px;
   }
 `;
 
 const TileUserInfo = styled.div`
   position: absolute;
-  bottom: 10px;
-  left: 10px;
+  bottom: 8px;
+  left: 8px;
   display: flex;
   align-items: center;
-  gap: 6px;
-  background: rgba(10, 12, 20, 0.75);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 4px 10px;
-  border-radius: 12px;
-  font-size: 0.75rem;
+  gap: 5px;
+  background: rgba(10, 12, 20, 0.78);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 3px 8px;
+  border-radius: 10px;
+  font-size: 0.72rem;
   font-weight: 700;
   color: #fff;
   z-index: 5;
-  max-width: calc(100% - 20px);
+  max-width: calc(100% - 16px);
 
-  @media (max-width: 640px) {
-    bottom: 6px;
-    left: 6px;
-    padding: 3px 8px;
-    font-size: 0.68rem;
+  @media (max-width: 768px) {
+    bottom: 5px;
+    left: 5px;
+    padding: 2px 6px;
+    font-size: 0.65rem;
     border-radius: 8px;
-    gap: 4px;
-    max-width: calc(100% - 12px);
+    gap: 3px;
+    max-width: calc(100% - 10px);
   }
 
-  @media (max-width: 380px) {
-    bottom: 4px;
-    left: 4px;
-    padding: 2px 6px;
-    font-size: 0.62rem;
+  @media (max-width: 480px) {
+    bottom: 3px;
+    left: 3px;
+    padding: 2px 5px;
+    font-size: 0.6rem;
     border-radius: 6px;
   }
 `;
@@ -572,11 +585,11 @@ const TileUserInfo = styled.div`
 const EqualizerWaves = styled.div`
   display: inline-flex;
   align-items: flex-end;
-  gap: 2px;
-  height: 14px;
+  gap: 1.5px;
+  height: 12px;
 
   span {
-    width: 2.5px;
+    width: 2px;
     background: #00f2fe;
     border-radius: 1px;
     animation: ${eqBar} 0.8s ease-in-out infinite;
@@ -584,6 +597,8 @@ const EqualizerWaves = styled.div`
     &:nth-child(2) { animation-delay: 0.2s; }
     &:nth-child(3) { animation-delay: 0.4s; }
   }
+
+  @media (max-width: 480px) { height: 10px; span { width: 1.5px; } }
 `;
 
 const AvatarPlaceholder = styled.div`
@@ -594,47 +609,47 @@ const AvatarPlaceholder = styled.div`
   align-items: center;
   justify-content: center;
   background: linear-gradient(145deg, #131728 0%, #0d0f1a 100%);
-  gap: 12px;
+  gap: 10px;
 
   .circle {
-    width: clamp(60px, 12vw, 100px);
-    height: clamp(60px, 12vw, 100px);
+    width: clamp(48px, 10vw, 90px);
+    height: clamp(48px, 10vw, 90px);
     border-radius: 50%;
     background: linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: clamp(1.4rem, 3vw, 2.4rem);
+    font-size: clamp(1.2rem, 2.5vw, 2.2rem);
     font-weight: 800;
     color: #fff;
-    box-shadow: 0 10px 30px rgba(6, 182, 212, 0.25);
+    box-shadow: 0 8px 24px rgba(6, 182, 212, 0.25);
   }
+
+  @media (max-width: 600px) { gap: 6px; }
 `;
 
 const ControlsDock = styled.footer`
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 14px 20px;
-  background: rgba(13, 15, 24, 0.85);
+  padding: 12px 20px;
+  background: rgba(13, 15, 24, 0.88);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
   z-index: 20;
-  gap: 10px;
-  flex-wrap: wrap;
+  gap: 8px;
 
   @media (max-width: 768px) {
-    padding: 10px;
+    padding: 10px 12px;
     gap: 6px;
   }
 
   @media (max-width: 600px) {
     flex-direction: column;
-    align-items: center;
-    padding: 8px 10px;
-    gap: 6px;
-    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+    padding: 6px 8px;
+    gap: 0;
+    padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px));
   }
 `;
 
@@ -645,8 +660,9 @@ const MobilePrimaryRow = styled.div`
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: 6px;
     width: 100%;
+    padding: 4px 0;
   }
 `;
 
@@ -657,32 +673,31 @@ const MobileSecondaryRow = styled.div`
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
+    gap: 4px;
     width: 100%;
     overflow-x: auto;
-    padding: 2px 0;
+    padding: 4px 0 2px;
     -webkit-overflow-scrolling: touch;
-
     &::-webkit-scrollbar { height: 0; }
   }
 `;
 
 const DockButton = styled.button`
-  min-width: 44px;
-  height: 44px;
-  padding: 0 14px;
-  border-radius: 14px;
+  min-width: 42px;
+  height: 42px;
+  padding: 0 12px;
+  border-radius: 12px;
   border: 1px solid ${props => {
-    if (props.$danger) return "rgba(255, 71, 87, 0.5)";
-    if (props.$warning) return "rgba(245, 158, 11, 0.4)";
-    if (props.$active) return "rgba(79, 70, 229, 0.5)";
+    if (props.$danger) return "rgba(255, 71, 87, 0.45)";
+    if (props.$warning) return "rgba(245, 158, 11, 0.35)";
+    if (props.$active) return "rgba(79, 70, 229, 0.45)";
     return "rgba(255, 255, 255, 0.08)";
   }};
   background: ${props => {
     if (props.$danger) return "#ff4757";
     if (props.$warning) return "rgba(245, 158, 11, 0.15)";
-    if (props.$active) return "rgba(79, 70, 229, 0.25)";
-    return "rgba(255, 255, 255, 0.04)";
+    if (props.$active) return "rgba(79, 70, 229, 0.2)";
+    return "rgba(255, 255, 255, 0.05)";
   }};
   color: ${props => {
     if (props.$danger) return "#fff";
@@ -693,48 +708,60 @@ const DockButton = styled.button`
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  font-size: 0.88rem;
+  gap: 7px;
+  font-size: 0.82rem;
   font-weight: 700;
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  flex-shrink: 0;
+  position: relative;
 
   &:hover {
     background: ${props => props.$danger ? "#ff3344" : "rgba(255, 255, 255, 0.1)"};
-    transform: translateY(-2px);
+    transform: translateY(-1px);
+  }
+  &:active { transform: scale(0.96); }
+
+  @media (max-width: 768px) {
+    min-width: 38px;
+    height: 38px;
+    padding: 0 10px;
+    font-size: 0.78rem;
+    gap: 5px;
   }
 
   @media (max-width: 600px) {
-    min-width: 42px;
-    height: 42px;
+    min-width: 44px;
+    height: 44px;
     padding: 0;
     border-radius: 50%;
     font-size: 1rem;
+    span { display: none !important; }
+  }
 
-    span {
-      display: none !important;
-    }
+  @media (max-width: 380px) {
+    min-width: 40px;
+    height: 40px;
   }
 `;
 
 const EmojiTray = styled.div`
   display: flex;
-  gap: 6px;
+  gap: 4px;
 
-  @media (max-width: 600px) {
-    display: none !important;
-  }
+  @media (max-width: 768px) { gap: 3px; }
+  @media (max-width: 600px) { display: none !important; }
 `;
 
 const DockDivider = styled.div`
   width: 1px;
-  height: 28px;
+  height: 24px;
   background: rgba(255, 255, 255, 0.1);
   margin: 0 4px;
+  flex-shrink: 0;
 
-  @media (max-width: 600px) {
-    display: none;
-  }
+  @media (max-width: 768px) { height: 20px; margin: 0 2px; }
+  @media (max-width: 600px) { display: none; }
 `;
 
 const ParticipantsDrawer = styled.aside`
@@ -742,18 +769,24 @@ const ParticipantsDrawer = styled.aside`
   top: 0;
   right: 0;
   bottom: 0;
-  width: 320px;
-  background: rgba(15, 17, 28, 0.95);
-  backdrop-filter: blur(28px);
-  border-left: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: -10px 0 40px rgba(0, 0, 0, 0.5);
+  width: 300px;
+  background: rgba(15, 17, 28, 0.96);
+  backdrop-filter: blur(24px);
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.5);
   display: flex;
   flex-direction: column;
   z-index: 50;
-  animation: ${slideInRight} 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: ${slideInRight} 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 
-  @media (max-width: 480px) {
+  @media (max-width: 600px) {
     width: 100%;
+    border-left: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px 16px 0 0;
+    top: auto;
+    bottom: 0;
+    max-height: 70vh;
   }
 `;
 
@@ -761,16 +794,22 @@ const DrawerHeader = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 20px;
+  padding: 14px 16px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
 
   h3 {
     margin: 0;
-    font-size: 0.95rem;
+    font-size: 0.88rem;
     font-weight: 800;
     display: flex;
     align-items: center;
     gap: 8px;
+  }
+
+  @media (max-width: 480px) {
+    padding: 12px 14px;
+    h3 { font-size: 0.82rem; }
   }
 `;
 
@@ -821,60 +860,60 @@ const AvatarSmall = styled.div`
 const ModalBackdrop = styled.div`
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(6px);
   z-index: 10020;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 16px;
-  animation: ${fadeIn} 0.2s ease;
+  padding: 12px;
+  animation: ${fadeIn} 0.15s ease;
+
+  @media (max-width: 480px) {
+    padding: 8px;
+    align-items: flex-end;
+  }
 `;
 
 const ModalContent = styled.div`
   background: #141724;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 20px;
-  padding: 24px;
-  width: min(440px, calc(100% - 32px));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 18px;
+  padding: 22px;
+  width: min(420px, calc(100% - 24px));
   max-height: calc(100vh - 48px);
   overflow-y: auto;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
-  animation: ${slideUp} 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+  animation: ${slideUp} 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 
   @media (max-width: 480px) {
     padding: 18px 16px;
-    border-radius: 16px;
-    width: calc(100% - 24px);
-
-    h3 {
-      font-size: 1rem !important;
-    }
-    p {
-      font-size: 0.72rem !important;
-    }
-  }
-
-  @media (max-width: 360px) {
-    padding: 14px 12px;
-    border-radius: 14px;
+    border-radius: 16px 16px 0 0;
+    width: 100%;
+    max-height: 85vh;
+    h3 { font-size: 0.95rem !important; }
+    p { font-size: 0.72rem !important; }
   }
 `;
 
 const ReactionParticle = styled.div`
   position: absolute;
-  bottom: 80px;
+  bottom: 60px;
   left: ${props => props.$x}%;
-  font-size: 2.2rem;
+  font-size: 2rem;
   animation: ${floatUp} 2.5s ease-out forwards;
   pointer-events: none;
   z-index: 40;
+
+  @media (max-width: 600px) { font-size: 1.6rem; bottom: 40px; }
 `;
 
 const SpinnerIcon = styled(FaSync)`
   animation: ${spin} 1.2s linear infinite;
   color: #00f2fe;
-  font-size: 32px;
+  font-size: 28px;
+
+  @media (max-width: 480px) { font-size: 24px; }
 `;
 
 const PipWidget = styled.div`
@@ -894,16 +933,20 @@ const PipWidget = styled.div`
 
   .pip-controls {
     position: absolute;
-    bottom: 8px;
-    left: 8px;
-    right: 8px;
+    bottom: 6px;
+    left: 6px;
+    right: 6px;
     display: flex;
     justify-content: center;
-    gap: 8px;
-    background: rgba(0, 0, 0, 0.6);
+    gap: 6px;
+    background: rgba(0, 0, 0, 0.65);
     backdrop-filter: blur(8px);
-    padding: 6px;
-    border-radius: 10px;
+    padding: 4px;
+    border-radius: 8px;
+  }
+
+  @media (max-width: 480px) {
+    .pip-controls { bottom: 4px; left: 4px; right: 4px; gap: 4px; padding: 3px; border-radius: 6px; }
   }
 `;
 
@@ -912,126 +955,108 @@ const SpotlightContainer = styled.div`
   flex-direction: column;
   width: 100%;
   height: 100%;
-  gap: 12px;
+  gap: 8px;
   position: relative;
   box-sizing: border-box;
 
-  @media (max-width: 768px) {
-    gap: 8px;
-  }
+  @media (max-width: 600px) { gap: 4px; }
 `;
 
 const SpotlightMain = styled.div`
   flex: 1;
   min-height: 0;
   position: relative;
-  border-radius: 16px;
+  border-radius: 14px;
   overflow: hidden;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
   box-sizing: border-box;
+
+  @media (max-width: 600px) { border-radius: 8px; }
 `;
 
 const SpotlightStrip = styled.div`
   display: flex;
-  gap: 10px;
+  gap: 8px;
   overflow-x: auto;
-  padding: 4px 0 12px;
+  padding: 2px 0 8px;
   flex-shrink: 0;
-  box-sizing: border-box;
-  -webkit-overflow-scrolling: touch;
-
-  &::-webkit-scrollbar {
-    height: 6px;
-  }
-  &::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  &::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.15);
-    border-radius: 3px;
-  }
-`;
-
-const SpotlightThumbnail = styled.div`
-  width: 160px;
-  height: 100px;
-  flex-shrink: 0;
-  position: relative;
-  background: #11131e;
-  border-radius: 12px;
-  overflow: hidden;
-  border: 2px solid ${props => props.$isSpeaking ? "#00f2fe" : props.$isActive ? "#f59e0b" : "rgba(255, 255, 255, 0.08)"};
-  cursor: pointer;
-  transition: all 0.2s ease;
-  box-sizing: border-box;
-
-  &:hover {
-    transform: translateY(-2px);
-    border-color: rgba(255, 255, 255, 0.25);
-  }
-
-  video {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  @media (max-width: 600px) {
-    width: 120px;
-    height: 80px;
-  }
-`;
-
-const ParticipantStrip = styled.div`
-  display: flex;
-  gap: 10px;
-  padding: 10px 16px;
-  overflow-x: auto;
-  flex-shrink: 0;
-  background: rgba(13, 15, 24, 0.6);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
   box-sizing: border-box;
   -webkit-overflow-scrolling: touch;
 
   &::-webkit-scrollbar { height: 4px; }
   &::-webkit-scrollbar-track { background: transparent; }
-  &::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 2px; }
+  &::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.12); border-radius: 2px; }
+
+  @media (max-width: 480px) { gap: 4px; padding: 2px 0 4px; }
+`;
+
+const SpotlightThumbnail = styled.div`
+  width: 140px;
+  height: 90px;
+  flex-shrink: 0;
+  position: relative;
+  background: #11131e;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 2px solid ${props => props.$isSpeaking ? "#00f2fe" : props.$isActive ? "#f59e0b" : "rgba(255, 255, 255, 0.06)"};
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+
+  &:hover { transform: translateY(-1px); border-color: rgba(255, 255, 255, 0.2); }
+  video { width: 100%; height: 100%; object-fit: cover; }
+
+  @media (max-width: 768px) { width: 110px; height: 72px; }
+  @media (max-width: 480px) { width: 90px; height: 60px; border-radius: 8px; }
+`;
+
+const ParticipantStrip = styled.div`
+  display: flex;
+  gap: 8px;
+  padding: 8px 12px;
+  overflow-x: auto;
+  flex-shrink: 0;
+  background: rgba(13, 15, 24, 0.6);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  box-sizing: border-box;
+  -webkit-overflow-scrolling: touch;
+
+  &::-webkit-scrollbar { height: 3px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
 
   @media (max-width: 768px) {
-    padding: 8px 10px;
-    gap: 8px;
+    padding: 6px 8px;
+    gap: 6px;
   }
 
   @media (max-width: 480px) {
-    padding: 6px 8px;
-    gap: 6px;
+    padding: 4px 6px;
+    gap: 4px;
   }
 `;
 
 const ParticipantWidget = styled.div`
-  width: 180px;
-  height: 110px;
+  width: 160px;
+  height: 100px;
   flex-shrink: 0;
   position: relative;
   background: #11131e;
-  border-radius: 12px;
+  border-radius: 10px;
   overflow: hidden;
-  border: 2px solid ${props => props.$isHighlighted ? "#f59e0b" : props.$isSpeaking ? "#00f2fe" : props.$isMinimized ? "rgba(255,255,255,0.04)" : "rgba(255, 255, 255, 0.08)"};
+  border: 2px solid ${props => props.$isHighlighted ? "#f59e0b" : props.$isSpeaking ? "#00f2fe" : props.$isMinimized ? "rgba(255,255,255,0.04)" : "rgba(255, 255, 255, 0.06)"};
   cursor: pointer;
   transition: all 0.2s ease;
   box-sizing: border-box;
-  opacity: ${props => props.$isMinimized ? 0.55 : 1};
+  opacity: ${props => props.$isMinimized ? 0.5 : 1};
 
   &:hover {
-    transform: translateY(-2px);
-    border-color: rgba(255, 255, 255, 0.25);
+    transform: translateY(-1px);
+    border-color: rgba(255, 255, 255, 0.2);
     opacity: 1;
-
-    .widget-controls {
-      opacity: 1;
-    }
+    .widget-controls { opacity: 1; }
   }
 
   video {
@@ -1041,112 +1066,130 @@ const ParticipantWidget = styled.div`
   }
 
   @media (max-width: 768px) {
-    width: 140px;
-    height: 90px;
+    width: 120px;
+    height: 78px;
   }
 
   @media (max-width: 480px) {
-    width: 110px;
-    height: 72px;
+    width: 100px;
+    height: 66px;
+    border-radius: 8px;
+  }
+
+  @media (max-width: 380px) {
+    width: 88px;
+    height: 58px;
   }
 `;
 
 const WidgetControls = styled.div`
   position: absolute;
-  top: 4px;
-  right: 4px;
+  top: 3px;
+  right: 3px;
   display: flex;
-  gap: 3px;
+  gap: 2px;
   opacity: 0;
   transition: opacity 0.2s;
   z-index: 5;
+
+  @media (max-width: 480px) { opacity: 0.8; }
 `;
 
 const WidgetBtn = styled.button`
-  width: 24px;
-  height: 24px;
-  border-radius: 6px;
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
   border: none;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  font-size: 0.65rem;
+  font-size: 0.6rem;
   transition: all 0.15s;
   background: ${props => props.$active ? "rgba(245, 158, 11, 0.3)" : "rgba(0,0,0,0.6)"};
   color: ${props => props.$active ? "#fbbf24" : "rgba(255,255,255,0.8)"};
 
-  &:hover {
-    background: ${props => props.$active ? "rgba(245, 158, 11, 0.5)" : "rgba(255,255,255,0.2)"};
-  }
+  &:hover { background: ${props => props.$active ? "rgba(245, 158, 11, 0.5)" : "rgba(255,255,255,0.2)"}; }
+
+  @media (max-width: 480px) { width: 18px; height: 18px; font-size: 0.55rem; }
 `;
 
 const WidgetNameTag = styled.div`
   position: absolute;
-  bottom: 4px;
-  left: 4px;
+  bottom: 3px;
+  left: 3px;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   background: rgba(0,0,0,0.65);
-  padding: 2px 7px;
-  border-radius: 6px;
-  font-size: 0.65rem;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 0.58rem;
   color: rgba(255,255,255,0.9);
-  max-width: calc(100% - 8px);
+  max-width: calc(100% - 6px);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   backdrop-filter: blur(4px);
+
+  @media (max-width: 480px) { font-size: 0.52rem; padding: 1px 4px; }
 `;
 
 const FileStreamControlsCard = styled.div`
   position: absolute;
-  bottom: 96px;
+  bottom: 80px;
   left: 50%;
   transform: translateX(-50%);
   background: linear-gradient(135deg, rgba(17, 19, 32, 0.97), rgba(10, 11, 20, 0.99));
   border: 1px solid rgba(129, 140, 248, 0.15);
-  border-radius: 16px;
-  padding: 14px 18px;
-  width: min(92vw, 440px);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255,255,255,0.04);
+  border-radius: 14px;
+  padding: 12px 16px;
+  width: min(90vw, 420px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   z-index: 1000;
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 
-  @media (max-width: 640px) {
+  @media (max-width: 768px) {
+    bottom: 70px;
+    width: min(92vw, 380px);
+    padding: 10px 14px;
+    gap: 6px;
+    border-radius: 12px;
+  }
+
+  @media (max-width: 600px) {
     bottom: auto;
     top: 50%;
     transform: translate(-50%, -50%);
-    width: min(95vw, 360px);
-    padding: 12px 14px;
-    border-radius: 14px;
+    width: min(94vw, 340px);
+    padding: 10px 12px;
+    border-radius: 12px;
   }
 
   @media (max-width: 380px) {
-    width: min(98vw, 300px);
-    padding: 10px 12px;
-    border-radius: 12px;
-    gap: 8px;
+    width: calc(100vw - 16px);
+    padding: 8px 10px;
+    gap: 5px;
+    border-radius: 10px;
   }
 
   .stream-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 8px;
+    gap: 6px;
   }
 
   .stream-info {
     display: flex;
     align-items: center;
-    gap: 8px;
-    font-size: 0.8rem;
+    gap: 6px;
+    font-size: 0.75rem;
     font-weight: 700;
     color: #fff;
     overflow: hidden;
@@ -1165,16 +1208,16 @@ const FileStreamControlsCard = styled.div`
   .stream-time {
     display: flex;
     align-items: center;
-    gap: 8px;
-    font-size: 0.75rem;
+    gap: 6px;
+    font-size: 0.7rem;
     font-weight: 600;
     color: rgba(255, 255, 255, 0.5);
     font-variant-numeric: tabular-nums;
 
     input[type="range"] {
       flex: 1;
-      height: 5px;
-      border-radius: 3px;
+      height: 4px;
+      border-radius: 2px;
       outline: none;
       background: rgba(255, 255, 255, 0.1);
       cursor: pointer;
@@ -1183,12 +1226,12 @@ const FileStreamControlsCard = styled.div`
       
       &::-webkit-slider-thumb {
         -webkit-appearance: none;
-        width: 14px;
-        height: 14px;
+        width: 12px;
+        height: 12px;
         border-radius: 50%;
         background: #818cf8;
         cursor: pointer;
-        box-shadow: 0 0 8px rgba(129, 140, 248, 0.5);
+        box-shadow: 0 0 6px rgba(129, 140, 248, 0.5);
       }
     }
   }
@@ -1197,27 +1240,27 @@ const FileStreamControlsCard = styled.div`
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 8px;
+    gap: 6px;
   }
 
   .controls-group {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
   }
 
   .volume-control {
     display: flex;
     align-items: center;
-    gap: 5px;
+    gap: 4px;
     background: rgba(255, 255, 255, 0.04);
-    padding: 4px 8px;
-    border-radius: 10px;
+    padding: 3px 6px;
+    border-radius: 8px;
     border: 1px solid rgba(255, 255, 255, 0.06);
 
     .vol-icon {
       color: rgba(255, 255, 255, 0.5);
-      font-size: 0.8rem;
+      font-size: 0.75rem;
       flex-shrink: 0;
       cursor: pointer;
       transition: color 0.2s;
@@ -1225,7 +1268,7 @@ const FileStreamControlsCard = styled.div`
     }
 
     .vol-slider {
-      width: 60px;
+      width: 50px;
       height: 3px;
       cursor: pointer;
       -webkit-appearance: none;
@@ -1248,16 +1291,16 @@ const FileStreamControlsCard = styled.div`
     background: rgba(255, 255, 255, 0.06);
     border: 1px solid rgba(255, 255, 255, 0.08);
     color: rgba(255, 255, 255, 0.85);
-    width: 36px;
-    height: 36px;
-    border-radius: 10px;
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
     cursor: pointer;
-    font-size: 0.78rem;
+    font-size: 0.75rem;
     font-weight: 600;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.2s ease;
+    transition: all 0.15s ease;
     flex-shrink: 0;
 
     &:hover {
@@ -1267,17 +1310,17 @@ const FileStreamControlsCard = styled.div`
     &:active { transform: scale(0.95); }
 
     &.play-btn {
-      width: 48px;
-      height: 48px;
+      width: 44px;
+      height: 44px;
       border-radius: 50%;
       background: linear-gradient(135deg, #6366f1, #818cf8);
       color: #fff;
-      font-size: 1rem;
+      font-size: 0.92rem;
       border: none;
-      box-shadow: 0 4px 18px rgba(99, 102, 241, 0.45);
+      box-shadow: 0 4px 16px rgba(99, 102, 241, 0.4);
       &:hover {
         background: linear-gradient(135deg, #4f46e5, #6366f1);
-        box-shadow: 0 6px 24px rgba(99, 102, 241, 0.6);
+        box-shadow: 0 6px 20px rgba(99, 102, 241, 0.55);
       }
     }
 
@@ -1290,8 +1333,8 @@ const FileStreamControlsCard = styled.div`
 
     &.speed-btn {
       width: auto;
-      padding: 0 10px;
-      font-size: 0.72rem;
+      padding: 0 8px;
+      font-size: 0.68rem;
       font-weight: 800;
       letter-spacing: 0.02em;
       background: rgba(129, 140, 248, 0.1);
@@ -1306,55 +1349,23 @@ const FileStreamControlsCard = styled.div`
     100% { opacity: 0.3; }
   }
 
-  @media (max-width: 768px) {
-    top: 62px;
-    bottom: auto;
-    width: min(94vw, 400px);
-    padding: 12px 14px;
-    gap: 8px;
-    border-radius: 14px;
-
-    .ctrl-btn {
-      width: 34px;
-      height: 34px;
-      &.play-btn { width: 44px; height: 44px; font-size: 0.92rem; }
-    }
-
-    .volume-control .vol-slider { width: 50px; }
-  }
-
   @media (max-width: 480px) {
-    width: calc(100vw - 16px);
-    top: 56px;
-    padding: 10px 10px;
-    gap: 6px;
-    border-radius: 12px;
-
-    .stream-info { font-size: 0.72rem; }
-    .stream-time { gap: 5px; font-size: 0.68rem; }
-    .controls-group { gap: 4px; }
+    .stream-info { font-size: 0.68rem; }
+    .stream-time { gap: 4px; font-size: 0.65rem; }
+    .controls-group { gap: 3px; }
 
     .ctrl-btn {
-      width: 32px;
-      height: 32px;
-      border-radius: 8px;
-      font-size: 0.72rem;
-      &.play-btn { width: 40px; height: 40px; font-size: 0.88rem; }
-      &.speed-btn { padding: 0 7px; font-size: 0.65rem; }
+      width: 30px;
+      height: 30px;
+      border-radius: 7px;
+      font-size: 0.7rem;
+      &.play-btn { width: 38px; height: 38px; font-size: 0.85rem; }
+      &.speed-btn { padding: 0 6px; font-size: 0.62rem; }
     }
 
     .volume-control {
-      padding: 3px 6px;
-      .vol-slider { width: 40px; }
-    }
-  }
-
-  @media (max-width: 360px) {
-    padding: 8px;
-    gap: 5px;
-    .ctrl-btn {
-      width: 30px; height: 30px;
-      &.play-btn { width: 38px; height: 38px; }
+      padding: 2px 5px;
+      .vol-slider { width: 36px; }
     }
   }
 `;
