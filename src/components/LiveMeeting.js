@@ -6,12 +6,15 @@ import {
   FaCompress, FaExpand, FaExchangeAlt, 
   FaThLarge, FaUsers, FaHandPaper, 
   FaWifi, FaSignal, FaWindowMinimize, FaTimes, 
-  FaTrash, FaVolumeUp, FaVolumeMute, FaChartLine, FaCrown,
+  FaTrash, FaVolumeUp, FaVolumeMute, FaVolumeDown, FaChartLine, FaCrown,
   FaLeaf, FaBolt, FaHeadphones, FaGem, FaExclamationTriangle,
-  FaPlay, FaPause, FaPlayCircle
+  FaPlay, FaPause, FaPlayCircle, FaForward, FaBackward,
+  FaRedo, FaUndo, FaTachometerAlt, FaStop, FaThumbtack
 } from "react-icons/fa";
-import Peer from "peerjs";
+import * as PeerModule from "peerjs";
 import { toast } from "react-toastify";
+
+const Peer = PeerModule.Peer || PeerModule.default || PeerModule;
 
 // Prevent extension interference
 if (typeof window !== "undefined") {
@@ -419,26 +422,46 @@ const TileOverlay = styled.div`
   opacity: 0;
   transition: opacity 0.2s ease;
   z-index: 10;
+
+  @media (max-width: 768px) {
+    opacity: 0.9 !important;
+  }
 `;
 
 const TileActionButton = styled.button`
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   border-radius: 8px;
   border: none;
-  background: ${props => props.$danger ? "rgba(239, 68, 68, 0.85)" : "rgba(0, 0, 0, 0.65)"};
+  background: ${props => {
+    if (props.$danger) return "rgba(239, 68, 68, 0.85)";
+    if (props.$active) return "rgba(245, 158, 11, 0.9)";
+    return "rgba(0, 0, 0, 0.65)";
+  }};
   backdrop-filter: blur(10px);
-  color: #fff;
+  -webkit-backdrop-filter: blur(10px);
+  color: ${props => props.$active ? "#000" : "#fff"};
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.75rem;
+  font-size: 0.82rem;
   cursor: pointer;
   transition: all 0.15s;
 
   &:hover {
     transform: scale(1.1);
-    background: ${props => props.$danger ? "#ef4444" : "rgba(0, 0, 0, 0.85)"};
+    background: ${props => {
+      if (props.$danger) return "#ef4444";
+      if (props.$active) return "#f59e0b";
+      return "rgba(0, 0, 0, 0.85)";
+    }};
+  }
+
+  @media (max-width: 480px) {
+    width: 28px;
+    height: 28px;
+    font-size: 0.75rem;
+    border-radius: 6px;
   }
 `;
 
@@ -706,9 +729,29 @@ const ModalContent = styled.div`
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 20px;
   padding: 24px;
-  width: min(440px, 100%);
+  width: min(440px, calc(100% - 32px));
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
   animation: ${slideUp} 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+
+  @media (max-width: 480px) {
+    padding: 18px 16px;
+    border-radius: 16px;
+    width: calc(100% - 24px);
+
+    h3 {
+      font-size: 1rem !important;
+    }
+    p {
+      font-size: 0.72rem !important;
+    }
+  }
+
+  @media (max-width: 360px) {
+    padding: 14px 12px;
+    border-radius: 14px;
+  }
 `;
 
 const ReactionParticle = styled.div`
@@ -837,85 +880,182 @@ const FileStreamControlsCard = styled.div`
   bottom: 96px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(17, 19, 30, 0.95);
-  border: 1.5px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(135deg, rgba(17, 19, 32, 0.97), rgba(10, 11, 20, 0.99));
+  border: 1px solid rgba(129, 140, 248, 0.15);
   border-radius: 16px;
-  padding: 16px 24px;
-  width: min(90vw, 480px);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(12px);
+  padding: 14px 18px;
+  width: min(92vw, 440px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255,255,255,0.04);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   z-index: 1000;
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+
+  .stream-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
 
   .stream-info {
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 0.88rem;
+    font-size: 0.8rem;
     font-weight: 700;
     color: #fff;
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
+    min-width: 0;
+    flex: 1;
 
     .pulse-icon {
       color: #ef4444;
       animation: pulse-glow 1.5s infinite;
+      flex-shrink: 0;
     }
   }
 
   .stream-time {
     display: flex;
     align-items: center;
-    gap: 12px;
-    font-size: 0.78rem;
-    color: rgba(255, 255, 255, 0.6);
+    gap: 8px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.5);
+    font-variant-numeric: tabular-nums;
 
     input[type="range"] {
       flex: 1;
-      height: 4px;
-      border-radius: 2px;
+      height: 5px;
+      border-radius: 3px;
       outline: none;
-      accent-color: var(--chakra-colors-brandPrimary, #00f2fe);
-      background: rgba(255, 255, 255, 0.15);
+      background: rgba(255, 255, 255, 0.1);
       cursor: pointer;
+      -webkit-appearance: none;
+      appearance: none;
+      
+      &::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: #818cf8;
+        cursor: pointer;
+        box-shadow: 0 0 8px rgba(129, 140, 248, 0.5);
+      }
     }
   }
 
-  .stream-buttons {
+  .stream-footer {
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 16px;
-    margin-top: 4px;
+    justify-content: space-between;
+    gap: 8px;
+  }
 
-    button {
-      background: rgba(255, 255, 255, 0.08);
-      border: none;
-      color: #fff;
-      padding: 8px 16px;
-      border-radius: 8px;
+  .controls-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .volume-control {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(255, 255, 255, 0.04);
+    padding: 4px 8px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+
+    .vol-icon {
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 0.8rem;
+      flex-shrink: 0;
       cursor: pointer;
-      font-size: 0.82rem;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      transition: all 0.2s ease;
+      transition: color 0.2s;
+      &:hover { color: #818cf8; }
+    }
 
+    .vol-slider {
+      width: 60px;
+      height: 3px;
+      cursor: pointer;
+      -webkit-appearance: none;
+      appearance: none;
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 2px;
+      outline: none;
+
+      &::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #818cf8;
+      }
+    }
+  }
+
+  .ctrl-btn {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.85);
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 0.78rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.14);
+      transform: scale(1.05);
+    }
+    &:active { transform: scale(0.95); }
+
+    &.play-btn {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #6366f1, #818cf8);
+      color: #fff;
+      font-size: 1rem;
+      border: none;
+      box-shadow: 0 4px 18px rgba(99, 102, 241, 0.45);
       &:hover {
-        background: rgba(255, 255, 255, 0.16);
+        background: linear-gradient(135deg, #4f46e5, #6366f1);
+        box-shadow: 0 6px 24px rgba(99, 102, 241, 0.6);
       }
+    }
 
-      &.stop-btn {
-        background: #ef4444;
-        &:hover {
-          background: #dc2626;
-        }
-      }
+    &.stop-btn {
+      background: rgba(239, 68, 68, 0.15);
+      color: #ef4444;
+      border-color: rgba(239, 68, 68, 0.3);
+      &:hover { background: #ef4444; color: #fff; }
+    }
+
+    &.speed-btn {
+      width: auto;
+      padding: 0 10px;
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      background: rgba(129, 140, 248, 0.1);
+      border-color: rgba(129, 140, 248, 0.2);
+      color: #a5b4fc;
     }
   }
 
@@ -925,10 +1065,56 @@ const FileStreamControlsCard = styled.div`
     100% { opacity: 0.3; }
   }
 
-  @media (max-width: 480px) {
-    bottom: 84px;
-    padding: 12px 16px;
+  @media (max-width: 768px) {
+    top: 62px;
+    bottom: auto;
+    width: min(94vw, 400px);
+    padding: 12px 14px;
     gap: 8px;
+    border-radius: 14px;
+
+    .ctrl-btn {
+      width: 34px;
+      height: 34px;
+      &.play-btn { width: 44px; height: 44px; font-size: 0.92rem; }
+    }
+
+    .volume-control .vol-slider { width: 50px; }
+  }
+
+  @media (max-width: 480px) {
+    width: calc(100vw - 16px);
+    top: 56px;
+    padding: 10px 10px;
+    gap: 6px;
+    border-radius: 12px;
+
+    .stream-info { font-size: 0.72rem; }
+    .stream-time { gap: 5px; font-size: 0.68rem; }
+    .controls-group { gap: 4px; }
+
+    .ctrl-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      font-size: 0.72rem;
+      &.play-btn { width: 40px; height: 40px; font-size: 0.88rem; }
+      &.speed-btn { padding: 0 7px; font-size: 0.65rem; }
+    }
+
+    .volume-control {
+      padding: 3px 6px;
+      .vol-slider { width: 40px; }
+    }
+  }
+
+  @media (max-width: 360px) {
+    padding: 8px;
+    gap: 5px;
+    .ctrl-btn {
+      width: 30px; height: 30px;
+      &.play-btn { width: 38px; height: 38px; }
+    }
   }
 `;
 
@@ -964,6 +1150,8 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const [fileStreamProgress, setFileStreamProgress] = useState(0);
   const [isFileStreamPaused, setIsFileStreamPaused] = useState(false);
   const [fileStreamName, setFileStreamName] = useState("");
+  const [fileStreamSpeed, setFileStreamSpeed] = useState(1);
+  const [fileStreamVolume, setFileStreamVolume] = useState(1);
 
   // ── Refs ──
   const containerRef = useRef(null);
@@ -1048,7 +1236,9 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       newX = Math.max(minX, Math.min(maxX, newX));
       newY = Math.max(minY, Math.min(maxY, newY));
 
-      hasDraggedRef.current = true; // actual movement occurred
+      const dx = Math.abs(currentX - (dragStartRef.current.x + pipPosition.x));
+      const dy = Math.abs(currentY - (dragStartRef.current.y + pipPosition.y));
+      if (dx > 5 || dy > 5) hasDraggedRef.current = true; // only count as drag if moved > 5px
       setPipPosition({ x: newX, y: newY });
     };
 
@@ -1684,6 +1874,26 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     }
   };
 
+  const handleFullscreenVideo = (e) => {
+    e.stopPropagation();
+    const tile = e.currentTarget.closest(".video-tile");
+    if (!tile) return;
+    const video = tile.querySelector("video");
+    if (video) {
+      if (video.requestFullscreen) {
+        video.requestFullscreen();
+      } else if (video.webkitEnterFullscreen) {
+        video.webkitEnterFullscreen();
+      } else if (video.msRequestFullscreen) {
+        video.msRequestFullscreen();
+      } else {
+        toast.error("Fullscreen is not supported on this browser/device.");
+      }
+    } else {
+      toast.error("No active video feed to display in fullscreen.");
+    }
+  };
+
   const flipCamera = async () => {
     try {
       const currentTrack = localStreamRef.current?.getVideoTracks()[0];
@@ -1895,6 +2105,45 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     }
   };
 
+  const skipFileStream = (seconds) => {
+    if (fileVideoRef.current) {
+      const newTime = Math.max(0, Math.min(fileVideoRef.current.duration || 0, fileVideoRef.current.currentTime + seconds));
+      fileVideoRef.current.currentTime = newTime;
+      setFileStreamProgress(newTime);
+    }
+  };
+
+  const SPEED_OPTIONS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
+
+  const cycleFileStreamSpeed = () => {
+    if (fileVideoRef.current) {
+      const currentIdx = SPEED_OPTIONS.indexOf(fileStreamSpeed);
+      const nextIdx = (currentIdx + 1) % SPEED_OPTIONS.length;
+      const newSpeed = SPEED_OPTIONS[nextIdx];
+      fileVideoRef.current.playbackRate = newSpeed;
+      setFileStreamSpeed(newSpeed);
+    }
+  };
+
+  const changeFileStreamVolume = (vol) => {
+    if (fileVideoRef.current) {
+      fileVideoRef.current.volume = vol;
+      setFileStreamVolume(vol);
+    }
+  };
+
+  const toggleFileStreamMute = () => {
+    if (fileVideoRef.current) {
+      if (fileVideoRef.current.volume > 0) {
+        fileVideoRef.current.volume = 0;
+        setFileStreamVolume(0);
+      } else {
+        fileVideoRef.current.volume = 1;
+        setFileStreamVolume(1);
+      }
+    }
+  };
+
   const toggleRecording = () => {
     if (isRecording) {
       if (recorderRef.current && recorderRef.current.state !== "inactive") {
@@ -1986,13 +2235,53 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         {/* ═══ MINIMIZED PIP VIEW ═══ */}
         {isMinimized && (
           <PipWidget onClick={() => { if (!hasDraggedRef.current) setIsMinimized(false); }}>
-            {isVideoOff || !localStream ? (
-              <AvatarPlaceholder>
-                <div className="circle">{getInitials(userName)}</div>
-              </AvatarPlaceholder>
-            ) : (
-              <video ref={localVideoCallbackRef} autoPlay playsInline muted />
-            )}
+            {(() => {
+              // Priority: 1. File stream video, 2. First remote participant, 3. Local camera
+              const firstRemote = Object.entries(remoteStreams)[0];
+              if (isFileStreaming && fileVideoRef.current) {
+                // Show file stream in PIP
+                return (
+                  <video
+                    autoPlay playsInline muted
+                    ref={el => {
+                      if (el && fileStreamRef.current && el.srcObject !== fileStreamRef.current) {
+                        el.srcObject = fileStreamRef.current;
+                      }
+                    }}
+                  />
+                );
+              } else if (firstRemote && firstRemote[1]?.stream) {
+                // Show the first remote participant's stream (like WhatsApp/Teams)
+                const [, remoteInfo] = firstRemote;
+                const remoteState = participantStates[firstRemote[0]] || {};
+                if (remoteState.isVideoOff) {
+                  return (
+                    <AvatarPlaceholder>
+                      <div className="circle">{getInitials(remoteInfo.name)}</div>
+                    </AvatarPlaceholder>
+                  );
+                }
+                return (
+                  <video
+                    autoPlay playsInline
+                    ref={el => {
+                      if (el && remoteInfo.stream && el.srcObject !== remoteInfo.stream) {
+                        el.srcObject = remoteInfo.stream;
+                        el.volume = (remoteInfo.volume || 100) / 100;
+                      }
+                    }}
+                  />
+                );
+              } else if (isVideoOff || !localStream) {
+                return (
+                  <AvatarPlaceholder>
+                    <div className="circle">{getInitials(userName)}</div>
+                  </AvatarPlaceholder>
+                );
+              } else {
+                return <video ref={localVideoCallbackRef} autoPlay playsInline muted />;
+              }
+            })()}
             <div 
               className="pip-controls" 
               onClick={e => e.stopPropagation()}
@@ -2128,11 +2417,27 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                 <SpotlightMain>
                   {spotlightPeerId === "local" ? (
                     <VideoTile 
+                      className="video-tile"
                       $isSpeaking={speakingPeers.local}
                       $isPinned={pinnedPeerId === "local"}
                       onDoubleClick={() => setPinnedPeerId(prev => prev === "local" ? null : "local")}
                       style={{ width: "100%", height: "100%" }}
                     >
+                      <TileOverlay className="tile-overlay">
+                        <TileActionButton 
+                          $active={pinnedPeerId === "local"}
+                          onClick={() => setPinnedPeerId(prev => prev === "local" ? null : "local")}
+                          title={pinnedPeerId === "local" ? "Unpin Spotlight" : "Pin Spotlight"}
+                        >
+                          <FaThumbtack />
+                        </TileActionButton>
+                        <TileActionButton 
+                          onClick={handleFullscreenVideo}
+                          title="View Fullscreen"
+                        >
+                          <FaExpand />
+                        </TileActionButton>
+                      </TileOverlay>
                       {isVideoOff || !localStream || bandwidthMode === "audio-only" ? (
                         <AvatarPlaceholder>
                           <div className="circle">{getInitials(userName)}</div>
@@ -2160,28 +2465,44 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                     const isSpeaking = speakingPeers[spotlightPeerId];
                     return (
                       <VideoTile 
+                        className="video-tile"
                         $isSpeaking={isSpeaking}
                         $isPinned={pinnedPeerId === spotlightPeerId}
                         onDoubleClick={() => setPinnedPeerId(prev => prev === spotlightPeerId ? null : spotlightPeerId)}
                         style={{ width: "100%", height: "100%" }}
                       >
-                        {isRoomHost && (
-                          <TileOverlay className="tile-overlay">
-                            <TileActionButton 
-                              $danger 
-                              onClick={() => setKickTarget({ id: spotlightPeerId, name: info.name || "Participant" })}
-                              title="Remove participant from call"
-                            >
-                              <FaTrash />
-                            </TileActionButton>
-                            <TileActionButton 
-                              onClick={() => handleMuteParticipant(spotlightPeerId, info.name || "Participant")}
-                              title="Mute for everyone"
-                            >
-                              <FaVolumeMute />
-                            </TileActionButton>
-                          </TileOverlay>
-                        )}
+                        <TileOverlay className="tile-overlay">
+                          {isRoomHost && (
+                            <>
+                              <TileActionButton 
+                                $danger 
+                                onClick={() => setKickTarget({ id: spotlightPeerId, name: info.name || "Participant" })}
+                                title="Remove participant from call"
+                              >
+                                <FaTrash />
+                              </TileActionButton>
+                              <TileActionButton 
+                                onClick={() => handleMuteParticipant(spotlightPeerId, info.name || "Participant")}
+                                title="Mute for everyone"
+                              >
+                                <FaVolumeMute />
+                              </TileActionButton>
+                            </>
+                          )}
+                          <TileActionButton 
+                            $active={pinnedPeerId === spotlightPeerId}
+                            onClick={() => setPinnedPeerId(prev => prev === spotlightPeerId ? null : spotlightPeerId)}
+                            title={pinnedPeerId === spotlightPeerId ? "Unpin Spotlight" : "Pin Spotlight"}
+                          >
+                            <FaThumbtack />
+                          </TileActionButton>
+                          <TileActionButton 
+                            onClick={handleFullscreenVideo}
+                            title="View Fullscreen"
+                          >
+                            <FaExpand />
+                          </TileActionButton>
+                        </TileOverlay>
                         {isPeerVideoOff || !info.stream ? (
                           <AvatarPlaceholder>
                             <div className="circle">{getInitials(info.name)}</div>
@@ -2280,10 +2601,26 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
               <VideoGridContainer $count={totalCount}>
                 {/* Local Video Tile */}
                 <VideoTile 
+                  className="video-tile"
                   $isSpeaking={speakingPeers.local}
                   $isPinned={pinnedPeerId === "local"}
                   onDoubleClick={() => setPinnedPeerId(prev => prev === "local" ? null : "local")}
                 >
+                  <TileOverlay className="tile-overlay">
+                    <TileActionButton 
+                      $active={pinnedPeerId === "local"}
+                      onClick={() => setPinnedPeerId(prev => prev === "local" ? null : "local")}
+                      title={pinnedPeerId === "local" ? "Unpin Spotlight" : "Pin Spotlight"}
+                    >
+                      <FaThumbtack />
+                    </TileActionButton>
+                    <TileActionButton 
+                      onClick={handleFullscreenVideo}
+                      title="View Fullscreen"
+                    >
+                      <FaExpand />
+                    </TileActionButton>
+                  </TileOverlay>
                   {isVideoOff || !localStream || bandwidthMode === "audio-only" ? (
                     <AvatarPlaceholder>
                       <div className="circle">{getInitials(userName)}</div>
@@ -2314,28 +2651,43 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                   return (
                     <VideoTile 
                       key={peerId}
+                      className="video-tile"
                       $isSpeaking={isSpeaking}
                       $isPinned={pinnedPeerId === peerId}
                       onDoubleClick={() => setPinnedPeerId(prev => prev === peerId ? null : peerId)}
                     >
-                      {/* Admin Moderation Overlay Buttons on Tile */}
-                      {isRoomHost && (
-                        <TileOverlay className="tile-overlay">
-                          <TileActionButton 
-                            $danger 
-                            onClick={() => setKickTarget({ id: peerId, name: info.name || "Participant" })}
-                            title="Remove participant from call"
-                          >
-                            <FaTrash />
-                          </TileActionButton>
-                          <TileActionButton 
-                            onClick={() => handleMuteParticipant(peerId, info.name || "Participant")}
-                            title="Mute for everyone"
-                          >
-                            <FaVolumeMute />
-                          </TileActionButton>
-                        </TileOverlay>
-                      )}
+                      <TileOverlay className="tile-overlay">
+                        {isRoomHost && (
+                          <>
+                            <TileActionButton 
+                              $danger 
+                              onClick={() => setKickTarget({ id: peerId, name: info.name || "Participant" })}
+                              title="Remove participant from call"
+                            >
+                              <FaTrash />
+                            </TileActionButton>
+                            <TileActionButton 
+                              onClick={() => handleMuteParticipant(peerId, info.name || "Participant")}
+                              title="Mute for everyone"
+                            >
+                              <FaVolumeMute />
+                            </TileActionButton>
+                          </>
+                        )}
+                        <TileActionButton 
+                          $active={pinnedPeerId === peerId}
+                          onClick={() => setPinnedPeerId(prev => prev === peerId ? null : peerId)}
+                          title={pinnedPeerId === peerId ? "Unpin Spotlight" : "Pin Spotlight"}
+                        >
+                          <FaThumbtack />
+                        </TileActionButton>
+                        <TileActionButton 
+                          onClick={handleFullscreenVideo}
+                          title="View Fullscreen"
+                        >
+                          <FaExpand />
+                        </TileActionButton>
+                      </TileOverlay>
 
                       {isPeerVideoOff || !info.stream ? (
                         <AvatarPlaceholder>
@@ -2467,29 +2819,64 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         {/* File Streaming Playback Controls (Host Only) */}
         {isFileStreaming && isRoomHost && (
           <FileStreamControlsCard>
-            <div className="stream-info">
-              <FaPlayCircle className="pulse-icon" />
-              <span>Streaming: {fileStreamName}</span>
+            {/* Row 1: Title + Stop */}
+            <div className="stream-header">
+              <div className="stream-info">
+                <FaPlayCircle className="pulse-icon" />
+                <span>{fileStreamName}</span>
+              </div>
+              <button className="ctrl-btn stop-btn" onClick={stopFileStream} title="Stop Stream">
+                <FaStop size={10} />
+              </button>
             </div>
+
+            {/* Row 2: Seek Bar */}
             <div className="stream-time">
               <span>{formatDuration(Math.round(fileStreamProgress))}</span>
               <input 
                 type="range" 
                 min={0} 
                 max={fileStreamDuration || 100} 
+                step={0.1}
                 value={fileStreamProgress} 
                 onChange={e => seekFileStream(Number(e.target.value))}
               />
               <span>{formatDuration(Math.round(fileStreamDuration))}</span>
             </div>
-            <div className="stream-buttons">
-              <button onClick={toggleFileStreamPlay}>
-                {isFileStreamPaused ? <FaPlay /> : <FaPause />}
-                <span>{isFileStreamPaused ? "Play" : "Pause"}</span>
+
+            {/* Row 3: Speed | Skip/Play Controls | Volume */}
+            <div className="stream-footer">
+              <button className="ctrl-btn speed-btn" onClick={cycleFileStreamSpeed} title="Playback Speed">
+                {fileStreamSpeed}x
               </button>
-              <button onClick={stopFileStream} className="stop-btn">
-                Stop Stream
-              </button>
+
+              <div className="controls-group">
+                <button className="ctrl-btn" onClick={() => skipFileStream(-10)} title="Back 10s">
+                  <FaUndo />
+                </button>
+                <button className="ctrl-btn play-btn" onClick={toggleFileStreamPlay} title={isFileStreamPaused ? "Play" : "Pause"}>
+                  {isFileStreamPaused ? <FaPlay style={{ marginLeft: 2 }} /> : <FaPause />}
+                </button>
+                <button className="ctrl-btn" onClick={() => skipFileStream(10)} title="Forward 10s">
+                  <FaRedo />
+                </button>
+              </div>
+
+              <div className="volume-control">
+                <span className="vol-icon" onClick={toggleFileStreamMute}>
+                  {fileStreamVolume === 0 ? <FaVolumeMute /> : fileStreamVolume < 0.5 ? <FaVolumeDown /> : <FaVolumeUp />}
+                </span>
+                <input
+                  className="vol-slider"
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={fileStreamVolume}
+                  onChange={e => changeFileStreamVolume(Number(e.target.value))}
+                  title={`Volume: ${Math.round(fileStreamVolume * 100)}%`}
+                />
+              </div>
             </div>
           </FileStreamControlsCard>
         )}
@@ -2664,18 +3051,25 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
           <ModalBackdrop onClick={() => setShowLeaveConfirm(false)}>
             <ModalContent onClick={e => e.stopPropagation()}>
               <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
-                <div style={{ width: 44, height: 44, borderRadius: "50%", background: "rgba(255,71,87,0.15)", display: "flex", alignItems: "center", justifyContent: "center", color: "#ff4757" }}>
-                  <FaPhoneSlash size={20} />
+                <div style={{ width: 44, height: 44, minWidth: 44, borderRadius: "50%", background: "rgba(255,71,87,0.15)", display: "flex", alignItems: "center", justifyContent: "center", color: "#ff4757", flexShrink: 0 }}>
+                  <FaPhoneSlash size={18} />
                 </div>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 800 }}>Leave Meeting?</h3>
-                  <p style={{ margin: "2px 0 0", fontSize: "0.78rem", opacity: 0.6 }}>You will be disconnected from all participants.</p>
+                <div style={{ minWidth: 0 }}>
+                  <h3 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 800, lineHeight: 1.3 }}>Leave Meeting?</h3>
+                  <p style={{ margin: "4px 0 0", fontSize: "0.78rem", opacity: 0.6, lineHeight: 1.4 }}>You will be disconnected from all participants.</p>
                 </div>
               </div>
 
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
-                <DockButton onClick={() => setShowLeaveConfirm(false)}>Cancel</DockButton>
-                <DockButton $danger onClick={handleLeaveCall}>
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, flexWrap: "wrap" }}>
+                <DockButton 
+                  onClick={() => setShowLeaveConfirm(false)}
+                  style={{ minWidth: 80, height: 42, borderRadius: 12, justifyContent: "center" }}
+                >Cancel</DockButton>
+                <DockButton 
+                  $danger 
+                  onClick={handleLeaveCall}
+                  style={{ minWidth: 130, height: 42, borderRadius: 12, justifyContent: "center", gap: 6 }}
+                >
                   <FaPhoneSlash size={12} />
                   Leave Meeting
                 </DockButton>
