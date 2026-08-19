@@ -262,67 +262,67 @@ const MessageContainer = styled.div`
 `;
 
 const MessageBubble = styled.div`
-  max-width: ${(p) => (p.isSystem ? "80%" : "clamp(70%, 80vw, 80%)")};
-  padding: ${(p) => (p.isSystem ? "6px 14px" : p.isFile ? "0" : "10px 14px")};
+  max-width: ${(p) => (p.$isSystem ? "80%" : "clamp(70%, 80vw, 80%)")};
+  padding: ${(p) => (p.$isSystem ? "6px 14px" : p.$isFile ? "0" : "10px 14px")};
 
   background: ${(p) =>
-    p.isSystem ? "transparent" :
-      p.isSender ? "linear-gradient(135deg, var(--chakra-colors-brandPrimary), var(--chakra-colors-brandSecondary))" :
+    p.$isSystem ? "transparent" :
+      p.$isSender ? "linear-gradient(135deg, var(--chakra-colors-brandPrimary), var(--chakra-colors-brandSecondary))" :
         "var(--chakra-colors-badgeBg)"};
   
-  backdrop-filter: ${(p) => (p.isSystem ? "none" : p.isSender ? "none" : "blur(16px)")};
-  -webkit-backdrop-filter: ${(p) => (p.isSystem ? "none" : p.isSender ? "none" : "blur(16px)")};
+  backdrop-filter: ${(p) => (p.$isSystem ? "none" : p.$isSender ? "none" : "blur(16px)")};
+  -webkit-backdrop-filter: ${(p) => (p.$isSystem ? "none" : p.$isSender ? "none" : "blur(16px)")};
 
   border: ${(p) =>
-    p.isSystem ? "none" :
-      p.isSender ? "0.5px solid rgba(255, 255, 255, 0.05)" :
+    p.$isSystem ? "none" :
+      p.$isSender ? "0.5px solid rgba(255, 255, 255, 0.05)" :
         "0.5px solid var(--chakra-colors-border)"};
 
   border-radius: ${(p) =>
-    p.isSystem ? "12px" :
-      p.isSender ? "22px 22px 4px 22px" :
+    p.$isSystem ? "12px" :
+      p.$isSender ? "22px 22px 4px 22px" :
         "22px 22px 22px 4px"};
 
-  box-shadow: ${(p) => p.isSystem ? "none" : "0 8px 24px rgba(0,0,0,0.15)"};
+  box-shadow: ${(p) => p.$isSystem ? "none" : "0 8px 24px rgba(0,0,0,0.15)"};
 
   align-self: ${(p) =>
-    p.isSystem ? "center" : p.isSender ? "flex-end" : "flex-start"};
+    p.$isSystem ? "center" : p.$isSender ? "flex-end" : "flex-start"};
 
   color: ${(p) =>
-    p.isSystem ? (p.systemType === "join" ? "#2ecc71" : p.systemType === "ephemeral-change" ? "#e0a030" : "#e74c3c") :
-      p.isSender ? "#fff" :
+    p.$isSystem ? (p.$systemType === "join" ? "#2ecc71" : p.$systemType === "ephemeral-change" ? "#e0a030" : "#e74c3c") :
+      p.$isSender ? "#fff" :
         "var(--chakra-colors-textPrimary)"};
 
-  font-size: ${(p) => (p.isSystem ? "0.8rem" : "clamp(0.92rem, 0.25vw + 0.88rem, 1.05rem)")};
-  font-style: ${(p) => (p.isSystem ? "italic" : "normal")};
-  opacity: ${(p) => (p.isSystem ? 0.85 : 1)};
+  font-size: ${(p) => (p.$isSystem ? "0.8rem" : "clamp(0.92rem, 0.25vw + 0.88rem, 1.05rem)")};
+  font-style: ${(p) => (p.$isSystem ? "italic" : "normal")};
+  opacity: ${(p) => (p.$isSystem ? 0.85 : 1)};
   text-align: left;
   position: relative;
   word-wrap: break-word;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 
   &:hover {
-    transform: ${(p) => (p.isSystem ? "none" : "translateY(-1px)")};
-    box-shadow: ${(p) => p.isSystem ? "none" : "0 10px 30px rgba(0,0,0,0.25)"};
+    transform: ${(p) => (p.$isSystem ? "none" : "translateY(-1px)")};
+    box-shadow: ${(p) => p.$isSystem ? "none" : "0 10px 30px rgba(0,0,0,0.25)"};
   }
 
   @media (max-width: 480px) {
-    max-width: ${(p) => (p.isSystem ? "90%" : "88%")};
-    padding: ${(p) => (p.isSystem ? "4px 10px" : p.isFile ? "8px" : "10px 14px")};
-    font-size: ${(p) => (p.isSystem ? "0.75rem" : "0.92rem")};
+    max-width: ${(p) => (p.$isSystem ? "90%" : "88%")};
+    padding: ${(p) => (p.$isSystem ? "4px 10px" : p.$isFile ? "8px" : "10px 14px")};
+    font-size: ${(p) => (p.$isSystem ? "0.75rem" : "0.92rem")};
     border-radius: ${(p) =>
-    p.isSystem ? "10px" :
-      p.isSender ? "16px 16px 4px 16px" :
+    p.$isSystem ? "10px" :
+      p.$isSender ? "16px 16px 4px 16px" :
         "16px 16px 16px 4px"};
   }
 
   @media (max-width: 375px) {
-    max-width: ${(p) => (p.isSystem ? "95%" : "92%")};
-    padding: ${(p) => (p.isSystem ? "4px 8px" : p.isFile ? "0" : "8px 12px")};
-    font-size: ${(p) => (p.isSystem ? "0.72rem" : "0.88rem")};
+    max-width: ${(p) => (p.$isSystem ? "95%" : "92%")};
+    padding: ${(p) => (p.$isSystem ? "4px 8px" : p.$isFile ? "0" : "8px 12px")};
+    font-size: ${(p) => (p.$isSystem ? "0.72rem" : "0.88rem")};
   }
 
-  ${p => p.isFile && `
+  ${p => p.$isFile && `
     width: min(75vw, 420px);
     max-width: min(75vw, 420px);
     flex-shrink: 0;
@@ -6106,10 +6106,10 @@ export default function ChatRoom() {
               <MessageBubble
                 key={i}
                 ref={(node) => { if (m.id) messageRefs.current[m.id] = node; }}
-                isSender={m.userName === userName}
-                isSystem={isSystem}
-                systemType={systemType}
-                isFile={!!m.file}
+                $isSender={m.userName === userName}
+                $isSystem={isSystem}
+                $systemType={systemType}
+                $isFile={!!m.file}
               >
                 {!isSystem && m.forwarded && (
                   <div style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: "0.72rem", opacity: 0.6, marginBottom: 4, fontStyle: "italic", padding: m.file ? "12px 14px 0px" : "0" }}>

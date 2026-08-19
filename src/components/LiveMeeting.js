@@ -7,9 +7,10 @@ import {
   FaThLarge, FaUsers, FaHandPaper, 
   FaWifi, FaSignal, FaWindowMinimize, FaTimes, 
   FaTrash, FaVolumeUp, FaVolumeMute, FaChartLine, FaCrown,
-  FaLeaf, FaBolt, FaHeadphones, FaGem, FaExclamationTriangle
+  FaLeaf, FaBolt, FaHeadphones, FaGem, FaExclamationTriangle,
+  FaPlay, FaPause, FaPlayCircle
 } from "react-icons/fa";
-import { Peer } from "peerjs";
+import Peer from "peerjs";
 import { toast } from "react-toastify";
 
 // Prevent extension interference
@@ -831,6 +832,106 @@ const SpotlightThumbnail = styled.div`
   }
 `;
 
+const FileStreamControlsCard = styled.div`
+  position: absolute;
+  bottom: 96px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(17, 19, 30, 0.95);
+  border: 1.5px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 16px 24px;
+  width: min(90vw, 480px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(12px);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  z-index: 1000;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+
+  .stream-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: #fff;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+
+    .pulse-icon {
+      color: #ef4444;
+      animation: pulse-glow 1.5s infinite;
+    }
+  }
+
+  .stream-time {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.78rem;
+    color: rgba(255, 255, 255, 0.6);
+
+    input[type="range"] {
+      flex: 1;
+      height: 4px;
+      border-radius: 2px;
+      outline: none;
+      accent-color: var(--chakra-colors-brandPrimary, #00f2fe);
+      background: rgba(255, 255, 255, 0.15);
+      cursor: pointer;
+    }
+  }
+
+  .stream-buttons {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    margin-top: 4px;
+
+    button {
+      background: rgba(255, 255, 255, 0.08);
+      border: none;
+      color: #fff;
+      padding: 8px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.82rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.16);
+      }
+
+      &.stop-btn {
+        background: #ef4444;
+        &:hover {
+          background: #dc2626;
+        }
+      }
+    }
+  }
+
+  @keyframes pulse-glow {
+    0% { opacity: 0.3; }
+    50% { opacity: 1; }
+    100% { opacity: 0.3; }
+  }
+
+  @media (max-width: 480px) {
+    bottom: 84px;
+    padding: 12px 16px;
+    gap: 8px;
+  }
+`;
+
 /* ═══════════════════════════════ MAIN COMPONENT ═══════════════════════════════ */
 export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin, ownerToken, userAvatar }) {
   // ── States ──
@@ -858,6 +959,11 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const [isRecording, setIsRecording] = useState(false);
   const [kickTarget, setKickTarget] = useState(null); // { id, name }
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [isFileStreaming, setIsFileStreaming] = useState(false);
+  const [fileStreamDuration, setFileStreamDuration] = useState(0);
+  const [fileStreamProgress, setFileStreamProgress] = useState(0);
+  const [isFileStreamPaused, setIsFileStreamPaused] = useState(false);
+  const [fileStreamName, setFileStreamName] = useState("");
 
   // ── Refs ──
   const containerRef = useRef(null);
@@ -875,6 +981,10 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const callStartTimeRef = useRef(Date.now());
   const pendingCallsRef = useRef([]); // queued incoming calls before local stream is ready
   const isVideoOffRef = useRef(false); // stable ref for isVideoOff (avoids effect re-trigger)
+  const fileVideoRef = useRef(null);
+  const fileStreamRef = useRef(null);
+  const originalTracksRef = useRef({ video: null, audio: null });
+  const fileInputRef = useRef(null);
   const isRoomHost = useMemo(() => Boolean(isAdmin || ownerToken), [isAdmin, ownerToken]);
 
   // Keep isVideoOffRef in sync with state
@@ -1529,6 +1639,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         socket.off("admin-mute-user");
         socket.off("reaction");
       }
+      stopFileStream();
       if (localStreamRef.current) {
         localStreamRef.current.getTracks().forEach(t => t.stop());
       }
@@ -1633,10 +1744,155 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   };
 
   const sendReaction = (emoji) => {
-    if (socket) socket.emit("reaction", emoji);
+    if (socket) socket.emit("reaction", { emoji, roomId });
     const id = Date.now() + Math.random();
     setReactions(prev => [...prev, { id, emoji, x: Math.random() * 80 + 10 }]);
     setTimeout(() => setReactions(prev => prev.filter(r => r.id !== id)), 2800);
+  };
+
+  // ─── Video File Streaming Capabilities ───
+  const startFileStream = async (file) => {
+    if (!file) return;
+    try {
+      // 1. Create a hidden HTML5 video element to load and play the file
+      const video = document.createElement("video");
+      video.src = URL.createObjectURL(file);
+      video.crossOrigin = "anonymous";
+      video.playsInline = true;
+      video.autoplay = true;
+      video.volume = 0.8; // default volume to 80%
+
+      // Position it offscreen
+      video.style.position = "fixed";
+      video.style.top = "-9999px";
+      video.style.left = "-9999px";
+      video.style.width = "1px";
+      video.style.height = "1px";
+      document.body.appendChild(video);
+
+      fileVideoRef.current = video;
+      setFileStreamName(file.name);
+      setIsFileStreamPaused(false);
+
+      video.onloadedmetadata = () => {
+        setFileStreamDuration(video.duration);
+        // 2. Capture the media stream from the playing video
+        const stream = video.captureStream ? video.captureStream() : (video.mozCaptureStream ? video.mozCaptureStream() : null);
+        if (!stream) {
+          toast.error("Your browser does not support capturing media stream from local files.");
+          video.remove();
+          return;
+        }
+
+        fileStreamRef.current = stream;
+
+        // Save original video and audio tracks to restore when streaming stops
+        const origVideo = localStreamRef.current?.getVideoTracks()[0];
+        const origAudio = localStreamRef.current?.getAudioTracks()[0];
+        originalTracksRef.current = { video: origVideo, audio: origAudio };
+
+        const fileVideoTrack = stream.getVideoTracks()[0];
+        const fileAudioTrack = stream.getAudioTracks()[0];
+
+        // 3. Replace camera and microphone tracks in all active peer connections
+        Object.values(peers.current).forEach(call => {
+          const pc = call.peerConnection;
+          if (!pc) return;
+          pc.getSenders().forEach(sender => {
+            if (sender.track?.kind === "video" && fileVideoTrack) {
+              sender.replaceTrack(fileVideoTrack);
+            }
+            if (sender.track?.kind === "audio" && fileAudioTrack) {
+              sender.replaceTrack(fileAudioTrack);
+            }
+          });
+        });
+
+        // 4. Update the local UI to render the video file stream instead of camera
+        setDisplayStream(stream);
+        setIsFileStreaming(true);
+        toast.success(`Started streaming video: ${file.name}`);
+      };
+
+      video.ontimeupdate = () => {
+        setFileStreamProgress(video.currentTime);
+      };
+
+      video.onended = () => {
+        stopFileStream();
+      };
+
+    } catch (err) {
+      console.error("Failed to start video file stream:", err);
+      toast.error("An error occurred while loading the video file.");
+    }
+  };
+
+  const stopFileStream = useCallback(() => {
+    // 1. Terminate and cleanup the HTML5 video element
+    if (fileVideoRef.current) {
+      fileVideoRef.current.pause();
+      try {
+        const src = fileVideoRef.current.src;
+        if (src) URL.revokeObjectURL(src);
+      } catch (e) {}
+      fileVideoRef.current.remove();
+      fileVideoRef.current = null;
+    }
+
+    // 2. Stop all file streaming tracks
+    if (fileStreamRef.current) {
+      fileStreamRef.current.getTracks().forEach(t => t.stop());
+      fileStreamRef.current = null;
+    }
+
+    // 3. Restore original camera and microphone tracks to active calls
+    const origVideo = originalTracksRef.current.video;
+    const origAudio = originalTracksRef.current.audio;
+
+    if (origVideo || origAudio) {
+      Object.values(peers.current).forEach(call => {
+        const pc = call.peerConnection;
+        if (!pc) return;
+        pc.getSenders().forEach(sender => {
+          if (sender.track?.kind === "video" && origVideo) {
+            sender.replaceTrack(origVideo);
+          }
+          if (sender.track?.kind === "audio" && origAudio) {
+            sender.replaceTrack(origAudio);
+          }
+        });
+      });
+    }
+
+    originalTracksRef.current = { video: null, audio: null };
+
+    // 4. Revert local UI back to display local camera stream
+    setDisplayStream(localStreamRef.current);
+    setIsFileStreaming(false);
+    setFileStreamName("");
+    setFileStreamProgress(0);
+    setFileStreamDuration(0);
+    toast.info("Video file stream stopped.");
+  }, []);
+
+  const toggleFileStreamPlay = () => {
+    if (fileVideoRef.current) {
+      if (fileVideoRef.current.paused) {
+        fileVideoRef.current.play();
+        setIsFileStreamPaused(false);
+      } else {
+        fileVideoRef.current.pause();
+        setIsFileStreamPaused(true);
+      }
+    }
+  };
+
+  const seekFileStream = (time) => {
+    if (fileVideoRef.current) {
+      fileVideoRef.current.currentTime = time;
+      setFileStreamProgress(time);
+    }
   };
 
   const toggleRecording = () => {
@@ -2208,6 +2464,36 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
           )}
         </ContentArea>
 
+        {/* File Streaming Playback Controls (Host Only) */}
+        {isFileStreaming && isRoomHost && (
+          <FileStreamControlsCard>
+            <div className="stream-info">
+              <FaPlayCircle className="pulse-icon" />
+              <span>Streaming: {fileStreamName}</span>
+            </div>
+            <div className="stream-time">
+              <span>{formatDuration(Math.round(fileStreamProgress))}</span>
+              <input 
+                type="range" 
+                min={0} 
+                max={fileStreamDuration || 100} 
+                value={fileStreamProgress} 
+                onChange={e => seekFileStream(Number(e.target.value))}
+              />
+              <span>{formatDuration(Math.round(fileStreamDuration))}</span>
+            </div>
+            <div className="stream-buttons">
+              <button onClick={toggleFileStreamPlay}>
+                {isFileStreamPaused ? <FaPlay /> : <FaPause />}
+                <span>{isFileStreamPaused ? "Play" : "Pause"}</span>
+              </button>
+              <button onClick={stopFileStream} className="stop-btn">
+                Stop Stream
+              </button>
+            </div>
+          </FileStreamControlsCard>
+        )}
+
         {/* ═══ FLOATING CONTROLS DOCK ═══ */}
         <ControlsDock className="controls-bar">
           <DockButton $danger={isMuted} onClick={toggleMute} title={isMuted ? "Unmute Mic" : "Mute Mic"}>
@@ -2228,6 +2514,39 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
             <FaDesktop />
             <span style={{ fontSize: "0.75rem" }}>Share</span>
           </DockButton>
+
+          {/* Admin Video Streaming */}
+          {isRoomHost && (
+            <>
+              <DockButton 
+                $active={isFileStreaming} 
+                onClick={() => {
+                  if (isFileStreaming) {
+                    stopFileStream();
+                  } else {
+                    fileInputRef.current?.click();
+                  }
+                }} 
+                title={isFileStreaming ? "Stop Streaming Video" : "Stream Video File"}
+              >
+                <FaPlayCircle />
+                <span style={{ fontSize: "0.75rem" }}>{isFileStreaming ? "Stop" : "Stream File"}</span>
+              </DockButton>
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                accept="video/*" 
+                style={{ display: "none" }} 
+                onChange={e => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    startFileStream(file);
+                    e.target.value = ""; // reset to allow choosing same file
+                  }
+                }}
+              />
+            </>
+          )}
 
           <DockDivider />
 
