@@ -2562,6 +2562,7 @@ const downloadMedia = (decryptedUrl, name) => {
 
 const copyImageToClipboard = async (decryptedUrl) => {
   if (!decryptedUrl) return;
+  if (!navigator.clipboard) { toast.error("Clipboard not available in this browser."); return; }
   try {
     const response = await fetch(decryptedUrl);
     const blob = await response.blob();
@@ -2587,6 +2588,7 @@ const copyImageToClipboard = async (decryptedUrl) => {
 
 const copyLinkToClipboard = async (url) => {
   if (!url) return;
+  if (!navigator.clipboard) { toast.error("Clipboard not available in this browser."); return; }
   try {
     await navigator.clipboard.writeText(url);
     toast.success("📋 Link copied to clipboard!");
@@ -5850,7 +5852,7 @@ export default function ChatRoom() {
     escaped = escaped.replace(/~(.+?)~/g, "<del>$1</del>");
     escaped = escaped.replace(/`([^`]+)`/g, (match, code) => {
       const escapedInline = encodeURIComponent(code);
-      const copyInlineJs = `navigator.clipboard.writeText(decodeURIComponent('${escapedInline}')); var btn = this.querySelector('.inline-copy-btn'); if(btn){ btn.textContent = '✓'; btn.style.color = '#00bfa5'; setTimeout(function(){ btn.textContent = '📋'; btn.style.color = 'rgba(255,255,255,0.35)'; }, 1500); }`;
+      const copyInlineJs = `navigator.clipboard?.writeText?.(decodeURIComponent('${escapedInline}')); var btn = this.querySelector('.inline-copy-btn'); if(btn){ btn.textContent = '✓'; btn.style.color = '#00bfa5'; setTimeout(function(){ btn.textContent = '📋'; btn.style.color = 'rgba(255,255,255,0.35)'; }, 1500); }`;
       return `<span onclick="${copyInlineJs}" style="background:rgba(255,255,255,.08);padding:2px 6px;border-radius:4px;font-family:monospace;font-size:.85em;cursor:pointer;position:relative;display:inline-flex;align-items:center;gap:4px;transition:background .2s" onmouseover="this.style.background='rgba(255,255,255,.14)'" onmouseout="this.style.background='rgba(255,255,255,.08)'"><code style="font-family:inherit">${code}</code><span class="inline-copy-btn" style="font-size:.7em;color:rgba(255,255,255,0.35);flex-shrink:0">📋</span></span>`;
     });
 
@@ -5885,7 +5887,7 @@ export default function ChatRoom() {
     codeBlocks.forEach((block) => {
       const escapedCodeForHtml = escapeHtml(block.code);
       const escapedCodeForClipboard = encodeURIComponent(block.code);
-      const copyCodeJs = `navigator.clipboard.writeText(decodeURIComponent('${escapedCodeForClipboard}')); this.innerText = '✓ Copied'; this.style.color = '#00bfa5'; setTimeout(() => { this.innerText = 'Copy'; this.style.color = 'inherit'; }, 2000);`;
+      const copyCodeJs = `navigator.clipboard?.writeText?.(decodeURIComponent('${escapedCodeForClipboard}')); this.innerText = '✓ Copied'; this.style.color = '#00bfa5'; setTimeout(() => { this.innerText = 'Copy'; this.style.color = 'inherit'; }, 2000);`;
 
       const blockHtml = `
 <div style="background:#0b0c10; border:1px solid rgba(255,255,255,0.08); border-radius:12px; margin:12px 0; overflow:hidden; font-family:'SF Mono','Fira Code',Consolas,monospace; font-size:0.85rem; box-shadow:0 8px 24px rgba(0,0,0,0.3); max-width: 100%; text-align: left; box-sizing: border-box;">
@@ -5917,7 +5919,7 @@ export default function ChatRoom() {
       }}
     >
       <button
-        onClick={() => navigator.clipboard.writeText(url)}
+        onClick={() => navigator.clipboard?.writeText(url)}
         style={actionBtnStyle}
       >
         📋 Copy Link
@@ -6286,7 +6288,7 @@ export default function ChatRoom() {
                   <button
                     onClick={async () => {
                       try {
-                        await navigator.clipboard.writeText(url);
+                        await navigator.clipboard?.writeText?.(url);
                         toast.success("Link copied!");
                       } catch {
                         toast.error("Failed to copy link");
@@ -6634,9 +6636,9 @@ export default function ChatRoom() {
                             type="button"
                             onClick={() => {
                               const copyText = m.text || m.file?.name || "";
-                              navigator.clipboard.writeText(copyText).then(() => {
+                              navigator.clipboard?.writeText?.(copyText)?.then(() => {
                                 toast.success("Copied to clipboard", { autoClose: 1200 });
-                              }).catch(() => toast.error("Failed to copy"));
+                              })?.catch(() => toast.error("Failed to copy"));
                             }}
                             data-tooltip="Copy"
                           >

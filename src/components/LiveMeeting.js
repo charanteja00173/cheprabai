@@ -88,7 +88,7 @@ const MeetingContainer = styled.div`
       cursor: grabbing;
     }
     
-    .meeting-header, .controls-bar, .participant-sidebar, .main-video-area {
+    .meeting-header, .controls-bar, .participant-sidebar, .main-video-area, .file-stream-controls {
       display: none !important;
     }
   `}
@@ -3489,7 +3489,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
         {/* File Streaming Playback Controls (Host Only) */}
         {isFileStreaming && isRoomHost && (
-          <FileStreamControlsCard>
+          <FileStreamControlsCard className="file-stream-controls">
             {/* Row 1: Title + Stop */}
             <div className="stream-header">
               <div className="stream-info">
