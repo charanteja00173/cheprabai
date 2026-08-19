@@ -185,3 +185,41 @@ input, textarea {
     opacity: 0 !important;
   }
 }
+
+/* ═══════════════════════════════ ULTRA-FAST RENDERING & GPU PERFORMANCE ═══════════════════════════════ */
+
+/* Skip layout & paint for off-screen chat messages (huge perf win for 1000+ messages) */
+.chat-message-item {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 72px;
+}
+
+/* GPU-composited smooth scrolling for chat and video areas */
+.chat-scroll-area,
+.video-grid-container,
+.main-video-area {
+  -webkit-overflow-scrolling: touch;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+/* Hardware-accelerated animations for modals, tooltips, and transitions */
+.modal-content,
+.tooltip,
+.dropdown-menu {
+  will-change: transform, opacity;
+  transform: translateZ(0);
+}
+
+/* Optimized image and video rendering */
+img, video {
+  image-rendering: auto;
+  content-visibility: auto;
+}
+
+/* Spin animation for loading spinners (used across pending uploads, connecting states) */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+

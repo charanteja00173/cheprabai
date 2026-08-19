@@ -29,6 +29,16 @@ const TabBar = styled.div`
   align-items: center;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   padding-bottom: 16px;
+
+  @media (max-width: 600px) {
+    gap: 6px;
+    margin-bottom: 18px;
+    padding-bottom: 12px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    &::-webkit-scrollbar { display: none; }
+  }
 `;
 
 const TabButton = styled.button`
@@ -44,12 +54,22 @@ const TabButton = styled.button`
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  white-space: nowrap;
+  flex-shrink: 0;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 
   &:hover {
     border-color: rgba(255, 63, 94, 0.4);
     color: var(--chakra-colors-textPrimary);
     background: rgba(255, 63, 94, 0.04);
+  }
+
+  @media (max-width: 600px) {
+    min-height: 36px;
+    padding: 6px 12px;
+    font-size: 0.78rem;
+    border-radius: 10px;
+    gap: 5px;
   }
 `;
 
@@ -180,6 +200,12 @@ const MetricGrid = styled.div`
   border: 1px solid rgba(255, 255, 255, 0.03);
   border-radius: 12px;
   padding: 14px;
+
+  @media (max-width: 360px) {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 10px;
+  }
 `;
 
 const MetricItem = styled.div`
@@ -322,6 +348,13 @@ const ToggleRow = styled.div`
   border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.05);
   background: linear-gradient(145deg, rgba(255, 255, 255, 0.02) 0%, rgba(255, 255, 255, 0.005) 100%);
+
+  @media (max-width: 480px) {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 16px;
+  }
 `;
 
 const ToggleSwitch = styled.div`
@@ -430,6 +463,11 @@ const ModalActions = styled.div`
   display: flex;
   justify-content: flex-end;
   gap: 12px;
+
+  @media (max-width: 480px) {
+    flex-direction: column-reverse;
+    gap: 8px;
+  }
 `;
 
 const ModalBtn = styled.button`
@@ -467,6 +505,79 @@ function formatTime(ts) {
   return new Date(ts).toLocaleString();
 }
 
+const SettingsForm = styled.form`
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 500px;
+
+  @media (max-width: 600px) {
+    max-width: 100%;
+  }
+`;
+
+const SettingsSectionTitle = styled.div`
+  font-weight: 800;
+  font-size: 1.05rem;
+  color: #fff;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`;
+
+const FormGroup = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+`;
+
+const FormLabel = styled.label`
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--chakra-colors-textSecondary);
+`;
+
+const FormInput = styled.input`
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+  color: #fff;
+  outline: none;
+  font-size: 0.88rem;
+  box-sizing: border-box;
+  transition: all 0.2s ease;
+
+  &:focus {
+    border-color: var(--chakra-colors-brandPrimary);
+    background: rgba(255, 255, 255, 0.05);
+  }
+`;
+
+const FormSubmitBtn = styled.button`
+  align-self: flex-start;
+  min-height: 38px;
+  padding: 8px 18px;
+  border-radius: 8px;
+  border: none;
+  background: var(--chakra-colors-brandPrimary);
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.2s;
+
+  &:hover {
+    opacity: 0.9;
+  }
+`;
+
 /* ── COMPONENT ── */
 
 export default function AdminControlCenter({ token, backendUrl }) {
@@ -475,6 +586,8 @@ export default function AdminControlCenter({ token, backendUrl }) {
   const [requests, setRequests] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [settings, setSettings] = useState({ requireRoomApproval: false });
+  const [whatsappPhone, setWhatsappPhone] = useState("");
+  const [callmebotKey, setCallmebotKey] = useState("");
   const [loading, setLoading] = useState(false);
   const [modal, setModal] = useState(null); // { type: 'confirm'|'prompt', title, body, confirmLabel, confirmDanger, onConfirm, defaultVal }
   const [promptInput, setPromptInput] = useState("");
@@ -520,7 +633,10 @@ export default function AdminControlCenter({ token, backendUrl }) {
 
   const fetchSettings = useCallback(async () => {
     const res = await axios.get(`${backendUrl}/api/admin/settings`, { headers: authHeaders() });
-    setSettings(res.data.settings || { requireRoomApproval: false });
+    const s = res.data.settings || { requireRoomApproval: false, adminWhatsAppPhone: "", callmebotApiKey: "" };
+    setSettings(s);
+    setWhatsappPhone(s.adminWhatsAppPhone || "");
+    setCallmebotKey(s.callmebotApiKey || "");
   }, [backendUrl, authHeaders]);
 
   const refreshAll = useCallback(async () => {
@@ -617,6 +733,24 @@ export default function AdminControlCenter({ token, backendUrl }) {
       toast.error(err.response?.data?.error || "Failed to update settings.");
     }
   };
+  const handleSaveWhatsAppSettings = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await axios.patch(
+        `${backendUrl}/api/admin/settings`,
+        {
+          adminWhatsAppPhone: whatsappPhone,
+          callmebotApiKey: callmebotKey
+        },
+        { headers: authHeaders() }
+      );
+      setSettings(res.data.settings);
+      toast.success("WhatsApp configuration updated successfully!");
+    } catch (err) {
+      toast.error(err.response?.data?.error || "Failed to save WhatsApp settings.");
+    }
+  };
+
 
   const handleApprove = async (requestId) => {
     try {
@@ -915,21 +1049,56 @@ export default function AdminControlCenter({ token, backendUrl }) {
       )}
 
       {tab === "settings" && (
-        <ToggleRow>
-          <div>
-            <div style={{ fontWeight: 800, marginBottom: 4 }}>Require room approval</div>
-            <div style={{ fontSize: "0.82rem", color: "var(--chakra-colors-textSecondary)", lineHeight: 1.5 }}>
-              When enabled, users must submit a room request with a personal password before creating a new room.
-              When disabled, anyone can create rooms instantly.
+        <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+          <ToggleRow style={{ marginTop: 0 }}>
+            <div>
+              <div style={{ fontWeight: 800, marginBottom: 4 }}>Require room approval</div>
+              <div style={{ fontSize: "0.82rem", color: "var(--chakra-colors-textSecondary)", lineHeight: 1.5 }}>
+                When enabled, users must submit a room request with a personal password before creating a new room.
+                When disabled, anyone can create rooms instantly.
+              </div>
             </div>
-          </div>
-          <ToggleSwitch
-            $checked={Boolean(settings.requireRoomApproval)}
-            onClick={handleToggleApproval}
-            role="checkbox"
-            aria-checked={Boolean(settings.requireRoomApproval)}
-          />
-        </ToggleRow>
+            <ToggleSwitch
+              $checked={Boolean(settings.requireRoomApproval)}
+              onClick={handleToggleApproval}
+              role="checkbox"
+              aria-checked={Boolean(settings.requireRoomApproval)}
+            />
+          </ToggleRow>
+
+          <SettingsForm onSubmit={handleSaveWhatsAppSettings}>
+            <SettingsSectionTitle>
+              <span>🔔</span> WhatsApp Alerts (CallMeBot)
+            </SettingsSectionTitle>
+            <div style={{ fontSize: "0.82rem", color: "var(--chakra-colors-textSecondary)", lineHeight: 1.5, marginBottom: 8 }}>
+              Configure where room creation alerts are sent. To obtain your free API key, add <strong>+34 644 51 95 23</strong> on WhatsApp and send: <code>I allow callmebot to send me messages</code>.
+            </div>
+
+            <FormGroup>
+              <FormLabel>Admin WhatsApp Phone Number</FormLabel>
+              <FormInput
+                type="text"
+                placeholder="e.g. +919876543210"
+                value={whatsappPhone}
+                onChange={(e) => setWhatsappPhone(e.target.value)}
+              />
+            </FormGroup>
+
+            <FormGroup>
+              <FormLabel>CallMeBot API Key</FormLabel>
+              <FormInput
+                type="password"
+                placeholder="e.g. 123456"
+                value={callmebotKey}
+                onChange={(e) => setCallmebotKey(e.target.value)}
+              />
+            </FormGroup>
+
+            <FormSubmitBtn type="submit">
+              Save WhatsApp Configuration
+            </FormSubmitBtn>
+          </SettingsForm>
+        </div>
       )}
 
       {/* ── CUSTOM SaaS DIALOG MODALS ── */}

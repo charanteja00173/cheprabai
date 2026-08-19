@@ -1277,6 +1277,8 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const [fileStreamName, setFileStreamName] = useState("");
   const [fileStreamSpeed, setFileStreamSpeed] = useState(1);
   const [fileStreamVolume, setFileStreamVolume] = useState(1);
+  const [showStreamModal, setShowStreamModal] = useState(false);
+  const [streamUrlInput, setStreamUrlInput] = useState("");
 
   // ── Refs ──
   const containerRef = useRef(null);

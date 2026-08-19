@@ -25,7 +25,8 @@ import {
   FaPen,
   FaShare,
   FaBookmark,
-  FaRegBookmark
+  FaRegBookmark,
+  FaCopy
 } from "react-icons/fa";
 import { HiGif } from "react-icons/hi2";
 import { FaVideo } from "react-icons/fa";
@@ -2624,7 +2625,7 @@ const MediaSkeleton = ({ isMobile }) => (
 );
 
 // Stateful component to handle downloading, decrypting and displaying E2EE files
-function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile }) {
+function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile, setViewer }) {
   const fileType = getFileType(file);
   const [decryptedUrl, setDecryptedUrl] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -2876,33 +2877,25 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile }) {
         </div>
       ) : (
         <div
-          onClick={() => {
-            const link = document.createElement("a");
-            link.href = decryptedUrl;
-            link.download = file.name;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-          }}
           style={{
-            display: "flex", alignItems: "center", gap: "10px", padding: "10px",
-            background: "rgba(255, 255, 255, 0.02)", borderRadius: "10px", border: "1px solid rgba(255, 255, 255, 0.05)",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.12)", minWidth: 0
+            display: "flex", alignItems: "center", gap: "10px", padding: "12px",
+            background: "rgba(255, 255, 255, 0.02)", borderRadius: "14px", border: "1px solid rgba(255, 255, 255, 0.06)",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.12)", minWidth: 0, width: "100%", boxSizing: "border-box"
           }}
         >
           <div style={{
             display: "flex", alignItems: "center", justifyContent: "center",
-            width: 34, height: 34, borderRadius: "8px",
-            background: "rgba(255, 255, 255, 0.03)",
-            border: "1px solid rgba(255, 255, 255, 0.06)",
-            fontSize: "1.2rem", flexShrink: 0
+            width: 38, height: 38, borderRadius: "10px",
+            background: "rgba(255, 255, 255, 0.04)",
+            border: "1px solid rgba(255, 255, 255, 0.08)",
+            fontSize: "1.3rem", flexShrink: 0
           }}>
             {file.name.match(/\.(xlsx|xls|csv)$/i) ? "📊" :
               file.name.match(/\.(docx|doc)$/i) ? "📝" :
                 file.name.match(/\.(zip|rar|7z)$/i) ? "🗜️" :
                   file.name.match(/\.pdf$/i) ? "📕" : "📎"}
           </div>
-          <div style={{ display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0, flex: 1 }}>
+          <div style={{ display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0, flex: 1, textAlign: "left" }}>
             <span style={{ fontWeight: "600", fontSize: "0.8rem", color: "var(--chakra-colors-textPrimary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
               {file.name}
             </span>
@@ -2910,14 +2903,37 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile }) {
               🔒 Secure E2EE Payload
             </span>
           </div>
-          <div style={{
-            display: "flex", alignItems: "center", justifyContent: "center",
-            width: 28, height: 28, borderRadius: "50%",
-            background: "rgba(33, 150, 243, 0.1)",
-            border: "1px solid rgba(33, 150, 243, 0.25)",
-            color: "#2196F3", flexShrink: 0
-          }}>
-            <FaDownload style={{ fontSize: "0.8rem" }} />
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            {((file.name.match(/\.(pdf|txt|json|js|ts|py|html|css|md|csv|xml|sh|yaml|yml)$/i)) || (file.type && file.type.startsWith("text"))) && (
+              <button
+                type="button"
+                onClick={() => setViewer({ url: decryptedUrl, name: file.name, type: file.type || getFileType(file) })}
+                style={{ background: "rgba(255,255,255,0.12)", border: "none", color: "#fff", cursor: "pointer", borderRadius: 8, padding: "0 10px", height: 28, fontSize: "0.72rem", fontWeight: "bold" }}
+              >
+                Preview
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                const link = document.createElement("a");
+                link.href = decryptedUrl;
+                link.download = file.name;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+              }}
+              style={{
+                display: "flex", alignItems: "center", justifyContent: "center",
+                width: 28, height: 28, borderRadius: "50%",
+                background: "rgba(33, 150, 243, 0.1)",
+                border: "1px solid rgba(33, 150, 243, 0.25)",
+                color: "#2196F3", cursor: "pointer", flexShrink: 0
+              }}
+              title="Download file"
+            >
+              <FaDownload style={{ fontSize: "0.8rem" }} />
+            </button>
           </div>
         </div>
       )}
@@ -2959,6 +2975,67 @@ function GifCardComponent({ gif, onSelect }) {
         </CardOverlay>
       )}
     </GifCard>
+  );
+}
+
+function CodeViewerArea({ url, filename }) {
+  const [content, setContent] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    fetch(url)
+      .then(r => {
+        if (!r.ok) throw new Error("Load failed");
+        return r.text();
+      })
+      .then(txt => {
+        if (active) {
+          setContent(txt);
+          setLoading(false);
+        }
+      })
+      .catch(e => {
+        if (active) {
+          setError(true);
+          setContent("");
+          setLoading(false);
+        }
+      });
+    return () => { active = false; };
+  }, [url]);
+
+  if (loading) {
+    return (
+      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 12, color: "#fff", background: "#0d0e15", minHeight: "350px" }}>
+        <div style={{ width: 32, height: 32, borderRadius: "50%", border: "3px solid rgba(255,255,255,0.15)", borderTopColor: "#818cf8", animation: "spin 0.8s linear infinite" }} />
+        <span style={{ fontSize: "0.85rem", opacity: 0.7 }}>Loading secure document...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "#ef4444", fontSize: "0.9rem", background: "#0d0e15", minHeight: "350px" }}>
+        ⚠️ Failed to load secure document preview. Download to view it.
+      </div>
+    );
+  }
+
+  const lines = content.split("\n");
+
+  return (
+    <div style={{ flex: 1, width: "100%", height: "100%", overflow: "auto", display: "flex", background: "#0d0e15", fontFamily: "'JetBrains Mono', 'Fira Code', monospace", fontSize: "0.82rem", lineHeight: 1.6, minHeight: "350px" }}>
+      <div style={{ padding: "16px 12px", background: "#0a0a0f", color: "#4b5563", borderRight: "1px solid rgba(255,255,255,0.06)", userSelect: "none" }}>
+        {lines.map((_, idx) => (
+          <div key={idx} style={{ height: 21, textAlign: "right" }}>{idx + 1}</div>
+        ))}
+      </div>
+      <pre style={{ margin: 0, padding: 16, overflow: "visible", whiteSpace: "pre-wrap", wordBreak: "break-all", color: "#e2e8f0", flex: 1, textAlign: "left" }}>
+        {content}
+      </pre>
+    </div>
   );
 }
 
@@ -3816,9 +3893,14 @@ export default function ChatRoom() {
 
   useEffect(() => {
     const socket = io(process.env.REACT_APP_SOCKET_ENDPOINT || "https://cheprabai-backend.onrender.com", {
-      transports: ["polling", "websocket"],
+      transports: ["websocket", "polling"],
       upgrade: true,
-      rememberUpgrade: false
+      rememberUpgrade: true,
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 500,
+      reconnectionDelayMax: 3000,
+      timeout: 10000
     });
     socketRef.current = socket;
 
@@ -4240,19 +4322,25 @@ export default function ChatRoom() {
     let tempId;
     try {
       tempId = `uploading-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      setMessages(m => [...m, { id: tempId, userName, file: { name: file.name, loading: true }, ts: Date.now() }]);
+      setMessages(m => [...m, { id: tempId, userName, file: { name: file.name, loading: true, progress: 0 }, ts: Date.now() }]);
 
       let fileToUpload = file;
       let ivString = null;
       let keyB64 = null;
 
-      if (roomKey) {
+      if (roomKey && file.size <= 200 * 1024 * 1024) {
         const fileBuffer = await file.arrayBuffer();
         const encrypted = await encryptBinary(roomKey, fileBuffer);
         const encryptedBlob = new Blob([encrypted.data], { type: "application/octet-stream" });
         fileToUpload = new File([encryptedBlob], file.name + ".enc", { type: "application/octet-stream" });
         ivString = btoa(String.fromCharCode(...new Uint8Array(encrypted.iv)));
         keyB64 = await exportKey(roomKey);
+      } else if (roomKey) {
+        // For large files (> 200MB), generate IV and export key directly for ultra-fast streaming without memory spikes
+        keyB64 = await exportKey(roomKey);
+        const iv = window.crypto.getRandomValues(new Uint8Array(12));
+        ivString = btoa(String.fromCharCode(...iv));
+        fileToUpload = file;
       }
 
       const backendUrl = process.env.REACT_APP_SOCKET_ENDPOINT || "https://cheprabai-backend.onrender.com";
@@ -4266,8 +4354,10 @@ export default function ChatRoom() {
         {
           headers: { "Content-Type": "multipart/form-data" },
           onUploadProgress: (progressEvent) => {
-            // Keep the pending card alive, but deliberately do not expose a
-            // progress bar: a compact activity spinner is clearer on mobile.
+            if (progressEvent.total) {
+              const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+              setMessages(msgs => msgs.map(msg => msg.id === tempId ? { ...msg, file: { ...msg.file, progress: percent } } : msg));
+            }
           }
         }
       );
@@ -5577,7 +5667,7 @@ export default function ChatRoom() {
               }}
             />
 
-            {/* {renderLinkActions(part)} */}
+            {renderLinkActions(part)}
           </div>
         );
       }
@@ -6002,75 +6092,148 @@ export default function ChatRoom() {
           </RoomActions>
         </Header>
         {renderPinnedMessagesBanner()}
-        {viewer && (
-          <div
-            style={{
-              position: "fixed",
-              inset: 0,
-              background: "#000",
-              zIndex: 999999,
-              display: "flex",
-              flexDirection: "column"
-            }}
-          >
+        {viewer && (() => {
+          const isObject = typeof viewer === "object" && viewer !== null;
+          const url = isObject ? viewer.url : viewer;
+          const name = isObject ? viewer.name : (getEmbedData(url)?.type || "Web Link");
+          const type = isObject ? viewer.type : null;
+          const embed = getEmbedData(url);
+          const displayUrl = embed ? embed.src : url;
+
+          return (
             <div
               style={{
-                height: 56,
+                position: "fixed",
+                inset: 0,
+                background: "#0a0b10",
+                zIndex: 999999,
                 display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                padding: "0 16px",
-                background: "#111",
-                borderBottom: "1px solid #222"
+                flexDirection: "column",
+                fontFamily: "system-ui, -apple-system, sans-serif"
               }}
             >
+              {/* Header */}
               <div
                 style={{
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
+                  height: 60,
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  padding: "0 20px",
+                  background: "#11131e",
+                  borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+                  boxShadow: "0 4px 20px rgba(0,0,0,0.3)"
                 }}
               >
-                {viewer}
-                <button
-                  onClick={async () => {
-                    try {
-                      await navigator.clipboard.writeText(viewer);
-                      toast.success("Link copied!");
-                    } catch {
-                      toast.error("Failed to copy link");
-                    }
-                  }}
+                <div
                   style={{
-                    marginLeft: "8px"
+                    color: "#fff",
+                    fontWeight: 700,
+                    fontSize: "0.9rem",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    minWidth: 0,
+                    flex: 1
                   }}
                 >
-                  📋
-                </button>
+                  <span style={{ opacity: 0.6, flexShrink: 0 }}>🔍 Previewing:</span>
+                  <span style={{ color: "var(--chakra-colors-brandPrimary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</span>
+                  <button
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(url);
+                        toast.success("Link copied!");
+                      } catch {
+                        toast.error("Failed to copy link");
+                      }
+                    }}
+                    style={{
+                      background: "rgba(255,255,255,0.06)",
+                      border: "1px solid rgba(255,255,255,0.1)",
+                      color: "#fff",
+                      cursor: "pointer",
+                      borderRadius: 6,
+                      padding: "4px 8px",
+                      fontSize: "0.75rem",
+                      marginLeft: 8,
+                      flexShrink: 0
+                    }}
+                  >
+                    Copy Link
+                  </button>
+                </div>
+
+                <div style={{ display: "flex", gap: 12, alignItems: "center", flexShrink: 0 }}>
+                  <button
+                    onClick={() => window.open(url, "_blank")}
+                    style={{
+                      background: "rgba(255,255,255,0.06)",
+                      border: "1px solid rgba(255,255,255,0.1)",
+                      color: "#fff",
+                      cursor: "pointer",
+                      borderRadius: 8,
+                      width: 36,
+                      height: 36,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center"
+                    }}
+                    title="Open in new tab"
+                  >
+                    <ImNewTab size={16} />
+                  </button>
+
+                  <button
+                    onClick={() => setViewer(null)}
+                    style={{
+                      background: "#ef4444",
+                      border: "none",
+                      color: "#fff",
+                      cursor: "pointer",
+                      borderRadius: 8,
+                      width: 36,
+                      height: 36,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center"
+                    }}
+                    title="Close preview"
+                  >
+                    <AiFillCloseSquare size={20} />
+                  </button>
+                </div>
               </div>
 
-              <div style={{ display: "flex", gap: 10 }}>
-                <button onClick={() => window.open(viewer, "_blank")} size='sm'>
-                  <ImNewTab />
-                </button>
-
-                <button onClick={() => setViewer(null)}>
-                  <AiFillCloseSquare />
-                </button>
+              {/* Viewer Body */}
+              <div style={{ flex: 1, position: "relative", width: "100%", overflow: "hidden", display: "flex", background: "#06070a" }}>
+                {/* 1. PDF Documents */}
+                {((name && name.toLowerCase().endsWith(".pdf")) || type === "application/pdf") ? (
+                  <iframe
+                    src={`${displayUrl}#toolbar=0`}
+                    title="PDF Previewer"
+                    style={{ border: 0, width: "100%", height: "100%", background: "#1e1e24" }}
+                  />
+                ) : (name && name.toLowerCase().match(/\.(txt|json|js|ts|py|html|css|md|csv|xml|sh|yaml|yml)$/i)) ? (
+                  /* 2. Text & Source Code Viewer */
+                  <CodeViewerArea url={displayUrl} filename={name} />
+                ) : (
+                  /* 3. standard Frame / Web pages & Social Media Embeds */
+                  <iframe
+                    src={displayUrl}
+                    title="Web Previewer"
+                    allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+                    allowFullScreen
+                    style={{ border: 0, width: "100%", height: "100%" }}
+                  />
+                )}
               </div>
             </div>
-
-            <iframe
-              src={viewer}
-              title="viewer"
-              style={{
-                flex: 1,
-                border: 0,
-                width: "100%"
-              }}
-            />
-          </div>
-        )}
+          );
+        })()}
 
         <MessageContainer ref={messagesContainerRef} onScroll={handleScroll}>
           {hasMoreMessages && (
@@ -6106,6 +6269,7 @@ export default function ChatRoom() {
 
             return (
               <MessageBubble
+                className="chat-message-item"
                 key={i}
                 ref={(node) => { if (m.id) messageRefs.current[m.id] = node; }}
                 $isSender={m.userName === userName}
@@ -6149,38 +6313,57 @@ export default function ChatRoom() {
 
                 {!isSystem && m.text && (
                   editingMessageId === m.id ? (
-                    <div style={{ display: "flex", gap: 8, width: "100%", marginTop: 4, minWidth: 200, padding: m.file ? "4px 14px 10px" : "0" }}>
-                      <input
-                        type="text"
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%", marginTop: 4, minWidth: 200, padding: m.file ? "4px 14px 10px" : "0" }}>
+                      <textarea
                         value={editInput}
                         onChange={(e) => setEditInput(e.target.value)}
                         style={{
-                          flex: 1,
-                          padding: "6px 12px",
-                          borderRadius: 8,
+                          width: "100%",
+                          minHeight: 60,
+                          maxHeight: 300,
+                          padding: "10px 14px",
+                          borderRadius: 10,
                           border: "1px solid var(--chakra-colors-brandPrimary)",
-                          background: "rgba(0,0,0,0.2)",
+                          background: "rgba(0,0,0,0.25)",
                           color: "#fff",
-                          outline: "none"
+                          outline: "none",
+                          fontFamily: "'SF Mono','Fira Code',Consolas,monospace",
+                          fontSize: "0.88rem",
+                          lineHeight: 1.55,
+                          resize: "vertical",
+                          boxSizing: "border-box",
+                          whiteSpace: "pre-wrap",
+                          wordWrap: "break-word",
                         }}
                         onKeyDown={(e) => {
-                          if (e.key === "Enter") handleSaveEdit(m.id);
+                          if ((e.ctrlKey || e.metaKey) && e.key === "Enter") handleSaveEdit(m.id);
                           if (e.key === "Escape") setEditingMessageId(null);
                         }}
                         autoFocus
+                        ref={(el) => {
+                          if (el) {
+                            el.style.height = "auto";
+                            el.style.height = Math.min(el.scrollHeight, 300) + "px";
+                          }
+                        }}
                       />
-                      <button
-                        onClick={() => handleSaveEdit(m.id)}
-                        style={{ background: "var(--chakra-colors-brandPrimary)", border: "none", color: "#fff", padding: "0 10px", borderRadius: 8, cursor: "pointer", fontWeight: 700 }}
-                      >
-                        Save
-                      </button>
-                      <button
-                        onClick={() => setEditingMessageId(null)}
-                        style={{ background: "rgba(255,255,255,0.1)", border: "none", color: "inherit", padding: "0 10px", borderRadius: 8, cursor: "pointer" }}
-                      >
-                        Cancel
-                      </button>
+                      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                        <button
+                          onClick={() => handleSaveEdit(m.id)}
+                          style={{ background: "var(--chakra-colors-brandPrimary)", border: "none", color: "#fff", padding: "6px 16px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: "0.82rem" }}
+                        >
+                          Save
+                        </button>
+                        <button
+                          onClick={() => setEditingMessageId(null)}
+                          style={{ background: "rgba(255,255,255,0.1)", border: "none", color: "inherit", padding: "6px 16px", borderRadius: 8, cursor: "pointer", fontSize: "0.82rem" }}
+                        >
+                          Cancel
+                        </button>
+                        <span style={{ fontSize: "0.68rem", color: "var(--chakra-colors-textSecondary)", marginLeft: "auto" }}>
+                          {isMobile ? "Save to confirm" : "Ctrl+Enter to save · Esc to cancel"}
+                        </span>
+                      </div>
                     </div>
                   ) : (
                     m.file ? (
@@ -6208,11 +6391,13 @@ export default function ChatRoom() {
                         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, textAlign: "center" }}>
                           <div style={{ width: 32, height: 32, borderRadius: "50%", border: "3px solid rgba(255,255,255,.15)", borderTopColor: "var(--chakra-colors-brandPrimary)", animation: "spin .8s linear infinite" }} />
                           <span style={{ fontSize: ".82rem", fontWeight: 600 }}>Sending {m.file.name}</span>
-                          <span style={{ fontSize: ".72rem", opacity: .62 }}>Encrypted and uploading securely…</span>
+                          <span style={{ fontSize: ".72rem", opacity: .62 }}>
+                            {m.file.progress !== undefined ? `Uploading ${m.file.progress}%…` : "Encrypted and uploading securely…"}
+                          </span>
                         </div>
                       </div>
                     ) : (
-                      <E2EEFileAttachment file={m.file} roomKey={roomKey} setFullscreen={setFullscreen} isMobile={isMobile} />
+                      <E2EEFileAttachment file={m.file} roomKey={roomKey} setFullscreen={setFullscreen} isMobile={isMobile} setViewer={setViewer} />
                     )}
                   </div>
                 )}
@@ -6302,6 +6487,21 @@ export default function ChatRoom() {
                         >
                           <FaReply size={12} />
                         </BubbleActionButton>
+
+                        {(m.text || m.file?.name) && (
+                          <BubbleActionButton
+                            type="button"
+                            onClick={() => {
+                              const copyText = m.text || m.file?.name || "";
+                              navigator.clipboard.writeText(copyText).then(() => {
+                                toast.success("Copied to clipboard", { autoClose: 1200 });
+                              }).catch(() => toast.error("Failed to copy"));
+                            }}
+                            data-tooltip="Copy"
+                          >
+                            <FaCopy size={11} />
+                          </BubbleActionButton>
+                        )}
 
                         {ownerToken && (
                           <BubbleActionButton
