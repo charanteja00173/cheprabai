@@ -727,31 +727,36 @@ export default function AdminDashboard() {
 
   
 
-  const executeDecryption = async () => {
-    if (!decryptTarget) return;
+  const executeDecryption = async (targetOverride, actionOverride) => {
+    const target = targetOverride || decryptTarget;
+    const action = actionOverride || decryptAction;
+    if (!target) return;
     try {
-      const response = await fetch(`${backendUrl}/api/proxy-file?url=${encodeURIComponent(decryptTarget.url)}`);
+      const response = await fetch(`${backendUrl}/api/proxy-file?url=${encodeURIComponent(target.url)}`);
       if (!response.ok) throw new Error("File retrieval failed");
       let bytes = await response.arrayBuffer();
-      if (decryptTarget.encrypted) {
-        if (!roomCode.trim()) throw new Error("Enter the room security code to decrypt this file.");
-        const key = await generateKeyFromSecret(`${roomCode}${decryptTarget.roomId}`);
-        const iv = new Uint8Array(atob(decryptTarget.iv).split("").map((char) => char.charCodeAt(0)));
+      if (target.encrypted) {
+        const passwordToUse = target.roomPassword || roomCode;
+        if (!passwordToUse || !passwordToUse.trim()) {
+          throw new Error("Enter the room security code to decrypt this file.");
+        }
+        const key = await generateKeyFromSecret(`${passwordToUse.trim()}${target.roomId}`);
+        const iv = new Uint8Array(atob(target.iv).split("").map((char) => char.charCodeAt(0)));
         bytes = await decryptBinary(key, { iv, data: bytes });
       }
-      const blob = new Blob([bytes], { type: decryptTarget.type || "application/octet-stream" });
+      const blob = new Blob([bytes], { type: target.type || "application/octet-stream" });
       const localUrl = URL.createObjectURL(blob);
 
-      if (decryptAction === "download") {
+      if (action === "download") {
         const anchor = document.createElement("a");
         anchor.href = localUrl;
-        anchor.download = decryptTarget.name || "download";
+        anchor.download = target.name || "download";
         anchor.click();
         URL.revokeObjectURL(localUrl);
         toast.success("File downloaded securely.");
       } else {
         setPreviewItem({
-          ...decryptTarget,
+          ...target,
           url: localUrl
         });
       }
@@ -759,6 +764,32 @@ export default function AdminDashboard() {
       setRoomCode("");
     } catch (error) {
       toast.error(error.message || "Unable to decrypt this file.");
+    }
+  };
+
+  const handlePreviewClick = (item) => {
+    if (item.encrypted) {
+      if (item.roomPassword) {
+        executeDecryption(item, "preview");
+      } else {
+        setDecryptTarget(item);
+        setDecryptAction("preview");
+      }
+    } else {
+      setPreviewItem(item);
+    }
+  };
+
+  const handleDownloadClick = (item) => {
+    if (item.encrypted) {
+      if (item.roomPassword) {
+        executeDecryption(item, "download");
+      } else {
+        setDecryptTarget(item);
+        setDecryptAction("download");
+      }
+    } else {
+      executeDecryption(item, "download");
     }
   };
 
@@ -1215,9 +1246,9 @@ export default function AdminDashboard() {
                 <tbody>
                   {filteredUploads.map((item) => (
                     <tr key={item.id}>
-                      <td><button type="button" onClick={() => setPreviewItem(item)} title="Preview file" style={{ border: 0, padding: 0, background: "transparent", cursor: "pointer" }}>{renderPreview(item)}</button></td>
+                      <td><button type="button" onClick={() => handlePreviewClick(item)} title="Preview file" style={{ border: 0, padding: 0, background: "transparent", cursor: "pointer" }}>{renderPreview(item)}</button></td>
                       <td>
-                        <FileLink href={item.url} onClick={(e) => { e.preventDefault(); setDecryptTarget(item); setDecryptAction('download'); }}>
+                        <FileLink href={item.url} onClick={(e) => { e.preventDefault(); handleDownloadClick(item); }}>
                           <FaDownload style={{ flexShrink: 0, color: "var(--chakra-colors-brandPrimary)" }} />
                           {item.name}
                         </FileLink>
@@ -1246,7 +1277,7 @@ export default function AdminDashboard() {
                         {new Date(item.timestamp).toLocaleString()}
                       </td>
                       <td style={{ textAlign: "right" }}>
-                        <ActionButton onClick={() => setPreviewItem(item)} title="Preview file"><FaEye /></ActionButton>{" "}
+                        <ActionButton onClick={() => handlePreviewClick(item)} title="Preview file"><FaEye /></ActionButton>{" "}
                         <ActionButton $danger title="Permanently delete this file" onClick={() => handleDelete(item.roomId, item.id)}>
                           <FaTrash /> Delete
                         </ActionButton>
@@ -1267,10 +1298,7 @@ export default function AdminDashboard() {
                         </FileTypeIconWrapper>
                         <FileNameText
                           title={item.name}
-                          onClick={() => {
-                            setDecryptTarget(item);
-                            setDecryptAction('download');
-                          }}
+                          onClick={() => handleDownloadClick(item)}
                         >
                           {item.name}
                         </FileNameText>
@@ -1322,17 +1350,14 @@ export default function AdminDashboard() {
                     <FileCardActions>
                       <RoundActionBtn
                         type="button"
-                        onClick={() => setPreviewItem(item)}
+                        onClick={() => handlePreviewClick(item)}
                         title="Preview file"
                       >
                         <FaEye size={12} />
                       </RoundActionBtn>
                       <RoundActionBtn
                         type="button"
-                        onClick={() => {
-                          setDecryptTarget(item);
-                          setDecryptAction('download');
-                        }}
+                        onClick={() => handleDownloadClick(item)}
                         title="Decrypt & Download"
                       >
                         <FaDownload size={12} />
@@ -1354,10 +1379,21 @@ export default function AdminDashboard() {
             {viewMode === "list" && <MobileCardList>
               {filteredUploads.map((item) => (
                 <MobileCard key={item.id}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>{renderPreview(item)}<div style={{ minWidth: 0, flex: 1 }}><div style={{ fontSize: ".72rem", color: "var(--chakra-colors-textSecondary)", textTransform: "uppercase", fontWeight: 700 }}>Preview</div><div style={{ display: "flex", gap: 6, marginTop: 5 }}><Badge>{(item.source || "realtime") === "cloudinary" ? "Cloudinary" : "Realtime"}</Badge>{item.type && <Badge $brand>{item.type.split('/')[0]}</Badge>}</div></div></div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <button type="button" onClick={() => handlePreviewClick(item)} title="Preview file" style={{ border: 0, padding: 0, background: "transparent", cursor: "pointer" }}>
+                      {renderPreview(item)}
+                    </button>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ fontSize: ".72rem", color: "var(--chakra-colors-textSecondary)", textTransform: "uppercase", fontWeight: 700 }}>Preview</div>
+                      <div style={{ display: "flex", gap: 6, marginTop: 5 }}>
+                        <Badge>{(item.source || "realtime") === "cloudinary" ? "Cloudinary" : "Realtime"}</Badge>
+                        {item.type && <Badge $brand>{item.type.split('/')[0]}</Badge>}
+                      </div>
+                    </div>
+                  </div>
                   <MobileCardRow>
                     <span>File</span>
-                    <FileLink href={item.url} target="_blank" rel="noreferrer">
+                    <FileLink href={item.url} onClick={(e) => { e.preventDefault(); handleDownloadClick(item); }}>
                       {item.name}
                     </FileLink>
                   </MobileCardRow>

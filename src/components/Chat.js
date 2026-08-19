@@ -7599,6 +7599,7 @@ export default function ChatRoom() {
             ownerToken={ownerToken}
             userAvatar={userAvatar}
             onClose={closeMeeting}
+            onOpenWhiteboard={() => setShowWhiteboard(true)}
           />
         </Suspense>
       )}

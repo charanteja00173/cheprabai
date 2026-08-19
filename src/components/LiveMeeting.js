@@ -9,7 +9,7 @@ import {
   FaTrash, FaVolumeUp, FaVolumeMute, FaVolumeDown, FaChartLine, FaCrown,
   FaLeaf, FaBolt, FaHeadphones, FaGem, FaExclamationTriangle,
   FaPlay, FaPause, FaPlayCircle,
-  FaRedo, FaUndo, FaStop, FaThumbtack
+  FaRedo, FaUndo, FaStop, FaThumbtack, FaPaintBrush
 } from "react-icons/fa";
 import * as PeerModule from "peerjs";
 import { toast } from "react-toastify";
@@ -246,16 +246,22 @@ const BandwidthDropdown = styled.div`
 const BandwidthMenu = styled.div`
   position: absolute;
   top: calc(100% + 8px);
-  right: 0;
-  width: 230px;
-  background: rgba(18, 20, 32, 0.95);
+  left: 0;
+  width: 240px;
+  background: rgba(18, 20, 32, 0.96);
   backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 14px;
   padding: 8px;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
-  z-index: 100;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+  z-index: 1000;
   animation: ${slideUp} 0.2s ease;
+
+  @media (max-width: 600px) {
+    left: 0;
+    right: auto;
+    width: min(240px, calc(100vw - 24px));
+  }
 `;
 
 const BandwidthOption = styled.button`
@@ -1118,8 +1124,127 @@ const FileStreamControlsCard = styled.div`
   }
 `;
 
+/* ═══════════════════════════════ STREAM MIXER UTILITY ═══════════════════════════════ */
+// Dynamically overlays local camera as a PiP circle/card onto the main screen/file track,
+// and mixes computer audio with the local microphone so everyone can hear both.
+const createMixedStream = (mainStream, cameraStream, options = { mixAudio: true }) => {
+  const mainVideoTrack = mainStream.getVideoTracks()[0];
+  const cameraVideoTrack = cameraStream?.getVideoTracks()[0];
+  
+  let mixedVideoTrack = mainVideoTrack;
+  let mixerCleanup = () => {};
+  
+  if (cameraVideoTrack && mainVideoTrack) {
+    const canvas = document.createElement("canvas");
+    canvas.width = 1280;
+    canvas.height = 720;
+    const ctx = canvas.getContext("2d");
+    
+    const mainVideo = document.createElement("video");
+    mainVideo.srcObject = new MediaStream([mainVideoTrack]);
+    mainVideo.muted = true;
+    mainVideo.playsInline = true;
+    mainVideo.play().catch(() => {});
+    
+    const cameraVideo = document.createElement("video");
+    cameraVideo.srcObject = new MediaStream([cameraVideoTrack]);
+    cameraVideo.muted = true;
+    cameraVideo.playsInline = true;
+    cameraVideo.play().catch(() => {});
+    
+    let active = true;
+    const draw = () => {
+      if (!active) return;
+      
+      // Draw main track
+      if (mainVideo.readyState >= 2) {
+        ctx.drawImage(mainVideo, 0, 0, canvas.width, canvas.height);
+      } else {
+        ctx.fillStyle = "#0c0d14";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
+      
+      // Draw camera track in corner if camera is enabled (not muted/black)
+      if (cameraVideo.readyState >= 2 && cameraVideoTrack.enabled) {
+        const pipW = 240;
+        const pipH = 135;
+        const x = canvas.width - pipW - 24;
+        const y = canvas.height - pipH - 24;
+        
+        ctx.save();
+        ctx.shadowColor = "rgba(0, 0, 0, 0.4)";
+        ctx.shadowBlur = 12;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 4;
+        
+        ctx.beginPath();
+        if (ctx.roundRect) {
+          ctx.roundRect(x, y, pipW, pipH, 12);
+        } else {
+          ctx.rect(x, y, pipW, pipH);
+        }
+        ctx.closePath();
+        ctx.clip();
+        
+        ctx.drawImage(cameraVideo, x, y, pipW, pipH);
+        ctx.restore();
+      }
+      
+      requestAnimationFrame(draw);
+    };
+    
+    draw();
+    
+    const canvasStream = canvas.captureStream(30);
+    mixedVideoTrack = canvasStream.getVideoTracks()[0];
+    
+    mixerCleanup = () => {
+      active = false;
+      mainVideo.pause();
+      mainVideo.srcObject = null;
+      mainVideo.remove();
+      cameraVideo.pause();
+      cameraVideo.srcObject = null;
+      cameraVideo.remove();
+      canvas.remove();
+    };
+  }
+  
+  // Audio mixing
+  let mixedAudioTrack = null;
+  const mainAudioTrack = mainStream.getAudioTracks()[0];
+  const cameraAudioTrack = cameraStream?.getAudioTracks()[0];
+  
+  if (options.mixAudio && cameraAudioTrack && mainAudioTrack) {
+    try {
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const mainSrc = audioCtx.createMediaStreamSource(new MediaStream([mainAudioTrack]));
+      const camSrc = audioCtx.createMediaStreamSource(new MediaStream([cameraAudioTrack]));
+      const dst = audioCtx.createMediaStreamDestination();
+      
+      mainSrc.connect(dst);
+      camSrc.connect(dst);
+      
+      mixedAudioTrack = dst.stream.getAudioTracks()[0];
+    } catch (e) {
+      console.warn("Audio mixing failed, using main audio track:", e);
+      mixedAudioTrack = mainAudioTrack;
+    }
+  } else {
+    mixedAudioTrack = mainAudioTrack || cameraAudioTrack || null;
+  }
+  
+  const tracks = [];
+  if (mixedVideoTrack) tracks.push(mixedVideoTrack);
+  if (mixedAudioTrack) tracks.push(mixedAudioTrack);
+  
+  const mixedStream = new MediaStream(tracks);
+  
+  return { stream: mixedStream, cleanup: mixerCleanup };
+};
+
 /* ═══════════════════════════════ MAIN COMPONENT ═══════════════════════════════ */
-export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin, ownerToken, userAvatar }) {
+export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin, ownerToken, userAvatar, onOpenWhiteboard }) {
   // ── States ──
   const [localStream, setLocalStream] = useState(null);
   const [displayStream, setDisplayStream] = useState(null); // tracks active display (camera or screenshare)
@@ -1171,6 +1296,8 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const isVideoOffRef = useRef(false); // stable ref for isVideoOff (avoids effect re-trigger)
   const fileVideoRef = useRef(null);
   const fileStreamRef = useRef(null);
+  const screenStreamRef = useRef(null);
+  const mixedStreamCleanupRef = useRef(null);
   const originalTracksRef = useRef({ video: null, audio: null });
   const fileInputRef = useRef(null);
   const isRoomHost = useMemo(() => Boolean(isAdmin || ownerToken), [isAdmin, ownerToken]);
@@ -1921,31 +2048,83 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     }
   };
 
+  const stopScreenShare = useCallback(() => {
+    if (mixedStreamCleanupRef.current) {
+      try { mixedStreamCleanupRef.current(); } catch (e) {}
+      mixedStreamCleanupRef.current = null;
+    }
+    if (screenStreamRef.current) {
+      try { screenStreamRef.current.getTracks().forEach(t => t.stop()); } catch (e) {}
+      screenStreamRef.current = null;
+    }
+
+    const origVideo = originalTracksRef.current?.video;
+    const origAudio = originalTracksRef.current?.audio;
+
+    if (origVideo || origAudio) {
+      Object.values(peers.current).forEach(call => {
+        const pc = call.peerConnection;
+        if (!pc) return;
+        pc.getSenders().forEach(sender => {
+          if (sender.track?.kind === "video" && origVideo) {
+            sender.replaceTrack(origVideo);
+          }
+          if (sender.track?.kind === "audio" && origAudio) {
+            sender.replaceTrack(origAudio);
+          }
+        });
+      });
+    }
+
+    originalTracksRef.current = { video: null, audio: null };
+    setDisplayStream(localStreamRef.current);
+    toast.info("Screen sharing ended.");
+  }, []);
+
   const startScreenShare = async () => {
     try {
       const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
-      const screenTrack = screenStream.getVideoTracks()[0];
+      screenStreamRef.current = screenStream;
+
+      const hasAudioTrack = screenStream.getAudioTracks().length > 0;
+      if (!hasAudioTrack) {
+        toast.info("💡 Tip: To share computer sound, select 'Tab' or check 'Share audio' in the browser popup.", { autoClose: 7000 });
+      }
+
+      const mixed = createMixedStream(screenStream, localStreamRef.current, { mixAudio: true });
+      mixedStreamCleanupRef.current = mixed.cleanup;
+
+      const origVideo = localStreamRef.current?.getVideoTracks()[0];
+      const origAudio = localStreamRef.current?.getAudioTracks()[0];
+      originalTracksRef.current = { video: origVideo, audio: origAudio };
+
+      const mixedVideoTrack = mixed.stream.getVideoTracks()[0];
+      const mixedAudioTrack = mixed.stream.getAudioTracks()[0];
+
+      if (mixedAudioTrack) {
+        mixedAudioTrack.enabled = true;
+      }
 
       Object.values(peers.current).forEach(call => {
-        const sender = call.peerConnection?.getSenders().find(s => s.track?.kind === "video");
-        if (sender) sender.replaceTrack(screenTrack);
+        const pc = call.peerConnection;
+        if (!pc) return;
+        pc.getSenders().forEach(sender => {
+          if (sender.track?.kind === "video" && mixedVideoTrack) {
+            sender.replaceTrack(mixedVideoTrack);
+          }
+          if (sender.track?.kind === "audio" && mixedAudioTrack) {
+            sender.replaceTrack(mixedAudioTrack);
+          }
+        });
       });
 
-      setDisplayStream(screenStream); // show screenshare in local tile
+      setDisplayStream(mixed.stream);
 
-      screenTrack.onended = () => {
-        const originalTrack = localStreamRef.current?.getVideoTracks()[0];
-        if (originalTrack) {
-          Object.values(peers.current).forEach(call => {
-            const sender = call.peerConnection?.getSenders().find(s => s.track?.kind === "video");
-            if (sender) sender.replaceTrack(originalTrack);
-          });
-          setDisplayStream(localStreamRef.current); // revert to camera
-        }
-        toast.info("Screen sharing ended.");
+      screenStream.getVideoTracks()[0].onended = () => {
+        stopScreenShare();
       };
 
-      toast.success("Screen sharing started");
+      toast.success(hasAudioTrack ? "Screen sharing started (with audio)" : "Screen sharing started");
     } catch (e) {
       console.warn("Screen share cancelled or failed:", e);
     }
@@ -1958,19 +2137,29 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     setTimeout(() => setReactions(prev => prev.filter(r => r.id !== id)), 2800);
   };
 
-  // ─── Video File Streaming Capabilities ───
-  const startFileStream = async (file) => {
-    if (!file) return;
+  // ─── Video/Audio & Link Media Streaming Capabilities ───
+  const startMediaStream = async ({ file, url, name }) => {
     try {
-      // 1. Create a hidden HTML5 video element to load and play the file
+      let mediaSrc = "";
+      let mediaName = name || "Media Stream";
+
+      if (file) {
+        mediaSrc = URL.createObjectURL(file);
+        mediaName = file.name;
+      } else if (url) {
+        mediaSrc = url;
+        mediaName = url.length > 32 ? url.substring(0, 32) + "..." : url;
+      }
+
+      if (!mediaSrc) return;
+
       const video = document.createElement("video");
-      video.src = URL.createObjectURL(file);
+      video.src = mediaSrc;
       video.crossOrigin = "anonymous";
       video.playsInline = true;
       video.autoplay = true;
-      video.volume = 0.8; // default volume to 80%
+      video.volume = fileStreamVolume;
 
-      // Position it offscreen
       video.style.position = "fixed";
       video.style.top = "-9999px";
       video.style.left = "-9999px";
@@ -1979,47 +2168,46 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       document.body.appendChild(video);
 
       fileVideoRef.current = video;
-      setFileStreamName(file.name);
+      setFileStreamName(mediaName);
       setIsFileStreamPaused(false);
 
       video.onloadedmetadata = () => {
-        setFileStreamDuration(video.duration);
-        // 2. Capture the media stream from the playing video
+        setFileStreamDuration(video.duration || 0);
         const stream = video.captureStream ? video.captureStream() : (video.mozCaptureStream ? video.mozCaptureStream() : null);
         if (!stream) {
-          toast.error("Your browser does not support capturing media stream from local files.");
+          toast.error("Media stream capture is not supported for this source format.");
           video.remove();
           return;
         }
 
-        fileStreamRef.current = stream;
+        const mixed = createMixedStream(stream, localStreamRef.current, { mixAudio: true });
+        fileStreamRef.current = mixed.stream;
+        mixedStreamCleanupRef.current = mixed.cleanup;
 
-        // Save original video and audio tracks to restore when streaming stops
         const origVideo = localStreamRef.current?.getVideoTracks()[0];
         const origAudio = localStreamRef.current?.getAudioTracks()[0];
         originalTracksRef.current = { video: origVideo, audio: origAudio };
 
-        const fileVideoTrack = stream.getVideoTracks()[0];
-        const fileAudioTrack = stream.getAudioTracks()[0];
+        const mixedVideoTrack = mixed.stream.getVideoTracks()[0];
+        const mixedAudioTrack = mixed.stream.getAudioTracks()[0];
 
-        // 3. Replace camera and microphone tracks in all active peer connections
         Object.values(peers.current).forEach(call => {
           const pc = call.peerConnection;
           if (!pc) return;
           pc.getSenders().forEach(sender => {
-            if (sender.track?.kind === "video" && fileVideoTrack) {
-              sender.replaceTrack(fileVideoTrack);
+            if (sender.track?.kind === "video" && mixedVideoTrack) {
+              sender.replaceTrack(mixedVideoTrack);
             }
-            if (sender.track?.kind === "audio" && fileAudioTrack) {
-              sender.replaceTrack(fileAudioTrack);
+            if (sender.track?.kind === "audio" && mixedAudioTrack) {
+              sender.replaceTrack(mixedAudioTrack);
             }
           });
         });
 
-        // 4. Update the local UI to render the video file stream instead of camera
-        setDisplayStream(stream);
+        setDisplayStream(mixed.stream);
         setIsFileStreaming(true);
-        toast.success(`Started streaming video: ${file.name}`);
+        setShowStreamModal(false);
+        toast.success(`Started streaming: ${mediaName}`);
       };
 
       video.ontimeupdate = () => {
@@ -2029,34 +2217,35 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       video.onended = () => {
         stopFileStream();
       };
-
     } catch (err) {
-      console.error("Failed to start video file stream:", err);
-      toast.error("An error occurred while loading the video file.");
+      console.error("Failed to start media stream:", err);
+      toast.error("An error occurred while loading the media source.");
     }
   };
 
   const stopFileStream = useCallback(() => {
-    // 1. Terminate and cleanup the HTML5 video element
+    if (mixedStreamCleanupRef.current) {
+      try { mixedStreamCleanupRef.current(); } catch (e) {}
+      mixedStreamCleanupRef.current = null;
+    }
+
     if (fileVideoRef.current) {
       fileVideoRef.current.pause();
       try {
         const src = fileVideoRef.current.src;
-        if (src) URL.revokeObjectURL(src);
+        if (src && src.startsWith("blob:")) URL.revokeObjectURL(src);
       } catch (e) {}
       fileVideoRef.current.remove();
       fileVideoRef.current = null;
     }
 
-    // 2. Stop all file streaming tracks
     if (fileStreamRef.current) {
       fileStreamRef.current.getTracks().forEach(t => t.stop());
       fileStreamRef.current = null;
     }
 
-    // 3. Restore original camera and microphone tracks to active calls
-    const origVideo = originalTracksRef.current.video;
-    const origAudio = originalTracksRef.current.audio;
+    const origVideo = originalTracksRef.current?.video;
+    const origAudio = originalTracksRef.current?.audio;
 
     if (origVideo || origAudio) {
       Object.values(peers.current).forEach(call => {
@@ -2075,13 +2264,12 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
     originalTracksRef.current = { video: null, audio: null };
 
-    // 4. Revert local UI back to display local camera stream
     setDisplayStream(localStreamRef.current);
     setIsFileStreaming(false);
     setFileStreamName("");
-    setFileStreamProgress(0);
     setFileStreamDuration(0);
-    toast.info("Video file stream stopped.");
+    setFileStreamProgress(0);
+    toast.info("Media stream stopped.");
   }, []);
 
   const toggleFileStreamPlay = () => {
@@ -2369,6 +2557,13 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
             <IconButton className="hide-mobile" onClick={() => setShowDiagnostics(true)} title="Connection Diagnostics">
               <FaChartLine />
             </IconButton>
+
+            {/* Collaborative Whiteboard */}
+            {onOpenWhiteboard && (
+              <IconButton onClick={onOpenWhiteboard} title="Open Collaborative Whiteboard & Screen Annotations">
+                <FaPaintBrush color="#38bdf8" />
+              </IconButton>
+            )}
 
             {/* Participants Toggle */}
             <IconButton 
@@ -2900,7 +3095,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
             <span style={{ fontSize: "0.75rem" }}>Share</span>
           </DockButton>
 
-          {/* Admin Video Streaming */}
+          {/* Admin Video & Audio / Link Streaming */}
           {isRoomHost && (
             <>
               <DockButton 
@@ -2909,23 +3104,23 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                   if (isFileStreaming) {
                     stopFileStream();
                   } else {
-                    fileInputRef.current?.click();
+                    setShowStreamModal(true);
                   }
                 }} 
-                title={isFileStreaming ? "Stop Streaming Video" : "Stream Video File"}
+                title={isFileStreaming ? "Stop Media Stream" : "Stream File or Media Link"}
               >
                 <FaPlayCircle />
-                <span style={{ fontSize: "0.75rem" }}>{isFileStreaming ? "Stop" : "Stream File"}</span>
+                <span style={{ fontSize: "0.75rem" }}>{isFileStreaming ? "Stop" : "Stream Media"}</span>
               </DockButton>
               <input 
                 type="file" 
                 ref={fileInputRef} 
-                accept="video/*" 
+                accept="video/*,audio/*" 
                 style={{ display: "none" }} 
                 onChange={e => {
                   const file = e.target.files?.[0];
                   if (file) {
-                    startFileStream(file);
+                    startMediaStream({ file });
                     e.target.value = ""; // reset to allow choosing same file
                   }
                 }}
@@ -2964,6 +3159,86 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
             <span>Leave</span>
           </DockButton>
         </ControlsDock>
+
+        {/* ═══ STREAM MEDIA OPTIONS MODAL (Files + Web Links) ═══ */}
+        {showStreamModal && (
+          <ModalBackdrop onClick={() => setShowStreamModal(false)}>
+            <ModalContent onClick={e => e.stopPropagation()} style={{ width: "min(460px, 100%)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}>
+                  <FaPlayCircle color="#818cf8" />
+                  <span>Stream Video, Audio or Link</span>
+                </h3>
+                <IconButton onClick={() => setShowStreamModal(false)}>
+                  <FaTimes />
+                </IconButton>
+              </div>
+
+              <p style={{ fontSize: "0.8rem", opacity: 0.7, margin: "0 0 16px", lineHeight: 1.4 }}>
+                Stream a local video/audio file or paste any media link (YouTube, MP4, MP3, Web stream) directly into the room call while keeping your microphone & webcam active.
+              </p>
+
+              {/* Option 1: File Upload */}
+              <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 14, marginBottom: 14 }}>
+                <div style={{ fontWeight: 700, fontSize: "0.85rem", marginBottom: 6, color: "#a5b4fc" }}>
+                  📁 Option 1: Upload Video or Audio File
+                </div>
+                <p style={{ fontSize: "0.72rem", opacity: 0.6, margin: "0 0 10px" }}>
+                  Select any MP4, MKV, MP3, WAV or media file from your device.
+                </p>
+                <DockButton
+                  style={{ width: "100%", justifyContent: "center", height: 38, borderRadius: 10, background: "rgba(129, 140, 248, 0.15)", color: "#818cf8", border: "1px solid rgba(129, 140, 248, 0.3)" }}
+                  onClick={() => {
+                    fileInputRef.current?.click();
+                  }}
+                >
+                  Choose Media File...
+                </DockButton>
+              </div>
+
+              {/* Option 2: External Media Link */}
+              <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 14 }}>
+                <div style={{ fontWeight: 700, fontSize: "0.85rem", marginBottom: 6, color: "#38bdf8" }}>
+                  🔗 Option 2: Stream URL / Media Link
+                </div>
+                <p style={{ fontSize: "0.72rem", opacity: 0.6, margin: "0 0 10px" }}>
+                  Paste a direct video/audio URL, YouTube, Instagram or stream link.
+                </p>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input
+                    type="url"
+                    placeholder="https://example.com/video.mp4 or link..."
+                    value={streamUrlInput}
+                    onChange={e => setStreamUrlInput(e.target.value)}
+                    style={{
+                      flex: 1,
+                      background: "rgba(0,0,0,0.4)",
+                      border: "1px solid rgba(255,255,255,0.12)",
+                      borderRadius: 10,
+                      padding: "0 12px",
+                      color: "#fff",
+                      fontSize: "0.8rem",
+                      outline: "none"
+                    }}
+                  />
+                  <DockButton
+                    style={{ height: 38, borderRadius: 10, padding: "0 14px", background: "linear-gradient(135deg, #6366f1, #818cf8)", color: "#fff", border: "none" }}
+                    onClick={() => {
+                      if (!streamUrlInput.trim()) {
+                        toast.warn("Please enter a valid media link.");
+                        return;
+                      }
+                      startMediaStream({ url: streamUrlInput.trim() });
+                      setStreamUrlInput("");
+                    }}
+                  >
+                    Start Stream
+                  </DockButton>
+                </div>
+              </div>
+            </ModalContent>
+          </ModalBackdrop>
+        )}
 
         {/* ═══ KICK CONFIRMATION MODAL ═══ */}
         {kickTarget && (
