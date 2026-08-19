@@ -3740,6 +3740,31 @@ export default function ChatRoom() {
   };
   leaveRoomNowRef.current = leaveRoomNow;
   const handleLeaveRoom = () => setConfirmation({ title: "Leave this room?", body: "You can rejoin later with the room credentials.", confirmLabel: "Leave room", onConfirm: leaveRoomNow });
+  const handleKickFromRoom = (targetSocketId, targetName) => {
+    setConfirmation({
+      title: "Remove participant?",
+      body: `Are you sure you want to remove "${targetName}" from the room? They will be immediately disconnected.`,
+      confirmLabel: "Remove participant",
+      onConfirm: () => {
+        if (socketRef.current) {
+          socketRef.current.emit("kick-from-room", {
+            roomId,
+            targetSocketId,
+            targetName,
+            adminName: userName
+          });
+          socketRef.current.emit("admin-kick-user", {
+            roomId,
+            peerId: targetSocketId,
+            name: targetName,
+            adminName: userName,
+            isRoomKick: true
+          });
+        }
+        toast.info(`Removal command sent for ${targetName}`);
+      }
+    });
+  };
   /* ================= SOCKET ================= */
 
   useEffect(() => {
@@ -3893,6 +3918,23 @@ export default function ChatRoom() {
     socketRef.current.on("roomDestroyed", () => {
       toast.info("This room was deleted.");
       leaveRoomNowRef.current?.();
+    });
+    socketRef.current.on("kicked-from-room", ({ targetSocketId, targetName, adminName }) => {
+      if (socketRef.current?.id === targetSocketId || targetName === userName) {
+        toast.error(`🚫 You have been removed from this room by ${adminName || 'the admin/owner'}.`);
+        leaveRoomNowRef.current?.();
+      } else {
+        toast.info(`ℹ️ ${targetName} was removed from the room.`);
+        setOnlineUsers((users) => users.filter((u) => u.id !== targetSocketId && u.name !== targetName));
+      }
+    });
+    socketRef.current.on("admin-kick-user", ({ peerId, name, adminName, isRoomKick }) => {
+      if (peerId === socketRef.current?.id || name === userName) {
+        toast.error(`🚫 You have been removed from this room by ${adminName || 'the admin/owner'}.`);
+        leaveRoomNowRef.current?.();
+      } else {
+        setOnlineUsers((users) => users.filter((u) => u.id !== peerId && u.name !== name));
+      }
     });
 
     socketRef.current.on("roomOwner", (token) => {
@@ -5751,13 +5793,40 @@ export default function ChatRoom() {
                       <span style={{ color: "#2196F3" }}>AES-256 GCM</span>
                     </div>
                     <div style={{ borderTop: "1px solid rgba(255, 255, 255, 0.1)", paddingTop: 10 }}>
-                      <div style={{ fontSize: "0.8rem", color: "#666", marginBottom: 5 }}>Participants</div>
-                      <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-                        {onlineUsers.map(u => (
-                          <div key={u.id} style={{ background: "var(--chakra-colors-surfaceHover)", padding: "2px 8px", borderRadius: 20, fontSize: "0.7rem" }}>
-                            {u.name}
-                          </div>
-                        ))}
+                      <div style={{ fontSize: "0.8rem", color: "#666", marginBottom: 8 }}>Participants ({onlineUsers.length})</div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 180, overflowY: "auto", paddingRight: 4 }}>
+                        {onlineUsers.map(u => {
+                          const isMe = u.id === socketRef.current?.id;
+                          return (
+                            <div key={u.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(255, 255, 255, 0.03)", padding: "6px 12px", borderRadius: 10, fontSize: "0.75rem", border: "1px solid rgba(255, 255, 255, 0.05)" }}>
+                              <span style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
+                                <span style={{ width: 6, height: 6, borderRadius: "50%", background: isMe ? "#10b981" : "#3b82f6" }} />
+                                {u.name} {isMe && <span style={{ opacity: 0.5, fontSize: "0.65rem" }}>(You)</span>}
+                              </span>
+                              {ownerToken && !isMe && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleKickFromRoom(u.id, u.name)}
+                                  style={{
+                                    border: 0,
+                                    background: "rgba(239, 68, 68, 0.1)",
+                                    color: "#ef4444",
+                                    padding: "2px 8px",
+                                    borderRadius: 6,
+                                    fontSize: "0.65rem",
+                                    fontWeight: 700,
+                                    cursor: "pointer",
+                                    transition: "all 0.2s"
+                                  }}
+                                  onMouseEnter={e => e.currentTarget.style.background = "rgba(239, 68, 68, 0.2)"}
+                                  onMouseLeave={e => e.currentTarget.style.background = "rgba(239, 68, 68, 0.1)"}
+                                >
+                                  Remove
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                     <div style={{ borderTop: "1px solid rgba(255, 255, 255, 0.1)", paddingTop: 10, marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>

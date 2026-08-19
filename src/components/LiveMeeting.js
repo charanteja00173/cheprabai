@@ -666,6 +666,12 @@ const ReactionParticle = styled.div`
   z-index: 40;
 `;
 
+const SpinnerIcon = styled(FaSync)`
+  animation: ${spin} 1.2s linear infinite;
+  color: #00f2fe;
+  font-size: 32px;
+`;
+
 const PipWidget = styled.div`
   width: 100%;
   height: 100%;
@@ -1555,7 +1561,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
           <MainVideoArea className="main-video-area">
             {isConnecting ? (
               <AvatarPlaceholder>
-                <FaSync size={32} style={{ animation: `${spin} 1.2s linear infinite`, color: "#00f2fe" }} />
+                <SpinnerIcon size={32} />
                 <h3 style={{ margin: 0, fontSize: "1.1rem" }}>Connecting to meeting...</h3>
                 <p style={{ margin: 0, opacity: 0.6, fontSize: "0.8rem" }}>Optimizing network & media devices</p>
               </AvatarPlaceholder>

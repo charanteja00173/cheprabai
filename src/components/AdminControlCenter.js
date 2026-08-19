@@ -490,6 +490,24 @@ export default function AdminControlCenter({ token, backendUrl }) {
     setRooms(res.data.rooms || []);
   }, [backendUrl, authHeaders]);
 
+  const handleKickParticipant = (roomId, targetSocketId, targetName) => {
+    setModal({
+      type: "confirm",
+      title: "Remove participant from room?",
+      body: `Are you sure you want to remove "${targetName}" from the room "${roomId}"?`,
+      confirmLabel: "Remove User",
+      confirmDanger: true,
+      onConfirm: () => {
+        if (socketRef.current) {
+          socketRef.current.emit("adminKickUser", { roomId, targetSocketId, name: targetName });
+          socketRef.current.emit("kick-from-room", { roomId, targetSocketId, targetName });
+          socketRef.current.emit("admin-kick-user", { roomId, peerId: targetSocketId, name: targetName, isRoomKick: true });
+        }
+        toast.success(`Removal command sent for ${targetName}`);
+      }
+    });
+  };
+
   const fetchRequests = useCallback(async () => {
     const res = await axios.get(`${backendUrl}/api/admin/room-requests`, { headers: authHeaders() });
     setRequests(res.data.requests || []);
@@ -796,14 +814,35 @@ export default function AdminControlCenter({ token, backendUrl }) {
                               color: "rgba(255, 255, 255, 0.85)",
                               background: "rgba(255, 255, 255, 0.05)",
                               border: "1px solid rgba(255, 255, 255, 0.08)",
-                              padding: "3px 8px",
+                              padding: "3px 6px 3px 8px",
                               borderRadius: "6px",
                               display: "inline-flex",
                               alignItems: "center",
-                              gap: 5
+                              gap: 6
                             }}>
                               <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#4cc9f0" }} />
                               {p.name}
+                              <button
+                                type="button"
+                                onClick={() => handleKickParticipant(room.roomId, p.id, p.name)}
+                                style={{
+                                  border: 0,
+                                  background: "transparent",
+                                  color: "rgba(255, 71, 87, 0.6)",
+                                  cursor: "pointer",
+                                  padding: "0 2px",
+                                  fontSize: "0.75rem",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  fontWeight: "bold",
+                                  transition: "color 0.2s"
+                                }}
+                                onMouseEnter={e => e.currentTarget.style.color = "#ff4757"}
+                                onMouseLeave={e => e.currentTarget.style.color = "rgba(255, 71, 87, 0.6)"}
+                                title={`Remove ${p.name} from room`}
+                              >
+                                ✕
+                              </button>
                             </div>
                           ))}
                         </div>
