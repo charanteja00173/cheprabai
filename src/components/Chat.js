@@ -7480,6 +7480,8 @@ export default function ChatRoom() {
             roomId={roomId}
             userName={userName}
             isAdmin={!!ownerToken}
+            ownerToken={ownerToken}
+            userAvatar={userAvatar}
             onClose={() => setShowMeeting(false)}
           />
         </Suspense>
