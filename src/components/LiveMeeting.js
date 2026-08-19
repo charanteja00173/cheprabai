@@ -107,6 +107,10 @@ const MeetingContainer = styled.div`
     .hide-mobile {
       display: none !important;
     }
+
+    .desktop-only-controls {
+      display: none !important;
+    }
   }
 `;
 
@@ -138,6 +142,11 @@ const MeetingHeader = styled.header`
     padding: 10px 14px;
     gap: 8px;
   }
+
+  @media (max-width: 480px) {
+    padding: 8px 10px;
+    gap: 6px;
+  }
 `;
 
 const HeaderLeft = styled.div`
@@ -151,8 +160,12 @@ const HeaderLeft = styled.div`
 const HeaderRight = styled.div`
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex-shrink: 0;
+
+  @media (max-width: 480px) {
+    gap: 4px;
+  }
 `;
 
 const BrandBadge = styled.div`
@@ -308,11 +321,19 @@ const IconButton = styled.button`
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;
+  flex-shrink: 0;
 
   &:hover {
     background: ${props => props.$primary ? "#ff3344" : "rgba(255, 255, 255, 0.1)"};
     color: #fff;
     transform: translateY(-1px);
+  }
+
+  @media (max-width: 480px) {
+    width: 34px;
+    height: 34px;
+    font-size: 0.8rem;
+    border-radius: 8px;
   }
 
   .badge {
@@ -346,6 +367,11 @@ const ContentArea = styled.main`
     padding: 8px;
     gap: 8px;
   }
+
+  @media (max-width: 480px) {
+    padding: 4px;
+    gap: 4px;
+  }
 `;
 
 const MainVideoArea = styled.div`
@@ -356,6 +382,14 @@ const MainVideoArea = styled.div`
   position: relative;
   border-radius: 18px;
   overflow: hidden;
+
+  @media (max-width: 640px) {
+    border-radius: 12px;
+  }
+
+  @media (max-width: 380px) {
+    border-radius: 8px;
+  }
 `;
 
 const VideoGridContainer = styled.div`
@@ -386,9 +420,15 @@ const VideoGridContainer = styled.div`
   }};
 
   @media (max-width: 640px) {
-    grid-template-columns: ${props => props.$count <= 2 ? "1fr" : "repeat(2, minmax(0, 1fr))"};
+    grid-template-columns: ${props => props.$count <= 1 ? "1fr" : "repeat(2, minmax(0, 1fr))"};
     grid-template-rows: auto;
     gap: 8px;
+    padding: 4px;
+  }
+
+  @media (max-width: 380px) {
+    gap: 6px;
+    padding: 2px;
   }
 `;
 
@@ -403,6 +443,7 @@ const VideoTile = styled.div`
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
   border: 2px solid ${props => props.$isSpeaking ? "#00f2fe" : props.$isPinned ? "#f59e0b" : "rgba(255, 255, 255, 0.08)"};
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  min-height: 0;
 
   ${props => props.$isSpeaking && css`
     box-shadow: 0 0 20px rgba(0, 242, 254, 0.25);
@@ -418,20 +459,39 @@ const VideoTile = styled.div`
     object-fit: cover;
     background: #000;
   }
+
+  @media (max-width: 640px) {
+    border-radius: 12px;
+    border-width: 1.5px;
+  }
+
+  @media (max-width: 380px) {
+    border-radius: 10px;
+  }
 `;
 
 const TileOverlay = styled.div`
   position: absolute;
-  top: 10px;
-  right: 10px;
+  top: 8px;
+  right: 8px;
   display: flex;
-  gap: 6px;
+  gap: 5px;
   opacity: 0;
   transition: opacity 0.2s ease;
   z-index: 10;
 
   @media (max-width: 768px) {
-    opacity: 0.9 !important;
+    opacity: 0.85 !important;
+    top: 6px;
+    right: 6px;
+    gap: 4px;
+  }
+
+  @media (max-width: 480px) {
+    opacity: 1 !important;
+    top: 4px;
+    right: 4px;
+    gap: 3px;
   }
 `;
 
@@ -489,6 +549,24 @@ const TileUserInfo = styled.div`
   color: #fff;
   z-index: 5;
   max-width: calc(100% - 20px);
+
+  @media (max-width: 640px) {
+    bottom: 6px;
+    left: 6px;
+    padding: 3px 8px;
+    font-size: 0.68rem;
+    border-radius: 8px;
+    gap: 4px;
+    max-width: calc(100% - 12px);
+  }
+
+  @media (max-width: 380px) {
+    bottom: 4px;
+    left: 4px;
+    padding: 2px 6px;
+    font-size: 0.62rem;
+    border-radius: 6px;
+  }
 `;
 
 const EqualizerWaves = styled.div`
@@ -552,14 +630,40 @@ const ControlsDock = styled.footer`
   }
 
   @media (max-width: 600px) {
-    justify-content: center;
-    flex-wrap: wrap;
-    padding: 10px 6px;
-    gap: 8px;
+    flex-direction: column;
+    align-items: center;
+    padding: 8px 10px;
+    gap: 6px;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+  }
+`;
 
-    .leave-btn {
-      margin-left: 0 !important;
-    }
+const MobilePrimaryRow = styled.div`
+  display: none;
+
+  @media (max-width: 600px) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+  }
+`;
+
+const MobileSecondaryRow = styled.div`
+  display: none;
+
+  @media (max-width: 600px) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    overflow-x: auto;
+    padding: 2px 0;
+    -webkit-overflow-scrolling: touch;
+
+    &::-webkit-scrollbar { height: 0; }
   }
 `;
 
@@ -600,17 +704,13 @@ const DockButton = styled.button`
     transform: translateY(-2px);
   }
 
-  span {
-    transition: display 0.2s;
-  }
-
   @media (max-width: 600px) {
-    min-width: 38px;
-    height: 38px;
+    min-width: 42px;
+    height: 42px;
     padding: 0;
     border-radius: 50%;
-    font-size: 0.85rem;
-    
+    font-size: 1rem;
+
     span {
       display: none !important;
     }
@@ -903,6 +1003,11 @@ const ParticipantStrip = styled.div`
     padding: 8px 10px;
     gap: 8px;
   }
+
+  @media (max-width: 480px) {
+    padding: 6px 8px;
+    gap: 6px;
+  }
 `;
 
 const ParticipantWidget = styled.div`
@@ -942,7 +1047,7 @@ const ParticipantWidget = styled.div`
 
   @media (max-width: 480px) {
     width: 110px;
-    height: 75px;
+    height: 72px;
   }
 `;
 
@@ -1013,6 +1118,22 @@ const FileStreamControlsCard = styled.div`
   gap: 10px;
   z-index: 1000;
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+
+  @media (max-width: 640px) {
+    bottom: auto;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: min(95vw, 360px);
+    padding: 12px 14px;
+    border-radius: 14px;
+  }
+
+  @media (max-width: 380px) {
+    width: min(98vw, 300px);
+    padding: 10px 12px;
+    border-radius: 12px;
+    gap: 8px;
+  }
 
   .stream-header {
     display: flex;
@@ -3433,88 +3554,217 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
         {/* ═══ FLOATING CONTROLS DOCK ═══ */}
         <ControlsDock className="controls-bar">
-          <DockButton $danger={isMuted} onClick={toggleMute} title={isMuted ? "Unmute Mic" : "Mute Mic"}>
-            {isMuted ? <FaMicrophoneSlash /> : <FaMicrophone />}
-            <span style={{ fontSize: "0.75rem" }}>{isMuted ? "Unmute" : "Mute"}</span>
-          </DockButton>
-
-          <DockButton $danger={isVideoOff} onClick={toggleVideo} title={isVideoOff ? "Start Video" : "Stop Video"}>
-            {isVideoOff ? <FaVideoSlash /> : <FaVideo />}
-            <span style={{ fontSize: "0.75rem" }}>{isVideoOff ? "Start Video" : "Stop Video"}</span>
-          </DockButton>
-
-          <DockButton onClick={flipCamera} title="Flip Camera">
-            <FaExchangeAlt />
-          </DockButton>
-
-          {/* Voice Changer */}
-          <div style={{ position: "relative" }}>
-            <DockButton $active={voiceFilter !== "none"} onClick={() => { setShowVoiceMenu(!showVoiceMenu); setShowVideoMenu(false); }} title="Voice Changer">
-              <FaMagic />
-              <span style={{ fontSize: "0.75rem" }}>Voice</span>
+          {/* ── Desktop: single row ── */}
+          <span className="desktop-only-controls" style={{ display: "contents" }}>
+            <DockButton $danger={isMuted} onClick={toggleMute} title={isMuted ? "Unmute Mic" : "Mute Mic"}>
+              {isMuted ? <FaMicrophoneSlash /> : <FaMicrophone />}
+              <span style={{ fontSize: "0.75rem" }}>{isMuted ? "Unmute" : "Mute"}</span>
             </DockButton>
-            {showVoiceMenu && (
-              <div style={{ position: "absolute", bottom: "calc(100% + 10px)", left: "50%", transform: "translateX(-50%)", width: 220, background: "rgba(18,20,32,0.96)", backdropFilter: "blur(24px)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 14, padding: 8, boxShadow: "0 16px 40px rgba(0,0,0,0.6)", zIndex: 1000 }}>
-                {[
-                  { id: "none", label: "🎙️ Normal Voice", desc: "No effects" },
-                  { id: "robot", label: "🤖 Robot", desc: "Ring modulation 55Hz" },
-                  { id: "telephone", label: "📞 Telephone", desc: "Bandpass megaphone" },
-                  { id: "echo", label: "🏔️ Echo / Cave", desc: "Delay + feedback loop" },
-                ].map(opt => (
-                  <button key={opt.id} onClick={() => { setVoiceFilter(opt.id); setShowVoiceMenu(false); toast.info(`Voice: ${opt.label}`, { autoClose: 1500 }); }} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 10, border: "none", background: voiceFilter === opt.id ? "rgba(99,102,241,0.18)" : "transparent", color: voiceFilter === opt.id ? "#a5b4fc" : "rgba(255,255,255,0.85)", fontSize: "0.78rem", fontWeight: 600, textAlign: "left", cursor: "pointer" }}>
-                    <div><span>{opt.label}</span><br /><span style={{ fontSize: "0.65rem", opacity: 0.6 }}>{opt.desc}</span></div>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
 
-          {/* Video Filter */}
-          <div style={{ position: "relative" }}>
-            <DockButton $active={videoFilter !== "none"} onClick={() => { setShowVideoMenu(!showVideoMenu); setShowVoiceMenu(false); }} title="Video Filter">
-              <FaPalette />
-              <span style={{ fontSize: "0.75rem" }}>Filter</span>
+            <DockButton $danger={isVideoOff} onClick={toggleVideo} title={isVideoOff ? "Start Video" : "Stop Video"}>
+              {isVideoOff ? <FaVideoSlash /> : <FaVideo />}
+              <span style={{ fontSize: "0.75rem" }}>{isVideoOff ? "Start Video" : "Stop Video"}</span>
             </DockButton>
-            {showVideoMenu && (
-              <div style={{ position: "absolute", bottom: "calc(100% + 10px)", left: "50%", transform: "translateX(-50%)", width: 220, background: "rgba(18,20,32,0.96)", backdropFilter: "blur(24px)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 14, padding: 8, boxShadow: "0 16px 40px rgba(0,0,0,0.6)", zIndex: 1000 }}>
-                {[
-                  { id: "none", label: "✨ Normal", desc: "No filter" },
-                  { id: "grayscale", label: "🖤 Grayscale", desc: "Black & white" },
-                  { id: "sepia", label: "🟤 Sepia", desc: "Warm vintage tone" },
-                  { id: "blur", label: "🌫️ Privacy Blur", desc: "Background blur" },
-                  { id: "invert", label: "🔄 Invert", desc: "Inverted colors" },
-                  { id: "vintage", label: "📸 Vintage", desc: "Retro film look" },
-                ].map(opt => (
-                  <button key={opt.id} onClick={() => { setVideoFilter(opt.id); setShowVideoMenu(false); toast.info(`Filter: ${opt.label}`, { autoClose: 1500 }); }} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 10, border: "none", background: videoFilter === opt.id ? "rgba(99,102,241,0.18)" : "transparent", color: videoFilter === opt.id ? "#a5b4fc" : "rgba(255,255,255,0.85)", fontSize: "0.78rem", fontWeight: 600, textAlign: "left", cursor: "pointer" }}>
-                    <div><span>{opt.label}</span><br /><span style={{ fontSize: "0.65rem", opacity: 0.6 }}>{opt.desc}</span></div>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
 
-          <DockButton onClick={startScreenShare} title="Share Screen">
-            <FaDesktop />
-            <span style={{ fontSize: "0.75rem" }}>Share</span>
-          </DockButton>
+            <DockButton onClick={flipCamera} title="Flip Camera">
+              <FaExchangeAlt />
+            </DockButton>
 
-          {/* Admin Video & Audio / Link Streaming */}
-          {isRoomHost && (
-            <>
-              <DockButton 
-                $active={isFileStreaming} 
-                onClick={() => {
-                  if (isFileStreaming) {
-                    stopFileStream();
-                  } else {
-                    setShowStreamModal(true);
-                  }
-                }} 
-                title={isFileStreaming ? "Stop Media Stream" : "Stream File or Media Link"}
-              >
-                <FaPlayCircle />
-                <span style={{ fontSize: "0.75rem" }}>{isFileStreaming ? "Stop" : "Stream Media"}</span>
+            {/* Voice Changer */}
+            <div style={{ position: "relative" }}>
+              <DockButton $active={voiceFilter !== "none"} onClick={() => { setShowVoiceMenu(!showVoiceMenu); setShowVideoMenu(false); }} title="Voice Changer">
+                <FaMagic />
+                <span style={{ fontSize: "0.75rem" }}>Voice</span>
               </DockButton>
+              {showVoiceMenu && (
+                <div style={{ position: "absolute", bottom: "calc(100% + 10px)", left: "50%", transform: "translateX(-50%)", width: 220, background: "rgba(18,20,32,0.96)", backdropFilter: "blur(24px)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 14, padding: 8, boxShadow: "0 16px 40px rgba(0,0,0,0.6)", zIndex: 1000 }}>
+                  {[
+                    { id: "none", label: "🎙️ Normal Voice", desc: "No effects" },
+                    { id: "robot", label: "🤖 Robot", desc: "Ring modulation 55Hz" },
+                    { id: "telephone", label: "📞 Telephone", desc: "Bandpass megaphone" },
+                    { id: "echo", label: "🏔️ Echo / Cave", desc: "Delay + feedback loop" },
+                  ].map(opt => (
+                    <button key={opt.id} onClick={() => { setVoiceFilter(opt.id); setShowVoiceMenu(false); toast.info(`Voice: ${opt.label}`, { autoClose: 1500 }); }} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 10, border: "none", background: voiceFilter === opt.id ? "rgba(99,102,241,0.18)" : "transparent", color: voiceFilter === opt.id ? "#a5b4fc" : "rgba(255,255,255,0.85)", fontSize: "0.78rem", fontWeight: 600, textAlign: "left", cursor: "pointer" }}>
+                      <div><span>{opt.label}</span><br /><span style={{ fontSize: "0.65rem", opacity: 0.6 }}>{opt.desc}</span></div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Video Filter */}
+            <div style={{ position: "relative" }}>
+              <DockButton $active={videoFilter !== "none"} onClick={() => { setShowVideoMenu(!showVideoMenu); setShowVoiceMenu(false); }} title="Video Filter">
+                <FaPalette />
+                <span style={{ fontSize: "0.75rem" }}>Filter</span>
+              </DockButton>
+              {showVideoMenu && (
+                <div style={{ position: "absolute", bottom: "calc(100% + 10px)", left: "50%", transform: "translateX(-50%)", width: 220, background: "rgba(18,20,32,0.96)", backdropFilter: "blur(24px)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 14, padding: 8, boxShadow: "0 16px 40px rgba(0,0,0,0.6)", zIndex: 1000 }}>
+                  {[
+                    { id: "none", label: "✨ Normal", desc: "No filter" },
+                    { id: "grayscale", label: "🖤 Grayscale", desc: "Black & white" },
+                    { id: "sepia", label: "🟤 Sepia", desc: "Warm vintage tone" },
+                    { id: "blur", label: "🌫️ Privacy Blur", desc: "Background blur" },
+                    { id: "invert", label: "🔄 Invert", desc: "Inverted colors" },
+                    { id: "vintage", label: "📸 Vintage", desc: "Retro film look" },
+                  ].map(opt => (
+                    <button key={opt.id} onClick={() => { setVideoFilter(opt.id); setShowVideoMenu(false); toast.info(`Filter: ${opt.label}`, { autoClose: 1500 }); }} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 10, border: "none", background: videoFilter === opt.id ? "rgba(99,102,241,0.18)" : "transparent", color: videoFilter === opt.id ? "#a5b4fc" : "rgba(255,255,255,0.85)", fontSize: "0.78rem", fontWeight: 600, textAlign: "left", cursor: "pointer" }}>
+                      <div><span>{opt.label}</span><br /><span style={{ fontSize: "0.65rem", opacity: 0.6 }}>{opt.desc}</span></div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <DockButton onClick={startScreenShare} title="Share Screen">
+              <FaDesktop />
+              <span style={{ fontSize: "0.75rem" }}>Share</span>
+            </DockButton>
+
+            {/* Admin Video & Audio / Link Streaming */}
+            {isRoomHost && (
+              <>
+                <DockButton 
+                  $active={isFileStreaming} 
+                  onClick={() => {
+                    if (isFileStreaming) {
+                      stopFileStream();
+                    } else {
+                      setShowStreamModal(true);
+                    }
+                  }} 
+                  title={isFileStreaming ? "Stop Media Stream" : "Stream File or Media Link"}
+                >
+                  <FaPlayCircle />
+                  <span style={{ fontSize: "0.75rem" }}>{isFileStreaming ? "Stop" : "Stream Media"}</span>
+                </DockButton>
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  accept="video/*,audio/*" 
+                  style={{ display: "none" }} 
+                  onChange={e => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      startMediaStream({ file });
+                      e.target.value = "";
+                    }
+                  }}
+                />
+              </>
+            )}
+
+            <DockDivider />
+
+            {/* Emoji Reactions */}
+            <EmojiTray>
+              {["👏", "❤️", "😂", "🔥"].map(emoji => (
+                <DockButton key={emoji} onClick={() => sendReaction(emoji)} style={{ minWidth: 38, padding: "0 8px" }}>
+                  {emoji}
+                </DockButton>
+              ))}
+            </EmojiTray>
+
+            <DockButton onClick={() => sendReaction("✋")} title="Raise Hand">
+              <FaHandPaper />
+            </DockButton>
+
+            <DockDivider />
+
+            {/* Recording (Host) */}
+            {isRoomHost && (
+              <DockButton $danger={isRecording} onClick={toggleRecording} title="Record Meeting">
+                <FaRecordVinyl />
+                <span style={{ fontSize: "0.75rem" }}>{isRecording ? "Recording..." : "Record"}</span>
+              </DockButton>
+            )}
+
+            {/* End Call Button */}
+            <DockButton $danger className="leave-btn" onClick={() => setShowLeaveConfirm(true)} style={{ padding: "0 18px" }}>
+              <FaPhoneSlash />
+              <span>Leave</span>
+            </DockButton>
+          </span>
+
+          {/* ── Mobile: two-row layout ── */}
+          <MobilePrimaryRow>
+            <DockButton $danger={isMuted} onClick={toggleMute} title={isMuted ? "Unmute Mic" : "Mute Mic"}>
+              {isMuted ? <FaMicrophoneSlash /> : <FaMicrophone />}
+            </DockButton>
+            <DockButton $danger={isVideoOff} onClick={toggleVideo} title={isVideoOff ? "Start Video" : "Stop Video"}>
+              {isVideoOff ? <FaVideoSlash /> : <FaVideo />}
+            </DockButton>
+            <DockButton onClick={startScreenShare} title="Share Screen">
+              <FaDesktop />
+            </DockButton>
+            {isRoomHost && (
+              <DockButton $active={isFileStreaming} onClick={() => isFileStreaming ? stopFileStream() : setShowStreamModal(true)} title={isFileStreaming ? "Stop Stream" : "Stream Media"}>
+                <FaPlayCircle />
+              </DockButton>
+            )}
+            {isRoomHost && (
+              <DockButton $danger={isRecording} onClick={toggleRecording} title="Record Meeting">
+                <FaRecordVinyl />
+              </DockButton>
+            )}
+            <DockButton onClick={() => sendReaction("✋")} title="Raise Hand">
+              <FaHandPaper />
+            </DockButton>
+            <DockButton $danger className="leave-btn" onClick={() => setShowLeaveConfirm(true)} title="Leave Call">
+              <FaPhoneSlash />
+            </DockButton>
+          </MobilePrimaryRow>
+
+          <MobileSecondaryRow>
+            <DockButton onClick={flipCamera} title="Flip Camera">
+              <FaExchangeAlt />
+            </DockButton>
+            <div style={{ position: "relative" }}>
+              <DockButton $active={voiceFilter !== "none"} onClick={() => { setShowVoiceMenu(!showVoiceMenu); setShowVideoMenu(false); }} title="Voice Changer">
+                <FaMagic />
+              </DockButton>
+              {showVoiceMenu && (
+                <div style={{ position: "absolute", bottom: "calc(100% + 10px)", left: "50%", transform: "translateX(-50%)", width: 220, background: "rgba(18,20,32,0.96)", backdropFilter: "blur(24px)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 14, padding: 8, boxShadow: "0 16px 40px rgba(0,0,0,0.6)", zIndex: 1000 }}>
+                  {[
+                    { id: "none", label: "🎙️ Normal Voice", desc: "No effects" },
+                    { id: "robot", label: "🤖 Robot", desc: "Ring modulation 55Hz" },
+                    { id: "telephone", label: "📞 Telephone", desc: "Bandpass megaphone" },
+                    { id: "echo", label: "🏔️ Echo / Cave", desc: "Delay + feedback loop" },
+                  ].map(opt => (
+                    <button key={opt.id} onClick={() => { setVoiceFilter(opt.id); setShowVoiceMenu(false); toast.info(`Voice: ${opt.label}`, { autoClose: 1500 }); }} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 10, border: "none", background: voiceFilter === opt.id ? "rgba(99,102,241,0.18)" : "transparent", color: voiceFilter === opt.id ? "#a5b4fc" : "rgba(255,255,255,0.85)", fontSize: "0.78rem", fontWeight: 600, textAlign: "left", cursor: "pointer" }}>
+                      <div><span>{opt.label}</span><br /><span style={{ fontSize: "0.65rem", opacity: 0.6 }}>{opt.desc}</span></div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div style={{ position: "relative" }}>
+              <DockButton $active={videoFilter !== "none"} onClick={() => { setShowVideoMenu(!showVideoMenu); setShowVoiceMenu(false); }} title="Video Filter">
+                <FaPalette />
+              </DockButton>
+              {showVideoMenu && (
+                <div style={{ position: "absolute", bottom: "calc(100% + 10px)", left: "50%", transform: "translateX(-50%)", width: 220, background: "rgba(18,20,32,0.96)", backdropFilter: "blur(24px)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 14, padding: 8, boxShadow: "0 16px 40px rgba(0,0,0,0.6)", zIndex: 1000 }}>
+                  {[
+                    { id: "none", label: "✨ Normal", desc: "No filter" },
+                    { id: "grayscale", label: "🖤 Grayscale", desc: "Black & white" },
+                    { id: "sepia", label: "🟤 Sepia", desc: "Warm vintage tone" },
+                    { id: "blur", label: "🌫️ Privacy Blur", desc: "Background blur" },
+                    { id: "invert", label: "🔄 Invert", desc: "Inverted colors" },
+                    { id: "vintage", label: "📸 Vintage", desc: "Retro film look" },
+                  ].map(opt => (
+                    <button key={opt.id} onClick={() => { setVideoFilter(opt.id); setShowVideoMenu(false); toast.info(`Filter: ${opt.label}`, { autoClose: 1500 }); }} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 10, border: "none", background: videoFilter === opt.id ? "rgba(99,102,241,0.18)" : "transparent", color: videoFilter === opt.id ? "#a5b4fc" : "rgba(255,255,255,0.85)", fontSize: "0.78rem", fontWeight: 600, textAlign: "left", cursor: "pointer" }}>
+                      <div><span>{opt.label}</span><br /><span style={{ fontSize: "0.65rem", opacity: 0.6 }}>{opt.desc}</span></div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            {["👏", "❤️", "😂", "🔥"].map(emoji => (
+              <DockButton key={emoji} onClick={() => sendReaction(emoji)} style={{ minWidth: 42 }}>
+                {emoji}
+              </DockButton>
+            ))}
+            {isRoomHost && (
               <input 
                 type="file" 
                 ref={fileInputRef} 
@@ -3524,43 +3774,12 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                   const file = e.target.files?.[0];
                   if (file) {
                     startMediaStream({ file });
-                    e.target.value = ""; // reset to allow choosing same file
+                    e.target.value = "";
                   }
                 }}
               />
-            </>
-          )}
-
-          <DockDivider />
-
-          {/* Emoji Reactions */}
-          <EmojiTray>
-            {["👏", "❤️", "😂", "🔥"].map(emoji => (
-              <DockButton key={emoji} onClick={() => sendReaction(emoji)} style={{ minWidth: 38, padding: "0 8px" }}>
-                {emoji}
-              </DockButton>
-            ))}
-          </EmojiTray>
-
-          <DockButton onClick={() => sendReaction("✋")} title="Raise Hand">
-            <FaHandPaper />
-          </DockButton>
-
-          <DockDivider />
-
-          {/* Recording (Host) */}
-          {isRoomHost && (
-            <DockButton $danger={isRecording} onClick={toggleRecording} title="Record Meeting">
-              <FaRecordVinyl />
-              <span style={{ fontSize: "0.75rem" }}>{isRecording ? "Recording..." : "Record"}</span>
-            </DockButton>
-          )}
-
-          {/* End Call Button */}
-          <DockButton $danger className="leave-btn" onClick={() => setShowLeaveConfirm(true)} style={{ padding: "0 18px" }}>
-            <FaPhoneSlash />
-            <span>Leave</span>
-          </DockButton>
+            )}
+          </MobileSecondaryRow>
         </ControlsDock>
 
         {/* ═══ STREAM MEDIA OPTIONS MODAL (Files + Web Links) ═══ */}
