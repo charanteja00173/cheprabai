@@ -4,7 +4,8 @@ export function createDecryptionHtmlTemplate(roomId, b64Data, b64Salt, b64Iv) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cheprabai Session: \${roomId}</title>
+  <title>Cheprabai Session: ${escapeHtml(roomId)}</title>
+
   <style>
     :root {
       --bg: #0b0c10;
@@ -15,10 +16,16 @@ export function createDecryptionHtmlTemplate(roomId, b64Data, b64Salt, b64Iv) {
       --brand: #ff3f5e;
       --brand-sec: #ff7b90;
     }
+
+    * {
+      box-sizing: border-box;
+    }
+
     body {
       background: var(--bg);
       color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
+        Roboto, "Helvetica Neue", Arial, sans-serif;
       margin: 0;
       padding: 0;
       display: flex;
@@ -26,35 +33,42 @@ export function createDecryptionHtmlTemplate(roomId, b64Data, b64Salt, b64Iv) {
       align-items: center;
       min-height: 100vh;
     }
+
     .wrapper {
       width: min(500px, 92%);
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 24px;
       padding: 36px 28px;
-      box-sizing: border-box;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
       text-align: center;
-      transition: all 0.3s ease;
     }
+
     h1 {
       margin: 0 0 8px;
       font-size: 1.6rem;
-      background: linear-gradient(135deg, var(--brand), var(--brand-sec));
+      background: linear-gradient(
+        135deg,
+        var(--brand),
+        var(--brand-sec)
+      );
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       font-weight: 800;
     }
+
     p {
       color: var(--text-sec);
       font-size: 0.88rem;
       line-height: 1.6;
       margin: 0 0 24px;
     }
+
     .input-group {
       margin-bottom: 20px;
       text-align: left;
     }
+
     label {
       font-size: 0.76rem;
       font-weight: 700;
@@ -64,21 +78,23 @@ export function createDecryptionHtmlTemplate(roomId, b64Data, b64Salt, b64Iv) {
       display: block;
       margin-bottom: 8px;
     }
+
     input {
       width: 100%;
       padding: 14px 16px;
       border-radius: 12px;
       border: 1px solid var(--border);
-      background: rgba(0,0,0,0.25);
+      background: rgba(0, 0, 0, 0.25);
       color: #fff;
       font-size: 0.95rem;
       outline: none;
-      box-sizing: border-box;
       transition: border-color 0.2s;
     }
+
     input:focus {
       border-color: var(--brand);
     }
+
     button {
       width: 100%;
       padding: 14px;
@@ -92,15 +108,18 @@ export function createDecryptionHtmlTemplate(roomId, b64Data, b64Salt, b64Iv) {
       box-shadow: 0 4px 12px rgba(255, 63, 94, 0.2);
       transition: opacity 0.2s;
     }
+
     button:hover {
       opacity: 0.9;
     }
+
     #error-msg {
       color: #ff4757;
       font-size: 0.8rem;
       margin-top: 12px;
       display: none;
     }
+
     #chat-container {
       display: none;
       width: min(920px, 94%);
@@ -108,12 +127,12 @@ export function createDecryptionHtmlTemplate(roomId, b64Data, b64Salt, b64Iv) {
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 24px;
-      box-shadow: 0 16px 40px rgba(0,0,0,0.4);
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
       flex-direction: column;
       height: 85vh;
-      box-sizing: border-box;
       overflow: hidden;
     }
+
     .chat-header {
       padding: 20px 24px;
       border-bottom: 1px solid var(--border);
@@ -122,15 +141,18 @@ export function createDecryptionHtmlTemplate(roomId, b64Data, b64Salt, b64Iv) {
       align-items: center;
       background: rgba(255, 255, 255, 0.01);
     }
+
     .chat-title {
       font-weight: 800;
       font-size: 1.2rem;
       margin: 0;
     }
+
     .chat-meta {
       font-size: 0.76rem;
       color: var(--text-sec);
     }
+
     .message-list {
       flex: 1;
       overflow-y: auto;
@@ -139,6 +161,7 @@ export function createDecryptionHtmlTemplate(roomId, b64Data, b64Salt, b64Iv) {
       flex-direction: column;
       gap: 16px;
     }
+
     .msg-item {
       max-width: 80%;
       padding: 14px 18px;
@@ -150,26 +173,30 @@ export function createDecryptionHtmlTemplate(roomId, b64Data, b64Salt, b64Iv) {
       gap: 5px;
       align-self: flex-start;
     }
+
     .msg-sender {
       font-size: 0.76rem;
       font-weight: 800;
       color: var(--brand-sec);
     }
+
     .msg-body {
       font-size: 0.92rem;
       line-height: 1.55;
       white-space: pre-wrap;
       word-break: break-word;
     }
+
     .msg-time {
       font-size: 0.65rem;
       color: var(--text-sec);
       align-self: flex-end;
     }
+
     .attachment {
       margin-top: 10px;
       padding: 12px;
-      background: rgba(0,0,0,0.2);
+      background: rgba(0, 0, 0, 0.2);
       border: 1px solid var(--border);
       border-radius: 12px;
       display: flex;
@@ -177,12 +204,14 @@ export function createDecryptionHtmlTemplate(roomId, b64Data, b64Salt, b64Iv) {
       justify-content: space-between;
       gap: 16px;
     }
+
     .attachment-info {
       display: flex;
       flex-direction: column;
       gap: 3px;
       min-width: 0;
     }
+
     .attachment-name {
       font-size: 0.8rem;
       font-weight: 700;
@@ -190,10 +219,12 @@ export function createDecryptionHtmlTemplate(roomId, b64Data, b64Salt, b64Iv) {
       overflow: hidden;
       text-overflow: ellipsis;
     }
+
     .attachment-meta {
       font-size: 0.68rem;
       color: var(--text-sec);
     }
+
     .attachment-btn {
       padding: 6px 12px;
       border-radius: 8px;
@@ -203,65 +234,160 @@ export function createDecryptionHtmlTemplate(roomId, b64Data, b64Salt, b64Iv) {
       font-weight: 700;
       text-decoration: none;
       transition: background 0.2s;
+      white-space: nowrap;
     }
+
     .attachment-btn:hover {
       background: rgba(255, 255, 255, 0.15);
     }
+
+    @media (max-width: 600px) {
+      .wrapper {
+        padding: 28px 20px;
+      }
+
+      #chat-container {
+        width: 96%;
+        height: 90vh;
+        margin: 20px auto;
+        border-radius: 18px;
+      }
+
+      .message-list {
+        padding: 16px;
+      }
+
+      .msg-item {
+        max-width: 90%;
+      }
+
+      .chat-header {
+        padding: 16px;
+      }
+    }
   </style>
 </head>
+
 <body>
+
   <div class="wrapper" id="lock-screen">
     <h1>🔒 Decrypt Chat Log</h1>
-    <p>This chat archive has been compiled as a mathematically secure vault. Enter the session password to view the decrypted history.</p>
-    
+
+    <p>
+      This chat archive has been compiled as a mathematically secure vault.
+      Enter the session password to view the decrypted history.
+    </p>
+
     <div class="input-group">
-      <label>Session Password</label>
-      <input type="password" id="password-input" placeholder="Enter password" autofocus />
+      <label for="password-input">Session Password</label>
+
+      <input
+        type="password"
+        id="password-input"
+        placeholder="Enter password"
+        autocomplete="current-password"
+        autofocus
+      />
     </div>
-    
-    <button onclick="attemptDecryption()">Decrypt Session</button>
-    <div id="error-msg">Cryptographic Decryption Failed. Check password.</div>
+
+    <button id="decrypt-button">
+      Decrypt Session
+    </button>
+
+    <div id="error-msg">
+      Cryptographic Decryption Failed. Check password.
+    </div>
   </div>
 
   <div id="chat-container">
+
     <div class="chat-header">
+
       <div>
-        <h2 class="chat-title" style="margin:0; background:none; -webkit-text-fill-color: initial;">Cheprabai Room: ${roomId}</h2>
-        <div class="chat-meta" id="export-time">Exported: </div>
+        <h2
+          class="chat-title"
+          id="chat-title"
+        ></h2>
+
+        <div
+          class="chat-meta"
+          id="export-time"
+        >
+          Exported:
+        </div>
       </div>
-      <button onclick="location.reload()" style="width: auto; padding: 8px 16px;">Lock Session</button>
+
+      <button
+        id="lock-button"
+        style="width: auto; padding: 8px 16px;"
+      >
+        Lock Session
+      </button>
+
     </div>
-    <div class="message-list" id="message-list-container"></div>
+
+    <div
+      class="message-list"
+      id="message-list-container"
+    ></div>
+
   </div>
 
   <script>
-    const b64Data = "${b64Data}";
-    const b64Salt = "${b64Salt}";
-    const b64Iv = "${b64Iv}";
+    /*
+     * IMPORTANT:
+     * These values are inserted by the outer JavaScript function.
+     * JSON.stringify prevents quotes/newlines from breaking this script.
+     */
+    const ROOM_ID = ${JSON.stringify(String(roomId ?? ""))};
+    const B64_DATA = ${JSON.stringify(String(b64Data ?? ""))};
+    const B64_SALT = ${JSON.stringify(String(b64Salt ?? ""))};
+    const B64_IV = ${JSON.stringify(String(b64Iv ?? ""))};
 
     function b64ToUint8Array(b64) {
       const binaryString = atob(b64);
       const len = binaryString.length;
       const bytes = new Uint8Array(len);
+
       for (let i = 0; i < len; i++) {
         bytes[i] = binaryString.charCodeAt(i);
       }
+
       return bytes;
     }
 
     async function attemptDecryption() {
-      const password = document.getElementById("password-input").value;
-      const errorDiv = document.getElementById("error-msg");
-      if (!password) return;
+      const passwordInput =
+        document.getElementById("password-input");
+
+      const errorDiv =
+        document.getElementById("error-msg");
+
+      const button =
+        document.getElementById("decrypt-button");
+
+      const password = passwordInput.value;
+
+      if (!password) {
+        passwordInput.focus();
+        return;
+      }
+
+      errorDiv.style.display = "none";
+      button.disabled = true;
+      button.textContent = "Decrypting...";
 
       try {
         const encoder = new TextEncoder();
         const decoder = new TextDecoder();
-        
-        const salt = b64ToUint8Array(b64Salt);
-        const iv = b64ToUint8Array(b64Iv);
-        const ciphertext = b64ToUint8Array(b64Data);
 
+        const salt = b64ToUint8Array(B64_SALT);
+        const iv = b64ToUint8Array(B64_IV);
+        const ciphertext = b64ToUint8Array(B64_DATA);
+
+        /*
+         * Password -> PBKDF2 base key
+         */
         const baseKey = await window.crypto.subtle.importKey(
           "raw",
           encoder.encode(password),
@@ -270,6 +396,9 @@ export function createDecryptionHtmlTemplate(roomId, b64Data, b64Salt, b64Iv) {
           ["deriveKey"]
         );
 
+        /*
+         * PBKDF2 -> AES-256-GCM key
+         */
         const aesKey = await window.crypto.subtle.deriveKey(
           {
             name: "PBKDF2",
@@ -278,68 +407,298 @@ export function createDecryptionHtmlTemplate(roomId, b64Data, b64Salt, b64Iv) {
             hash: "SHA-256"
           },
           baseKey,
-          { name: "AES-GCM", length: 256 },
+          {
+            name: "AES-GCM",
+            length: 256
+          },
           false,
           ["decrypt"]
         );
 
-        const decryptedBuffer = await window.crypto.subtle.decrypt(
-          { name: "AES-GCM", iv: iv },
-          aesKey,
-          ciphertext
+        /*
+         * AES-GCM decrypt
+         */
+        const decryptedBuffer =
+          await window.crypto.subtle.decrypt(
+            {
+              name: "AES-GCM",
+              iv: iv
+            },
+            aesKey,
+            ciphertext
+          );
+
+        const decryptedText =
+          decoder.decode(decryptedBuffer);
+
+        const payload =
+          JSON.parse(decryptedText);
+
+        renderDecryptedChat(payload);
+
+      } catch (err) {
+        console.error(
+          "Decryption failed:",
+          err
         );
 
-        const payload = JSON.parse(decoder.decode(decryptedBuffer));
-        renderDecryptedChat(payload);
-      } catch (err) {
-        console.error(err);
+        errorDiv.textContent =
+          "Cryptographic Decryption Failed. Check password.";
+
         errorDiv.style.display = "block";
+
+        button.disabled = false;
+        button.textContent = "Decrypt Session";
       }
     }
 
     function renderDecryptedChat(payload) {
-      document.getElementById("lock-screen").style.display = "none";
+      document.getElementById("lock-screen").style.display =
+        "none";
+
       document.body.style.display = "block";
-      const container = document.getElementById("chat-container");
+
+      const container =
+        document.getElementById("chat-container");
+
       container.style.display = "flex";
 
-      document.getElementById("export-time").innerText = "Exported: " + new Date(payload.exportedAt).toLocaleString();
+      /*
+       * Room title
+       */
+      const title =
+        document.getElementById("chat-title");
 
-      const listContainer = document.getElementById("message-list-container");
+      title.textContent =
+        "Cheprabai Room: " + ROOM_ID;
+
+      /*
+       * Export timestamp
+       */
+      const exportTime =
+        document.getElementById("export-time");
+
+      if (payload && payload.exportedAt) {
+        exportTime.textContent =
+          "Exported: " +
+          new Date(payload.exportedAt).toLocaleString();
+      } else {
+        exportTime.textContent =
+          "Exported: Unknown";
+      }
+
+      /*
+       * Message container
+       */
+      const listContainer =
+        document.getElementById(
+          "message-list-container"
+        );
+
       listContainer.innerHTML = "";
 
-      payload.messages.forEach(m => {
-        const item = document.createElement("div");
+      if (
+        !payload ||
+        !Array.isArray(payload.messages)
+      ) {
+        const emptyMessage =
+          document.createElement("div");
+
+        emptyMessage.className = "msg-item";
+
+        const text =
+          document.createElement("span");
+
+        text.className = "msg-body";
+        text.textContent =
+          "No messages found in this archive.";
+
+        emptyMessage.appendChild(text);
+        listContainer.appendChild(emptyMessage);
+
+        return;
+      }
+
+      payload.messages.forEach(function (m) {
+        const item =
+          document.createElement("div");
+
         item.className = "msg-item";
-        
-        let attachmentHtml = "";
-        if (m.file) {
-          attachmentHtml = \`
-            <div class="attachment">
-              <div class="attachment-info">
-                <span class="attachment-name">\${m.file.name}</span>
-                <span class="attachment-meta">\${m.file.type || 'unknown'}</span>
-              </div>
-              <a href="\${m.file.dataUrl}" download="\${m.file.name}" class="attachment-btn">💾 Save File</a>
-            </div>
-          \`;
+
+        /*
+         * Sender
+         */
+        const sender =
+          document.createElement("span");
+
+        sender.className = "msg-sender";
+        sender.textContent =
+          m.userName || "Unknown User";
+
+        /*
+         * Message body
+         */
+        const body =
+          document.createElement("span");
+
+        body.className = "msg-body";
+        body.textContent =
+          m.text || "";
+
+        /*
+         * Timestamp
+         */
+        const time =
+          document.createElement("span");
+
+        time.className = "msg-time";
+
+        if (m.ts) {
+          time.textContent =
+            new Date(m.ts).toLocaleTimeString();
+        } else {
+          time.textContent = "";
         }
 
-        item.innerHTML = \`
-          <span class="msg-sender">\${m.userName}</span>
-          <span class="msg-body">\${m.text || ''}</span>
-          \${attachmentHtml}
-          <span class="msg-time">\${new Date(m.ts).toLocaleTimeString()}</span>
-        \`;
+        item.appendChild(sender);
+        item.appendChild(body);
+
+        /*
+         * Attachment
+         */
+        if (m.file) {
+          const attachment =
+            document.createElement("div");
+
+          attachment.className =
+            "attachment";
+
+          const attachmentInfo =
+            document.createElement("div");
+
+          attachmentInfo.className =
+            "attachment-info";
+
+          const attachmentName =
+            document.createElement("span");
+
+          attachmentName.className =
+            "attachment-name";
+
+          attachmentName.textContent =
+            m.file.name || "Unnamed file";
+
+          const attachmentMeta =
+            document.createElement("span");
+
+          attachmentMeta.className =
+            "attachment-meta";
+
+          attachmentMeta.textContent =
+            m.file.type || "Unknown type";
+
+          attachmentInfo.appendChild(
+            attachmentName
+          );
+
+          attachmentInfo.appendChild(
+            attachmentMeta
+          );
+
+          /*
+           * Download button
+           */
+          if (m.file.dataUrl) {
+            const download =
+              document.createElement("a");
+
+            download.className =
+              "attachment-btn";
+
+            download.textContent =
+              "💾 Save File";
+
+            download.href =
+              m.file.dataUrl;
+
+            download.download =
+              m.file.name || "download";
+
+            download.rel = "noopener";
+
+            attachment.appendChild(
+              attachmentInfo
+            );
+
+            attachment.appendChild(
+              download
+            );
+          } else {
+            attachment.appendChild(
+              attachmentInfo
+            );
+          }
+
+          item.appendChild(attachment);
+        }
+
+        item.appendChild(time);
+
         listContainer.appendChild(item);
       });
     }
 
-    // Add Enter key listener
-    document.getElementById("password-input").addEventListener("keydown", (e) => {
-      if (e.key === "Enter") attemptDecryption();
-    });
+    /*
+     * Decrypt button
+     */
+    document
+      .getElementById("decrypt-button")
+      .addEventListener(
+        "click",
+        attemptDecryption
+      );
+
+    /*
+     * Enter key
+     */
+    document
+      .getElementById("password-input")
+      .addEventListener(
+        "keydown",
+        function (e) {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            attemptDecryption();
+          }
+        }
+      );
+
+    /*
+     * Lock session
+     */
+    document
+      .getElementById("lock-button")
+      .addEventListener(
+        "click",
+        function () {
+          location.reload();
+        }
+      );
   </script>
+
 </body>
-</html>\`;
+</html>`;
+}
+
+
+/*
+ * Escape values that are placed directly into HTML.
+ */
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
