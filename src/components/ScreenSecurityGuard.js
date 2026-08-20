@@ -72,6 +72,7 @@ export default function ScreenSecurityGuard({ children }) {
 
     // 3. Auto-blur/Blackout when window loses focus (protects against background screen recorders & OS app switcher)
     const handleBlur = () => {
+      if (window.__cheprabaiScreenSharing) return;
       setIsBlurred(true);
     };
 
@@ -80,7 +81,7 @@ export default function ScreenSecurityGuard({ children }) {
     };
 
     const handleVisibilityChange = () => {
-      if (document.hidden) {
+      if (document.hidden && !window.__cheprabaiScreenSharing) {
         setIsBlurred(true);
       } else {
         setIsBlurred(false);

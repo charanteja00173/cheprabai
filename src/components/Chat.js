@@ -1932,7 +1932,7 @@ function ReplyAttachmentPreview({ reply, roomKey }) {
         }
         objectUrl = URL.createObjectURL(blob);
         if (active) setUrl(objectUrl);
-      } catch { /* The textual fallback remains available. */ }
+      } catch (err) { console.warn("Reply preview decrypt failed:", err.message || err); }
     })();
     return () => { active = false; if (objectUrl) URL.revokeObjectURL(objectUrl); };
   }, [reply.file, reply.gif, roomKey]);
@@ -2701,29 +2701,33 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile, setViewer 
           fetchUrl = `${backendUrl}/api/proxy-file?url=${encodeURIComponent(file.url)}`;
         }
 
-        const res = await fetch(fetchUrl);
-        if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
-        const encryptedBuffer = await res.arrayBuffer();
+      const res = await fetch(fetchUrl);
+      if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
+      const encryptedBuffer = await res.arrayBuffer();
 
-        const ivBytes = new Uint8Array(
-          atob(file.iv)
-            .split("")
-            .map(c => c.charCodeAt(0))
-        );
+      if (encryptedBuffer.byteLength === 0) {
+        throw new Error("Received empty response from server.");
+      }
 
-        let decryptionKey = roomKey;
-        if (file.keyB64) {
-          decryptionKey = await importKey(file.keyB64);
-        }
+      const ivBytes = new Uint8Array(
+        atob(file.iv)
+          .split("")
+          .map(c => c.charCodeAt(0))
+      );
 
-        if (!decryptionKey) {
-          throw new Error("No decryption key available.");
-        }
+      let decryptionKey = roomKey;
+      if (file.keyB64) {
+        decryptionKey = await importKey(file.keyB64);
+      }
 
-        const decryptedBuffer = await decryptBinary(decryptionKey, {
-          iv: ivBytes,
-          data: encryptedBuffer
-        });
+      if (!decryptionKey) {
+        throw new Error("No decryption key available.");
+      }
+
+      const decryptedBuffer = await decryptBinary(decryptionKey, {
+        iv: ivBytes,
+        data: encryptedBuffer
+      });
 
         const blob = new Blob([decryptedBuffer], { type: file.type || "application/octet-stream" });
         const objectUrl = URL.createObjectURL(blob);
@@ -2734,13 +2738,17 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile, setViewer 
           lastDecryptedSourceUrlRef.current = file.url;
           setLoading(false);
         }
-      } catch (err) {
-        console.error("File decryption failed:", err);
-        if (active) {
-          setError(true);
-          setLoading(false);
-        }
+    } catch (err) {
+      console.error("File decryption failed:", err.message || err);
+      console.error("  file.url:", file?.url);
+      console.error("  file.iv present:", !!file?.iv, "  iv length:", file?.iv?.length);
+      console.error("  file.keyB64 present:", !!file?.keyB64);
+      console.error("  roomKey present:", !!roomKey);
+      if (active) {
+        setError(true);
+        setLoading(false);
       }
+    }
     };
 
     decrypt();

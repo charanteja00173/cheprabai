@@ -1375,6 +1375,7 @@ const FileStreamControlsCard = styled.div`
 // and mixes computer audio with the local microphone so everyone can hear both.
 const createMixedStream = (mainStream, cameraStream, options = {}) => {
   const mixAudio = options.mixAudio !== false;
+  const bypassCanvas = options.bypassCanvas === true;
   const getVideoFilter = options.getVideoFilter || (() => "none");
   const getVoiceFilter = options.getVoiceFilter || (() => "none");
 
@@ -1384,7 +1385,7 @@ const createMixedStream = (mainStream, cameraStream, options = {}) => {
   let mixedVideoTrack = mainVideoTrack;
   let mixerCleanup = () => {};
   
-  if (cameraVideoTrack && mainVideoTrack) {
+  if (cameraVideoTrack && mainVideoTrack && !bypassCanvas) {
     const canvas = document.createElement("canvas");
     canvas.width = 1280;
     canvas.height = 720;
@@ -2030,6 +2031,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
   // ─── Graceful Leave with Cleanup ───
   const handleLeaveCall = useCallback(() => {
+    window.__cheprabaiScreenSharing = false;
     // Stop recording if active
     if (recorderRef.current && recorderRef.current.state !== "inactive") {
       try { recorderRef.current.stop(); } catch (e) {}
@@ -2341,6 +2343,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
     return () => {
       isCancelled = true;
+      window.__cheprabaiScreenSharing = false;
       if (socket && typeof socket.emit === "function") {
         socket.emit("leave-call", { roomId });
         socket.off("existing-callers");
@@ -2391,8 +2394,9 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         if (socket) {
           socket.emit("media-state-change", { peerId: myPeerId, isMuted, isVideoOff: !vTrack.enabled });
         }
-        // Re-bind display stream so callback ref picks it up
-        setDisplayStream(localStreamRef.current);
+        if (!screenStreamRef.current) {
+          setDisplayStream(localStreamRef.current);
+        }
       }
     }
   };
@@ -2439,7 +2443,9 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         if (sender) sender.replaceTrack(newVideoTrack);
       });
 
-      setDisplayStream(localStreamRef.current);
+      if (!screenStreamRef.current) {
+        setDisplayStream(localStreamRef.current);
+      }
       toast.success("Camera flipped");
     } catch (e) {
       toast.error("Camera flip unavailable on this device.");
@@ -2475,6 +2481,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     }
 
     originalTracksRef.current = { video: null, audio: null };
+    window.__cheprabaiScreenSharing = false;
     setDisplayStream(localStreamRef.current);
     toast.info("Screen sharing ended.");
   }, []);
@@ -2491,10 +2498,12 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
       const mixed = createMixedStream(screenStream, localStreamRef.current, {
         mixAudio: true,
+        bypassCanvas: true,
         getVideoFilter: () => videoFilterRef.current,
         getVoiceFilter: () => voiceFilterRef.current
       });
       mixedStreamCleanupRef.current = mixed.cleanup;
+      window.__cheprabaiScreenSharing = true;
 
       const origVideo = localStreamRef.current?.getVideoTracks()[0];
       const origAudio = localStreamRef.current?.getAudioTracks()[0];
