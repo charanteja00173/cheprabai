@@ -3067,6 +3067,13 @@ export default function ChatRoom() {
   const onResolvedRef = useRef(null);
   const audioRef = useRef(new Audio(notificationSound));
   const userColorsRef = useRef({});
+  const roomKeyRef = useRef(null);
+  const userNameRef = useRef("");
+  const roomIdRef = useRef("");
+  const securityCodeRef = useRef("");
+  const showMeetingRef = useRef(false);
+  const getJoinPayloadRef = useRef(null);
+  const handleJoinResultRef = useRef(null);
 
   const [joined, setJoined] = useState(false);
   const [roomKey, setRoomKey] = useState(null);
@@ -3261,6 +3268,9 @@ export default function ChatRoom() {
     }
   }, [roomId, userName, navigate]);
 
+  useEffect(() => { getJoinPayloadRef.current = getJoinPayload; }, [getJoinPayload]);
+  useEffect(() => { handleJoinResultRef.current = handleJoinResult; }, [handleJoinResult]);
+
   const attemptJoin = useCallback(async () => {
     const code = securityCode.trim();
     const trimmedRoom = roomId.trim();
@@ -3428,6 +3438,12 @@ export default function ChatRoom() {
   useEffect(() => {
     userAvatarRef.current = userAvatar;
   }, [userAvatar]);
+
+  useEffect(() => { roomKeyRef.current = roomKey; }, [roomKey]);
+  useEffect(() => { userNameRef.current = userName; }, [userName]);
+  useEffect(() => { roomIdRef.current = roomId; }, [roomId]);
+  useEffect(() => { securityCodeRef.current = securityCode; }, [securityCode]);
+  useEffect(() => { showMeetingRef.current = showMeeting; }, [showMeeting]);
 
   useEffect(() => {
     const { roomId: parsedRoomId, stealthToken: parsedStealth } = parseRoomRouteParams(
@@ -4015,37 +4031,48 @@ export default function ChatRoom() {
     return () => socket.disconnect();
   }, []);
 
-  // ── Ephemeral message auto-delete timer ──
+  // ── Ephemeral message auto-delete timer (runs every 2s, only updates if needed) ──
   useEffect(() => {
     const interval = setInterval(() => {
       setMessages(prev => {
         const now = Date.now();
-        return prev.filter(m => {
+        const hasEphemeral = prev.some(m => m.ephemeral);
+        if (!hasEphemeral) return prev; // no state update if no ephemeral messages
+        const filtered = prev.filter(m => {
           if (!m.ephemeral) return true;
           const duration = m.ephemeralDuration || DEFAULT_EPHEMERAL_DURATION;
           return now - m.ts < duration * 1000;
         });
+        return filtered.length === prev.length ? prev : filtered;
       });
-    }, 1000);
+    }, 2000);
     return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
     if (!joined) return;
 
+    // Read current values from refs so handlers don't depend on closure values.
+    // This lets us register handlers once (on join) without re-registering
+    // when roomKey, userName, roomId, etc. change.
+    const rk = roomKeyRef.current;
+    const un = userNameRef.current;
+    const rid = roomIdRef.current;
+    const gjp = getJoinPayloadRef.current;
+    const hjr = handleJoinResultRef.current;
+
     // Register every room listener before joining: localhost can respond quickly
     // enough for the initial presence event to otherwise be missed.
     socketRef.current.on("chatHistory", async (history) => {
       const formatted = await Promise.all(history.map(async msg => {
         const item = { ...msg, ...msg.payload };
-        if (item.encryptedPayload && roomKey) {
+        if (item.encryptedPayload && rk) {
           try {
-            const decryptedText = await decryptMessage(roomKey, item.encryptedPayload);
+            const decryptedText = await decryptMessage(rk, item.encryptedPayload);
             try {
               const decryptedPayload = JSON.parse(decryptedText);
               Object.assign(item, decryptedPayload);
             } catch {
-              // Backward compatibility fallback for old plain text messages
               item.text = decryptedText;
             }
           } catch (e) {
@@ -4056,7 +4083,7 @@ export default function ChatRoom() {
         return item;
       }));
       setMessages(formatted);
-      formatted.filter((item) => item.id && item.userName !== userName).forEach((item) => socketRef.current.emit("messageViewed", { messageId: item.id }));
+      formatted.filter((item) => item.id && item.userName !== un).forEach((item) => socketRef.current.emit("messageViewed", { messageId: item.id }));
     });
 
     socketRef.current.on("hasMoreMessages", () => setHasMoreMessages(true));
@@ -4064,14 +4091,13 @@ export default function ChatRoom() {
     socketRef.current.on("olderMessages", async ({ messages: older, hasMore }) => {
       const formatted = await Promise.all(older.map(async msg => {
         const item = { ...msg, ...msg.payload };
-        if (item.encryptedPayload && roomKey) {
+        if (item.encryptedPayload && rk) {
           try {
-            const decryptedText = await decryptMessage(roomKey, item.encryptedPayload);
+            const decryptedText = await decryptMessage(rk, item.encryptedPayload);
             try {
               const decryptedPayload = JSON.parse(decryptedText);
               Object.assign(item, decryptedPayload);
             } catch {
-              // Backward compatibility fallback for old plain text messages
               item.text = decryptedText;
             }
           } catch (e) {
@@ -4088,14 +4114,13 @@ export default function ChatRoom() {
 
     socketRef.current.on("newMessage", async (msg) => {
       const formattedMsg = { ...msg, ...msg.payload };
-      if (formattedMsg.encryptedPayload && roomKey) {
+      if (formattedMsg.encryptedPayload && rk) {
         try {
-          const decryptedText = await decryptMessage(roomKey, formattedMsg.encryptedPayload);
+          const decryptedText = await decryptMessage(rk, formattedMsg.encryptedPayload);
           try {
             const decryptedPayload = JSON.parse(decryptedText);
             Object.assign(formattedMsg, decryptedPayload);
           } catch {
-            // Backward compatibility fallback for old plain text messages
             formattedMsg.text = decryptedText;
           }
         } catch (e) {
@@ -4104,8 +4129,8 @@ export default function ChatRoom() {
         }
       }
       setMessages((m) => [...m, formattedMsg]);
-      if (formattedMsg.id && formattedMsg.userName !== userName) socketRef.current.emit("messageViewed", { messageId: formattedMsg.id });
-      if (msg.userName !== userName) {
+      if (formattedMsg.id && formattedMsg.userName !== un) socketRef.current.emit("messageViewed", { messageId: formattedMsg.id });
+      if (msg.userName !== un) {
         audioRef.current.play().catch(() => { });
 
         // Update unread count if scrolled up
@@ -4146,14 +4171,14 @@ export default function ChatRoom() {
     });
 
     socketRef.current.on("typing", (users) =>
-      setTypingUsers(users.filter((u) => u !== userName)),
+      setTypingUsers(users.filter((u) => u !== un)),
     );
     socketRef.current.on("roomDestroyed", () => {
       toast.info("This room was deleted.");
       leaveRoomNowRef.current?.();
     });
     socketRef.current.on("kicked-from-room", ({ targetSocketId, targetName, adminName }) => {
-      if (socketRef.current?.id === targetSocketId || targetName === userName) {
+      if (socketRef.current?.id === targetSocketId || targetName === un) {
         toast.error(`🚫 You have been removed from this room by ${adminName || 'the admin/owner'}.`);
         leaveRoomNowRef.current?.();
       } else {
@@ -4162,7 +4187,7 @@ export default function ChatRoom() {
       }
     });
     socketRef.current.on("admin-kick-user", ({ peerId, name, adminName, isRoomKick }) => {
-      if (peerId === socketRef.current?.id || name === userName) {
+      if (peerId === socketRef.current?.id || name === un) {
         toast.error(`🚫 You have been removed from this room by ${adminName || 'the admin/owner'}.`);
         leaveRoomNowRef.current?.();
       } else {
@@ -4172,8 +4197,8 @@ export default function ChatRoom() {
 
     socketRef.current.on("roomOwner", (token) => {
       setOwnerToken(token);
-      if (token && roomId) {
-        sessionStorage.setItem(`cheprabai:owner-token:${roomId}`, token);
+      if (token && rid) {
+        sessionStorage.setItem(`cheprabai:owner-token:${rid}`, token);
       }
     });
     socketRef.current.on("messageViewUpdated", ({ messageId, viewedBy }) => {
@@ -4183,7 +4208,7 @@ export default function ChatRoom() {
       setMessages((items) => items.map((item) => item.id === messageId ? { ...item, reactions } : item));
     });
     socketRef.current.on("roomBackgroundUpdated", ({ background }) => {
-      localStorage.setItem(`cheprabai:room-background:${roomId}`, background || "");
+      localStorage.setItem(`cheprabai:room-background:${rid}`, background || "");
       setRoomBackground(background || "");
     });
     socketRef.current.on("roomBackgroundPolicy", ({ locked }) => setBackgroundLocked(Boolean(locked)));
@@ -4196,8 +4221,8 @@ export default function ChatRoom() {
 
     socketRef.current.on("connect", () => {
       setIsConnected(true);
-      if (joined && roomId && userName) {
-        socketRef.current.emit("joinRoom", getJoinPayload(), handleJoinResult);
+      if (joined && rid && un) {
+        socketRef.current.emit("joinRoom", gjp(), hjr);
       }
     });
 
@@ -4227,9 +4252,9 @@ export default function ChatRoom() {
       if (rawPinned) {
         const formatted = await Promise.all(rawPinned.map(async msg => {
           const item = { ...msg, ...msg.payload };
-          if (item.encryptedPayload && roomKey) {
+          if (item.encryptedPayload && rk) {
             try {
-              const decryptedText = await decryptMessage(roomKey, item.encryptedPayload);
+              const decryptedText = await decryptMessage(rk, item.encryptedPayload);
               try {
                 const decryptedPayload = JSON.parse(decryptedText);
                 Object.assign(item, decryptedPayload);
@@ -4250,9 +4275,9 @@ export default function ChatRoom() {
     socketRef.current.on("pinnedMessagesUpdated", async ({ pinnedMessages: rawPinned }) => {
       const formatted = await Promise.all((rawPinned || []).map(async msg => {
         const item = { ...msg, ...msg.payload };
-        if (item.encryptedPayload && roomKey) {
+        if (item.encryptedPayload && rk) {
           try {
-            const decryptedText = await decryptMessage(roomKey, item.encryptedPayload);
+            const decryptedText = await decryptMessage(rk, item.encryptedPayload);
             try {
               const decryptedPayload = JSON.parse(decryptedText);
               Object.assign(item, decryptedPayload);
@@ -4272,9 +4297,9 @@ export default function ChatRoom() {
     socketRef.current.on("scheduledMessagesUpdated", async (scheduledMsgs) => {
       const formatted = await Promise.all((scheduledMsgs || []).map(async msg => {
         const item = { ...msg, ...msg.payload };
-        if (item.encryptedPayload && roomKey) {
+        if (item.encryptedPayload && rk) {
           try {
-            const decryptedText = await decryptMessage(roomKey, item.encryptedPayload);
+            const decryptedText = await decryptMessage(rk, item.encryptedPayload);
             try {
               const decryptedPayload = JSON.parse(decryptedText);
               Object.assign(item, decryptedPayload);
@@ -4293,9 +4318,9 @@ export default function ChatRoom() {
 
     socketRef.current.on("messageEdited", async ({ messageId, payload: newPayload, editedAt }) => {
       let formatted = { ...newPayload };
-      if (newPayload.encryptedPayload && roomKey) {
+      if (newPayload.encryptedPayload && rk) {
         try {
-          const decryptedText = await decryptMessage(roomKey, newPayload.encryptedPayload);
+          const decryptedText = await decryptMessage(rk, newPayload.encryptedPayload);
           try {
             const decryptedPayload = JSON.parse(decryptedText);
             Object.assign(formatted, decryptedPayload);
@@ -4332,13 +4357,13 @@ export default function ChatRoom() {
       ]);
     });
 
-    socketRef.current.emit("joinRoom", getJoinPayload(), handleJoinResult);
+    socketRef.current.emit("joinRoom", gjp(), hjr);
 
 
 
     // ── Incoming Call Signaling ──
     socketRef.current.on("incoming-call", ({ callerName, callerAvatar }) => {
-      if (showMeeting) return; // already in a call
+      if (showMeetingRef.current) return; // already in a call
       setIncomingCall({ callerName, callerAvatar });
       // Start ringtone
       try {
@@ -4394,12 +4419,13 @@ export default function ChatRoom() {
     return () => {
       const registeredEvents = [
         "chatHistory", "hasMoreMessages", "olderMessages", "newMessage", "presence",
-        "typing", "user-left", "mediaState", "room-theme-changed", "screenShareState",
-        "screencastFrame", "screencastStarted", "screencastStopped", "syncMedia",
-        "roomProfiles", "roomBackgroundUpdated", "roomBackgroundPolicy", "profileUpdated",
-        "connect", "disconnect", "fileUrlUpdated", "messageDeleted", "syncRoomMetadata",
-        "pinnedMessagesUpdated", "scheduledMessagesUpdated", "messageEdited",
-        "pollVotesUpdated", "roomEphemeralUpdated", "incoming-call", "call-ended"
+        "all-users", "typing", "user-joined", "user-left", "roomDestroyed",
+        "kicked-from-room", "admin-kick-user", "roomOwner", "messageViewUpdated",
+        "messageReactionUpdated", "roomBackgroundUpdated", "roomBackgroundPolicy",
+        "profileUpdated", "roomProfiles", "connect", "disconnect", "fileUrlUpdated",
+        "messageDeleted", "syncRoomMetadata", "pinnedMessagesUpdated",
+        "scheduledMessagesUpdated", "messageEdited", "pollVotesUpdated",
+        "roomEphemeralUpdated", "incoming-call", "call-ended"
       ];
       if (socketRef.current) {
         registeredEvents.forEach(evt => socketRef.current.off(evt));
@@ -4407,7 +4433,7 @@ export default function ChatRoom() {
       clearInterval(pingInterval);
       if (ringtoneRef.current) { ringtoneRef.current.stop(); ringtoneRef.current = null; }
     };
-  }, [joined, roomId, userName, roomKey, securityCode, showMeeting, getJoinPayload, handleJoinResult]);
+  }, [joined]);
 
   useEffect(() => {
     if (!joined) return;
@@ -4454,7 +4480,10 @@ export default function ChatRoom() {
           onUploadProgress: (progressEvent) => {
             if (progressEvent.total) {
               const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-              setMessages(msgs => msgs.map(msg => msg.id === tempId ? { ...msg, file: { ...msg.file, progress: percent } } : msg));
+              // Throttle: only update state on 5% increments or completion
+              if (percent % 5 === 0 || percent === 100) {
+                setMessages(msgs => msgs.map(msg => msg.id === tempId ? { ...msg, file: { ...msg.file, progress: percent } } : msg));
+              }
             }
           }
         }
@@ -4625,12 +4654,16 @@ export default function ChatRoom() {
     });
   };
 
+  const lastTypingEmitRef = useRef(0);
   const handleTyping = (value) => {
+    const now = Date.now();
+    if (now - lastTypingEmitRef.current < 500) return; // throttle to 500ms
+    lastTypingEmitRef.current = now;
     socketRef.current.emit("typing", { isTyping: value.length > 0, roomId });
     clearTimeout(typingTimeout.current);
     typingTimeout.current = setTimeout(
       () => socketRef.current.emit("typing", { isTyping: false, roomId }),
-      1000,
+      2000,
     );
   };
 
