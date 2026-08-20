@@ -710,6 +710,9 @@ export default function AdminDashboard() {
   const [dateRange, setDateRange] = useState("all");
   const [sortBy, setSortBy] = useState("newest");
   const [sourceFilter, setSourceFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [viewMode, setViewMode] = useState("list");
   const [decryptTarget, setDecryptTarget] = useState(null);
   const [decryptAction, setDecryptAction] = useState(""); // "download" or "preview"
@@ -932,6 +935,28 @@ export default function AdminDashboard() {
       result = result.filter((item) => Number(item.timestamp) >= cutoff);
     }
 
+    if (dateFrom) {
+      const fromTs = new Date(dateFrom).getTime();
+      if (!isNaN(fromTs)) result = result.filter(item => Number(item.timestamp) >= fromTs);
+    }
+    if (dateTo) {
+      const toTs = new Date(dateTo).setHours(23, 59, 59, 999);
+      if (!isNaN(toTs)) result = result.filter(item => Number(item.timestamp) <= toTs);
+    }
+
+    if (typeFilter !== "all") {
+      result = result.filter(item => {
+        const mime = (item.type || "").toLowerCase();
+        switch (typeFilter) {
+          case "images": return mime.startsWith("image/");
+          case "videos": return mime.startsWith("video/");
+          case "audio": return mime.startsWith("audio/");
+          case "documents": return !mime.startsWith("image/") && !mime.startsWith("video/") && !mime.startsWith("audio/");
+          default: return true;
+        }
+      });
+    }
+
     result.sort((a, b) => {
       if (sortBy === "oldest") return Number(a.timestamp) - Number(b.timestamp);
       if (sortBy === "name") return (a.name || "").localeCompare(b.name || "");
@@ -940,7 +965,7 @@ export default function AdminDashboard() {
     });
 
     return result;
-  }, [uploads, search, selectedRoom, selectedUser, dateRange, sortBy, sourceFilter]);
+  }, [uploads, search, selectedRoom, selectedUser, dateRange, dateFrom, dateTo, typeFilter, sortBy, sourceFilter]);
 
   const stats = useMemo(() => {
     const totalFiles = uploads.length;
@@ -1195,12 +1220,26 @@ export default function AdminDashboard() {
             ))}
           </FilterSelect>
 
-          <FilterSelect value={dateRange} onChange={(e) => setDateRange(e.target.value)} title="Filter by upload date">
+          <FilterSelect value={dateRange} onChange={(e) => { setDateRange(e.target.value); if (e.target.value !== "custom") { setDateFrom(""); setDateTo(""); } }} title="Filter by upload date">
             <option value="all">All dates</option>
             <option value="1">Last 24 hours</option>
             <option value="5">Last 5 days</option>
             <option value="30">Last 30 days</option>
             <option value="60">Last 2 months</option>
+          </FilterSelect>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <input type="date" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); setDateRange("all"); }} title="From date" style={{ background: "rgba(255,255,255,.05)", border: "1px solid rgba(255,255,255,.1)", borderRadius: 8, padding: "6px 8px", color: "#fff", fontSize: ".75rem", outline: "none", width: 130, cursor: "pointer", colorScheme: "dark" }} />
+            <span style={{ fontSize: ".7rem", opacity: 0.4 }}>–</span>
+            <input type="date" value={dateTo} onChange={(e) => { setDateTo(e.target.value); setDateRange("all"); }} title="To date" style={{ background: "rgba(255,255,255,.05)", border: "1px solid rgba(255,255,255,.1)", borderRadius: 8, padding: "6px 8px", color: "#fff", fontSize: ".75rem", outline: "none", width: 130, cursor: "pointer", colorScheme: "dark" }} />
+          </div>
+
+          <FilterSelect value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} title="Filter by file type">
+            <option value="all">All types</option>
+            <option value="images">Images</option>
+            <option value="videos">Videos</option>
+            <option value="audio">Audio</option>
+            <option value="documents">Documents</option>
           </FilterSelect>
 
           <FilterSelect value={sortBy} onChange={(e) => setSortBy(e.target.value)} title="Sort uploads">

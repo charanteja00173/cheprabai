@@ -2673,8 +2673,13 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile, setViewer 
       setLoading(false);
       return;
     }
-    if (!file.iv || (!roomKey && !file.keyB64)) {
+    if (!file.iv && !file.keyB64) {
       setDecryptedUrl(file.url);
+      setLoading(false);
+      return;
+    }
+    if (file.iv && !roomKey && !file.keyB64) {
+      setError(true);
       setLoading(false);
       return;
     }
@@ -4572,7 +4577,8 @@ export default function ChatRoom() {
       const encrypted = await encryptMessage(roomKey, JSON.stringify(plainPayload));
       payload = {
         encryptedPayload: encrypted,
-        ...(customData && customData.file && { file: { ...plainPayload.file, url: customData.file.url } })
+        // Only include unencrypted file URL reference for non-E2EE viewers; keyB64 stays inside encryptedPayload only
+        ...(customData && customData.file && { file: { url: customData.file.url, name: customData.file.name, type: customData.file.type } })
       };
     }
 
