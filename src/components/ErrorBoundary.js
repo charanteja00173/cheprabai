@@ -11,9 +11,7 @@ export default class ErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, info) {
-    if (process.env.NODE_ENV === "development") {
-      console.error("[ErrorBoundary]", error, info);
-    }
+    console.error("[ErrorBoundary]", error, info);
   }
 
   render() {
@@ -34,6 +32,23 @@ export default class ErrorBoundary extends React.Component {
             <p style={{ color: "var(--chakra-colors-textSecondary, #aaa)", lineHeight: 1.5, marginBottom: 20 }}>
               An unexpected error occurred. Refresh the page to try again.
             </p>
+            {this.state.error && (
+              <pre style={{
+                textAlign: "left",
+                fontSize: "0.75rem",
+                color: "#ff6b6b",
+                background: "rgba(255,107,107,0.08)",
+                padding: 12,
+                borderRadius: 8,
+                overflow: "auto",
+                maxHeight: 120,
+                marginBottom: 20,
+                whiteSpace: "pre-wrap",
+                wordBreak: "break-word",
+              }}>
+                {this.state.error.message || String(this.state.error)}
+              </pre>
+            )}
             <button
               type="button"
               onClick={() => window.location.reload()}

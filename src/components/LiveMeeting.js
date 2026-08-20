@@ -2036,6 +2036,31 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     if (recorderRef.current && recorderRef.current.state !== "inactive") {
       try { recorderRef.current.stop(); } catch (e) {}
     }
+    // Stop screen share tracks
+    if (screenStreamRef.current) {
+      try { screenStreamRef.current.getTracks().forEach(t => t.stop()); } catch (e) {}
+      screenStreamRef.current = null;
+    }
+    // Stop file stream tracks & video element
+    if (fileVideoRef.current) {
+      try { fileVideoRef.current.pause(); } catch (e) {}
+      try {
+        const src = fileVideoRef.current.src;
+        if (src && src.startsWith("blob:")) URL.revokeObjectURL(src);
+      } catch (e) {}
+      try { fileVideoRef.current.remove(); } catch (e) {}
+      fileVideoRef.current = null;
+    }
+    if (fileStreamRef.current) {
+      try { fileStreamRef.current.getTracks().forEach(t => t.stop()); } catch (e) {}
+      fileStreamRef.current = null;
+    }
+    // Cleanup mixed stream (AudioContext, canvas, etc.)
+    if (mixedStreamCleanupRef.current) {
+      try { mixedStreamCleanupRef.current(); } catch (e) {}
+      mixedStreamCleanupRef.current = null;
+    }
+    originalTracksRef.current = { video: null, audio: null };
     // Stop local tracks
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach(t => t.stop());
@@ -2355,7 +2380,31 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         socket.off("admin-mute-user");
         socket.off("reaction");
       }
-      stopFileStream();
+      // Stop screen share
+      if (screenStreamRef.current) {
+        try { screenStreamRef.current.getTracks().forEach(t => t.stop()); } catch (e) {}
+        screenStreamRef.current = null;
+      }
+      // Stop file stream
+      if (fileVideoRef.current) {
+        try { fileVideoRef.current.pause(); } catch (e) {}
+        try {
+          const src = fileVideoRef.current.src;
+          if (src && src.startsWith("blob:")) URL.revokeObjectURL(src);
+        } catch (e) {}
+        try { fileVideoRef.current.remove(); } catch (e) {}
+        fileVideoRef.current = null;
+      }
+      if (fileStreamRef.current) {
+        try { fileStreamRef.current.getTracks().forEach(t => t.stop()); } catch (e) {}
+        fileStreamRef.current = null;
+      }
+      // Cleanup mixed stream (AudioContext, canvas, etc.)
+      if (mixedStreamCleanupRef.current) {
+        try { mixedStreamCleanupRef.current(); } catch (e) {}
+        mixedStreamCleanupRef.current = null;
+      }
+      originalTracksRef.current = { video: null, audio: null };
       if (localStreamRef.current) {
         localStreamRef.current.getTracks().forEach(t => t.stop());
       }
@@ -2438,12 +2487,11 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         localStreamRef.current.addTrack(newVideoTrack);
       }
 
-      Object.values(peers.current).forEach(call => {
-        const sender = call.peerConnection?.getSenders().find(s => s.track?.kind === "video");
-        if (sender) sender.replaceTrack(newVideoTrack);
-      });
-
       if (!screenStreamRef.current) {
+        Object.values(peers.current).forEach(call => {
+          const sender = call.peerConnection?.getSenders().find(s => s.track?.kind === "video");
+          if (sender) sender.replaceTrack(newVideoTrack);
+        });
         setDisplayStream(localStreamRef.current);
       }
       toast.success("Camera flipped");
