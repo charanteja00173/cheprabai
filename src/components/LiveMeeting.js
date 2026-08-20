@@ -1555,7 +1555,7 @@ const createMixedStream = (mainStream, cameraStream, options = {}) => {
         } catch (e) {
           clearInterval(filterInterval);
         }
-      }, 100);
+      }, 500);
       
       const originalCleanup = mixerCleanup;
       mixerCleanup = () => {
@@ -1584,6 +1584,32 @@ const createMixedStream = (mainStream, cameraStream, options = {}) => {
   
   return { stream: mixedStream, cleanup: mixerCleanup };
 };
+
+/* ═══════════════════════════════ PURE FUNCTIONS (outside component) ═══════════════════════════════ */
+const SPEED_OPTIONS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
+
+const getInitials = (name) => {
+  if (!name) return "?";
+  return name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+};
+
+const formatDuration = (seconds) => {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+};
+
+/* ═══════════════════════════════ CallDuration (isolated to prevent parent re-renders) ═══════════════════════════════ */
+const CallDuration = React.memo(({ startTime }) => {
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - startTime) / 1000));
+    }, 1000);
+    return () => clearInterval(id);
+  }, [startTime]);
+  return <>{formatDuration(elapsed)}</>;
+});
 
 /* ═══════════════════════════════ MAIN COMPONENT ═══════════════════════════════ */
 export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin, ownerToken, userAvatar, onOpenWhiteboard }) {
@@ -1616,13 +1642,14 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const [layoutMode, setLayoutMode] = useState("grid"); // "grid" | "spotlight"
   const [pinnedPeerId, setPinnedPeerId] = useState(null);
   const [speakingPeers, setSpeakingPeers] = useState({});
-  const [callDuration, setCallDuration] = useState(0);
   const [showParticipants, setShowParticipants] = useState(false);
   const [showBandwidthMenu, setShowBandwidthMenu] = useState(false);
   const [showVoiceMenu, setShowVoiceMenu] = useState(false);
   const [showVideoMenu, setShowVideoMenu] = useState(false);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
   const [bandwidthMode, setBandwidthMode] = useState("auto"); // "auto" | "saver" | "audio-only" | "hd"
+  const bandwidthModeRef = useRef("auto");
+  useEffect(() => { bandwidthModeRef.current = bandwidthMode; }, [bandwidthMode]);
   const [networkQuality, setNetworkQuality] = useState({ rtt: 35, loss: 0, bitrate: 650, status: "good" });
   const [reactions, setReactions] = useState([]);
   const [isRecording, setIsRecording] = useState(false);
@@ -1665,12 +1692,12 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const dragStartRef = useRef({ x: 0, y: 0 });
   const isDraggingRef = useRef(false);
   const hasDraggedRef = useRef(false); // true if mouse moved during drag (prevents click-to-expand)
+  const pipPositionRef = useRef({ x: 0, y: 0 }); // ref for drag (avoids re-renders during drag)
   const localStreamRef = useRef(null);
   const audioContextRef = useRef(null);
   const statsIntervalRef = useRef(null);
   const recorderRef = useRef(null);
   const recordedChunksRef = useRef([]);
-  const durationTimerRef = useRef(null);
   const callStartTimeRef = useRef(Date.now());
   const pendingCallsRef = useRef([]); // queued incoming calls before local stream is ready
   const isVideoOffRef = useRef(false); // stable ref for isVideoOff (avoids effect re-trigger)
@@ -1700,24 +1727,22 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     }
   }, [isMinimized]);
 
-  // Minimized Window Drag & Drop Handler (supports Mouse and Touch Events)
+  // Minimized Window Drag & Drop Handler — uses direct DOM manipulation during drag
+  // to avoid React state updates (and full component re-renders) at 60fps.
   const handleDragStart = useCallback((e) => {
     if (e.type === "mousedown" && e.button !== 0) return;
     
-    // Prevent dragging if target is inside pip-controls or clicking buttons
     if (e.target.closest(".pip-controls") || e.target.closest("button")) {
       return;
     }
 
     isDraggingRef.current = true;
-    hasDraggedRef.current = false; // reset — will be set true if mouse actually moves
+    hasDraggedRef.current = false;
     const clientX = e.type === "touchstart" ? e.touches[0].clientX : e.clientX;
     const clientY = e.type === "touchstart" ? e.touches[0].clientY : e.clientY;
 
-    dragStartRef.current = {
-      x: clientX - pipPosition.x,
-      y: clientY - pipPosition.y
-    };
+    const pos = pipPositionRef.current;
+    dragStartRef.current = { x: clientX - pos.x, y: clientY - pos.y };
 
     const handleDragMove = (moveEvent) => {
       if (!isDraggingRef.current) return;
@@ -1727,11 +1752,9 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       let newX = currentX - dragStartRef.current.x;
       let newY = currentY - dragStartRef.current.y;
 
-      // Keep within bounds of the viewport
       const boundsPadding = 10;
       const pipWidth = window.innerWidth <= 768 ? 260 : 320;
       const pipHeight = window.innerWidth <= 768 ? 160 : 190;
-      
       const initialRight = window.innerWidth <= 768 ? 16 : 24;
       const initialBottom = window.innerWidth <= 768 ? 16 : 24;
 
@@ -1743,14 +1766,22 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       newX = Math.max(minX, Math.min(maxX, newX));
       newY = Math.max(minY, Math.min(maxY, newY));
 
-      const dx = Math.abs(currentX - (dragStartRef.current.x + pipPosition.x));
-      const dy = Math.abs(currentY - (dragStartRef.current.y + pipPosition.y));
-      if (dx > 5 || dy > 5) hasDraggedRef.current = true; // only count as drag if moved > 5px
-      setPipPosition({ x: newX, y: newY });
+      const dx = Math.abs(currentX - (dragStartRef.current.x + pos.x));
+      const dy = Math.abs(currentY - (dragStartRef.current.y + pos.y));
+      if (dx > 5 || dy > 5) hasDraggedRef.current = true;
+
+      // Update ref + DOM directly — no React state update
+      pipPositionRef.current = { x: newX, y: newY };
+      const pipEl = document.querySelector('[data-pip-container]');
+      if (pipEl) {
+        pipEl.style.transform = `translate(${newX}px, ${newY}px)`;
+      }
     };
 
     const handleDragEnd = () => {
       isDraggingRef.current = false;
+      // Commit final position to React state (one update, not 60/sec)
+      setPipPosition({ ...pipPositionRef.current });
       document.removeEventListener("mousemove", handleDragMove);
       document.removeEventListener("mouseup", handleDragEnd);
       document.removeEventListener("touchmove", handleDragMove);
@@ -1761,18 +1792,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     document.addEventListener("mouseup", handleDragEnd);
     document.addEventListener("touchmove", handleDragMove, { passive: false });
     document.addEventListener("touchend", handleDragEnd);
-  }, [pipPosition]);
-
-  const getInitials = (name) => {
-    if (!name) return "?";
-    return name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
-  };
-
-  const formatDuration = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
+  }, []);
 
   // ─── WebRTC Bitrate / ABR Controller (Dynamic Low Bandwidth Optimizer) ───
   const applyBandwidthMode = useCallback((mode) => {
@@ -1852,10 +1872,14 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         if (avgRtt > 350 || lossPercent > 12) status = "poor";
         else if (avgRtt > 180 || lossPercent > 5) status = "fair";
 
-        setNetworkQuality({ rtt: avgRtt, loss: lossPercent, bitrate: bandwidthMode === "saver" ? 120 : 650, status });
+        const newBitrate = bandwidthModeRef.current === "saver" ? 120 : 650;
+        setNetworkQuality(prev => {
+          if (prev.rtt === avgRtt && prev.loss === lossPercent && prev.status === status && prev.bitrate === newBitrate) return prev;
+          return { rtt: avgRtt, loss: lossPercent, bitrate: newBitrate, status };
+        });
 
         // Auto-adapt when network degrades
-        if (bandwidthMode === "auto" && status === "poor") {
+        if (bandwidthModeRef.current === "auto" && status === "poor") {
           applyBandwidthMode("saver");
           toast.warning("Network unstable: Auto-switched to Data Saver mode to protect voice quality.");
         }
@@ -1863,15 +1887,8 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     }, 3000);
 
     return () => clearInterval(statsIntervalRef.current);
-  }, [bandwidthMode, applyBandwidthMode]);
-
-  // ─── Duration Timer ───
-  useEffect(() => {
-    durationTimerRef.current = setInterval(() => {
-      setCallDuration(Math.floor((Date.now() - callStartTimeRef.current) / 1000));
-    }, 1000);
-    return () => clearInterval(durationTimerRef.current);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // bandwidthMode/applyBandwidthMode changes handled via refs
 
   // ─── Fullscreen Change Event Listener (Sync State on Escape Key) ───
   useEffect(() => {
@@ -2613,7 +2630,11 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         toast.success(`Started streaming: ${mediaName}`);
       };
 
+      let lastProgressUpdate = 0;
       video.ontimeupdate = () => {
+        const now = Date.now();
+        if (now - lastProgressUpdate < 1000) return; // throttle to 1/sec
+        lastProgressUpdate = now;
         setFileStreamProgress(video.currentTime);
       };
 
@@ -2702,8 +2723,6 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     }
   };
 
-  const SPEED_OPTIONS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
-
   const cycleFileStreamSpeed = () => {
     if (fileVideoRef.current) {
       const currentIdx = SPEED_OPTIONS.indexOf(fileStreamSpeed);
@@ -2791,8 +2810,8 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   };
 
   // ─── Computed Participants ───
-  const remoteEntries = Object.entries(remoteStreams);
-  const gridRemoteEntries = remoteEntries.filter(([peerId]) => !minimizedPeers.has(peerId));
+  const remoteEntries = useMemo(() => Object.entries(remoteStreams), [remoteStreams]);
+  const gridRemoteEntries = useMemo(() => remoteEntries.filter(([peerId]) => !minimizedPeers.has(peerId)), [remoteEntries, minimizedPeers]);
   const gridCount = 1 + gridRemoteEntries.length;
   const totalCount = 1 + remoteEntries.length;
 
@@ -2817,6 +2836,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       <MeetingContainer 
         ref={containerRef} 
         $minimized={isMinimized}
+        data-pip-container={isMinimized ? "" : undefined}
         style={isMinimized ? { transform: `translate3d(${pipPosition.x}px, ${pipPosition.y}px, 0)` } : {}}
         onMouseDown={isMinimized ? handleDragStart : undefined}
         onTouchStart={isMinimized ? handleDragStart : undefined}
@@ -2953,7 +2973,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
             </BandwidthDropdown>
 
             <span style={{ fontSize: "0.75rem", opacity: 0.5, fontWeight: 700 }}>
-              {formatDuration(callDuration)}
+              <CallDuration startTime={callStartTimeRef.current} />
             </span>
           </HeaderLeft>
 

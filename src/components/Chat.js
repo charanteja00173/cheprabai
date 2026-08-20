@@ -4013,7 +4013,7 @@ export default function ChatRoom() {
 
   useEffect(() => {
     const socket = io(process.env.REACT_APP_SOCKET_ENDPOINT || "https://cheprabai-backend.onrender.com", {
-      transports: ["polling"],
+      transports: ["websocket", "polling"],
       upgrade: true,
       rememberUpgrade: true,
       reconnection: true,
@@ -4848,6 +4848,8 @@ export default function ChatRoom() {
   };
 
   const isBookmarked = (msgId) => bookmarks.some(b => b.id === msgId);
+  const bookmarkIds = useMemo(() => new Set(bookmarks.map(b => b.id)), [bookmarks]);
+  const pinnedIds = useMemo(() => new Set(pinnedMessages.map(pm => pm.id)), [pinnedMessages]);
 
   /* ================= VOICE NOTES ================= */
   const startVoiceRecording = async () => {
@@ -5555,6 +5557,15 @@ export default function ChatRoom() {
   };
 
   /* ================= UI ================= */
+
+  const filteredMessages = useMemo(() => {
+    if (!searchQuery) return messages;
+    const q = searchQuery.toLowerCase();
+    return messages.filter(m => {
+      if (m.type === "system") return false;
+      return m.text?.toLowerCase().includes(q);
+    });
+  }, [messages, searchQuery]);
 
   if (!joined || !authenticated) {
     return (
@@ -6433,11 +6444,7 @@ export default function ChatRoom() {
               </button>
             </div>
           )}
-          {messages.filter(m => {
-            if (!searchQuery) return true;
-            if (m.type === "system") return false;
-            return m.text?.toLowerCase().includes(searchQuery.toLowerCase());
-          }).map((m, i, filteredArr) => {
+          {filteredMessages.map((m, i, filteredArr) => {
             const isSystem = m.type === "system";
             const systemType = isSystem ? m.action : null;
             const senderAvatar = m.senderAvatar || participantProfiles[m.senderSocketId]?.avatar || Object.values(participantProfiles).find((profile) => profile.name?.trim().toLocaleLowerCase() === m.userName?.trim().toLocaleLowerCase())?.avatar;
@@ -6689,7 +6696,7 @@ export default function ChatRoom() {
                           <BubbleActionButton
                             type="button"
                             onClick={() => {
-                              const isPinned = pinnedMessages.some(pm => pm.id === m.id);
+                              const isPinned = pinnedIds.has(m.id);
                               if (isPinned) {
                                 socketRef.current?.emit("unpinMessage", { messageId: m.id });
                                 toast.success("Message unpinned");
@@ -6698,10 +6705,10 @@ export default function ChatRoom() {
                                 toast.success("Message pinned");
                               }
                             }}
-                            data-tooltip={pinnedMessages.some(pm => pm.id === m.id) ? "Unpin" : "Pin"}
-                            $active={pinnedMessages.some(pm => pm.id === m.id)}
+                            data-tooltip={pinnedIds.has(m.id) ? "Unpin" : "Pin"}
+                            $active={pinnedIds.has(m.id)}
                           >
-                            <FaThumbtack size={12} style={{ transform: pinnedMessages.some(pm => pm.id === m.id) ? "none" : "rotate(45deg)" }} />
+                            <FaThumbtack size={12} style={{ transform: pinnedIds.has(m.id) ? "none" : "rotate(45deg)" }} />
                           </BubbleActionButton>
                         )}
 
@@ -6735,10 +6742,10 @@ export default function ChatRoom() {
                         <BubbleActionButton
                           type="button"
                           onClick={() => toggleBookmark(m)}
-                          data-tooltip={isBookmarked(m.id) ? "Saved" : "Bookmark"}
-                          $active={isBookmarked(m.id)}
+                          data-tooltip={bookmarkIds.has(m.id) ? "Saved" : "Bookmark"}
+                          $active={bookmarkIds.has(m.id)}
                         >
-                          {isBookmarked(m.id) ? <FaBookmark size={11} /> : <FaRegBookmark size={11} />}
+                          {bookmarkIds.has(m.id) ? <FaBookmark size={11} /> : <FaRegBookmark size={11} />}
                         </BubbleActionButton>
 
                         {m.userName === userName && (
