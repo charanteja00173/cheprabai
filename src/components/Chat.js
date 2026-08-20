@@ -4013,7 +4013,7 @@ export default function ChatRoom() {
 
   useEffect(() => {
     const socket = io(process.env.REACT_APP_SOCKET_ENDPOINT || "https://cheprabai-backend.onrender.com", {
-      transports: ["websocket", "polling"],
+      transports: ["polling"],
       upgrade: true,
       rememberUpgrade: true,
       reconnection: true,

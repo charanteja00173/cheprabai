@@ -1639,6 +1639,8 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const [isMinimized, setIsMinimized] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [pipPosition, setPipPosition] = useState({ x: 0, y: 0 });
+  const pipPositionRef = useRef({ x: 0, y: 0 });
+  useEffect(() => { pipPositionRef.current = pipPosition; }, [pipPosition]);
   const [layoutMode, setLayoutMode] = useState("grid"); // "grid" | "spotlight"
   const [pinnedPeerId, setPinnedPeerId] = useState(null);
   const [speakingPeers, setSpeakingPeers] = useState({});
@@ -1692,7 +1694,6 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const dragStartRef = useRef({ x: 0, y: 0 });
   const isDraggingRef = useRef(false);
   const hasDraggedRef = useRef(false); // true if mouse moved during drag (prevents click-to-expand)
-  const pipPositionRef = useRef({ x: 0, y: 0 }); // ref for drag (avoids re-renders during drag)
   const localStreamRef = useRef(null);
   const audioContextRef = useRef(null);
   const statsIntervalRef = useRef(null);
@@ -2837,7 +2838,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         ref={containerRef} 
         $minimized={isMinimized}
         data-pip-container={isMinimized ? "" : undefined}
-        style={isMinimized ? { transform: `translate3d(${pipPosition.x}px, ${pipPosition.y}px, 0)` } : {}}
+        style={isMinimized ? { transform: `translate3d(${pipPositionRef.current.x}px, ${pipPositionRef.current.y}px, 0)` } : {}}
         onMouseDown={isMinimized ? handleDragStart : undefined}
         onTouchStart={isMinimized ? handleDragStart : undefined}
       >
