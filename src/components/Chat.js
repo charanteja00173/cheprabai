@@ -4508,7 +4508,8 @@ export default function ChatRoom() {
           const encrypted = await encryptMessage(roomKey, JSON.stringify(plainPayload));
           payload = {
             encryptedPayload: encrypted,
-            file: { ...plainPayload.file, url: fileData.url }
+            // Only include non-sensitive file refs for non-E2EE viewers; keyB64 stays inside encryptedPayload only
+            file: { url: fileData.url, name: fileData.name, type: fileData.type }
           };
         }
         await new Promise((resolve, reject) => {
