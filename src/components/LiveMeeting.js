@@ -78,7 +78,7 @@ const MeetingContainer = styled.div`
     width: 320px;
     height: 190px;
     border-radius: 16px;
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.1);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255,255,255,0.07);
     cursor: grab;
     overflow: hidden;
     z-index: 10010;
@@ -133,7 +133,7 @@ const MeetingHeader = styled.header`
   background: rgba(13, 15, 24, 0.75);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
   z-index: 20;
   flex-shrink: 0;
   gap: 12px;
@@ -193,8 +193,8 @@ const BrandBadge = styled.div`
 `;
 
 const RoomTag = styled.span`
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255,255,255,0.055);
+  border: 1px solid rgba(255,255,255,0.07);
   padding: 3px 9px;
   border-radius: 8px;
   font-size: 0.75rem;
@@ -264,7 +264,7 @@ const BandwidthMenu = styled.div`
   width: 240px;
   background: rgba(18, 20, 32, 0.96);
   backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255,255,255,0.08);
   border-radius: 14px;
   padding: 8px;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
@@ -295,7 +295,7 @@ const BandwidthOption = styled.button`
   transition: all 0.15s;
 
   &:hover {
-    background: rgba(255, 255, 255, 0.06);
+    background: rgba(255,255,255,0.055);
     color: #fff;
   }
 
@@ -314,8 +314,8 @@ const IconButton = styled.button`
   display: flex;
   align-items: center;
   justify-content: center;
-  background: ${props => props.$primary ? "#ff4757" : props.$active ? "rgba(99, 102, 241, 0.2)" : "rgba(255, 255, 255, 0.05)"};
-  border: 1px solid ${props => props.$primary ? "rgba(255, 71, 87, 0.35)" : props.$active ? "rgba(99, 102, 241, 0.35)" : "rgba(255, 255, 255, 0.07)"};
+  background: ${props => props.$primary ? "#ff4757" : props.$active ? "rgba(99, 102, 241, 0.2)" : "rgba(255,255,255,0.08)"};
+  border: 1px solid ${props => props.$primary ? "rgba(255, 71, 87, 0.35)" : props.$active ? "rgba(99, 102, 241, 0.35)" : "rgba(255,255,255,0.06)"};
   color: ${props => props.$primary ? "#fff" : props.$active ? "#a5b4fc" : "rgba(255, 255, 255, 0.75)"};
   font-size: 0.82rem;
   cursor: pointer;
@@ -324,7 +324,7 @@ const IconButton = styled.button`
   flex-shrink: 0;
 
   &:hover {
-    background: ${props => props.$primary ? "#ff3344" : "rgba(255, 255, 255, 0.1)"};
+    background: ${props => props.$primary ? "#ff3344" : "rgba(255,255,255,0.07)"};
     color: #fff;
   }
   &:active { transform: scale(0.94); }
@@ -408,6 +408,7 @@ const VideoGridContainer = styled.div`
   align-content: center;
   justify-content: center;
   padding: 4px;
+  position: relative;
 
   grid-template-columns: ${props => {
     const c = props.$count;
@@ -455,7 +456,7 @@ const VideoTile = styled.div`
   align-items: center;
   justify-content: center;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-  border: 2px solid ${props => props.$isSpeaking ? "#00f2fe" : props.$isPinned ? "#f59e0b" : "rgba(255, 255, 255, 0.06)"};
+  border: 2px solid ${props => props.$isSpeaking ? "#00f2fe" : props.$isPinned ? "#f59e0b" : "rgba(255,255,255,0.055)"};
   transition: border-color 0.25s, box-shadow 0.25s;
   min-height: 0;
   min-width: 0;
@@ -554,7 +555,7 @@ const TileUserInfo = styled.div`
   gap: 5px;
   background: rgba(10, 12, 20, 0.78);
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255,255,255,0.07);
   padding: 3px 8px;
   border-radius: 10px;
   font-size: 0.72rem;
@@ -636,7 +637,7 @@ const ControlsDock = styled.footer`
   background: rgba(13, 15, 24, 0.88);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
-  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  border-top: 1px solid rgba(255,255,255,0.06);
   z-index: 20;
   gap: 8px;
 
@@ -691,13 +692,13 @@ const DockButton = styled.button`
     if (props.$danger) return "rgba(255, 71, 87, 0.45)";
     if (props.$warning) return "rgba(245, 158, 11, 0.35)";
     if (props.$active) return "rgba(79, 70, 229, 0.45)";
-    return "rgba(255, 255, 255, 0.08)";
+    return "rgba(255,255,255,0.07)";
   }};
   background: ${props => {
     if (props.$danger) return "#ff4757";
     if (props.$warning) return "rgba(245, 158, 11, 0.15)";
     if (props.$active) return "rgba(79, 70, 229, 0.2)";
-    return "rgba(255, 255, 255, 0.05)";
+    return "rgba(255,255,255,0.08)";
   }};
   color: ${props => {
     if (props.$danger) return "#fff";
@@ -717,7 +718,7 @@ const DockButton = styled.button`
   position: relative;
 
   &:hover {
-    background: ${props => props.$danger ? "#ff3344" : "rgba(255, 255, 255, 0.1)"};
+    background: ${props => props.$danger ? "#ff3344" : "rgba(255,255,255,0.07)"};
     transform: translateY(-1px);
   }
   &:active { transform: scale(0.96); }
@@ -756,7 +757,7 @@ const EmojiTray = styled.div`
 const DockDivider = styled.div`
   width: 1px;
   height: 24px;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255,255,255,0.07);
   margin: 0 4px;
   flex-shrink: 0;
 
@@ -772,7 +773,7 @@ const ParticipantsDrawer = styled.aside`
   width: 300px;
   background: rgba(15, 17, 28, 0.96);
   backdrop-filter: blur(24px);
-  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  border-left: 1px solid rgba(255,255,255,0.07);
   box-shadow: -8px 0 32px rgba(0, 0, 0, 0.5);
   display: flex;
   flex-direction: column;
@@ -782,7 +783,7 @@ const ParticipantsDrawer = styled.aside`
   @media (max-width: 600px) {
     width: 100%;
     border-left: none;
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    border-top: 1px solid rgba(255,255,255,0.07);
     border-radius: 16px 16px 0 0;
     top: auto;
     bottom: 0;
@@ -795,7 +796,7 @@ const DrawerHeader = styled.div`
   justify-content: space-between;
   align-items: center;
   padding: 14px 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgba(255,255,255,0.07);
   flex-shrink: 0;
 
   h3 {
@@ -823,8 +824,8 @@ const ParticipantList = styled.div`
 `;
 
 const ParticipantCard = styled.div`
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255,255,255,0.055);
+  border: 1px solid rgba(255,255,255,0.055);
   border-radius: 12px;
   padding: 10px 12px;
   display: flex;
@@ -833,7 +834,7 @@ const ParticipantCard = styled.div`
   transition: background 0.15s;
 
   &:hover {
-    background: rgba(255, 255, 255, 0.06);
+    background: rgba(255,255,255,0.055);
   }
 `;
 
@@ -877,7 +878,7 @@ const ModalBackdrop = styled.div`
 
 const ModalContent = styled.div`
   background: #141724;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255,255,255,0.07);
   border-radius: 18px;
   padding: 22px;
   width: min(420px, calc(100% - 24px));
@@ -972,7 +973,7 @@ const PipWidget = styled.div`
     justify-content: center;
     background: rgba(0, 0, 0, 0.65);
     backdrop-filter: blur(8px);
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255,255,255,0.08);
     color: rgba(255, 255, 255, 0.8);
     font-size: 0.6rem;
     cursor: pointer;
@@ -1024,7 +1025,7 @@ const SpotlightStrip = styled.div`
 
   &::-webkit-scrollbar { height: 4px; }
   &::-webkit-scrollbar-track { background: transparent; }
-  &::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.12); border-radius: 2px; }
+  &::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
 
   @media (max-width: 480px) { gap: 4px; padding: 2px 0 4px; }
 `;
@@ -1037,7 +1038,7 @@ const SpotlightThumbnail = styled.div`
   background: #11131e;
   border-radius: 10px;
   overflow: hidden;
-  border: 2px solid ${props => props.$isSpeaking ? "#00f2fe" : props.$isActive ? "#f59e0b" : "rgba(255, 255, 255, 0.06)"};
+  border: 2px solid ${props => props.$isSpeaking ? "#00f2fe" : props.$isActive ? "#f59e0b" : "rgba(255,255,255,0.055)"};
   cursor: pointer;
   transition: all 0.2s ease;
   box-sizing: border-box;
@@ -1058,13 +1059,13 @@ const ParticipantStrip = styled.div`
   background: rgba(13, 15, 24, 0.6);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-top: 1px solid rgba(255,255,255,0.08);
   box-sizing: border-box;
   -webkit-overflow-scrolling: touch;
 
   &::-webkit-scrollbar { height: 3px; }
   &::-webkit-scrollbar-track { background: transparent; }
-  &::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+  &::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.07); border-radius: 2px; }
 
   @media (max-width: 768px) {
     padding: 6px 8px;
@@ -1127,7 +1128,7 @@ const TheaterBadgeRow = styled.div`
     background: rgba(10, 12, 20, 0.78);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255,255,255,0.07);
     color: #fff;
     padding: 5px 11px;
     border-radius: 20px;
@@ -1216,7 +1217,7 @@ const RailScroll = styled.div`
 
   &::-webkit-scrollbar { width: 4px; }
   &::-webkit-scrollbar-track { background: transparent; }
-  &::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 2px; }
+  &::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
 
   @media (max-width: 600px) {
     /* Horizontal swipe strip on mobile */
@@ -1237,7 +1238,7 @@ const RailCard = styled.div`
   border-radius: 14px;
   overflow: hidden;
   background: #11131e;
-  border: 2px solid ${props => props.$isSpeaking ? "#00f2fe" : props.$isFocused ? "#f59e0b" : props.$isPinned ? "#a5b4fc" : "rgba(255,255,255,0.07)"};
+  border: 2px solid ${props => props.$isSpeaking ? "#00f2fe" : props.$isFocused ? "#f59e0b" : props.$isPinned ? "#a5b4fc" : "rgba(255,255,255,0.06)"};
   box-shadow: ${props => props.$isSpeaking ? "0 0 18px rgba(0,242,254,0.25)" : "0 4px 14px rgba(0,0,0,0.35)"};
   cursor: pointer;
   transition: border-color 0.22s ease, box-shadow 0.22s ease, transform 0.18s ease;
@@ -1292,7 +1293,7 @@ const RailCard = styled.div`
     gap: 6px;
     padding: 7px 10px;
     background: linear-gradient(180deg, rgba(17,19,30,0.92), rgba(10,11,18,0.96));
-    border-top: 1px solid rgba(255,255,255,0.06);
+    border-top: 1px solid rgba(255,255,255,0.055);
 
     .nm {
       flex: 1;
@@ -1379,7 +1380,7 @@ const FocusCard = styled.div`
     gap: 7px;
     padding: 9px 12px;
     background: linear-gradient(180deg, rgba(19,21,34,0.97), rgba(11,12,20,0.99));
-    border-top: 1px solid rgba(255,255,255,0.07);
+    border-top: 1px solid rgba(255,255,255,0.06);
 
     .nm {
       flex: 1;
@@ -1398,7 +1399,7 @@ const FocusCard = styled.div`
       flex-shrink: 0;
       border-radius: 7px;
       border: none;
-      background: rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.07);
       color: rgba(255,255,255,0.75);
       cursor: pointer;
       display: flex;
@@ -1428,7 +1429,7 @@ const ParticipantWidget = styled.div`
   background: #11131e;
   border-radius: 10px;
   overflow: hidden;
-  border: 2px solid ${props => props.$isHighlighted ? "#f59e0b" : props.$isSpeaking ? "#00f2fe" : props.$isMinimized ? "rgba(255,255,255,0.04)" : "rgba(255, 255, 255, 0.06)"};
+  border: 2px solid ${props => props.$isHighlighted ? "#f59e0b" : props.$isSpeaking ? "#00f2fe" : props.$isMinimized ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0.055)"};
   cursor: pointer;
   transition: all 0.2s ease;
   box-sizing: border-box;
@@ -1601,7 +1602,7 @@ const FileStreamControlsCard = styled.div`
       height: 4px;
       border-radius: 2px;
       outline: none;
-      background: rgba(255, 255, 255, 0.1);
+      background: rgba(255,255,255,0.07);
       cursor: pointer;
       -webkit-appearance: none;
       appearance: none;
@@ -1635,10 +1636,10 @@ const FileStreamControlsCard = styled.div`
     display: flex;
     align-items: center;
     gap: 4px;
-    background: rgba(255, 255, 255, 0.04);
+    background: rgba(255,255,255,0.07);
     padding: 3px 6px;
     border-radius: 8px;
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255,255,255,0.055);
 
     .vol-icon {
       color: rgba(255, 255, 255, 0.5);
@@ -1655,7 +1656,7 @@ const FileStreamControlsCard = styled.div`
       cursor: pointer;
       -webkit-appearance: none;
       appearance: none;
-      background: rgba(255, 255, 255, 0.12);
+      background: rgba(255,255,255,0.08);
       border-radius: 2px;
       outline: none;
 
@@ -1670,8 +1671,8 @@ const FileStreamControlsCard = styled.div`
   }
 
   .ctrl-btn {
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255,255,255,0.055);
+    border: 1px solid rgba(255,255,255,0.07);
     color: rgba(255, 255, 255, 0.85);
     width: 34px;
     height: 34px;
@@ -1771,7 +1772,7 @@ const createMixedStream = (mainStream, cameraStream, options = {}) => {
     const canvas = document.createElement("canvas");
     canvas.width = 1280;
     canvas.height = 720;
-    const ctx = canvas.getContext("2d");
+    const ctx = canvas.getContext("2d", { alpha: false, desynchronized: true });
     
     const mainVideo = document.createElement("video");
     mainVideo.srcObject = new MediaStream([mainVideoTrack]);
@@ -1786,30 +1787,45 @@ const createMixedStream = (mainStream, cameraStream, options = {}) => {
     cameraVideo.play().catch(() => {});
     
     let active = true;
+
+    // Aspect-preserving "contain" draw — never stretches source video.
+    // Letterboxes inside the target rect so portrait/4:3 content stays elegant.
+    const drawContained = (video, dx, dy, dw, dh) => {
+      const vw = video.videoWidth;
+      const vh = video.videoHeight;
+      if (!vw || !vh) return;
+      const scale = Math.min(dw / vw, dh / vh);
+      const w = vw * scale;
+      const h = vh * scale;
+      ctx.drawImage(video, dx + (dw - w) / 2, dy + (dh - h) / 2, w, h);
+    };
+
     const drawFrame = () => {
       if (!active) return;
-      
-      // Draw main track
+
+      // Draw main track — black bars top/bottom or sides as needed
       if (mainVideo.readyState >= 2) {
-        ctx.drawImage(mainVideo, 0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#000";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        drawContained(mainVideo, 0, 0, canvas.width, canvas.height);
       } else {
         ctx.fillStyle = "#0c0d14";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
       }
-      
+
       // Draw camera track in corner if camera is enabled (not muted/black)
       if (cameraVideo.readyState >= 2 && cameraVideoTrack.enabled) {
         const pipW = 240;
         const pipH = 135;
         const x = canvas.width - pipW - 24;
         const y = canvas.height - pipH - 24;
-        
+
         ctx.save();
         ctx.shadowColor = "rgba(0, 0, 0, 0.4)";
         ctx.shadowBlur = 12;
         ctx.shadowOffsetX = 0;
         ctx.shadowOffsetY = 4;
-        
+
         ctx.beginPath();
         if (ctx.roundRect) {
           ctx.roundRect(x, y, pipW, pipH, 12);
@@ -1818,7 +1834,11 @@ const createMixedStream = (mainStream, cameraStream, options = {}) => {
         }
         ctx.closePath();
         ctx.clip();
-        
+
+        // Dark backing so a non-16:9 camera doesn't smear on transparent pixels
+        ctx.fillStyle = "#000";
+        ctx.fillRect(x, y, pipW, pipH);
+
         // 🔮 Apply dynamic camera video filters
         const activeFilter = getVideoFilter();
         if (activeFilter && activeFilter !== "none") {
@@ -1828,16 +1848,22 @@ const createMixedStream = (mainStream, cameraStream, options = {}) => {
           else if (activeFilter === "blur") ctx.filter = "blur(6px)";
           else if (activeFilter === "vintage") ctx.filter = "contrast(125%) sepia(45%) saturate(140%)";
         }
-        
-        ctx.drawImage(cameraVideo, x, y, pipW, pipH);
+
+        drawContained(cameraVideo, x, y, pipW, pipH);
         ctx.restore();
       }
-      
+
     };
     const draw = () => {
       if (!active) return;
       drawFrame();
-      requestAnimationFrame(draw);
+      // rVFC fires exactly per incoming video frame — no wasted composites,
+      // lower CPU than a blanket 60fps rAF loop.
+      if (typeof mainVideo.requestVideoFrameCallback === "function") {
+        mainVideo.requestVideoFrameCallback(() => draw());
+      } else {
+        requestAnimationFrame(draw);
+      }
     };
 
     draw();
@@ -1870,6 +1896,7 @@ const createMixedStream = (mainStream, cameraStream, options = {}) => {
 
     const canvasStream = canvas.captureStream(30);
     mixedVideoTrack = canvasStream.getVideoTracks()[0];
+    try { mixedVideoTrack.contentHint = "motion"; } catch (e) {}
     
     mixerCleanup = () => {
       active = false;
@@ -2065,6 +2092,36 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const [pinnedPeerId, setPinnedPeerId] = useState(null);
   const [speakingPeers, setSpeakingPeers] = useState({});
   const [showParticipants, setShowParticipants] = useState(false);
+  const [theaterRailOpen, setTheaterRailOpen] = useState(true);
+  const [floatingPeerId, setFloatingPeerId] = useState(null);
+  const pipRef = useRef(null);
+  const pipDragRef = useRef(null);
+  const startPipDrag = (e) => {
+    const card = pipRef.current;
+    if (!card || e.target.closest("button")) return;
+    const stage = card.offsetParent;
+    if (!stage) return;
+    const rect = card.getBoundingClientRect();
+    const sRect = stage.getBoundingClientRect();
+    card.style.right = "auto";
+    card.style.bottom = "auto";
+    card.style.left = (rect.left - sRect.left) + "px";
+    card.style.top = (rect.top - sRect.top) + "px";
+    pipDragRef.current = { dx: e.clientX - rect.left, dy: e.clientY - rect.top, sRect, w: rect.width, h: rect.height };
+    try { card.setPointerCapture(e.pointerId); } catch (_) {}
+  };
+  const movePipDrag = (e) => {
+    const d = pipDragRef.current;
+    const card = pipRef.current;
+    if (!d || !card) return;
+    let x = e.clientX - d.dx - d.sRect.left;
+    let y = e.clientY - d.dy - d.sRect.top;
+    x = Math.max(4, Math.min(x, d.sRect.width - d.w - 4));
+    y = Math.max(4, Math.min(y, d.sRect.height - d.h - 4));
+    card.style.left = x + "px";
+    card.style.top = y + "px";
+  };
+  const endPipDrag = () => { pipDragRef.current = null; };
   const [showBandwidthMenu, setShowBandwidthMenu] = useState(false);
   const [showVoiceMenu, setShowVoiceMenu] = useState(false);
   const [showVideoMenu, setShowVideoMenu] = useState(false);
@@ -2086,6 +2143,17 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const [fileStreamVolume, setFileStreamVolume] = useState(1);
   const [showStreamModal, setShowStreamModal] = useState(false);
   const [streamUrlInput, setStreamUrlInput] = useState("");
+  const [coWatch, setCoWatch] = useState(null);
+  const startCoWatch = useCallback((url) => {
+    const name = (() => { try { return new URL(url).hostname.replace(/^www\./, ""); } catch (e) { return "Shared Link"; } })();
+    setCoWatch({ url, name });
+    if (socket && typeof socket.emit === "function") socket.emit("link-watch", { roomId, action: "start", url, name });
+    toast.success("Streaming link to everyone");
+  }, [roomId, socket]);
+  const stopCoWatch = useCallback(() => {
+    setCoWatch(null);
+    if (socket && typeof socket.emit === "function") socket.emit("link-watch", { roomId, action: "stop" });
+  }, [roomId, socket]);
   const [minimizedPeers, setMinimizedPeers] = useState(new Set());
   const [highlightedPeers, setHighlightedPeers] = useState(new Set());
   // 🎬 Theater mode: fullscreen stage + right rail of participant cards + bottom-right focus card
@@ -3034,6 +3102,16 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
           setReactions(prev => [...prev, { id, emoji, x: Math.random() * 80 + 10 }]);
           setTimeout(() => setReactions(prev => prev.filter(r => r.id !== id)), 2800);
         });
+
+        // Co-watch link streaming: host pushes a URL, everyone renders it locally
+        socket.on("link-watch", ({ action, url, name }) => {
+          if (action === "stop") {
+            setCoWatch(null);
+          } else if (url) {
+            setCoWatch({ url, name: name || "Shared Link" });
+            toast.info(`📺 Host is streaming: ${name || url}`);
+          }
+        });
       }
     };
 
@@ -3208,6 +3286,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const startScreenShare = async () => {
     try {
       const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+      try { screenStream.getVideoTracks()[0].contentHint = "motion"; } catch (e) {}
       screenStreamRef.current = screenStream;
 
       // Hint the encoder for text/detail sharpness at low bitrates
@@ -3390,7 +3469,10 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       };
 
       video.onended = () => {
-        stopFileStream();
+        // Keep the stage alive — user may want to replay.
+        setIsFileStreamPaused(true);
+        try { video.pause(); } catch (e) {}
+        toast.info("Stream finished — press play to replay.", { autoClose: 3500 });
       };
     } catch (err) {
       console.error("Failed to start media stream:", err);
@@ -3450,7 +3532,15 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const toggleFileStreamPlay = () => {
     if (fileVideoRef.current) {
       if (fileVideoRef.current.paused) {
-        fileVideoRef.current.play();
+        const v = fileVideoRef.current;
+        // Replay from start when the media finished
+        if (v.ended || (v.duration && v.currentTime >= v.duration - 0.05)) {
+          try { v.currentTime = 0; } catch (e) {}
+        }
+        const p = v.play();
+        // Rapid play/pause toggles make the browser abort the pending play()
+        // with AbortError — expected, not a failure.
+        if (p && typeof p.catch === "function") p.catch(() => {});
         setIsFileStreamPaused(false);
       } else {
         fileVideoRef.current.pause();
@@ -3932,12 +4022,45 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                       </FocusCard>
                     );
                   })()}
+
+                  {/* Draggable participant mini-card (selected from rail) */}
+                  {floatingPeerId != null && remoteStreams[floatingPeerId] && (
+                    <div
+                      ref={pipRef}
+                      onPointerDown={startPipDrag}
+                      onPointerMove={movePipDrag}
+                      onPointerUp={endPipDrag}
+                      onPointerCancel={endPipDrag}
+                      style={{ position: "absolute", right: 18, bottom: 18, zIndex: 40, width: "min(250px, 40vw)", borderRadius: 14, overflow: "hidden", background: "rgba(10,12,20,.85)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", border: "1px solid rgba(255,255,255,.15)", boxShadow: "0 18px 54px rgba(0,0,0,.55)", touchAction: "none", userSelect: "none" }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", cursor: "grab", borderBottom: "1px solid rgba(255,255,255,.08)", background: "rgba(255,255,255,.04)" }}>
+                        <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#00f2fe", boxShadow: "0 0 8px #00f2fe", flexShrink: 0 }} />
+                        <strong style={{ fontSize: ".74rem", fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#fff" }}>{remoteStreams[floatingPeerId].name || "Participant"}</strong>
+                        <button type="button" aria-label="Close floating card" onClick={(e) => { e.stopPropagation(); setFloatingPeerId(null); }} style={{ marginLeft: "auto", background: "transparent", border: 0, color: "rgba(255,255,255,.65)", cursor: "pointer", padding: 3, display: "flex", borderRadius: 5 }}><FaTimes size={12} /></button>
+                      </div>
+                      <video
+                        autoPlay
+                        playsInline
+                        ref={(el) => {
+                          const info = remoteStreams[floatingPeerId];
+                          if (el && info?.stream && el.srcObject !== info.stream) {
+                            el.srcObject = info.stream;
+                            const p = el.play();
+                            if (p && typeof p.catch === "function") p.catch(() => {});
+                          }
+                        }}
+                        style={{ width: "100%", aspectRatio: "16 / 9", objectFit: "cover", display: "block", background: "#000" }}
+                      />
+                    </div>
+                  )}
                 </TheaterStage>
 
                 {/* Right rail: every participant as a live card */}
+                {theaterRailOpen && (
                 <ParticipantsRail>
                   <div className="rail-header">
                     <h4><FaUsers /> Everyone ({totalCount})</h4>
+                    <button type="button" aria-label="Close participants rail" onClick={() => setTheaterRailOpen(false)} style={{ marginLeft: "auto", background: "transparent", border: 0, color: "var(--chakra-colors-textSecondary)", cursor: "pointer", display: "flex", alignItems: "center", padding: 4, borderRadius: 6 }}><FaTimes size={13} /></button>
                   </div>
                   <RailScroll>
                     {/* Local card */}
@@ -3945,7 +4068,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                       $isSpeaking={speakingPeers.local}
                       $isFocused={focusPeerId === "local"}
                       $isPinned={spotlightPeerId === "local"}
-                      onClick={() => toggleFocusPeer("local")}
+                      onClick={() => { toggleFocusPeer("local"); }}
                       title="Click to show/hide in focus card"
                     >
                       <div className="video-zone">
@@ -3988,7 +4111,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                           $isSpeaking={rSpeaking}
                           $isFocused={focusPeerId === peerId}
                           $isPinned={spotlightPeerId === peerId}
-                          onClick={() => toggleFocusPeer(peerId)}
+                          onClick={() => { toggleFocusPeer(peerId); setFloatingPeerId(p => p === peerId ? null : peerId); }}
                           title="Click to show/hide in focus card"
                         >
                           <div className="video-zone">
@@ -4031,6 +4154,10 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                     })}
                   </RailScroll>
                 </ParticipantsRail>
+                )}
+                {!theaterRailOpen && (
+                  <button type="button" aria-label="Show participants rail" onClick={() => setTheaterRailOpen(true)} style={{ position: "absolute", top: 12, right: 12, zIndex: 30, display: "flex", alignItems: "center", gap: 7, padding: "8px 13px", borderRadius: 999, border: "1px solid rgba(255,255,255,.1)", background: "rgba(15,17,28,.6)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)", color: "var(--chakra-colors-textPrimary)", cursor: "pointer", fontSize: ".78rem", fontWeight: 650 }}><FaUsers size={13} /> Everyone</button>
+                )}
               </TheaterLayout>
             ) : layoutMode === "spotlight" ? (
               <SpotlightContainer>
@@ -4606,7 +4733,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                 <span style={{ fontSize: "0.75rem" }}>Voice</span>
               </DockButton>
               {showVoiceMenu && (
-                <div style={{ position: "absolute", bottom: "calc(100% + 10px)", left: "50%", transform: "translateX(-50%)", width: 220, background: "rgba(18,20,32,0.96)", backdropFilter: "blur(24px)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 14, padding: 8, boxShadow: "0 16px 40px rgba(0,0,0,0.6)", zIndex: 1000 }}>
+                <div style={{ position: "absolute", bottom: "calc(100% + 10px)", left: "50%", transform: "translateX(-50%)", width: 220, background: "rgba(18,20,32,0.96)", backdropFilter: "blur(24px)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 8, boxShadow: "0 16px 40px rgba(0,0,0,0.6)", zIndex: 1000 }}>
                   {[
                     { id: "none", label: "🎙️ Normal Voice", desc: "No effects" },
                     { id: "robot", label: "🤖 Robot", desc: "Ring modulation 55Hz" },
@@ -4628,7 +4755,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                 <span style={{ fontSize: "0.75rem" }}>Filter</span>
               </DockButton>
               {showVideoMenu && (
-                <div style={{ position: "absolute", bottom: "calc(100% + 10px)", left: "50%", transform: "translateX(-50%)", width: 220, background: "rgba(18,20,32,0.96)", backdropFilter: "blur(24px)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 14, padding: 8, boxShadow: "0 16px 40px rgba(0,0,0,0.6)", zIndex: 1000 }}>
+                <div style={{ position: "absolute", bottom: "calc(100% + 10px)", left: "50%", transform: "translateX(-50%)", width: 220, background: "rgba(18,20,32,0.96)", backdropFilter: "blur(24px)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 8, boxShadow: "0 16px 40px rgba(0,0,0,0.6)", zIndex: 1000 }}>
                   {[
                     { id: "none", label: "✨ Normal", desc: "No filter" },
                     { id: "grayscale", label: "🖤 Grayscale", desc: "Black & white" },
@@ -4753,7 +4880,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                 <FaMagic />
               </DockButton>
               {showVoiceMenu && (
-                <div style={{ position: "absolute", bottom: "calc(100% + 10px)", left: "50%", transform: "translateX(-50%)", width: 220, background: "rgba(18,20,32,0.96)", backdropFilter: "blur(24px)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 14, padding: 8, boxShadow: "0 16px 40px rgba(0,0,0,0.6)", zIndex: 1000 }}>
+                <div style={{ position: "absolute", bottom: "calc(100% + 10px)", left: "50%", transform: "translateX(-50%)", width: 220, background: "rgba(18,20,32,0.96)", backdropFilter: "blur(24px)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 8, boxShadow: "0 16px 40px rgba(0,0,0,0.6)", zIndex: 1000 }}>
                   {[
                     { id: "none", label: "🎙️ Normal Voice", desc: "No effects" },
                     { id: "robot", label: "🤖 Robot", desc: "Ring modulation 55Hz" },
@@ -4772,7 +4899,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                 <FaPalette />
               </DockButton>
               {showVideoMenu && (
-                <div style={{ position: "absolute", bottom: "calc(100% + 10px)", left: "50%", transform: "translateX(-50%)", width: 220, background: "rgba(18,20,32,0.96)", backdropFilter: "blur(24px)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 14, padding: 8, boxShadow: "0 16px 40px rgba(0,0,0,0.6)", zIndex: 1000 }}>
+                <div style={{ position: "absolute", bottom: "calc(100% + 10px)", left: "50%", transform: "translateX(-50%)", width: 220, background: "rgba(18,20,32,0.96)", backdropFilter: "blur(24px)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 8, boxShadow: "0 16px 40px rgba(0,0,0,0.6)", zIndex: 1000 }}>
                   {[
                     { id: "none", label: "✨ Normal", desc: "No filter" },
                     { id: "grayscale", label: "🖤 Grayscale", desc: "Black & white" },
@@ -4830,7 +4957,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
               </p>
 
               {/* Option 1: File Upload */}
-              <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 14, marginBottom: 14 }}>
+              <div style={{ background: "rgba(255,255,255,0.055)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: 14, marginBottom: 14 }}>
                 <div style={{ fontWeight: 700, fontSize: "0.85rem", marginBottom: 6, color: "#a5b4fc" }}>
                   📁 Option 1: Upload Video or Audio File
                 </div>
@@ -4848,7 +4975,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
               </div>
 
               {/* Option 2: External Media Link */}
-              <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 14 }}>
+              <div style={{ background: "rgba(255,255,255,0.055)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: 14 }}>
                 <div style={{ fontWeight: 700, fontSize: "0.85rem", marginBottom: 6, color: "#38bdf8" }}>
                   🔗 Option 2: Stream URL / Media Link
                 </div>
@@ -4864,7 +4991,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                     style={{
                       flex: 1,
                       background: "rgba(0,0,0,0.4)",
-                      border: "1px solid rgba(255,255,255,0.12)",
+                      border: "1px solid rgba(255,255,255,0.08)",
                       borderRadius: 10,
                       padding: "0 12px",
                       color: "#fff",
@@ -4875,11 +5002,19 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                   <DockButton
                     style={{ height: 38, borderRadius: 10, padding: "0 14px", background: "linear-gradient(135deg, #6366f1, #818cf8)", color: "#fff", border: "none" }}
                     onClick={() => {
-                      if (!streamUrlInput.trim()) {
+                      const raw = streamUrlInput.trim();
+                      if (!raw) {
                         toast.warn("Please enter a valid media link.");
                         return;
                       }
-                      startMediaStream({ url: streamUrlInput.trim() });
+                      const isDirectMedia = /\.(mp4|webm|ogv|ogg|m4v|mov|m3u8)(\?|#|$)/i.test(raw);
+                      if (isDirectMedia) {
+                        startMediaStream({ url: raw });
+                      } else {
+                        // Page links (YouTube watch pages, articles…) can't be
+                        // pixel-captured cross-origin — co-watch them instead.
+                        startCoWatch(raw);
+                      }
                       setStreamUrlInput("");
                     }}
                   >
@@ -4888,6 +5023,52 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                 </div>
               </div>
             </ModalContent>
+          </ModalBackdrop>
+        )}
+
+        {/* ═══ CO-WATCH LINK STREAM OVERLAY ═══ */}
+        {coWatch && (
+          <ModalBackdrop onClick={() => setCoWatch(null)} style={{ zIndex: 60 }}>
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                position: "relative",
+                width: "min(1100px, 96vw)",
+                height: "min(84vh, 720px)",
+                display: "flex",
+                flexDirection: "column",
+                borderRadius: 18,
+                overflow: "hidden",
+                background: "rgba(10,12,20,.92)",
+                backdropFilter: "blur(20px) saturate(1.3)",
+                WebkitBackdropFilter: "blur(20px) saturate(1.3)",
+                border: "1px solid rgba(255,255,255,.12)",
+                boxShadow: "0 30px 90px rgba(0,0,0,.6)"
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", borderBottom: "1px solid rgba(255,255,255,.08)" }}>
+                <FaPlayCircle style={{ color: "#818cf8" }} />
+                <strong style={{ fontSize: ".85rem", color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{coWatch.name}</strong>
+                {coWatch.url && (
+                  <a href={coWatch.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: ".72rem", color: "#818cf8", textDecoration: "none", fontWeight: 700 }}>Open original ↗</a>
+                )}
+                {isRoomHost ? (
+                  <button type="button" onClick={stopCoWatch} style={{ marginLeft: "auto", background: "rgba(239,68,68,.15)", border: "1px solid rgba(239,68,68,.35)", color: "#f87171", fontWeight: 700, fontSize: ".74rem", padding: "6px 14px", borderRadius: 999, cursor: "pointer" }}>
+                    Stop for everyone
+                  </button>
+                ) : (
+                  <span style={{ marginLeft: "auto", fontSize: ".7rem", color: "rgba(255,255,255,.5)", fontWeight: 600 }}>Streaming from host — press Esc to view meeting</span>
+                )}
+              </div>
+              <iframe
+                src={coWatch.url}
+                title={`Co-watch — ${coWatch.name}`}
+                style={{ flex: 1, minHeight: 0, width: "100%", border: 0, background: "#fff" }}
+                allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; fullscreen; web-share"
+                referrerPolicy="strict-origin-when-cross-origin"
+                sandbox="allow-scripts allow-same-origin allow-presentation allow-forms allow-popups"
+              />
+            </div>
           </ModalBackdrop>
         )}
 
@@ -4905,7 +5086,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                 </div>
               </div>
 
-              <div style={{ background: "rgba(255,255,255,0.04)", padding: 12, borderRadius: 12, marginBottom: 20, fontSize: "0.85rem" }}>
+              <div style={{ background: "rgba(255,255,255,0.07)", padding: 12, borderRadius: 12, marginBottom: 20, fontSize: "0.85rem" }}>
                 Target: <strong>{kickTarget.name}</strong>
               </div>
 
@@ -4934,28 +5115,28 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
               </div>
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
-                <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: 12 }}>
+                <div style={{ background: "rgba(255,255,255,0.055)", border: "1px solid rgba(255,255,255,0.055)", borderRadius: 12, padding: 12 }}>
                   <span style={{ fontSize: "0.7rem", opacity: 0.6 }}>Latency (RTT)</span>
                   <div style={{ fontSize: "1.2rem", fontWeight: 800, color: networkQuality.rtt < 150 ? "#34d399" : "#fbbf24" }}>
                     {networkQuality.rtt} ms
                   </div>
                 </div>
 
-                <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: 12 }}>
+                <div style={{ background: "rgba(255,255,255,0.055)", border: "1px solid rgba(255,255,255,0.055)", borderRadius: 12, padding: 12 }}>
                   <span style={{ fontSize: "0.7rem", opacity: 0.6 }}>Packet Loss</span>
                   <div style={{ fontSize: "1.2rem", fontWeight: 800, color: networkQuality.loss < 3 ? "#34d399" : "#f87171" }}>
                     {networkQuality.loss}%
                   </div>
                 </div>
 
-                <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: 12 }}>
+                <div style={{ background: "rgba(255,255,255,0.055)", border: "1px solid rgba(255,255,255,0.055)", borderRadius: 12, padding: 12 }}>
                   <span style={{ fontSize: "0.7rem", opacity: 0.6 }}>Current Bitrate</span>
                   <div style={{ fontSize: "1.2rem", fontWeight: 800, color: "#818cf8" }}>
                     {networkQuality.bitrate} kbps
                   </div>
                 </div>
 
-                <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: 12 }}>
+                <div style={{ background: "rgba(255,255,255,0.055)", border: "1px solid rgba(255,255,255,0.055)", borderRadius: 12, padding: 12 }}>
                   <span style={{ fontSize: "0.7rem", opacity: 0.6 }}>Bandwidth Profile</span>
                   <div style={{ fontSize: "1.0rem", fontWeight: 800, textTransform: "capitalize" }}>
                     {bandwidthMode}

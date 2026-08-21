@@ -116,24 +116,18 @@ export const THEMES = {
   arcticWhite: {
     name: "Arctic White",
     isLightOnly: true,
-    isDarkOnly: false,
     colors: {
-      primary: "#2563EB",
-      secondary: "#0EA5E9",
-      accent: "#7C3AED",
-
+      primary: "#2563EB",      // Royal Blue
+      secondary: "#0EA5E9",    // Sky
+      accent: "#7C3AED",       // Violet Pop
       hover: "#1D4ED8",
-
-      glow: "rgba(37,99,235,0.15)",
-
-      lightBg: "#FAFBFD",
-      darkBg: "#FAFBFD",
-
+      glow: "rgba(37,99,235,0.12)",
+      lightBg: "#F7F9FC",      // Softer, less stark
+      darkBg: "#F7F9FC",
       lightSurface: "#FFFFFF",
       darkSurface: "#FFFFFF",
-
-      lightSurfaceHover: "#F2F5FA",
-      darkSurfaceHover: "#F2F5FA",
+      lightSurfaceHover: "#EDF2FA",
+      darkSurfaceHover: "#EDF2FA",
     }
   },
 
@@ -351,6 +345,138 @@ export const THEMES = {
       lightSurfaceHover: "#E2E8F0",
       darkSurfaceHover: "#334155",
     }
+  },
+  aurora: {
+    name: "Aurora Mint",
+    colors: {
+      primary: "#34D399",      // Mint Emerald
+      secondary: "#14B8A6",    // Deep Teal
+      accent: "#22D3EE",       // Cyan Glow
+      hover: "#10B981",
+      glow: "rgba(52, 211, 153, 0.16)",
+      lightBg: "#ECFDF5",
+      darkBg: "#04211C",       // Deep Forest Teal
+      lightSurface: "#FFFFFF",
+      darkSurface: "#06302A",
+      lightSurfaceHover: "#D1FAE5",
+      darkSurfaceHover: "#0A4237",
+    }
+  },
+  ember: {
+    name: "Sunset Ember",
+    colors: {
+      primary: "#FB7185",      // Rose Coral
+      secondary: "#F97316",    // Sunset Orange
+      accent: "#FBBF24",       // Amber Spark
+      hover: "#F43F5E",
+      glow: "rgba(251, 113, 133, 0.16)",
+      lightBg: "#FFF5F4",
+      darkBg: "#170D12",       // Dark Plum
+      lightSurface: "#FFFFFF",
+      darkSurface: "#26141B",
+      lightSurfaceHover: "#FFE0E2",
+      darkSurfaceHover: "#381D27",
+    }
+  },
+  velvetGold: {
+    name: "Velvet Gold",
+    colors: {
+      primary: "#E2B714",      // Muted Gold
+      secondary: "#CA9A04",    // Deep Gold
+      accent: "#F5E6B8",       // Champagne
+      hover: "#B8940A",
+      glow: "rgba(226, 183, 20, 0.14)",
+      lightBg: "#FBF8EF",
+      darkBg: "#0E0A14",       // Near-black Violet
+      lightSurface: "#FFFFFF",
+      darkSurface: "#181122",
+      lightSurfaceHover: "#241A33",
+      darkSurfaceHover: "#2E2140",
+    }
+  },
+  frost: {
+    name: "Glacier Frost",
+    colors: {
+      primary: "#93C5FD",      // Ice Blue
+      secondary: "#60A5FA",    // Arctic Blue
+      accent: "#E0F2FE",       // Snow Accent
+      hover: "#3B82F6",
+      glow: "rgba(147, 197, 253, 0.15)",
+      lightBg: "#F4F9FF",
+      darkBg: "#0B1526",       // Polar Night Blue
+      lightSurface: "#FFFFFF",
+      darkSurface: "#13233D",
+      lightSurfaceHover: "#1B3054",
+      darkSurfaceHover: "#23406C",
+    }
+  },
+  graphite: {
+    name: "Graphite Steel",
+    isDarkOnly: true,
+    colors: {
+      primary: "#94A3B8",      // Brushed Steel
+      secondary: "#64748B",    // Slate
+      accent: "#CBD5E1",       // Polished Chrome
+      hover: "#475569",
+      glow: "rgba(148, 163, 184, 0.14)",
+      lightBg: "#0C0E12",
+      darkBg: "#0C0E12",
+      lightSurface: "#151820",
+      darkSurface: "#151820",
+      lightSurfaceHover: "#1E222C",
+      darkSurfaceHover: "#1E222C",
+    }
+  },
+  bloodMoon: {
+    name: "Blood Moon",
+    isDarkOnly: true,
+    colors: {
+      primary: "#EF4444",      // Crimson
+      secondary: "#B91C1C",    // Deep Blood
+      accent: "#FCA5A5",       // Pale Ember
+      hover: "#DC2626",
+      glow: "rgba(239, 68, 68, 0.18)",
+      lightBg: "#0A0507",
+      darkBg: "#0A0507",
+      lightSurface: "#160B0E",
+      darkSurface: "#160B0E",
+      lightSurfaceHover: "#241015",
+      darkSurfaceHover: "#241015",
+    }
+  },
+  neonTokyo: {
+    name: "Neon Tokyo",
+    isDarkOnly: true,
+    colors: {
+      primary: "#22D3EE",      // Neon Cyan
+      secondary: "#A78BFA",    // Violet Haze
+      accent: "#F472B6",       // Hot Pink Glow
+      hover: "#06B6D4",
+      glow: "rgba(34, 211, 238, 0.18)",
+      lightBg: "#07080F",
+      darkBg: "#07080F",
+      lightSurface: "#0E1120",
+      darkSurface: "#0E1120",
+      lightSurfaceHover: "#171B30",
+      darkSurfaceHover: "#171B30",
+    }
+  },
+  matcha: {
+    name: "Matcha Dark",
+    isDarkOnly: true,
+    colors: {
+      primary: "#A3E635",      // Matcha Lime
+      secondary: "#65A30D",    // Deep Leaf
+      accent: "#D9F99D",       // Foam Accent
+      hover: "#84CC16",
+      glow: "rgba(163, 230, 53, 0.13)",
+      lightBg: "#0B0E08",
+      darkBg: "#0B0E08",
+      lightSurface: "#141910",
+      darkSurface: "#141910",
+      lightSurfaceHover: "#1F2718",
+      darkSurfaceHover: "#1F2718",
+    }
   }
 };
 
@@ -460,13 +586,25 @@ export function createAppTheme(themeKey = "default", fontKey = "inter") {
       : `rgba(${hexToRgb(activeTheme.colors.darkSurface)}, 0.65)`;
   };
 
+  // Dark neutrals (Pitch Black etc.) have near-black primaries — borders derived
+  // from them are invisible on their backgrounds. Lift toward white first.
+  const liftTowardWhite = (hex, amt) => {
+    const [r, g, b] = hexToRgbArr(hex);
+    const f = (c) => Math.round(c + (255 - c) * amt);
+    return `${f(r)}, ${f(g)}, ${f(b)}`;
+  };
+
   const getBorder = (mode) => {
-    const opacity = (isDarkOnly || (mode === "dark" && !isLightOnly)) ? "0.09" : "0.08";
-    return `rgba(${hexToRgb(activeTheme.colors.primary)}, ${opacity})`;
+    const isDark = isDarkOnly || (mode === "dark" && !isLightOnly);
+    const rgb = isDark ? liftTowardWhite(activeTheme.colors.primary, 0.55) : hexToRgb(activeTheme.colors.primary);
+    const opacity = isDark ? "0.16" : "0.1";
+    return `rgba(${rgb}, ${opacity})`;
   };
 
   const getBorderSubtle = (mode) => {
-    return `rgba(${hexToRgb(activeTheme.colors.primary)}, 0.04)`;
+    const isDark = isDarkOnly || (mode === "dark" && !isLightOnly);
+    const rgb = isDark ? liftTowardWhite(activeTheme.colors.primary, 0.55) : hexToRgb(activeTheme.colors.primary);
+    return `rgba(${rgb}, ${isDark ? "0.09" : "0.055"})`;
   };
 
   const getTextPrimary = (mode) => {
@@ -821,9 +959,16 @@ export function createAppTheme(themeKey = "default", fontKey = "inter") {
   });
 }
 
-function hexToRgb(hex) {
+function hexToRgbArr(hex) {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-  return result ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : "139, 92, 246";
+  return result
+    ? [parseInt(result[1], 16), parseInt(result[2], 16), parseInt(result[3], 16)]
+    : [139, 92, 246];
+}
+
+function hexToRgb(hex) {
+  const [r, g, b] = hexToRgbArr(hex);
+  return `${r}, ${g}, ${b}`;
 }
 
 export default createAppTheme;

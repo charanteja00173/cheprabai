@@ -6,32 +6,36 @@ import { useThemeManager } from "../context/ThemeContext";
 import { THEMES, FONTS } from "../theme";
 
 const SettingsButton = styled.button`
-  background: none;
-  border: none;
+  background: var(--chakra-colors-badgeBg);
+  border: 1px solid var(--chakra-colors-badgeBorder);
   color: var(--chakra-colors-textPrimary);
   cursor: pointer;
-  font-size: 1.1rem;
-  opacity: 0.7;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  font-size: 1rem;
+  min-width: 34px;
+  min-height: 34px;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-  background: var(--chakra-colors-badgeBg);
-  border: 1px solid var(--chakra-colors-badgeBorder);
   flex-shrink: 0;
+  opacity: 0.85;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 
   &:hover {
     opacity: 1;
     background: var(--chakra-colors-surfaceHover);
     border-color: var(--chakra-colors-brandPrimary);
+    /* signature gear rotation kept */
     transform: rotate(45deg) scale(1.05);
     box-shadow: 0 0 12px var(--chakra-colors-brandGlow);
   }
 
   @media (max-width: 480px) {
+    min-width: 30px;
+    min-height: 30px;
     width: 30px;
     height: 30px;
     font-size: 0.85rem;
@@ -39,6 +43,8 @@ const SettingsButton = styled.button`
   }
 
   @media (max-width: 375px) {
+    min-width: 28px;
+    min-height: 28px;
     width: 28px;
     height: 28px;
     font-size: 0.8rem;
@@ -66,7 +72,10 @@ const Overlay = styled.div`
   justify-content: center;
   align-items: center;
   z-index: 10000;
-  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  /* fluid gutters + device safe areas */
+  padding: clamp(12px, 4vw, 24px);
+  padding-top: calc(clamp(12px, 4vw, 24px) + env(safe-area-inset-top));
+  padding-bottom: calc(clamp(12px, 4vw, 24px) + env(safe-area-inset-bottom));
   animation: ${fadeIn} 0.2s ease-out;
 `;
 
@@ -77,10 +86,12 @@ const Modal = styled.div`
   -webkit-backdrop-filter: blur(40px);
   border-radius: 24px;
   padding: clamp(20px, 5vw, 28px);
-  width: 90%;
-  max-width: 420px;
-  max-height: 80vh;
+  /* Fluid sizing: hugs small phones, breathes on desktop, never overflows */
+  width: min(100%, 420px);
+  max-height: 82vh;
+  max-height: min(86dvh, 720px);
   overflow-y: auto;
+  overscroll-behavior: contain;
   box-shadow: 
     0 4px 30px rgba(0, 0, 0, 0.15),
     0 30px 70px rgba(0, 0, 0, 0.25),

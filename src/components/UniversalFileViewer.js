@@ -5,9 +5,9 @@ import ReactMarkdown from "react-markdown";
 import { safeCopyText } from "../utils/clipboard";
 import {
   FaTimes, FaDownload, FaCopy, FaExternalLinkAlt, FaSearchPlus, FaSearchMinus,
-  FaCompress, FaFilePdf, FaFileImage, FaFileVideo, FaFileAudio, FaFileCode,
+  FaCompress, FaExpand, FaFilePdf, FaFileImage, FaFileVideo, FaFileAudio, FaFileCode,
   FaFileWord, FaFileExcel, FaFilePowerpoint, FaFileArchive, FaFileAlt, FaFile,
-  FaPlay, FaPause, FaUndo, FaRedo, FaVolumeUp, FaVolumeMute
+  FaPlay, FaPause, FaUndo, FaRedo, FaVolumeUp, FaVolumeMute, FaPhotoVideo, FaWindowRestore
 } from "react-icons/fa";
 
 /* ═══════════════ ANIMATIONS ═══════════════ */
@@ -25,12 +25,19 @@ const spin = keyframes` to { transform: rotate(360deg); } `;
 const ViewerShell = styled.div`
   position: fixed;
   inset: 0;
+  /* True full-screen on phones: dvh tracks dynamic toolbars, fill-available covers iOS Safari */
+  height: 100vh;
+  height: 100dvh;
   background: #06070b;
   z-index: 999999;
   display: flex;
   flex-direction: column;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   animation: ${fadeIn} 0.2s ease;
+
+  @supports (-webkit-touch-callout: none) {
+    height: -webkit-fill-available;
+  }
 `;
 
 const ViewerHeader = styled.div`
@@ -44,7 +51,7 @@ const ViewerHeader = styled.div`
   background: rgba(17, 19, 30, 0.92);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgba(255,255,255,0.07);
 
   @media (max-width: 600px) {
     height: 52px;
@@ -118,8 +125,8 @@ const ActionButton = styled.button`
   font-size: 0.75rem;
   font-weight: 700;
   transition: all 0.16s ease;
-  background: ${(p) => (p.$danger ? "#ef4444" : "rgba(255,255,255,0.06)")};
-  border: 1px solid ${(p) => (p.$danger ? "#ef4444" : "rgba(255,255,255,0.1)")};
+  background: ${(p) => (p.$danger ? "#ef4444" : "rgba(255,255,255,0.055)")};
+  border: 1px solid ${(p) => (p.$danger ? "#ef4444" : "rgba(255,255,255,0.07)")};
   color: #fff;
 
   &:hover {
@@ -135,13 +142,19 @@ const ActionButton = styled.button`
 `;
 
 const ViewerBody = styled.div`
-  flex: 1;
+  width: 100%;
+  height: 100%;
+  flex: 1 1 auto;
+  min-width: 0;
   min-height: 0;
   position: relative;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: auto;
+  flex-direction: column;
+  /* Unpadded kinds (web/pdf/office…) stretch edge-to-edge; padded media
+     keeps its centered presentation. */
+  align-items: ${(p) => (p.$pad === false ? "stretch" : "center")};
+  justify-content: ${(p) => (p.$pad === false ? "stretch" : "center")};
+  overflow: ${(p) => (p.$pad === false ? "hidden" : "auto")};
   background:
     radial-gradient(circle at 20% 10%, rgba(79,70,229,0.06) 0%, transparent 40%),
     radial-gradient(circle at 80% 90%, rgba(14,165,233,0.05) 0%, transparent 40%),
@@ -254,8 +267,8 @@ const AudioCard = styled.div`
     width: 42px;
     height: 42px;
     border-radius: 50%;
-    border: 1px solid rgba(255,255,255,0.1);
-    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.07);
+    background: rgba(255,255,255,0.08);
     color: rgba(255,255,255,0.85);
     display: flex;
     align-items: center;
@@ -264,7 +277,7 @@ const AudioCard = styled.div`
     font-size: 0.85rem;
     transition: all 0.15s ease;
 
-    &:hover { background: rgba(255,255,255,0.12); transform: translateY(-1px); }
+    &:hover { background: rgba(255,255,255,0.08); transform: translateY(-1px); }
     &.play {
       width: 54px;
       height: 54px;
@@ -306,12 +319,33 @@ const AudioCard = styled.div`
 `;
 
 const DocFrame = styled.iframe`
+  display: block;
   width: 100%;
   height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
   border: 0;
   background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 24px 70px rgba(0,0,0,0.6);
+`;
+
+const WebFrameContainer = styled.div`
+  position: relative;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex: 1 1 auto;
+  overflow: hidden;
+  background: #fff;
 `;
 
 const CodePane = styled.div`
@@ -321,7 +355,7 @@ const CodePane = styled.div`
   overflow: auto;
   background: #0c0d14;
   border-radius: 12px;
-  border: 1px solid rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.06);
   font-family: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
   font-size: 0.82rem;
   line-height: 1.62;
@@ -330,7 +364,7 @@ const CodePane = styled.div`
     padding: 16px 12px;
     background: #08090f;
     color: #3f4657;
-    border-right: 1px solid rgba(255,255,255,0.06);
+    border-right: 1px solid rgba(255,255,255,0.055);
     user-select: none;
     text-align: right;
     position: sticky;
@@ -351,7 +385,7 @@ const MarkdownPane = styled.div`
   max-height: 100%;
   overflow-y: auto;
   background: rgba(15,17,28,0.85);
-  border: 1px solid rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.07);
   border-radius: 14px;
   padding: 28px 32px;
   color: #dbe4f0;
@@ -378,10 +412,10 @@ const MarkdownPane = styled.div`
     border-radius: 0 8px 8px 0;
   }
   table { border-collapse: collapse; width: 100%; margin: 0.8em 0; }
-  th, td { border: 1px solid rgba(255,255,255,0.12); padding: 7px 12px; text-align: left; }
-  th { background: rgba(255,255,255,0.05); }
+  th, td { border: 1px solid rgba(255,255,255,0.08); padding: 7px 12px; text-align: left; }
+  th { background: rgba(255,255,255,0.08); }
   img { max-width: 100%; border-radius: 10px; }
-  hr { border: none; border-top: 1px solid rgba(255,255,255,0.1); margin: 1.4em 0; }
+  hr { border: none; border-top: 1px solid rgba(255,255,255,0.07); margin: 1.4em 0; }
 `;
 
 const CsvTableWrap = styled.div`
@@ -390,7 +424,7 @@ const CsvTableWrap = styled.div`
   overflow: auto;
   background: #0c0d14;
   border-radius: 12px;
-  border: 1px solid rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.07);
 
   table {
     border-collapse: collapse;
@@ -399,7 +433,7 @@ const CsvTableWrap = styled.div`
     color: #dbe4f0;
   }
   th, td {
-    border: 1px solid rgba(255,255,255,0.09);
+    border: 1px solid rgba(255,255,255,0.07);
     padding: 8px 14px;
     text-align: left;
     white-space: nowrap;
@@ -421,7 +455,7 @@ const CsvTableWrap = styled.div`
 const FallbackCard = styled.div`
   width: min(430px, calc(100vw - 32px));
   background: linear-gradient(145deg, rgba(23,25,40,0.97), rgba(13,14,24,0.99));
-  border: 1px solid rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.07);
   border-radius: 20px;
   padding: 30px 26px;
   text-align: center;
@@ -461,7 +495,7 @@ const LoadingPane = styled.div`
     width: 38px;
     height: 38px;
     border-radius: 50%;
-    border: 3px solid rgba(255,255,255,0.12);
+    border: 3px solid rgba(255,255,255,0.08);
     border-top-color: #818cf8;
     animation: ${spin} 0.8s linear infinite;
   }
@@ -490,7 +524,7 @@ const ZoomHud = styled.div`
   background: rgba(10,12,20,0.85);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  border: 1px solid rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.07);
   border-radius: 14px;
   padding: 6px 8px;
   z-index: 5;
@@ -500,7 +534,7 @@ const ZoomHud = styled.div`
     height: 32px;
     border-radius: 9px;
     border: none;
-    background: rgba(255,255,255,0.07);
+    background: rgba(255,255,255,0.06);
     color: #fff;
     cursor: pointer;
     display: flex;
@@ -877,13 +911,89 @@ export default function UniversalFileViewer({ url, name, type, size, mode, embed
   const kind = useMemo(() => (mode === "web" ? "web" : detectKind(name, type)), [mode, name, type]);
   const meta = KIND_META[kind] || KIND_META.unknown;
   const ext = extOf(name);
+  const shellRef = useRef(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const videoRef = useRef(null);
+  const pipSupported = typeof document !== "undefined" && "pictureInPictureEnabled" in document && document.pictureInPictureEnabled;
+  const handlePip = useCallback(async () => {
+    const v = videoRef.current;
+    if (!v) return;
+    try {
+      if (document.pictureInPictureElement === v) {
+        await document.exitPictureInPicture();
+      } else {
+        await v.requestPictureInPicture();
+        toast.success("📺 Playing in Picture-in-picture");
+      }
+    } catch (e) {
+      toast.error("Picture-in-picture isn't available for this video");
+    }
+  }, []);
 
-  // Esc to close
+  // Floating window for OPENED WEBSITES via the Document Picture-in-Picture
+  // API (Chromium). The page loads fresh inside the always-on-top mini
+  // window; cookies/session are shared so logged-in sites stay logged in.
+  const webPipSupported = typeof window !== "undefined" && "documentPictureInPicture" in window;
+  const handleWebPip = useCallback(async () => {
+    try {
+      if (!webPipSupported) throw new Error("unsupported");
+      const pipWin = await window.documentPictureInPicture.requestWindow({
+        width: 520,
+        height: 360
+      });
+      // Copy theme colors so the mini window blends with our dark UI
+      const doc = pipWin.document;
+      doc.body.style.margin = "0";
+      doc.body.style.background = "#06070b";
+      doc.body.style.overflow = "hidden";
+      const frame = doc.createElement("iframe");
+      frame.src = url;
+      frame.allow = "autoplay; clipboard-write; encrypted-media; picture-in-picture; fullscreen";
+      frame.referrerPolicy = "strict-origin-when-cross-origin";
+      frame.style.cssText = "width:100%;height:100%;border:0;display:block;background:#fff;";
+      doc.body.appendChild(frame);
+      pipWin.addEventListener("pagehide", () => {
+        try { frame.src = "about:blank"; } catch (e2) {}
+      });
+      toast.success("📺 Floating window opened");
+    } catch (e) {
+      toast.error("Floating window isn't supported in this browser");
+    }
+  }, [url, webPipSupported]);
+  // Desktop-mode emulation: render the page in a wide virtual viewport and scale
+  // it down, so phones get the DESKTOP layout instead of a squeezed mobile one.
+
+  // Track native fullscreen state (user can also exit via Esc/F11)
   useEffect(() => {
-    const onKey = (e) => { if (e.key === "Escape") onClose?.(); };
+    const onFsChange = () => setIsFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener("fullscreenchange", onFsChange);
+    return () => document.removeEventListener("fullscreenchange", onFsChange);
+  }, []);
+
+  // Esc: exit fullscreen first; only close the viewer when not fullscreen
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "Escape") {
+        if (document.fullscreenElement) {
+          document.exitFullscreen?.().catch(() => {});
+        } else {
+          onClose?.();
+        }
+      }
+    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
+
+  const toggleFullscreen = useCallback(() => {
+    try {
+      if (document.fullscreenElement) {
+        document.exitFullscreen?.().catch(() => {});
+      } else if (shellRef.current?.requestFullscreen) {
+        shellRef.current.requestFullscreen().catch(() => {});
+      }
+    } catch { /* unsupported — no-op */ }
+  }, []);
 
   const handleDownload = useCallback(() => {
     try {
@@ -894,6 +1004,7 @@ export default function UniversalFileViewer({ url, name, type, size, mode, embed
       document.body.appendChild(a);
       a.click();
       a.remove();
+      toast.success("⬇ Download started");
     } catch {
       window.open(url, "_blank");
     }
@@ -907,16 +1018,34 @@ export default function UniversalFileViewer({ url, name, type, size, mode, embed
 
   const isBlob = typeof url === "string" && url.startsWith("blob:");
 
+  // Web links have no filename — show a clean host/path identity instead
+  const displayName = useMemo(() => {
+    if (name) return name;
+    if (kind === "web") {
+      try {
+        const u = new URL(url);
+        const path = u.pathname.replace(/\/+$/, "");
+        const tail = path && path !== "/" ? ` — ${decodeURIComponent(path.split("/").pop() || "")}` : "";
+        return `${u.hostname.replace(/^www\./, "")}${tail}`.slice(0, 60);
+      } catch (e) {
+        return url.slice(0, 50);
+      }
+    }
+    return "Untitled file";
+  }, [name, kind, url]);
+
   const renderBody = () => {
     switch (kind) {
       case "web":
         return (
-          <DocFrame
-            src={embedSrc || url}
-            title={`Web Previewer — ${name || url}`}
-            allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
-            allowFullScreen
-          />
+          <WebFrameContainer>
+            <DocFrame
+              src={embedSrc || url}
+              title={`Web Previewer — ${displayName || name || url}`}
+              allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share; fullscreen"
+              referrerPolicy="strict-origin-when-cross-origin"
+            />
+          </WebFrameContainer>
         );
 
       case "image":
@@ -925,7 +1054,7 @@ export default function UniversalFileViewer({ url, name, type, size, mode, embed
       case "video":
         return (
           <MediaStage style={{ width: "100%" }}>
-            <StyledVideo src={url} controls autoPlay playsInline />
+            <StyledVideo ref={videoRef} src={url} controls autoPlay playsInline />
           </MediaStage>
         );
 
@@ -1007,12 +1136,13 @@ export default function UniversalFileViewer({ url, name, type, size, mode, embed
     kind === "office" || kind === "archive" || kind === "binary" || kind === "unknown";
 
   return (
-    <ViewerShell onClick={onClose}>
+    <ViewerShell ref={shellRef} onClick={onClose}>
+      {!isFullscreen && (
       <ViewerHeader onClick={(e) => e.stopPropagation()}>
         <FileIdentity $tintBg={meta.bg} $tintFg={meta.fg}>
           <div className="icon-badge">{meta.icon}</div>
           <div className="meta">
-            <div className="name">{name || "Untitled file"}</div>
+            <div className="name">{displayName}</div>
             <div className="sub">
               {meta.label}{size ? ` · ${formatBytes(size)}` : ""}{type && kind !== type ? ` · ${type}` : ""}
             </div>
@@ -1035,11 +1165,45 @@ export default function UniversalFileViewer({ url, name, type, size, mode, embed
               <FaExternalLinkAlt />
             </ActionButton>
           )}
+          {kind === "video" && pipSupported && (
+            <ActionButton onClick={handlePip} title="Picture-in-picture">
+              <FaPhotoVideo />
+            </ActionButton>
+          )}
+          {kind === "web" && webPipSupported && (
+            <ActionButton onClick={handleWebPip} title="Pop out to floating window">
+              <FaWindowRestore />
+            </ActionButton>
+          )}
+          <ActionButton onClick={toggleFullscreen} title={isFullscreen ? "Exit fullscreen (Esc)" : "Fullscreen"}>
+            {isFullscreen ? <FaCompress /> : <FaExpand />}
+          </ActionButton>
           <ActionButton $danger onClick={onClose} title="Close (Esc)">
             <FaTimes />
           </ActionButton>
         </HeaderActions>
       </ViewerHeader>
+      )}
+
+      {isFullscreen && (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }}
+          title="Exit fullscreen (Esc)"
+          style={{
+            position: "absolute", top: 14, right: 14, zIndex: 20,
+            display: "flex", alignItems: "center", gap: 7,
+            background: "rgba(10,12,20,.72)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)",
+            border: "1px solid rgba(255,255,255,.14)", color: "rgba(255,255,255,.85)",
+            fontSize: ".74rem", fontWeight: 700, padding: "7px 14px", borderRadius: 999,
+            cursor: "pointer", boxShadow: "0 8px 26px rgba(0,0,0,.4)"
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(30,34,52,.9)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(10,12,20,.72)"; }}
+        >
+          <FaCompress size={12} /> Exit
+        </button>
+      )}
 
       <ViewerBody $pad={paddedBody} onClick={(e) => e.stopPropagation()}>
         {renderBody()}

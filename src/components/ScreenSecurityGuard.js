@@ -3,98 +3,147 @@ import { toast } from "react-toastify";
 
 export default function ScreenSecurityGuard({ children }) {
   const [isBlurred, setIsBlurred] = useState(false);
+  const [blackoutFlash, setBlackoutFlash] = useState(false);
 
   useEffect(() => {
-    // 1. Prevent Right-Click Context Menu globally
+    let flashTimer = null;
+    let clipboardLockUntil = 0;
+
+    // Brief full-blackout so anything captured mid-attempt shows black.
+    const triggerBlackout = () => {
+      setBlackoutFlash(true);
+      if (flashTimer) clearTimeout(flashTimer);
+      flashTimer = setTimeout(() => setBlackoutFlash(false), 900);
+    };
+
+    // Best-effort: poison the OS clipboard so a PrintScreen capture gets nothing useful.
+    const poisonClipboard = () => {
+      clipboardLockUntil = Date.now() + 4000;
+      const poison = () => {
+        try {
+          navigator.clipboard?.writeText(
+            "🔒 [CHEPRABAI] Protected content — screenshots are not allowed."
+          );
+        } catch (e) {}
+      };
+      poison();
+      setTimeout(poison, 350);
+    };
+
+    const announceAttempt = (source) => {
+      triggerBlackout();
+      poisonClipboard();
+      window.dispatchEvent(new CustomEvent("cheprabai:screenshot-attempt", { detail: { source } }));
+      toast.error("🔒 Screenshots & recording are disabled for security.", { toastId: "sec-shot" });
+    };
+
+    // 1. Block right-click context menu globally
     const handleContextMenu = (e) => {
       e.preventDefault();
       return false;
     };
 
-    // 2. Intercept Key Combinations for Screenshots, Snipping, Printing & DevTools
+    // 2. Intercept every key path a browser can actually see.
+    //    NOTE: OS-level captures (Win+Shift+S, macOS system shortcuts, phone recorders)
+    //    never reach the page — deterrence for those is handled by watermarks in-call.
     const handleKeyDown = (e) => {
       const key = e.key ? e.key.toLowerCase() : "";
       const isCmdOrCtrl = e.metaKey || e.ctrlKey;
-      const isShift = e.shiftKey;
 
-      // PrintScreen key (Windows / Linux)
+      // PrintScreen key (Windows / Linux) — also fires on some snip tools
       if (key === "printscreen" || e.keyCode === 44) {
         e.preventDefault();
         e.stopPropagation();
-        try {
-          if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText("");
-          }
-        } catch (err) {}
-        toast.error("🔒 Screenshots are disabled for security.", { toastId: "sec-ps" });
+        announceAttempt("printscreen");
         return false;
       }
 
-      // Mac Screenshot Shortcuts: Cmd + Shift + 3, Cmd + Shift + 4, Cmd + Shift + 5
-      if (e.metaKey && isShift && (key === "3" || key === "4" || key === "5")) {
+      // Mac screenshot combos that DO reach the page (browser must be focused)
+      if (e.metaKey && e.shiftKey && (key === "3" || key === "4" || key === "5" || key === "6")) {
         e.preventDefault();
         e.stopPropagation();
-        toast.error("🔒 Screenshots are disabled for security.", { toastId: "sec-mac" });
+        announceAttempt("mac-shortcut");
         return false;
       }
 
-      // Windows Snipping Tool / Edge Screenshot: Ctrl + Shift + S / Cmd + Shift + S
-      if (isCmdOrCtrl && isShift && key === "s") {
+      // Snipping Tool / Edge web capture: Ctrl/Cmd + Shift + S
+      if (isCmdOrCtrl && e.shiftKey && key === "s") {
         e.preventDefault();
         e.stopPropagation();
-        toast.error("🔒 Snipping tool is disabled for security.", { toastId: "sec-snip" });
+        announceAttempt("snip");
         return false;
       }
 
-      // Print shortcut: Ctrl + P / Cmd + P
+      // Print dialog: Ctrl/Cmd + P
       if (isCmdOrCtrl && key === "p") {
         e.preventDefault();
         e.stopPropagation();
-        toast.error("🔒 Printing page is disabled for security.", { toastId: "sec-print" });
+        toast.error("🔒 Printing is disabled for security.", { toastId: "sec-print" });
         return false;
       }
 
-      // Save page shortcut: Ctrl + S / Cmd + S
-      if (isCmdOrCtrl && key === "s" && !isShift) {
+      // Save page: Ctrl/Cmd + S
+      if (isCmdOrCtrl && !e.shiftKey && key === "s") {
         e.preventDefault();
         e.stopPropagation();
-        toast.error("🔒 Saving page is disabled for security.", { toastId: "sec-save" });
+        toast.error("🔒 Saving the page is disabled for security.", { toastId: "sec-save" });
         return false;
       }
 
-      // DevTools Inspection: F12 or Cmd+Alt+I / Ctrl+Shift+I
-      if (key === "f12" || (isCmdOrCtrl && isShift && key === "i") || (e.metaKey && e.altKey && key === "i")) {
+      // DevTools: F12 / Cmd+Opt+I / Ctrl+Shift+I / Cmd+Opt+C / Ctrl+Shift+C
+      const devtools =
+        key === "f12" ||
+        (isCmdOrCtrl && e.shiftKey && (key === "i" || key === "c" || key === "j")) ||
+        (e.metaKey && e.altKey && (key === "i" || key === "c" || key === "j"));
+      if (devtools) {
         e.preventDefault();
         e.stopPropagation();
         return false;
       }
+      return undefined;
     };
 
-    // 3. Auto-blur/Blackout when window loses focus (protects against background screen recorders & OS app switcher)
+    // While the clipboard lock is active, keep re-poisoning so delayed pastes get junk
+    const clipboardGuard = setInterval(() => {
+      if (Date.now() < clipboardLockUntil) {
+        try {
+          navigator.clipboard?.writeText("🔒 [CHEPRABAI] Protected content.");
+        } catch (err) {}
+      }
+    }, 500);
+
+    // 3. Auto-blackout when the window loses focus or is hidden
     const handleBlur = () => {
       if (window.__cheprabaiScreenSharing) return;
       setIsBlurred(true);
     };
-
-    const handleFocus = () => {
-      setIsBlurred(false);
-    };
-
+    const handleFocus = () => setIsBlurred(false);
     const handleVisibilityChange = () => {
-      if (document.hidden && !window.__cheprabaiScreenSharing) {
-        setIsBlurred(true);
-      } else {
-        setIsBlurred(false);
-      }
+      if (document.hidden && !window.__cheprabaiScreenSharing) setIsBlurred(true);
+      else setIsBlurred(false);
     };
 
-    // Attach global listeners
     window.addEventListener("contextmenu", handleContextMenu);
     window.addEventListener("keydown", handleKeyDown, true);
     window.addEventListener("keyup", handleKeyDown, true);
     window.addEventListener("blur", handleBlur);
     window.addEventListener("focus", handleFocus);
     document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    // 4. Print blackout — printing the page produces a warning page instead of content
+    const styleEl = document.createElement("style");
+    styleEl.id = "cheprabai-print-guard";
+    styleEl.textContent = `
+      @media print {
+        .screen-protected-content { display: none !important; }
+        body::after {
+          content: "🔒 Printing this page is disabled.";
+          display: flex; align-items: center; justify-content: center;
+          height: 100vh; font-size: 28px; font-weight: 700;
+        }
+      }
+    `;
+    document.head.appendChild(styleEl);
 
     return () => {
       window.removeEventListener("contextmenu", handleContextMenu);
@@ -103,12 +152,14 @@ export default function ScreenSecurityGuard({ children }) {
       window.removeEventListener("blur", handleBlur);
       window.removeEventListener("focus", handleFocus);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
+      clearInterval(clipboardGuard);
+      if (flashTimer) clearTimeout(flashTimer);
+      document.getElementById("cheprabai-print-guard")?.remove();
     };
   }, []);
 
   return (
     <div style={{ position: "relative", minHeight: "100vh", width: "100%" }}>
-      {/* Content wrapper with CSS protection */}
       <div
         className="screen-protected-content"
         style={{
@@ -123,7 +174,12 @@ export default function ScreenSecurityGuard({ children }) {
         {children}
       </div>
 
-      {/* Security Overlay when window loses focus or recording is attempted */}
+      {/* Instant black frame on any capture attempt the page can see */}
+      {blackoutFlash && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 1000000, background: "#000" }} />
+      )}
+
+      {/* Shield overlay while unfocused / hidden */}
       {isBlurred && (
         <div
           style={{
@@ -161,7 +217,7 @@ export default function ScreenSecurityGuard({ children }) {
             Protected Content Shield
           </h2>
           <p style={{ margin: 0, fontSize: "0.85rem", opacity: 0.6, maxWidth: 360, lineHeight: 1.5 }}>
-            Screen content is hidden while window is unfocused to protect against unauthorized screenshots & screen recording.
+            Screen content is hidden while the window is not focused to protect against unauthorized screenshots &amp; screen recording.
           </p>
         </div>
       )}

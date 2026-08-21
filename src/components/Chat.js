@@ -36,7 +36,7 @@ import { AiOutlineClose } from "react-icons/ai";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import ThemeSwitcher from "./ThemeSwitcher";
-import { ArrowRight, Copy, Hash, KeyRound, LockKeyhole, ShieldCheck, Upload, UserRound } from "lucide-react";
+import { ArrowRight, Copy, FileUp, Hash, KeyRound, LockKeyhole, MonitorUp, ShieldCheck, Timer, Upload, UserRound, Video } from "lucide-react";
 import {
   generateKeyFromSecret,
   encryptMessage,
@@ -208,9 +208,15 @@ const RoomActions = styled.div`
   gap: clamp(8px, 2vw, 14px);
   flex-wrap: nowrap;
   flex-shrink: 0;
+  /* Safety valve on tiny screens: swipeable instead of overflowing the header */
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  &::-webkit-scrollbar { display: none; }
 
   @media (max-width: 480px) {
     gap: 6px;
+    padding-bottom: 2px;
   }
 
   @media (max-width: 375px) {
@@ -270,6 +276,8 @@ const MessageContainer = styled.div`
 const MessageBubble = styled.div`
   max-width: ${(p) => (p.$isSystem ? "80%" : "clamp(70%, 80vw, 80%)")};
   padding: ${(p) => (p.$isSystem ? "6px 14px" : p.$isFile ? "0" : "10px 14px")};
+  touch-action: pan-y;
+  will-change: transform;
 
   background: ${(p) =>
     p.$isSystem ? "transparent" :
@@ -281,7 +289,7 @@ const MessageBubble = styled.div`
 
   border: ${(p) =>
     p.$isSystem ? "none" :
-      p.$isSender ? "0.5px solid rgba(255, 255, 255, 0.05)" :
+      p.$isSender ? "0.5px solid rgba(255,255,255,0.08)" :
         "0.5px solid var(--chakra-colors-border)"};
 
   border-radius: ${(p) =>
@@ -308,8 +316,8 @@ const MessageBubble = styled.div`
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 
   &:hover {
-    transform: ${(p) => (p.$isSystem ? "none" : "translateY(-1px)")};
-    box-shadow: ${(p) => p.$isSystem ? "none" : "0 10px 30px rgba(0,0,0,0.25)"};
+    transform: ${(p) => (p.$isSystem || p.$isFile ? "none" : "translateY(-1px)")};
+    box-shadow: ${(p) => p.$isSystem || p.$isFile ? "none" : "0 10px 30px rgba(0,0,0,0.25)"};
   }
 
   @media (max-width: 480px) {
@@ -329,14 +337,31 @@ const MessageBubble = styled.div`
   }
 
   ${p => p.$isFile && `
-    width: min(75vw, 420px);
-    max-width: min(75vw, 420px);
+    width: min(78vw, 480px);
+    max-width: min(78vw, 480px);
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
     padding: 0 !important;
-    border-color: rgba(255,255,255,.05);
     overflow: hidden;
+
+    /* media-first: no bubble chrome around attachments */
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    border-radius: 16px !important;
+  `}
+
+  ${p => p.$highlighted && `
+    animation: chakraMsgHighlight 2.4s cubic-bezier(0.4, 0, 0.2, 1);
+    @keyframes chakraMsgHighlight {
+      0%, 100% { outline: 0 solid transparent; outline-offset: 0; }
+      10% { outline: 4px solid rgba(16, 185, 129, 0.9); outline-offset: 3px; }
+      35% { outline-color: rgba(16, 185, 129, 0.55); }
+      82% { outline-color: rgba(16, 185, 129, 0.3); }
+    }
   `}
 `;
 
@@ -415,6 +440,12 @@ const BubbleActionButton = styled.button`
     transform: translateY(-1.5px) scale(1.05);
   }
 
+  @media (max-width: 600px) {
+    width: 36px;
+    height: 36px;
+    font-size: 0.9rem;
+  }
+
   &:active {
     transform: scale(0.95);
   }
@@ -427,7 +458,7 @@ const BubbleActionButton = styled.button`
     transform: translateX(-50%) translateY(4px);
     background: rgba(15, 15, 25, 0.95);
     backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255,255,255,0.07);
     color: #fff;
     padding: 5px 9px;
     border-radius: 8px;
@@ -470,16 +501,221 @@ const TypingIndicator = styled.div`
   box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.4);
 `;
 
+/* ── Whisper Network: signals crossing the dark ──
+   One lightweight canvas replaces the old blurred aurora/star/orbit stack:
+   identity-less nodes drift silently, faint lines bind neighbours, and
+   light pulses travel between them — messages with no sender, no face,
+   no trace. Single rAF loop, DPR-capped at 1.5, pauses when the tab is
+   hidden, and renders a single static frame under prefers-reduced-motion. */
+function WhisperNetwork() {
+  const canvasRef = useRef(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !canvas.parentElement) return undefined;
+    const ctx = canvas.getContext("2d");
+    const parent = canvas.parentElement;
+
+    let raf = 0;
+    let running = true;
+    let width = 1;
+    let height = 1;
+    let nodes = [];
+    let pulses = [];
+    let frameCount = 0;
+    let brandA = "#ff3f5e";
+    const LINK_DIST = 132;
+    const LINK_D2 = LINK_DIST * LINK_DIST;
+
+    const readColors = () => {
+      try {
+        const cs = getComputedStyle(document.documentElement);
+        brandA = cs.getPropertyValue("--chakra-colors-brandPrimary").trim() || brandA;
+      } catch (e) { /* keep fallback */ }
+    };
+
+    const targetCount = () =>
+      Math.max(14, Math.min(28, Math.round((width * height) / 44000)));
+
+    const seedNodes = () => {
+      nodes = Array.from({ length: targetCount() }, () => ({
+        x: Math.random() * width,
+        y: Math.random() * height,
+        vx: (Math.random() - 0.5) * 13,
+        vy: (Math.random() - 0.5) * 13,
+        r: 1.2 + Math.random() * 1.5,
+        hub: Math.random() < 0.16
+      }));
+    };
+
+    const resize = () => {
+      const rect = parent.getBoundingClientRect();
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+      width = Math.max(1, rect.width);
+      height = Math.max(1, rect.height);
+      canvas.width = Math.round(width * dpr);
+      canvas.height = Math.round(height * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      if (nodes.length !== targetCount()) seedNodes();
+    };
+
+    const drawFrame = (dt) => {
+      // Drift + soft wrap
+      for (const n of nodes) {
+        n.x += n.vx * dt;
+        n.y += n.vy * dt;
+        if (n.x < -24) n.x = width + 24; else if (n.x > width + 24) n.x = -24;
+        if (n.y < -24) n.y = height + 24; else if (n.y > height + 24) n.y = -24;
+      }
+
+      ctx.clearRect(0, 0, width, height);
+
+      // Proximity links — the quiet mesh
+      ctx.lineWidth = 1;
+      for (let i = 0; i < nodes.length; i++) {
+        const a = nodes[i];
+        for (let j = i + 1; j < nodes.length; j++) {
+          const b = nodes[j];
+          const dx = a.x - b.x;
+          const dy = a.y - b.y;
+          const d2 = dx * dx + dy * dy;
+          if (d2 < LINK_D2) {
+            const t = 1 - Math.sqrt(d2) / LINK_DIST;
+            ctx.strokeStyle = "rgba(148,163,184," + (t * 0.15).toFixed(3) + ")";
+            ctx.beginPath();
+            ctx.moveTo(a.x, a.y);
+            ctx.lineTo(b.x, b.y);
+            ctx.stroke();
+          }
+        }
+      }
+
+      // Nodes — no avatars, no names
+      for (const n of nodes) {
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, n.hub ? n.r + 0.7 : n.r, 0, 6.2832);
+        ctx.fillStyle = n.hub ? brandA : "rgba(203,213,225,.5)";
+        ctx.fill();
+      }
+
+      // Spawn a travelling pulse between two linked nodes
+      if (nodes.length > 3 && pulses.length < 7) {
+        const a = nodes[(Math.random() * nodes.length) | 0];
+        let best = null;
+        let bd = Infinity;
+        for (const c of nodes) {
+          if (c === a) continue;
+          const dx = a.x - c.x;
+          const dy = a.y - c.y;
+          const dd = dx * dx + dy * dy;
+          if (dd > 900 && dd < LINK_D2 && dd < bd) { bd = dd; best = c; }
+        }
+        if (best) pulses.push({ a, b: best, t: 0, sp: 0.5 + Math.random() * 0.55 });
+      }
+
+      // Pulses — words in motion
+      pulses = pulses.filter((p) => p.t < 1);
+      for (const p of pulses) {
+        p.t += p.sp * dt;
+        const t = Math.max(0, Math.min(1, p.t));
+        const ease = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+        const x = p.a.x + (p.b.x - p.a.x) * ease;
+        const y = p.a.y + (p.b.y - p.a.y) * ease;
+        const alpha = Math.sin(Math.PI * t);
+        ctx.beginPath();
+        ctx.arc(x, y, 4.2, 0, 6.2832);
+        ctx.fillStyle = brandA.startsWith("#")
+          ? hexGlow(brandA, alpha * 0.25)
+          : "rgba(129,140,248," + (alpha * 0.25).toFixed(3) + ")";
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(x, y, 1.7, 0, 6.2832);
+        ctx.fillStyle = "rgba(255,255,255," + (alpha * 0.95).toFixed(3) + ")";
+        ctx.fill();
+      }
+    };
+
+    const step = (ts) => {
+      if (!running) return;
+      if ((frameCount++ & 255) === 0) readColors(); // cheap theme sync
+      drawFrame(0.016);
+      raf = requestAnimationFrame(step);
+    };
+
+    resize();
+    readColors();
+
+    const reduceMotion =
+      window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    if (reduceMotion) {
+      drawFrame(0); // one calm frame, no loop
+      const onResizeStatic = () => { resize(); drawFrame(0); };
+      window.addEventListener("resize", onResizeStatic);
+      return () => window.removeEventListener("resize", onResizeStatic);
+    }
+
+    raf = requestAnimationFrame(step);
+
+    const handleVisibility = () => {
+      if (document.hidden) {
+        running = false;
+        cancelAnimationFrame(raf);
+      } else if (!running) {
+        running = true;
+        raf = requestAnimationFrame(step);
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    let resizeTimer = null;
+    const debouncedResize = () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(resize, 150);
+    };
+    window.addEventListener("resize", debouncedResize);
+
+    return () => {
+      running = false;
+      cancelAnimationFrame(raf);
+      clearTimeout(resizeTimer);
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("resize", debouncedResize);
+    };
+  }, []);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      aria-hidden="true"
+      style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none", zIndex: 0 }}
+    />
+  );
+}
+
+function hexGlow(hex, alpha) {
+  const h = hex.replace("#", "");
+  const full = h.length === 3 ? h.split("").map((c) => c + c).join("") : h;
+  const r = parseInt(full.slice(0, 2), 16) || 129;
+  const g = parseInt(full.slice(2, 4), 16) || 140;
+  const b = parseInt(full.slice(4, 6), 16) || 248;
+  return "rgba(" + r + "," + g + "," + b + "," + alpha.toFixed(3) + ")";
+}
+
+
 const LandingWrapper = styled.div`
   display: flex;
   justify-content: center;
   align-items: center;
-  width: 100vw;
+  width: 100%;
+  max-width: 100vw;
   min-height: 100dvh;
   height: auto;
   position: relative;
   background: var(--chakra-colors-bg);
-  overflow: auto;
+  /* FX layers bleed past the edges by design — clip them, never scroll */
+  overflow: hidden auto;
+  overscroll-behavior: contain;
   padding: 24px 0;
   box-sizing: border-box;
 
@@ -522,20 +758,175 @@ const LandingWrapper = styled.div`
   }
 `;
 
-const FloatingBlob = styled.div`
-  position: absolute;
-  width: clamp(250px, 45vw, 500px);
-  height: clamp(250px, 45vw, 500px);
-  background: radial-gradient(circle, var(--chakra-colors-brandSecondary) 0%, transparent 75%);
-  opacity: 0.1;
-  filter: blur(60px);
-  bottom: 10%;
-  right: 10%;
-  animation: floating-glow-2 18s infinite alternate ease-in-out;
-  pointer-events: none;
-  z-index: 0;
+/* ── Landing FX system: aurora, starfield, parallax bubbles, orbit rings ── */
+const bubbleFloat = keyframes`
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-22px) rotate(-2deg); }
+`;
+const bubbleFloatAlt = keyframes`
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  40% { transform: translate(9px, -13px) rotate(1.6deg); }
+  70% { transform: translate(-7px, -20px) rotate(-1.2deg); }
+`;
+const bubbleIn = keyframes`
+  from { opacity: 0; transform: translateY(26px) scale(0.86); filter: blur(6px); }
+  to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+`;
 
-  @media (max-width: 480px) { display: none; }
+const FeatureBubble = styled.div`
+  position: absolute;
+  left: ${(p) => p.$x};
+  top: ${(p) => p.$y};
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0;
+  /* depth-layered mouse parallax — outer wrapper owns parallax */
+  transform: translate3d(
+    calc(var(--mx, 0) * ${(p) => p.$depth}px),
+    calc(var(--my, 0) * ${(p) => p.$depth}px), 0);
+  animation: ${bubbleIn} 1s cubic-bezier(0.16, 1, 0.3, 1) ${(p) => p.$delay}s forwards;
+  will-change: transform;
+
+  @media (max-width: 1100px) {
+    ${(p) => p.$hideSm && "display: none;"}
+  }
+
+  /* On phones the card is the hero — floating pills just add noise */
+  @media (max-width: 640px) {
+    display: none;
+  }
+`;
+
+const BubblePill = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 16px 10px 11px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(22,25,38,0.72), rgba(22,25,38,0.55));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 14px 44px rgba(0, 0, 0, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 0 34px ${(p) => p.$tint}30,
+    inset 0 0 22px ${(p) => p.$tint}12;
+  color: var(--chakra-colors-textPrimary);
+  font-size: 0.78rem;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  animation: ${(p) => (p.$alt ? bubbleFloatAlt : bubbleFloat)} ${(p) => p.$dur}s ease-in-out ${(p) => p.$delay}s infinite;
+
+  .fb-icon {
+    width: 27px;
+    height: 27px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: linear-gradient(135deg, ${(p) => p.$tint}33, ${(p) => p.$tint}14);
+    color: ${(p) => p.$tint};
+    box-shadow: inset 0 0 0 1px ${(p) => p.$tint}44, 0 0 18px ${(p) => p.$tint}40;
+    flex-shrink: 0;
+  }
+
+  @media (max-width: 600px) {
+    padding: 8px 12px 8px 9px;
+    font-size: 0.68rem;
+    gap: 7px;
+    .fb-icon { width: 23px; height: 23px; }
+    .fb-icon svg { width: 11px; height: 11px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) { animation: none; }
+`;
+
+const titleShimmer = keyframes`
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+`;
+const ShimmerTitle = styled.span`
+  background: linear-gradient(110deg,
+    var(--chakra-colors-textPrimary) 38%,
+    var(--chakra-colors-brandPrimary) 47%,
+    var(--chakra-colors-brandAccent, var(--chakra-colors-brandSecondary)) 50%,
+    var(--chakra-colors-brandPrimary) 53%,
+    var(--chakra-colors-textPrimary) 62%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: ${titleShimmer} 5.5s linear infinite;
+
+  @media (prefers-reduced-motion: reduce) { animation: none; }
+`;
+
+const cardEnter = keyframes`
+  from { opacity: 0; transform: perspective(1200px) rotateX(7deg) translateY(34px) scale(0.965); filter: blur(8px); }
+  to { opacity: 1; transform: perspective(1200px) rotateX(0) translateY(0) scale(1); filter: blur(0); }
+`;
+const glowBreath = keyframes`
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 0.95; }
+`;
+/* The join card is a "beacon": a slow breathing dual-gone glow behind it and
+   one soft light beam flowing along its edge — no hard rotating shapes. */
+const CardHalo = styled.div`
+  position: absolute;
+  inset: -34px;
+  border-radius: 40px;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 30% 20%, color-mix(in srgb, var(--chakra-colors-brandPrimary) 55%, transparent) 0%, transparent 62%),
+    radial-gradient(ellipse at 75% 85%, color-mix(in srgb, var(--chakra-colors-brandAccent, var(--chakra-colors-brandSecondary)) 50%, transparent) 0%, transparent 58%);
+  filter: blur(46px);
+  opacity: 0.5;
+  animation: beaconBreathe 7s ease-in-out infinite;
+
+  @keyframes beaconBreathe {
+    0%, 100% { opacity: 0.34; transform: scale(0.985); }
+    50% { opacity: 0.6; transform: scale(1.015); }
+  }
+
+  @media (max-width: 600px) { filter: blur(34px); inset: -26px; }
+  @media (prefers-reduced-motion: reduce) { animation: none; opacity: 0.3; }
+`;
+
+/* Soft light flowing along the card edge — blurred so it reads as a moving
+   sheen of light, not a spinning polygon. */
+const CardBeam = styled.div`
+  position: absolute;
+  inset: -1px;
+  border-radius: 23px;
+  z-index: 2;
+  pointer-events: none;
+  padding: 1px;
+  overflow: hidden;
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: -120%;
+    background: conic-gradient(from 0deg,
+      transparent 0deg,
+      transparent 300deg,
+      color-mix(in srgb, var(--chakra-colors-brandPrimary) 80%, #fff) 340deg,
+      transparent 360deg);
+    animation: beamOrbit 8s linear infinite;
+  }
+
+  /* mask everything except a hairline ring at the card edge */
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+          mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+          mask-composite: exclude;
+
+  @keyframes beamOrbit { to { transform: rotate(360deg); } }
+
+  @media (max-width: 600px) { display: none; }
+  @media (prefers-reduced-motion: reduce) {
+    &::before { animation-duration: 240s; }
+  }
 `;
 
 const JoinContainer = styled.div`
@@ -550,6 +941,11 @@ const JoinContainer = styled.div`
   padding: clamp(20px, 4vw, 32px);
   border-radius: 22px;
   border: 1px solid var(--chakra-colors-border);
+  animation: ${cardEnter} 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
   box-shadow: 
     0 4px 30px rgba(0, 0, 0, 0.15),
     0 25px 60px rgba(0, 0, 0, 0.25),
@@ -575,6 +971,8 @@ const JoinContainer = styled.div`
 `;
 
 const JoinInput = styled.input`
+  grid-row: 2;
+  grid-column: 1;
   width: 100%;
   box-sizing: border-box;
   min-height: 46px;
@@ -617,6 +1015,7 @@ const JoinInput = styled.input`
 const JoinField = styled.div`
   position: relative;
   display: grid;
+  grid-template-columns: 1fr;
   gap: 7px;
 `;
 
@@ -628,13 +1027,17 @@ const JoinLabel = styled.label`
 `;
 
 const FieldIcon = styled.span`
-  position: absolute;
-  left: 15px;
-  bottom: 16px;
+  /* Shares the input's grid cell — self-centers vertically at any height */
+  grid-row: 2;
+  grid-column: 1;
+  justify-self: start;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  margin-left: 15px;
   color: var(--chakra-colors-textSecondary);
-  display: grid;
-  place-items: center;
   pointer-events: none;
+  z-index: 1;
 `;
 
 const AvatarPicker = styled.label`
@@ -655,6 +1058,8 @@ const AvatarPicker = styled.label`
 const PasswordInputContainer = styled.div`
   position: relative;
   width: 100%;
+  grid-row: 2;
+  grid-column: 1;
 `;
 
 const PasswordInput = styled(JoinInput)`
@@ -1089,15 +1494,9 @@ const MessageInputContainer = styled.div`
   box-sizing: border-box;
 
   @media (max-width: 600px) {
-    padding: 8px 12px;
-    padding-bottom: calc(8px + var(--safe-bottom));
+    padding: 10px 10px;
+    padding-bottom: calc(10px + var(--safe-bottom));
     gap: 8px;
-  }
-
-  @media (max-width: 480px) {
-    padding: 6px 8px;
-    padding-bottom: calc(6px + var(--safe-bottom));
-    gap: 6px;
   }
 `;
 
@@ -1122,10 +1521,10 @@ const InputPill = styled.div`
     background: var(--chakra-colors-surface);
   }
 
-  @media (max-width: 480px) {
-    padding: 2px 6px;
-    border-radius: 20px;
-    gap: 2px;
+  @media (max-width: 600px) {
+    padding: 5px 8px;
+    border-radius: 24px;
+    gap: 4px;
   }
 `;
 
@@ -1178,10 +1577,10 @@ const IconButton = styled.button`
     transform: scale(0.95);
   }
 
-  @media (max-width: 480px) {
-    width: 28px;
-    height: 28px;
-    font-size: 0.95rem;
+  @media (max-width: 600px) {
+    width: 34px;
+    height: 34px;
+    font-size: 1.05rem;
   }
 `;
 
@@ -1252,9 +1651,10 @@ const MessageInput = styled.textarea`
     opacity: 0.6;
   }
 
-  @media (max-width: 480px) {
-    padding: 6px 8px;
-    font-size: 0.9rem;
+  @media (max-width: 600px) {
+    padding: 10px 12px;
+    font-size: 1.05rem;
+    line-height: 1.45;
   }
 `;
 
@@ -1290,15 +1690,15 @@ const SendButton = styled.button`
   &:disabled {
     opacity: 0.4;
     cursor: not-allowed;
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(255,255,255,0.08);
     color: rgba(255, 255, 255, 0.3);
     box-shadow: none;
   }
 
-  @media (max-width: 480px) {
-    width: 34px;
-    height: 34px;
-    font-size: 0.85rem;
+  @media (max-width: 600px) {
+    width: 40px;
+    height: 40px;
+    font-size: 0.95rem;
   }
 `;
 const slideUpMobile = keyframes`
@@ -1730,7 +2130,7 @@ const GifCard = styled.div`
   overflow: hidden;
   cursor: pointer;
   background: rgba(255, 255, 255, 0.025);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255,255,255,0.055);
   transition: transform 0.2s ease, box-shadow 0.25s ease, border-color 0.25s ease;
 
   &:before {
@@ -1738,7 +2138,7 @@ const GifCard = styled.div`
     position: absolute;
     inset: 0;
     border-radius: inherit;
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.07);
     pointer-events: none;
     transition: box-shadow 0.25s ease;
   }
@@ -1755,7 +2155,7 @@ const GifCard = styled.div`
     }
 
     &:hover:before {
-      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12), 0 0 0 4px rgba(255, 255, 255, 0.06);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08), 0 0 0 4px rgba(255,255,255,0.055);
     }
   }
 `;
@@ -1899,7 +2299,7 @@ const RoomInfoTrigger = styled.button`
   cursor: pointer;
 
   // &:hover, &:focus-visible {
-  //   background: rgba(255, 255, 255, 0.07);
+  //   background: rgba(255,255,255,0.06);
   //   outline: none;
   // }
 `;
@@ -1946,7 +2346,7 @@ function ReplyAttachmentPreview({ reply, roomKey }) {
   }
   if (url && (reply.gif || reply.file?.type?.startsWith("image/"))) return <img src={url} alt="Replied attachment" style={{ width: 42, height: 42, objectFit: "cover", borderRadius: 7, flexShrink: 0 }} />;
   if (url && reply.file?.type?.startsWith("video/")) return <video src={`${url}#t=0.1`} muted playsInline style={{ width: 42, height: 42, objectFit: "cover", borderRadius: 7, flexShrink: 0 }} />;
-  return reply.file ? <div style={{ width: 42, height: 42, borderRadius: 7, flexShrink: 0, display: "grid", placeItems: "center", background: "rgba(255,255,255,.09)", fontSize: ".62rem", fontWeight: 800 }}>FILE</div> : null;
+  return reply.file ? <div style={{ width: 42, height: 42, borderRadius: 7, flexShrink: 0, display: "grid", placeItems: "center", background: "rgba(255,255,255,.04)", fontSize: ".62rem", fontWeight: 800 }}>FILE</div> : null;
 }
 
 const EMOJI_DATA = [
@@ -2178,7 +2578,7 @@ function PremiumEmojiPicker({ onSelect, onClose, isMobile }) {
                 padding: "4px 6px",
                 cursor: "pointer",
                 borderRadius: 6,
-                backgroundColor: activeCategory === cat.category ? "rgba(255,255,255,.08)" : "transparent",
+                backgroundColor: activeCategory === cat.category ? "rgba(255,255,255,.04)" : "transparent",
                 transition: "all 0.15s ease"
               }}
               title={cat.category}
@@ -2247,7 +2647,7 @@ function LinkPreviewCard({ url, renderLinkActions }) {
         const data = await res.json();
         if (!cancelled) setPreview(data);
       } catch {
-        // Silently fail — we'll show a basic link card
+        if (!cancelled) setPreview(null);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -2256,57 +2656,52 @@ function LinkPreviewCard({ url, renderLinkActions }) {
     return () => { cancelled = true; };
   }, [url]);
 
+  // Deterministic brand gradient from the hostname — every domain gets its own hue
+  let host = "link";
+  try { host = new URL(url).hostname.replace(/^www\./, ""); } catch (e) {}
+  let hash = 0;
+  for (let i = 0; i < host.length; i++) hash = (hash * 31 + host.charCodeAt(i)) >>> 0;
+  const hue = hash % 360;
+  const grad = `linear-gradient(135deg, hsla(${hue}, 70%, 45%, .55), hsla(${(hue + 60) % 360}, 70%, 35%, .65))`;
+  const favicon = `https://www.google.com/s2/favicons?sz=64&domain=${host}`;
+
   if (loading) {
     return (
-      <div style={{
-        marginTop: 10,
-        padding: 14,
-        borderRadius: 12,
-        background: "rgba(255,255,255,.04)",
-        border: "1px solid rgba(255,255,255,.08)"
-      }}>
-        <div style={{ fontWeight: 600, wordBreak: "break-all", fontSize: "0.9rem" }}>{url}</div>
-        <div style={{ marginTop: 8, fontSize: "0.75rem", opacity: 0.5 }}>Loading preview…</div>
+      <div style={{ marginTop: 10, borderRadius: 14, overflow: "hidden", border: "1px solid rgba(255,255,255,.07)" }}>
+        <div className="skel-shimmer" style={{ height: 130, background: `hsla(${hue}, 30%, 18%, .6)` }} />
+        <div style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
+          <div className="skel-shimmer" style={{ height: 9, width: "34%", borderRadius: 5 }} />
+          <div className="skel-shimmer" style={{ height: 13, width: "82%", borderRadius: 5 }} />
+          <div className="skel-shimmer" style={{ height: 11, width: "64%", borderRadius: 5 }} />
+        </div>
       </div>
     );
   }
 
-  if (!preview || (!preview.title && !preview.description)) {
-    return (
-      <div style={{
-        marginTop: 10,
-        padding: 14,
-        borderRadius: 12,
-        background: "rgba(255,255,255,.04)",
-        border: "1px solid rgba(255,255,255,.08)"
-      }}>
-        <div style={{ fontWeight: 600, wordBreak: "break-all" }}>{url}</div>
-        {renderLinkActions(url)}
-      </div>
-    );
-  }
+  const hasOg = preview && (preview.title || preview.description);
 
   return (
     <a
       href={url}
       target="_blank"
       rel="noopener noreferrer"
+      onClick={(e) => e.stopPropagation()}
       style={{
         display: "block",
         marginTop: 10,
         borderRadius: 14,
-        background: "rgba(255,255,255,.03)",
+        background: "rgba(255,255,255,.04)",
         border: "1px solid rgba(255,255,255,.08)",
         overflow: "hidden",
         textDecoration: "none",
         color: "inherit",
-        transition: "border-color 0.2s ease",
+        transition: "border-color 0.2s ease, transform 0.2s ease",
         cursor: "pointer"
       }}
-      onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,.2)"; }}
+      onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(129,140,248,.55)"; }}
       onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,.08)"; }}
     >
-      {preview.image && (
+      {hasOg && preview.image ? (
         <img
           src={preview.image}
           alt=""
@@ -2319,19 +2714,40 @@ function LinkPreviewCard({ url, renderLinkActions }) {
           }}
           onError={(e) => { e.target.style.display = "none"; }}
         />
+      ) : (
+        !hasOg && (
+          <div style={{
+            position: "relative",
+            height: 96,
+            background: grad,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 12
+          }}>
+            <img src={favicon} alt="" width={34} height={34} style={{ borderRadius: 9, background: "rgba(255,255,255,.92)", padding: 4 }} onError={(e) => { e.target.style.visibility = "hidden"; }} />
+            <span style={{ fontWeight: 800, fontSize: "1.05rem", color: "#fff", textShadow: "0 2px 10px rgba(0,0,0,.4)", letterSpacing: "-.01em" }}>{host}</span>
+            <span style={{ position: "absolute", inset: 0, background: "radial-gradient(circle at 80% -20%, rgba(255,255,255,.25), transparent 50%)" }} />
+          </div>
+        )
       )}
       <div style={{ padding: "12px 14px" }}>
-        {preview.siteName && (
-          <div style={{ fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: ".06em", fontWeight: 700, opacity: 0.5, marginBottom: 4 }}>
-            {preview.siteName}
-          </div>
-        )}
-        {preview.title && (
+        <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: hasOg ? 4 : 0 }}>
+          {!hasOg && null}
+          {preview?.siteName || hasOg ? (
+            <div style={{ fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: ".06em", fontWeight: 700, opacity: 0.5 }}>
+              {preview.siteName || host}
+            </div>
+          ) : (
+            <div style={{ fontSize: "0.78rem", opacity: 0.75, wordBreak: "break-all", fontWeight: 600 }}>{url}</div>
+          )}
+        </div>
+        {hasOg && preview.title && (
           <div style={{ fontWeight: 700, fontSize: "0.95rem", lineHeight: 1.35, marginBottom: 4 }}>
             {preview.title}
           </div>
         )}
-        {preview.description && (
+        {hasOg && preview.description && (
           <div style={{
             fontSize: "0.82rem",
             opacity: 0.7,
@@ -2344,11 +2760,54 @@ function LinkPreviewCard({ url, renderLinkActions }) {
             {preview.description}
           </div>
         )}
+        <div onClick={(e) => e.preventDefault()}>{renderLinkActions(url)}</div>
       </div>
     </a>
   );
 }
 
+// Social embeds (Instagram/YouTube/TikTok…) load heavy iframes that autoplay on
+// render. Show a lightweight poster instead and mount the iframe only on play.
+function ClickToPlayEmbed({ embed, aspectRatio }) {
+  const src = useMemo(() => {
+    if (!embed) return "";
+    return embed.src;
+  }, [embed]);
+
+  const frameStyle = {
+    aspectRatio: aspectRatio || "16 / 9",
+    height: "auto",
+    display: "block",
+    width: "100%",
+    minHeight: "300px",
+    border: 0
+  };
+
+  if (!embed) return null;
+
+  // Direct embed in a borderless glass shell — media edge-to-edge
+  return (
+    <div
+      style={{
+        borderRadius: 16,
+        overflow: "hidden",
+        background: "rgba(255,255,255,0.045)",
+        backdropFilter: "blur(20px) saturate(1.2)",
+        WebkitBackdropFilter: "blur(20px) saturate(1.2)",
+        boxShadow: "0 14px 44px rgba(0,0,0,0.38), inset 0 1px 0 rgba(255,255,255,0.08)",
+      }}
+    >
+      <iframe
+        title={embed.type || "embed"}
+        src={src}
+        loading="lazy"
+        allow="encrypted-media; picture-in-picture; fullscreen"
+        referrerPolicy="strict-origin-when-cross-origin"
+        style={frameStyle}
+      />
+    </div>
+  );
+}
 const PlaybackSpeedAudio = ({ file, decryptedUrl }) => {
   const audioElRef = React.useRef(null);
   const canvasRef = React.useRef(null);
@@ -2477,7 +2936,7 @@ const PlaybackSpeedAudio = ({ file, decryptedUrl }) => {
   };
 
   return (
-    <div style={{ background: "rgba(20, 20, 30, 0.35)", borderRadius: "14px", padding: "12px", border: "1px solid rgba(255,255,255,0.06)", width: "100%", boxSizing: "border-box" }}>
+    <div style={{ background: "rgba(20, 20, 30, 0.35)", borderRadius: "14px", padding: "12px", border: "1px solid rgba(255,255,255,0.055)", width: "100%", boxSizing: "border-box" }}>
       <audio
         ref={audioElRef}
         src={decryptedUrl}
@@ -2497,8 +2956,8 @@ const PlaybackSpeedAudio = ({ file, decryptedUrl }) => {
           type="button"
           onClick={cycleSpeed}
           style={{
-            background: "rgba(255,255,255,0.06)",
-            border: "1px solid rgba(255,255,255,0.1)",
+            background: "rgba(255,255,255,0.055)",
+            border: "1px solid rgba(255,255,255,0.07)",
             borderRadius: "12px",
             color: "var(--chakra-colors-brandPrimary)",
             fontSize: "0.72rem",
@@ -2589,7 +3048,7 @@ const MediaSkeleton = ({ isMobile }) => (
   <div style={{
     width: "100%",
     height: isMobile ? "240px" : "300px",
-    background: "linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.03) 75%)",
+    background: "linear-gradient(90deg, rgba(255,255,255,0.055) 25%, rgba(255,255,255,0.07) 50%, rgba(255,255,255,0.055) 75%)",
     backgroundSize: "200% 100%",
     animation: "shimmer 1.5s infinite",
     borderRadius: 12,
@@ -2601,7 +3060,7 @@ const MediaSkeleton = ({ isMobile }) => (
     color: "rgba(255,255,255,0.4)"
   }}>
     <div style={{
-      width: 24, height: 24, border: "2px solid rgba(255,255,255,0.1)",
+      width: 24, height: 24, border: "2px solid rgba(255,255,255,0.07)",
       borderTop: "2px solid var(--chakra-colors-brandPrimary)",
       borderRadius: "50%", animation: "spin 0.8s linear infinite"
     }} />
@@ -2691,6 +3150,21 @@ const UploadProgressCard = ({ file, isMobile }) => {
     phase === "finalizing" ? "Finishing up…" :
     "Sending";
 
+  // Live ETA from measured transfer speed
+  let etaText = "";
+  if (uploading && speed > 0 && file.total) {
+    const remainSec = Math.max(0, (file.total - (file.loaded || 0)) / speed);
+    if (isFinite(remainSec)) {
+      if (remainSec < 5) etaText = "almost there";
+      else if (remainSec < 60) etaText = `${Math.round(remainSec)}s left`;
+      else {
+        const mm = Math.floor(remainSec / 60);
+        const ss = Math.round(remainSec % 60);
+        etaText = `${mm}m${ss ? ` ${ss}s` : ""} left`;
+      }
+    }
+  }
+
   // ── Media variant: big live preview with progress woven over it ──
   if (hasPreview) {
     return (
@@ -2699,7 +3173,7 @@ const UploadProgressCard = ({ file, isMobile }) => {
         width: "100%",
         overflow: "hidden",
         borderRadius: 14,
-        border: "1px solid rgba(255,255,255,0.08)",
+        border: "1px solid rgba(255,255,255,0.07)",
         background: "#0d0e15"
       }}>
         <style>{`
@@ -2772,7 +3246,7 @@ const UploadProgressCard = ({ file, isMobile }) => {
               <div style={{
                 width: "100%", height: "100%", borderRadius: "50%",
                 background: "rgba(13,14,21,0.82)", backdropFilter: "blur(6px)",
-                border: "1px solid rgba(255,255,255,0.12)",
+                border: "1px solid rgba(255,255,255,0.08)",
                 display: "flex", alignItems: "center", justifyContent: "center"
               }}>
                 {uploading ? (
@@ -2800,7 +3274,7 @@ const UploadProgressCard = ({ file, isMobile }) => {
         </div>
 
         {/* footer: name + progress bar + status */}
-        <div style={{ padding: isMobile ? "10px 13px 11px" : "12px 15px 13px", background: "rgba(255,255,255,0.03)" }}>
+        <div style={{ padding: isMobile ? "10px 13px 11px" : "12px 15px 13px", background: "rgba(255,255,255,0.055)" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 8 }}>
             <span style={{
               fontSize: isMobile ? ".78rem" : ".84rem", fontWeight: 650, color: "#fff",
@@ -2815,7 +3289,7 @@ const UploadProgressCard = ({ file, isMobile }) => {
             )}
           </div>
 
-          <div style={{ height: 4, borderRadius: 4, background: "rgba(255,255,255,0.09)", overflow: "hidden", position: "relative" }}>
+          <div style={{ height: 4, borderRadius: 4, background: "rgba(255,255,255,0.07)", overflow: "hidden", position: "relative" }}>
             {indeterminate ? (
               <div style={{
                 position: "absolute", top: 0, bottom: 0, left: 0, width: "25%", borderRadius: 4,
@@ -2831,12 +3305,12 @@ const UploadProgressCard = ({ file, isMobile }) => {
             )}
           </div>
 
-          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 7 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 7, gap: 8 }}>
             <span style={{ fontSize: ".68rem", fontWeight: 600, color: uploading ? "rgba(255,255,255,0.55)" : meta.to }}>
               {statusText}
             </span>
-            <span style={{ fontSize: ".68rem", color: "rgba(255,255,255,0.42)", fontVariantNumeric: "tabular-nums" }}>
-              {file.total ? amountText : formatBytes(file.size)}
+            <span style={{ fontSize: ".68rem", color: "rgba(255,255,255,0.42)", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
+              {file.total ? amountText : formatBytes(file.size)}{etaText ? ` · ${etaText}` : ""}
             </span>
           </div>
         </div>
@@ -2851,8 +3325,8 @@ const UploadProgressCard = ({ file, isMobile }) => {
       width: "100%",
       overflow: "hidden",
       borderRadius: 14,
-      border: "1px solid rgba(255,255,255,0.07)",
-      background: "linear-gradient(160deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02))",
+      border: "1px solid rgba(255,255,255,0.06)",
+      background: "linear-gradient(160deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02))",
       boxShadow: "0 4px 24px rgba(0,0,0,0.18)"
     }}>
       <style>{`
@@ -2912,12 +3386,12 @@ const UploadProgressCard = ({ file, isMobile }) => {
         <div style={{
           width: isMobile ? 44 : 50, height: isMobile ? 44 : 50, flexShrink: 0,
           borderRadius: "50%", position: "relative",
-          background: `conic-gradient(${meta.from} ${eased * 3.6}deg, rgba(255,255,255,0.07) ${eased * 3.6}deg)`,
+          background: `conic-gradient(${meta.from} ${eased * 3.6}deg, rgba(255,255,255,0.06) ${eased * 3.6}deg)`,
           display: "flex", alignItems: "center", justifyContent: "center"
         }}>
           <div style={{
             position: "absolute", inset: 3, borderRadius: "50%",
-            background: "#14151d", border: "1px solid rgba(255,255,255,0.06)"
+            background: "#14151d", border: "1px solid rgba(255,255,255,0.055)"
           }} />
           {uploading ? (
             <span style={{
@@ -2940,7 +3414,7 @@ const UploadProgressCard = ({ file, isMobile }) => {
       </div>
 
       <div style={{ padding: isMobile ? "0 14px 11px" : "0 16px 13px" }}>
-        <div style={{ height: 4, borderRadius: 4, background: "rgba(255,255,255,0.07)", overflow: "hidden", position: "relative" }}>
+        <div style={{ height: 4, borderRadius: 4, background: "rgba(255,255,255,0.06)", overflow: "hidden", position: "relative" }}>
           {indeterminate ? (
             <div style={{
               position: "absolute", top: 0, bottom: 0, left: 0, width: "25%", borderRadius: 4,
@@ -2974,7 +3448,7 @@ const UploadProgressCard = ({ file, isMobile }) => {
           </span>
           {uploading && (
             <span style={{ fontSize: ".68rem", color: "rgba(255,255,255,0.42)", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
-              {speed > 0 ? `${formatBytes(speed)}/s · ` : ""}{amountText}
+              {speed > 0 ? `${formatBytes(speed)}/s · ` : ""}{amountText}{etaText ? ` · ${etaText}` : ""}
             </span>
           )}
         </div>
@@ -2983,7 +3457,7 @@ const UploadProgressCard = ({ file, isMobile }) => {
       <div style={{ position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none", borderRadius: 14 }}>
         <div style={{
           position: "absolute", top: 0, bottom: 0, left: 0, width: "28%",
-          background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent)",
+          background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent)",
           animation: "upc-sweep 2.2s ease-in-out infinite"
         }} />
       </div>
@@ -3121,7 +3595,7 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile, setViewer 
     return (
       <div ref={containerRef} style={{ display: "flex", alignItems: "center", gap: "10px", padding: "12px", background: "rgba(255,255,255,0.02)", borderRadius: "10px" }}>
         <div style={{
-          width: 16, height: 16, border: "2px solid rgba(255,255,255,0.1)",
+          width: 16, height: 16, border: "2px solid rgba(255,255,255,0.07)",
           borderTop: "2px solid var(--chakra-colors-brandPrimary)",
           borderRadius: "50%", animation: "spin 0.8s linear infinite"
         }} />
@@ -3179,7 +3653,7 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile, setViewer 
             style={{ width: "100%", height: "auto", maxHeight: isMobile ? "240px" : "300px", objectFit: "cover", display: mediaLoaded ? "block" : "none", borderRadius: 0, background: "rgba(0,0,0,0.25)" }}
           />
           {mediaLoaded && (
-            <div style={{ padding: "8px 12px", background: "rgba(10, 10, 10, 0.75)", backdropFilter: "blur(12px)", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.06)", gap: 6 }}>
+            <div style={{ padding: "8px 12px", background: "rgba(10, 10, 10, 0.75)", backdropFilter: "blur(12px)", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.055)", gap: 6 }}>
               <span style={{ fontSize: "0.72rem", color: "#eee", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, marginRight: 4, fontWeight: 500 }}>{file.name}</span>
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 {!file.viewOnce && (
@@ -3188,7 +3662,7 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile, setViewer 
                       type="button"
                       title="Copy to clipboard"
                       onClick={(e) => { e.stopPropagation(); copyImageToClipboard(decryptedUrl); }}
-                      style={{ background: "rgba(255,255,255,0.12)", border: "none", color: "#fff", cursor: "pointer", borderRadius: 6, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center" }}
+                      style={{ background: "rgba(255,255,255,0.08)", border: "none", color: "#fff", cursor: "pointer", borderRadius: 6, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center" }}
                     >
                       <Copy size={14} />
                     </button>
@@ -3196,7 +3670,7 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile, setViewer 
                       type="button"
                       title="Download"
                       onClick={(e) => { e.stopPropagation(); downloadMedia(decryptedUrl, file.name); }}
-                      style={{ background: "rgba(255,255,255,0.12)", border: "none", color: "#fff", cursor: "pointer", borderRadius: 6, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center" }}
+                      style={{ background: "rgba(255,255,255,0.08)", border: "none", color: "#fff", cursor: "pointer", borderRadius: 6, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center" }}
                     >
                       <FaDownload size={12} />
                     </button>
@@ -3206,7 +3680,7 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile, setViewer 
                   type="button"
                   className="expand-btn"
                   onClick={(e) => { e.stopPropagation(); setFullscreen({ ...file, url: decryptedUrl }); }}
-                  style={{ background: "rgba(255,255,255,0.12)", border: "none", color: "#fff", cursor: "pointer", borderRadius: 6, padding: "0 8px", height: 28, fontSize: "0.72rem", fontWeight: "bold" }}
+                  style={{ background: "rgba(255,255,255,0.08)", border: "none", color: "#fff", cursor: "pointer", borderRadius: 6, padding: "0 8px", height: 28, fontSize: "0.72rem", fontWeight: "bold" }}
                 >
                   Expand
                 </button>
@@ -3227,7 +3701,7 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile, setViewer 
             style={{ width: "100%", height: "auto", maxHeight: isMobile ? "240px" : "300px", objectFit: "contain", display: mediaLoaded ? "block" : "none", background: "#000" }}
           />
           {mediaLoaded && (
-            <div style={{ padding: "8px 12px", background: "rgba(10, 10, 10, 0.75)", backdropFilter: "blur(12px)", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.06)", gap: 6 }}>
+            <div style={{ padding: "8px 12px", background: "rgba(10, 10, 10, 0.75)", backdropFilter: "blur(12px)", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.055)", gap: 6 }}>
               <span style={{ fontSize: "0.72rem", color: "#eee", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, marginRight: 4, fontWeight: 500 }}>{file.name}</span>
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 {!file.viewOnce && (
@@ -3236,7 +3710,7 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile, setViewer 
                       type="button"
                       title="Copy video link"
                       onClick={(e) => { e.stopPropagation(); copyLinkToClipboard(decryptedUrl); }}
-                      style={{ background: "rgba(255,255,255,0.12)", border: "none", color: "#fff", cursor: "pointer", borderRadius: 6, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center" }}
+                      style={{ background: "rgba(255,255,255,0.08)", border: "none", color: "#fff", cursor: "pointer", borderRadius: 6, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center" }}
                     >
                       <Copy size={14} />
                     </button>
@@ -3244,7 +3718,7 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile, setViewer 
                       type="button"
                       title="Download"
                       onClick={(e) => { e.stopPropagation(); downloadMedia(decryptedUrl, file.name); }}
-                      style={{ background: "rgba(255,255,255,0.12)", border: "none", color: "#fff", cursor: "pointer", borderRadius: 6, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center" }}
+                      style={{ background: "rgba(255,255,255,0.08)", border: "none", color: "#fff", cursor: "pointer", borderRadius: 6, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center" }}
                     >
                       <FaDownload size={12} />
                     </button>
@@ -3254,7 +3728,7 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile, setViewer 
                   type="button"
                   className="expand-btn"
                   onClick={(e) => { e.stopPropagation(); setFullscreen({ ...file, url: decryptedUrl }); }}
-                  style={{ background: "rgba(255,255,255,0.12)", border: "none", color: "#fff", cursor: "pointer", borderRadius: 6, padding: "0 8px", height: 28, fontSize: "0.72rem", fontWeight: "bold" }}
+                  style={{ background: "rgba(255,255,255,0.08)", border: "none", color: "#fff", cursor: "pointer", borderRadius: 6, padding: "0 8px", height: 28, fontSize: "0.72rem", fontWeight: "bold" }}
                 >
                   Fullscreen
                 </button>
@@ -3266,15 +3740,15 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile, setViewer 
         <div
           style={{
             display: "flex", alignItems: "center", gap: "10px", padding: "12px",
-            background: "rgba(255, 255, 255, 0.02)", borderRadius: "14px", border: "1px solid rgba(255, 255, 255, 0.06)",
+            background: "rgba(255, 255, 255, 0.02)", borderRadius: "14px", border: "1px solid rgba(255,255,255,0.055)",
             boxShadow: "0 2px 8px rgba(0,0,0,0.12)", minWidth: 0, width: "100%", boxSizing: "border-box"
           }}
         >
           <div style={{
             display: "flex", alignItems: "center", justifyContent: "center",
             width: 38, height: 38, borderRadius: "10px",
-            background: "rgba(255, 255, 255, 0.04)",
-            border: "1px solid rgba(255, 255, 255, 0.08)",
+            background: "rgba(255,255,255,0.07)",
+            border: "1px solid rgba(255,255,255,0.07)",
             fontSize: "1.3rem", flexShrink: 0
           }}>
             {file.name.match(/\.(xlsx|xls|csv)$/i) ? "📊" :
@@ -3294,7 +3768,7 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile, setViewer 
             <button
               type="button"
               onClick={() => setViewer({ url: decryptedUrl, name: file.name, type: file.type || getFileType(file) })}
-              style={{ background: "rgba(255,255,255,0.12)", border: "none", color: "#fff", cursor: "pointer", borderRadius: 8, padding: "0 10px", height: 28, fontSize: "0.72rem", fontWeight: "bold" }}
+              style={{ background: "rgba(255,255,255,0.08)", border: "none", color: "#fff", cursor: "pointer", borderRadius: 8, padding: "0 10px", height: 28, fontSize: "0.72rem", fontWeight: "bold" }}
             >
               Preview
             </button>
@@ -3406,10 +3880,97 @@ export default function ChatRoom() {
   const [pendingFiles, setPendingFiles] = useState([]);
   const [sendAsViewOnce, setSendAsViewOnce] = useState(false);
   const [replyTo, setReplyTo] = useState(null);
+  // Code block mode: wraps the next sent message in ``` fences so pasted code
+  // always renders as a real code block with formatting intact.
+  const [codeBlockMode, setCodeBlockMode] = useState(false);
+  const [codeViewer, setCodeViewer] = useState(null);
+  const [codePane, setCodePane] = useState("code");
+  useEffect(() => {
+    // Inline onclick inside dangerouslySetInnerHTML can't reach React handlers,
+    // and pasting code INTO attribute strings breaks on quotes (require('fs')…).
+    // So blocks register their payload here and buttons pass only a safe id.
+    window.__cheprabaiCodeRegistry = {};
+    let seq = 0;
+    window.__cheprabaiRegisterCode = (code, lang) => {
+      const id = "cb" + ++seq;
+      window.__cheprabaiCodeRegistry[id] = { code, lang };
+      return id;
+    };
+    window.__cheprabaiOpenCodeById = (id) => {
+      const entry = window.__cheprabaiCodeRegistry[id];
+      if (!entry) return;
+      const isHtml =
+        (entry.lang || "").toLowerCase() === "html" ||
+        /^\s*<!doctype\s+html/i.test(entry.code) ||
+        /^\s*<html[\s>]/i.test(entry.code);
+      setCodePane(isHtml ? "ui" : "code");
+      setCodeViewer({ code: entry.code, lang: entry.lang || "", html: isHtml });
+    };
+    window.__cheprabaiCopyCodeById = (id, btn) => {
+      const entry = window.__cheprabaiCodeRegistry[id];
+      if (!entry) return;
+      const done = () => {
+        if (!btn) return;
+        btn.innerText = "\u2713 Copied";
+        btn.style.color = "#00bfa5";
+        setTimeout(() => { btn.innerText = "Copy"; btn.style.color = "inherit"; }, 2000);
+      };
+      const notify = () => toast.success("📋 Code copied!");
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(entry.code).then(() => { done(); notify(); }).catch(() => {
+          toast.error("Could not copy code");
+        });
+      } else {
+        const ta = document.createElement("textarea");
+        ta.value = entry.code;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand("copy"); } catch (e) {}
+        document.body.removeChild(ta);
+        done();
+        notify();
+      }
+    };
+    return () => {
+      delete window.__cheprabaiOpenCodeById;
+      delete window.__cheprabaiCopyCodeById;
+      delete window.__cheprabaiRegisterCode;
+      delete window.__cheprabaiCodeRegistry;
+    };
+  }, []);
+  // Swipe-to-reply gesture — user preference, persisted locally (default: on)
+  const [swipeReplyEnabled, setSwipeReplyEnabled] = useState(() => {
+    try { return localStorage.getItem("cheprabai_swipeReply") !== "0"; } catch { return true; }
+  });
+  const toggleSwipeReply = () => setSwipeReplyEnabled(prev => {
+    const next = !prev;
+    try { localStorage.setItem("cheprabai_swipeReply", next ? "1" : "0"); } catch { /* private mode */ }
+    return next;
+  });
   const [reactionPickerFor, setReactionPickerFor] = useState(null);
   const [participantProfiles, setParticipantProfiles] = useState({});
   const [viewedByTarget, setViewedByTarget] = useState(null);
   const messageRefs = useRef({});
+  const [highlightMessageId, setHighlightMessageId] = useState(null);
+  const highlightTimerRef = useRef(null);
+  const jumpToMessage = (id) => {
+    if (!id) return;
+    let el = messageRefs.current[id];
+    if (!el && typeof document !== "undefined" && typeof CSS !== "undefined" && CSS.escape) {
+      el = document.querySelector(`[data-mid="${CSS.escape(String(id))}"]`);
+    }
+    if (!el) {
+      toast.info("Original message is not loaded in this view");
+      return;
+    }
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    setHighlightMessageId(null);
+    requestAnimationFrame(() => setHighlightMessageId(String(id)));
+    clearTimeout(highlightTimerRef.current);
+    highlightTimerRef.current = setTimeout(() => setHighlightMessageId(null), 2600);
+  };
   const [pendingFilesUrls, setPendingFilesUrls] = useState({});
   const pendingFilesUrlsRef = useRef({});
   const leaveRoomNowRef = useRef(null);
@@ -4133,14 +4694,21 @@ export default function ChatRoom() {
         if (videoId) return { type: "tiktok", src: `https://www.tiktok.com/embed/v2/${videoId.split("?")[0]}` };
       }
 
-      // Instagram
+      // Instagram — posts (/p/), reels (/reel/, /reels/) and IGTV (/tv/) each need
+      // their own embed path; forcing a reel into /p/ makes IG show "post removed".
       if (u.hostname.includes("instagram.com")) {
-        const pIndex = u.pathname.split("/").indexOf("p");
-        const reelIndex = u.pathname.split("/").indexOf("reel");
-        const idIndex = pIndex > -1 ? pIndex + 1 : (reelIndex > -1 ? reelIndex + 1 : -1);
-        if (idIndex !== -1) {
-          const id = u.pathname.split("/")[idIndex];
-          return { type: "instagram", src: `https://www.instagram.com/p/${id}/embed` };
+        const segs = u.pathname.split("/").filter(Boolean);
+        let igKind = null;
+        let igId = null;
+        for (let s = 0; s < segs.length - 1; s++) {
+          if (["p", "reel", "reels", "tv"].includes(segs[s])) {
+            igKind = segs[s] === "reels" ? "reel" : segs[s];
+            igId = segs[s + 1];
+            break;
+          }
+        }
+        if (igKind && igId) {
+          return { type: "instagram", src: `https://www.instagram.com/${igKind}/${igId.split("?")[0]}/embed/captioned/` };
         }
       }
 
@@ -4156,6 +4724,59 @@ export default function ChatRoom() {
       if (u.hostname.includes("vimeo.com")) {
         const id = u.pathname.split("/").filter(Boolean).pop();
         if (/^\d+$/.test(id || "")) return { type: "vimeo", src: `https://player.vimeo.com/video/${id}` };
+      }
+
+      // Dailymotion
+      if (u.hostname.includes("dailymotion.com") || u.hostname.includes("dai.ly")) {
+        const id = u.hostname.includes("dai.ly")
+          ? u.pathname.slice(1)
+          : (u.pathname.match(/\/video\/([^_/?]+)/) || [])[1];
+        if (id) return { type: "dailymotion", src: `https://www.dailymotion.com/embed/video/${id.split("?")[0]}` };
+      }
+
+      // Twitch (clips, VODs, live channels — player requires the parent host)
+      if (u.hostname.includes("twitch.tv") || u.hostname.includes("clips.twitch.tv")) {
+        const parent = window.location.hostname;
+        const clip = u.hostname.startsWith("clips")
+          ? u.pathname.slice(1)
+          : (u.pathname.split("/clip/")[1] || "").split("?")[0];
+        if (clip) return { type: "twitch", src: `https://clips.twitch.tv/embed?clip=${clip}&parent=${parent}` };
+        const vid = (u.pathname.match(/\/videos\/(\d+)/) || [])[1];
+        if (vid) return { type: "twitch", src: `https://player.twitch.tv/?video=v${vid}&parent=${parent}` };
+        const channel = u.pathname.replace(/\//g, "");
+        if (channel) return { type: "twitch", src: `https://player.twitch.tv/?channel=${channel}&parent=${parent}` };
+      }
+
+      // Reddit posts & media
+      if (u.hostname.includes("reddit.com")) {
+        const id = (u.pathname.match(/\/comments\/([a-z0-9]+)/i) || [])[1];
+        if (id) return { type: "reddit", src: `https://www.redditmedia.com/mediaembed/${id.split("?")[0]}` };
+      }
+
+      // Pinterest pins
+      if (u.hostname.includes("pinterest.")) {
+        const id = (u.pathname.match(/\/pin\/(\d+)/) || [])[1];
+        if (id) return { type: "pinterest", src: `https://assets.pinterest.com/ext/embed.html?id=${id}` };
+      }
+
+      // SoundCloud tracks & playlists
+      if (u.hostname.includes("soundcloud.com")) {
+        return { type: "soundcloud", src: `https://w.soundcloud.com/player/?url=${encodeURIComponent(u.href)}&color=%236366f1&auto_play=false&hide_related=true&show_comments=false&visual=true` };
+      }
+
+      // Streamable
+      if (u.hostname.includes("streamable.com")) {
+        const id = u.pathname.replace(/\//g, "");
+        if (id) return { type: "streamable", src: `https://streamable.com/e/${id.split("?")[0]}` };
+      }
+
+      // Facebook posts, videos, reels, watch
+      if (u.hostname.includes("facebook.com") || u.hostname.includes("fb.watch")) {
+        const enc = encodeURIComponent(u.href);
+        if (/\/(videos|reel|watch|fb.watch)/.test(u.href)) {
+          return { type: "facebook", src: `https://www.facebook.com/plugins/video.php?href=${enc}&show_text=false` };
+        }
+        return { type: "facebook", src: `https://www.facebook.com/plugins/post.php?href=${enc}&show_text=true` };
       }
 
       // Facebook public videos/posts
@@ -4924,7 +5545,13 @@ export default function ChatRoom() {
     }
     if (!customData && !message.trim()) return;
 
-    let plainPayload = { ...(customData || { text: message }), ...(replyTo && { replyTo }) };
+    // Code block mode: fence the message unless the user already fenced it
+    let textToSend = message;
+    if (codeBlockMode && !message.includes("```")) {
+      textToSend = "```\n" + message + "\n```";
+    }
+
+    let plainPayload = { ...(customData || { text: textToSend }), ...(replyTo && { replyTo }) };
     if (plainPayload.file && keyB64) {
       plainPayload = {
         ...plainPayload,
@@ -4957,15 +5584,24 @@ export default function ChatRoom() {
       ephemeralDuration: roomEphemeralDuration > 0 ? roomEphemeralDuration : DEFAULT_EPHEMERAL_DURATION,
     };
 
-    await new Promise((resolve, reject) => {
-      socketRef.current.emit("sendMessage", outgoingMessage, (result) => {
-        if (result?.success) resolve(result);
-        else reject(new Error(result?.error || "Message delivery was not confirmed."));
+    try {
+      await new Promise((resolve, reject) => {
+        socketRef.current.emit("sendMessage", outgoingMessage, (result) => {
+          if (result?.success) resolve(result);
+          else reject(new Error(result?.error || "Message delivery was not confirmed."));
+        });
       });
-    });
+    } catch (sendErr) {
+      // Server refused the message (room gone, rate limit, stealth block…).
+      // Surface it as a toast — an unhandled rejection here crashes the dev
+      // overlay and makes a normal server response look like the app broke.
+      toast.error(sendErr?.message || "Message could not be delivered.");
+      return;
+    }
 
     if (!customData) {
       setMessage("");
+      setCodeBlockMode(false);
       stopTyping();
     }
     setReplyTo(null);
@@ -5013,6 +5649,65 @@ export default function ChatRoom() {
     setLoadingMore(true);
     socketRef.current.emit("loadMoreMessages", { offset: messages.length });
   }, [loadingMore, hasMoreMessages, messages.length]);
+
+  // ── Swipe-to-reply (Telegram-style gesture) ─────────────────────────────
+  // Drag a message bubble horizontally ~70px to set it as the reply target.
+  // Vertical intent is detected first so normal scrolling is never hijacked.
+  const swipeGesturesRef = useRef({});
+
+  const buildReplyTarget = (m) => ({
+    id: m.id,
+    userName: m.userName,
+    preview: m.file?.viewOnce
+      ? "View-once media"
+      : m.text || m.file?.name || (m.gif ? "GIF" : "Media"),
+    file: m.file?.viewOnce ? { viewOnce: true } : m.file || null,
+    gif: m.file?.viewOnce ? null : m.gif || null,
+  });
+
+  const SWIPE_THRESHOLD = 70;
+  const SWIPE_MAX = 110;
+
+  const handleBubbleTouchStart = (e, key) => {
+    if (!swipeReplyEnabled) return;
+    const t = e.touches[0];
+    swipeGesturesRef.current[key] = { x: t.clientX, y: t.clientY, locked: false, dx: 0 };
+  };
+
+  const handleBubbleTouchMove = (e, key) => {
+    const g = swipeGesturesRef.current[key];
+    if (!g) return;
+    const t = e.touches[0];
+    const dx = t.clientX - g.x;
+    const dy = t.clientY - g.y;
+    if (!g.locked) {
+      if (Math.abs(dx) < 12 && Math.abs(dy) < 12) return;
+      if (Math.abs(dy) > Math.abs(dx)) { delete swipeGesturesRef.current[key]; return; }
+      g.locked = true;
+    }
+    g.dx = Math.max(-SWIPE_MAX, Math.min(SWIPE_MAX, dx));
+    const el = e.currentTarget;
+    el.style.transition = "none";
+    el.style.transform = `translateX(${g.dx}px)`;
+    const armed = Math.abs(g.dx) >= SWIPE_THRESHOLD;
+    el.style.boxShadow = armed
+      ? "0 0 0 2px rgba(129,140,248,0.75), 0 8px 24px rgba(99,102,241,0.25)"
+      : "";
+  };
+
+  const handleBubbleTouchEnd = (e, key, m) => {
+    const g = swipeGesturesRef.current[key];
+    delete swipeGesturesRef.current[key];
+    if (!g) return;
+    const el = e.currentTarget;
+    el.style.transition = "transform 0.22s cubic-bezier(0.16,1,0.3,1)";
+    el.style.transform = "translateX(0)";
+    el.style.boxShadow = "";
+    if (g.locked && Math.abs(g.dx) >= SWIPE_THRESHOLD) {
+      navigator.vibrate?.(15);
+      setReplyTo(buildReplyTarget(m));
+    }
+  };
 
   const handleScroll = () => {
     if (isScrollingRef.current) return;
@@ -5331,7 +6026,8 @@ export default function ChatRoom() {
   const handleSaveEdit = async (messageId) => {
     if (!editInput.trim()) return;
 
-    let payload = { text: editInput.trim() };
+    // Send the raw text — trimming would destroy indentation in pasted code
+    let payload = { text: editInput };
     if (roomKey) {
       const encrypted = await encryptMessage(roomKey, JSON.stringify(payload));
       payload = { encryptedPayload: encrypted };
@@ -5419,7 +6115,7 @@ export default function ChatRoom() {
     return (
       <div style={{
         background: "rgba(255, 255, 255, 0.02)",
-        border: "1px solid rgba(255, 255, 255, 0.08)",
+        border: "1px solid rgba(255,255,255,0.07)",
         borderRadius: 16,
         padding: 16,
         margin: "8px 0",
@@ -5446,8 +6142,8 @@ export default function ChatRoom() {
                 }}
                 style={{
                   position: "relative",
-                  background: "rgba(255, 255, 255, 0.03)",
-                  border: hasVoted ? "1px solid var(--chakra-colors-brandPrimary)" : "1px solid rgba(255, 255, 255, 0.06)",
+                  background: "rgba(255,255,255,0.055)",
+                  border: hasVoted ? "1px solid var(--chakra-colors-brandPrimary)" : "1px solid rgba(255,255,255,0.055)",
                   borderRadius: 10,
                   padding: "10px 14px",
                   cursor: "pointer",
@@ -5461,7 +6157,7 @@ export default function ChatRoom() {
                   top: 0,
                   bottom: 0,
                   width: `${pct}%`,
-                  background: hasVoted ? "rgba(255, 63, 94, 0.12)" : "rgba(255, 255, 255, 0.04)",
+                  background: hasVoted ? "rgba(255, 63, 94, 0.12)" : "rgba(255,255,255,0.07)",
                   transition: "width 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
                   zIndex: 0
                 }} />
@@ -5521,8 +6217,8 @@ export default function ChatRoom() {
                 width: "100%",
                 padding: "12px 16px",
                 borderRadius: 12,
-                border: "1px solid rgba(255, 255, 255, 0.1)",
-                background: "rgba(255, 255, 255, 0.05)",
+                border: "1px solid rgba(255,255,255,0.07)",
+                background: "rgba(255,255,255,0.08)",
                 color: "#fff",
                 outline: "none"
               }}
@@ -5546,8 +6242,8 @@ export default function ChatRoom() {
                     flex: 1,
                     padding: "10px 14px",
                     borderRadius: 10,
-                    border: "1px solid rgba(255, 255, 255, 0.08)",
-                    background: "rgba(255, 255, 255, 0.04)",
+                    border: "1px solid rgba(255,255,255,0.07)",
+                    background: "rgba(255,255,255,0.07)",
                     color: "#fff",
                     outline: "none"
                   }}
@@ -5662,16 +6358,13 @@ export default function ChatRoom() {
         padding: "10px 16px",
         background: "rgba(255, 255, 255, 0.02)",
         backdropFilter: "blur(12px)",
-        borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+        borderBottom: "1px solid rgba(255,255,255,0.07)",
         color: "var(--chakra-colors-textPrimary)",
         fontSize: "0.85rem",
         zIndex: 5,
         gap: 12
       }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, overflow: "hidden", cursor: "pointer" }} onClick={() => {
-          const target = messageRefs.current[latestPin.id];
-          target?.scrollIntoView({ behavior: "smooth", block: "center" });
-        }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, overflow: "hidden", cursor: "pointer" }} onClick={() => jumpToMessage(latestPin.id)}>
           <span style={{ fontSize: "1.1rem", color: "var(--chakra-colors-brandPrimary)" }}>📌</span>
           <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             <strong>Pinned: </strong>
@@ -5726,7 +6419,7 @@ export default function ChatRoom() {
           borderRadius: 20,
           padding: 24,
           background: "var(--chakra-colors-surface)",
-          border: "1px solid rgba(255,255,255,.12)",
+          border: "1px solid rgba(255,255,255,.05)",
           boxShadow: "0 24px 70px rgba(0,0,0,.55)",
           display: "flex",
           flexDirection: "column",
@@ -5751,8 +6444,8 @@ export default function ChatRoom() {
                   width: "100%",
                   padding: "10px 14px",
                   borderRadius: 10,
-                  border: "1px solid rgba(255, 255, 255, 0.1)",
-                  background: "rgba(255, 255, 255, 0.05)",
+                  border: "1px solid rgba(255,255,255,0.07)",
+                  background: "rgba(255,255,255,0.08)",
                   color: "#fff",
                   outline: "none",
                   boxSizing: "border-box"
@@ -5771,8 +6464,8 @@ export default function ChatRoom() {
                   width: "100%",
                   padding: "10px 14px",
                   borderRadius: 10,
-                  border: "1px solid rgba(255, 255, 255, 0.1)",
-                  background: "rgba(255, 255, 255, 0.05)",
+                  border: "1px solid rgba(255,255,255,0.07)",
+                  background: "rgba(255,255,255,0.08)",
                   color: "#fff",
                   outline: "none",
                   boxSizing: "border-box"
@@ -5904,10 +6597,48 @@ export default function ChatRoom() {
   if (!joined || !authenticated) {
     return (
       <>
-        <LandingWrapper>
+        <LandingWrapper
+          onMouseMove={(e) => {
+            const el = e.currentTarget;
+            const r = el.getBoundingClientRect();
+            el.style.setProperty("--mx", ((e.clientX - r.left) / r.width - 0.5).toFixed(3));
+            el.style.setProperty("--my", ((e.clientY - r.top) / r.height - 0.5).toFixed(3));
+          }}
+        >
           <ToastContainer position="top-center" autoClose={3000} limit={3} theme="dark" />
-          <FloatingBlob />
+          <WhisperNetwork />
+          <div aria-hidden="true" style={{
+            position: "absolute", inset: 0, zIndex: 0, pointerEvents: "none",
+            background: "radial-gradient(ellipse at 50% 40%, transparent 34%, rgba(6,8,14,.16) 74%, rgba(6,8,14,.3) 100%)"
+          }} />
+          <FeatureBubble $x="5%" $y="20%" $depth={33} $delay={0.05}>
+            <BubblePill $tint="#818cf8" $dur={9} $delay={0.05}$alt>
+            <span className="fb-icon"><LockKeyhole size={13} /></span>End-to-end encrypted
+          </BubblePill>
+          </FeatureBubble>
+          <FeatureBubble $x="83%" $y="13%" $depth={44} $delay={0.15}>
+            <BubblePill $tint="#fb7185" $dur={11} $delay={0.15}$alt>
+            <span className="fb-icon"><Timer size={13} /></span>Disappearing messages
+          </BubblePill>
+          </FeatureBubble>
+          <FeatureBubble $x="86%" $y="45%" $depth={55} $delay={0.3}>
+            <BubblePill $tint="#22d3ee" $dur={8} $delay={0.3}$alt>
+            <span className="fb-icon"><Video size={13} /></span>HD video calls
+          </BubblePill>
+          </FeatureBubble>
+          <FeatureBubble $x="77%" $y="77%" $depth={22} $delay={0.6}>
+            <BubblePill $tint="#fbbf24" $dur={12} $delay={0.6}$alt>
+            <span className="fb-icon"><MonitorUp size={13} /></span>Screen sharing
+          </BubblePill>
+          </FeatureBubble>
+          <FeatureBubble $x="11%" $y="84%" $depth={33} $delay={0.75} $hideSm>
+            <BubblePill $tint="#a78bfa" $dur={9.5} $delay={0.75}$alt>
+            <span className="fb-icon"><FileUp size={13} /></span>Encrypted file vault
+          </BubblePill>
+          </FeatureBubble>
           <JoinContainer>
+            <CardHalo />
+            <CardBeam />
             <div style={{ textAlign: "center", marginBottom: 4 }}>
               <div style={{
                 display: "inline-flex",
@@ -5922,12 +6653,12 @@ export default function ChatRoom() {
               </div>
               <div style={{ color: "var(--chakra-colors-brandPrimary)", fontSize: ".67rem", fontWeight: 850, letterSpacing: ".13em", textTransform: "uppercase", marginBottom: 6 }}>Private workspace</div>
               <h2 style={{ color: "var(--chakra-colors-textPrimary)", margin: 0, fontSize: "clamp(1.35rem, 3.5vw, 1.7rem)", fontWeight: 800, letterSpacing: "-.04em" }}>
-                {roomId.trim() ? `Join room ${roomId.trim()}` : "Join a secure room"}
+                <ShimmerTitle>{roomId.trim() ? `Join room ${roomId.trim()}` : "Join a secure room"}</ShimmerTitle>
               </h2>
               <p style={{ color: "var(--chakra-colors-textSecondary)", fontSize: "clamp(.8rem, 1.8vw, .88rem)", margin: "8px auto 0", maxWidth: 290, lineHeight: 1.5 }}>
                 {roomId.trim()
                   ? "You've been invited. Enter your details to join this encrypted room."
-                  : "Your messages and files are encrypted before they leave this device."}
+                  : "No names. No traces. Just conversation — sealed on your device before it ever leaves."}
               </p>
             </div>
 
@@ -5979,7 +6710,7 @@ export default function ChatRoom() {
                     type="button"
                     onClick={() => setShowApprovalConfirm(false)}
                     style={{
-                      flex: 1, minHeight: 34, borderRadius: 8, border: "1px solid rgba(255,255,255,0.08)",
+                      flex: 1, minHeight: 34, borderRadius: 8, border: "1px solid rgba(255,255,255,0.07)",
                       background: "transparent", color: "inherit", cursor: "pointer", fontSize: "0.78rem"
                     }}
                   >
@@ -6014,7 +6745,7 @@ export default function ChatRoom() {
             <JoinField>
               <JoinLabel>Profile photo <span style={{ opacity: .65, fontWeight: 500 }}>(optional)</span></JoinLabel>
               <AvatarPicker>
-                {userAvatar ? <img src={userAvatar} alt="Selected profile" style={{ width: 36, height: 36, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(255,255,255,.17)" }} /> : <span style={{ width: 36, height: 36, borderRadius: "50%", display: "grid", placeItems: "center", background: "rgba(255,255,255,.08)", color: "var(--chakra-colors-textSecondary)" }}><UserRound size={17} /></span>}
+                {userAvatar ? <img src={userAvatar} alt="Selected profile" style={{ width: 36, height: 36, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(255,255,255,.17)" }} /> : <span style={{ width: 36, height: 36, borderRadius: "50%", display: "grid", placeItems: "center", background: "rgba(255,255,255,.04)", color: "var(--chakra-colors-textSecondary)" }}><UserRound size={17} /></span>}
                 <span style={{ minWidth: 0, flex: 1 }}><span style={{ display: "block", fontWeight: 750, fontSize: ".82rem" }}>{userAvatar ? "Photo selected" : "Add a profile photo"}</span><span style={{ display: "block", marginTop: 1, fontSize: ".7rem", color: "var(--chakra-colors-textSecondary)" }}>Any image · crop and optimise before sharing</span></span>
                 <Upload size={16} aria-hidden="true" color="var(--chakra-colors-brandPrimary)" />
                 <input type="file" accept="image/*" hidden onChange={(e) => openAvatarCrop(e.target.files?.[0])} />
@@ -6063,7 +6794,7 @@ export default function ChatRoom() {
 
           </JoinContainer>
           {renderAvatarCropDialog()}
-          {confirmation && <div role="dialog" aria-modal="true" style={{ position: "fixed", inset: 0, zIndex: 23000, background: "rgba(0,0,0,.68)", display: "grid", placeItems: "center", padding: 20 }}><div style={{ width: "min(420px, 100%)", padding: 24, borderRadius: 18, background: "var(--chakra-colors-surface)", border: "1px solid rgba(255,255,255,.12)" }}><h3 style={{ margin: "0 0 8px" }}>{confirmation.title}</h3><p style={{ margin: "0 0 22px", color: "var(--chakra-colors-textSecondary)", lineHeight: 1.5 }}>{confirmation.body}</p><div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}><button type="button" onClick={() => setConfirmation(null)} style={{ minHeight: 44, padding: "9px 14px", borderRadius: 10, border: "1px solid rgba(255,255,255,.15)", background: "transparent", color: "inherit", cursor: "pointer" }}>Cancel</button><button type="button" onClick={() => { confirmation.onConfirm(); setConfirmation(null); }} style={{ minHeight: 44, padding: "9px 14px", borderRadius: 10, border: 0, background: "var(--chakra-colors-brandPrimary)", color: "white", fontWeight: 700, cursor: "pointer" }}>{confirmation.confirmLabel}</button></div></div></div>}
+          {confirmation && <div role="dialog" aria-modal="true" style={{ position: "fixed", inset: 0, zIndex: 23000, background: "rgba(0,0,0,.68)", display: "grid", placeItems: "center", padding: 20 }}><div style={{ width: "min(420px, 100%)", padding: 24, borderRadius: 18, background: "var(--chakra-colors-surface)", border: "1px solid rgba(255,255,255,.05)" }}><h3 style={{ margin: "0 0 8px" }}>{confirmation.title}</h3><p style={{ margin: "0 0 22px", color: "var(--chakra-colors-textSecondary)", lineHeight: 1.5 }}>{confirmation.body}</p><div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}><button type="button" onClick={() => setConfirmation(null)} style={{ minHeight: 44, padding: "9px 14px", borderRadius: 10, border: "1px solid rgba(255,255,255,.15)", background: "transparent", color: "inherit", cursor: "pointer" }}>Cancel</button><button type="button" onClick={() => { confirmation.onConfirm(); setConfirmation(null); }} style={{ minHeight: 44, padding: "9px 14px", borderRadius: 10, border: 0, background: "var(--chakra-colors-brandPrimary)", color: "white", fontWeight: 700, cursor: "pointer" }}>{confirmation.confirmLabel}</button></div></div></div>}
         </LandingWrapper>
       </>
     );
@@ -6146,27 +6877,41 @@ export default function ChatRoom() {
         );
       }
 
-      // Existing embeds
+      // Existing embeds — click-to-play poster instead of auto-loading iframe
       const embed = getEmbedData(part);
 
       if (embed) {
         return (
           <div key={i}>
-            <iframe
-              title={i}
-              src={embed.src}
-              allowFullScreen
-              style={{
-                aspectRatio: getMediaAspectRatio(embed.src, embed.fileType),
-                height: "auto",
-                display: "block",
-                width: "100%",
-                minHeight: "300px",
-                border: 0,
-                borderRadius: 12
-              }}
-            />
+            <ClickToPlayEmbed embed={embed} aspectRatio={getMediaAspectRatio(embed.src, embed.fileType)} />
+            {renderLinkActions(part)}
+          </div>
+        );
+      }
 
+      // Direct media files (.mp4/.jpg/.mp3…) — open in the native viewer, not an iframe
+      const DIRECT_MEDIA_RE = /\.(mp4|webm|ogv|mov|m4v|mp3|wav|ogg|m4a|flac|jpg|jpeg|png|gif|webp|avif|bmp)(\?|#|$)/i;
+      if (/^https?:\/\//i.test(part) && DIRECT_MEDIA_RE.test(part)) {
+        const fileName = decodeURIComponent((part.split("/").pop() || "media").split("?")[0]);
+        return (
+          <div key={i}>
+            <button
+              type="button"
+              onClick={() => setViewer({ url: part, name: fileName })}
+              style={{
+                width: "100%", minHeight: 64, display: "flex", alignItems: "center", gap: 12,
+                padding: "12px 16px", borderRadius: 12, cursor: "pointer",
+                background: "linear-gradient(135deg, #141625 0%, #1c1f33 100%)",
+                border: "1px solid rgba(255,255,255,0.07)", color: "#fff", fontFamily: "inherit",
+              }}
+            >
+              <span style={{ fontSize: "1.4rem" }}>🎬</span>
+              <span style={{ flex: 1, minWidth: 0, textAlign: "left" }}>
+                <span style={{ display: "block", fontWeight: 700, fontSize: "0.85rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{fileName}</span>
+                <span style={{ display: "block", fontSize: "0.7rem", opacity: 0.55, marginTop: 2 }}>Tap to view in full screen</span>
+              </span>
+              <span style={{ fontSize: "1rem", opacity: 0.7 }}>⛶</span>
+            </button>
             {renderLinkActions(part)}
           </div>
         );
@@ -6193,7 +6938,7 @@ export default function ChatRoom() {
     // 1. Extract triple-backtick code blocks first to protect them from other formatting
     const codeBlocks = [];
     let textWithPlaceholders = rawText.replace(/```(\w*)\r?\n?([\s\S]+?)\r?\n?```/g, (match, lang, code) => {
-      const placeholder = `___CHEPRABAI_CODE_BLOCK_${codeBlocks.length}___`;
+      const placeholder = `QCHEPRABAICB${codeBlocks.length}ZQ`;
       codeBlocks.push({ placeholder, lang: lang ? lang.trim().toLowerCase() : "", code });
       return placeholder;
     });
@@ -6202,8 +6947,8 @@ export default function ChatRoom() {
     // Checks: multi-line text with code-like patterns (indentation, braces, semicolons, arrows, keywords)
     if (codeBlocks.length === 0 && textWithPlaceholders.includes('\n')) {
       const lines = textWithPlaceholders.split('\n');
-      // Only auto-detect if: 3+ lines AND enough code-like lines
-      if (lines.length >= 3) {
+      // Only auto-detect if: 2+ lines AND enough code-like lines
+      if (lines.length >= 2) {
         let codeLineCount = 0;
         for (const line of lines) {
           if (/^\s{2,}\S/.test(line) || /[{}();]\s*$/.test(line) || /=>/.test(line) || /^\s*(import|export|const|let|var|function|class|def |if\s*\(|else|for\s*\(|while\s*\(|return |public |private |protected |static |void |int |String |package |from |require\()/.test(line)) {
@@ -6212,7 +6957,7 @@ export default function ChatRoom() {
         }
         // If more than 40% of lines look like code, treat as a code block
         if (codeLineCount / lines.length > 0.4) {
-          const placeholder = `___CHEPRABAI_CODE_BLOCK_${codeBlocks.length}___`;
+          const placeholder = `QCHEPRABAICB${codeBlocks.length}ZQ`;
           codeBlocks.push({ placeholder, lang: "", code: textWithPlaceholders });
           textWithPlaceholders = placeholder;
         }
@@ -6238,7 +6983,7 @@ export default function ChatRoom() {
       const escapedInline = encodeURIComponent(code);
       const copyHelper = INLINE_CLIPBOARD_FALLBACK;
       const copyInlineJs = `${copyHelper}(decodeURIComponent('${escapedInline}')); var btn = this.querySelector('.inline-copy-btn'); if(btn){ btn.textContent = '✓'; btn.style.color = '#00bfa5'; setTimeout(function(){ btn.textContent = '📋'; btn.style.color = 'rgba(255,255,255,0.35)'; }, 1500); }`;
-      return `<span onclick="${copyInlineJs}" style="background:rgba(255,255,255,.08);padding:2px 6px;border-radius:4px;font-family:monospace;font-size:.85em;cursor:pointer;position:relative;display:inline-flex;align-items:center;gap:4px;transition:background .2s" onmouseover="this.style.background='rgba(255,255,255,.14)'" onmouseout="this.style.background='rgba(255,255,255,.08)'"><code style="font-family:inherit">${code}</code><span class="inline-copy-btn" style="font-size:.7em;color:rgba(255,255,255,0.35);flex-shrink:0">📋</span></span>`;
+      return `<span onclick="${copyInlineJs}" style="background:rgba(255,255,255,.04);padding:2px 6px;border-radius:4px;font-family:monospace;font-size:.85em;cursor:pointer;position:relative;display:inline-flex;align-items:center;gap:4px;transition:background .2s" onmouseover="this.style.background='rgba(255,255,255,.14)'" onmouseout="this.style.background='rgba(255,255,255,.04)'"><code style="font-family:inherit">${code}</code><span class="inline-copy-btn" style="font-size:.7em;color:rgba(255,255,255,0.35);flex-shrink:0">📋</span></span>`;
     });
 
     const uniqueNames = new Set();
@@ -6271,16 +7016,51 @@ export default function ChatRoom() {
     // 4. Re-insert the protected code blocks with beautiful styling
     codeBlocks.forEach((block) => {
       const escapedCodeForHtml = escapeHtml(block.code);
-      const escapedCodeForClipboard = encodeURIComponent(block.code);
-      const copyCodeJs = `${INLINE_CLIPBOARD_FALLBACK}(decodeURIComponent('${escapedCodeForClipboard}')); this.innerText = '✓ Copied'; this.style.color = '#00bfa5'; setTimeout(() => { this.innerText = 'Copy'; this.style.color = 'inherit'; }, 2000);`;
+      const regId =
+        typeof window !== "undefined" && typeof window.__cheprabaiRegisterCode === "function"
+          ? window.__cheprabaiRegisterCode(block.code, block.lang || "")
+          : null;
+      const copyCodeJs = `window.__cheprabaiCopyCodeById && window.__cheprabaiCopyCodeById('${regId}',this)`;
+      const expandJs = `window.__cheprabaiOpenCodeById && window.__cheprabaiOpenCodeById('${regId}')`;
+
+      // HTML blocks get a live rendered preview with a UI/Code switch —
+      // they're documents, not just text.
+      const isHtmlBlock =
+        block.lang === "html" ||
+        /^\s*<!doctype\s+html/i.test(block.code) ||
+        /^\s*<html[\s>]/i.test(block.code);
+
+      const segBtnBase =
+        "cursor:pointer; font-size:0.72rem; font-weight:700; padding:4px 12px; border-radius:999px; outline:none; transition:all 0.2s; border:1px solid transparent;";
+      const uiOn = `background:rgba(129,140,248,.25); color:#a5b4fc; ${segBtnBase}`;
+      const segOff = `background:transparent; color:rgba(255,255,255,0.55); ${segBtnBase} border-color:rgba(255,255,255,0.07);`;
+      const showPaneJs = (pane) =>
+        `const w=this.closest('.cbx'); w.querySelectorAll('.cbx-seg').forEach(b=>{b.style.background='transparent';b.style.color='rgba(255,255,255,.55)';b.style.borderColor='rgba(255,255,255,.07)'}); this.style.background='rgba(129,140,248,.25)'; this.style.color='#a5b4fc'; this.style.borderColor='transparent'; w.querySelector('.cbx-pv').style.display='${pane === "pv" ? "block" : "none"}'; w.querySelector('.cbx-cd').style.display='${pane === "cd" ? "block" : "none"}'`;
+
+      const codePre = `<pre class="cbx-cd" style="display:${isHtmlBlock ? "none" : "block"}; margin:0; padding:14px; overflow:auto; max-height:min(46vh, 380px); line-height:1.55; color:#c9d1d9; background:#0d0e15; font-family:inherit; box-sizing:border-box; -webkit-overflow-scrolling:touch;"><code style="font-family:inherit; white-space:pre; word-break:normal; word-wrap:normal;">${escapedCodeForHtml}</code></pre>`;
+
+      const htmlPreview = isHtmlBlock
+        ? `<div class="cbx-pv" style="display:block; height:min(52vh, 420px); background:#fff;"><iframe class="html-live-preview" sandbox="allow-scripts" srcdoc="${escapedCodeForHtml}" title="HTML preview" style="width:100%; height:100%; border:0; display:block; background:#fff;"></iframe></div>`
+        : "";
+
+      const segButtons = isHtmlBlock
+        ? `<button class="cbx-seg" onclick="${showPaneJs("pv")}" style="${uiOn}">UI</button>
+       <button class="cbx-seg" onclick="${showPaneJs("cd")}" style="${segOff}">Code</button>
+       <span style="width:6px"></span>`
+        : "";
 
       const blockHtml = `
-<div style="background:#0b0c10; border:1px solid rgba(255,255,255,0.08); border-radius:12px; margin:12px 0; overflow:hidden; font-family:'SF Mono','Fira Code',Consolas,monospace; font-size:0.85rem; box-shadow:0 8px 24px rgba(0,0,0,0.3); max-width: 100%; text-align: left; box-sizing: border-box;">
-  <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.03); padding:8px 14px; border-bottom:1px solid rgba(255,255,255,0.06); box-sizing: border-box;">
-    <span style="font-size:0.72rem; color:var(--chakra-colors-brandPrimary); text-transform:uppercase; font-weight:bold; letter-spacing:0.05em;">💻 ${block.lang || 'code'}</span>
-    <button onclick="${copyCodeJs}" style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:rgba(255,255,255,0.55); cursor:pointer; font-size:0.73rem; font-weight:600; padding:4px 10px; border-radius:6px; outline:none; transition:all 0.2s; display:flex; align-items:center; gap:4px;" onmouseover="this.style.background='rgba(255,255,255,0.12)';this.style.color='#fff';this.style.borderColor='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.06)';this.style.color='rgba(255,255,255,0.55)';this.style.borderColor='rgba(255,255,255,0.1)'">📋 Copy</button>
+<div class="cbx" style="background:#0b0c10; border:1px solid rgba(255,255,255,0.07); border-radius:12px; margin:12px 0; overflow:hidden; font-family:'SF Mono','Fira Code',Consolas,monospace; font-size:0.85rem; box-shadow:0 8px 24px rgba(0,0,0,0.3); max-width: 100%; text-align: left; box-sizing: border-box;">
+  <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.055); padding:8px 14px; border-bottom:1px solid rgba(255,255,255,0.055); box-sizing: border-box;">
+    <span style="font-size:0.72rem; color:var(--chakra-colors-brandPrimary); text-transform:uppercase; font-weight:bold; letter-spacing:0.05em;">💻 ${escapeHtml(block.lang) || 'code'}</span>
+    <span style="display:flex; align-items:center; gap:6px;">
+    ${segButtons}
+    <button onclick="${expandJs}" style="background:rgba(255,255,255,0.055); border:1px solid rgba(255,255,255,0.07); color:rgba(255,255,255,0.55); cursor:pointer; font-size:0.73rem; font-weight:600; padding:4px 10px; border-radius:6px; outline:none; transition:all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.08)';this.style.color='#fff'" onmouseout="this.style.background='rgba(255,255,255,0.055)';this.style.color='rgba(255,255,255,0.55)'">⤢ Expand</button>
+    <button onclick="${copyCodeJs}" style="background:rgba(255,255,255,0.055); border:1px solid rgba(255,255,255,0.07); color:rgba(255,255,255,0.55); cursor:pointer; font-size:0.73rem; font-weight:600; padding:4px 10px; border-radius:6px; outline:none; transition:all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.08)';this.style.color='#fff';this.style.borderColor='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.055)';this.style.color='rgba(255,255,255,0.55)';this.style.borderColor='rgba(255,255,255,0.07)'">📋 Copy</button>
+    </span>
   </div>
-  <pre style="margin:0; padding:14px; overflow-x:auto; line-height:1.55; color:#c9d1d9; background:#0d0e15; font-family:inherit; box-sizing: border-box; -webkit-overflow-scrolling: touch;"><code style="font-family:inherit; white-space:pre; word-break: normal; word-wrap: normal;">${escapedCodeForHtml}</code></pre>
+  ${htmlPreview}
+  ${codePre}
 </div>`.trim();
 
       escaped = escaped.replace(block.placeholder, blockHtml);
@@ -6295,19 +7075,12 @@ export default function ChatRoom() {
   };
 
   const renderLinkActions = (url) => (
-    <div
-      style={{
-        display: "flex",
-        gap: 8,
-        marginTop: 10,
-        flexWrap: "wrap"
-      }}
-    >
+    <div className="chakra-link-actions">
       <button
         onClick={() => safeCopyText(url).then(ok => ok ? toast.success("📋 Link copied!") : toast.error("Failed to copy link"))}
         style={actionBtnStyle}
       >
-        📋 Copy Link
+        📋 Copy
       </button>
 
       <button
@@ -6320,18 +7093,108 @@ export default function ChatRoom() {
   );
 
   const actionBtnStyle = {
-    padding: "7px 12px",
-    borderRadius: 8,
-    border: "1px solid rgba(255,255,255,.1)",
-    background: "rgba(255,255,255,.06)",
-    color: "inherit",
-    cursor: "pointer"
+    padding: "3px 11px",
+    borderRadius: 999,
+    border: "1px solid rgba(255,255,255,.05)",
+    background: "rgba(255,255,255,.05)",
+    color: "rgba(255,255,255,.82)",
+    cursor: "pointer",
+    fontSize: ".72rem",
+    fontWeight: 600,
+    lineHeight: 1.5
   };
 
 
   return (
     <>
-      <ToastContainer position="top-center" autoClose={3000} limit={3} />
+      {codeViewer && (
+        <div
+          onClick={() => setCodeViewer(null)}
+          style={{
+            position: "fixed", inset: 0, zIndex: 999998,
+            background: "rgba(4,5,10,.78)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)",
+            display: "flex", alignItems: "center", justifyContent: "center", padding: "clamp(12px, 3vw, 40px)"
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "min(1100px, 100%)", height: "min(86vh, 800px)",
+              display: "flex", flexDirection: "column",
+              background: "#0b0c10", border: "1px solid rgba(255,255,255,.1)", borderRadius: 18,
+              overflow: "hidden", boxShadow: "0 30px 90px rgba(0,0,0,.6)",
+              fontFamily: "'SF Mono','Fira Code',Consolas,monospace"
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", background: "rgba(255,255,255,.055)", borderBottom: "1px solid rgba(255,255,255,.07)", flexWrap: "wrap" }}>
+              <span style={{ fontSize: ".74rem", color: "#818cf8", textTransform: "uppercase", fontWeight: 700, letterSpacing: ".05em" }}>💻 {codeViewer.lang || "code"}</span>
+              {codeViewer.html && (
+                <div style={{ display: "flex", gap: 4, background: "rgba(0,0,0,.35)", padding: 3, borderRadius: 999 }}>
+                  <button
+                    onClick={() => setCodePane("ui")}
+                    style={{
+                      border: codePane === "ui" ? "1px solid transparent" : "1px solid rgba(255,255,255,.08)",
+                      background: codePane === "ui" ? "rgba(129,140,248,.3)" : "transparent",
+                      color: codePane === "ui" ? "#c7d2fe" : "rgba(255,255,255,.6)",
+                      cursor: "pointer", fontSize: ".72rem", fontWeight: 800,
+                      padding: "4px 14px", borderRadius: 999
+                    }}
+                  >
+                    UI
+                  </button>
+                  <button
+                    onClick={() => setCodePane("code")}
+                    style={{
+                      border: codePane === "code" ? "1px solid transparent" : "1px solid rgba(255,255,255,.08)",
+                      background: codePane === "code" ? "rgba(129,140,248,.3)" : "transparent",
+                      color: codePane === "code" ? "#c7d2fe" : "rgba(255,255,255,.6)",
+                      cursor: "pointer", fontSize: ".72rem", fontWeight: 800,
+                      padding: "4px 14px", borderRadius: 999
+                    }}
+                  >
+                    Code
+                  </button>
+                </div>
+              )}
+              <button
+                onClick={() => {
+                  if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(codeViewer.code)
+                      .then(() => toast.success("📋 All code copied!"))
+                      .catch(() => toast.error("Could not copy code"));
+                  } else if (window.__cheprabaiCopyCodeById) {
+                    // Reuse the registry path so the fallback also confirms
+                    const id = window.__cheprabaiRegisterCode(codeViewer.code, "");
+                    window.__cheprabaiCopyCodeById(id, null);
+                  }
+                }}
+                style={{ marginLeft: "auto", background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.1)", color: "#c9d1d9", cursor: "pointer", fontSize: ".74rem", fontWeight: 600, padding: "5px 12px", borderRadius: 7 }}
+              >
+                📋 Copy all
+              </button>
+              <button
+                onClick={() => setCodeViewer(null)}
+                style={{ background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.1)", color: "#c9d1d9", cursor: "pointer", fontSize: ".74rem", fontWeight: 700, padding: "5px 12px", borderRadius: 7 }}
+              >
+                ✕ Close
+              </button>
+            </div>
+            {codeViewer.html && codePane === "ui" ? (
+              <iframe
+                srcDoc={codeViewer.code}
+                title="HTML preview"
+                sandbox="allow-scripts"
+                style={{ flex: 1, minHeight: 0, width: "100%", border: 0, background: "#fff", display: "block" }}
+              />
+            ) : (
+              <pre style={{ flex: 1, minHeight: 0, margin: 0, padding: 18, overflow: "auto", lineHeight: 1.6, color: "#c9d1d9", background: "#0d0e15", fontSize: ".88rem", WebkitOverflowScrolling: "touch" }}>
+                <code style={{ whiteSpace: "pre" }}>{codeViewer.code}</code>
+              </pre>
+            )}
+          </div>
+        </div>
+      )}
+      <ToastContainer position="top-center" autoClose={2600} limit={3} theme="dark" newestOnTop closeOnClick pauseOnHover={false} icon={false} />
       {!ownerToken && !isStealthMode && (
         <style>{`
           @media print {
@@ -6430,13 +7293,13 @@ export default function ChatRoom() {
                       <span>Security</span>
                       <span style={{ color: "#2196F3" }}>AES-256 GCM</span>
                     </div>
-                    <div style={{ borderTop: "1px solid rgba(255, 255, 255, 0.1)", paddingTop: 10 }}>
+                    <div style={{ borderTop: "1px solid rgba(255,255,255,0.07)", paddingTop: 10 }}>
                       <div style={{ fontSize: "0.8rem", color: "#666", marginBottom: 8 }}>Participants ({onlineUsers.length})</div>
                       <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 180, overflowY: "auto", paddingRight: 4 }}>
                         {onlineUsers.map(u => {
                           const isMe = u.id === socketRef.current?.id;
                           return (
-                            <div key={u.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(255, 255, 255, 0.03)", padding: "6px 12px", borderRadius: 10, fontSize: "0.75rem", border: "1px solid rgba(255, 255, 255, 0.05)" }}>
+                            <div key={u.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(255,255,255,0.055)", padding: "6px 12px", borderRadius: 10, fontSize: "0.75rem", border: "1px solid rgba(255,255,255,0.08)" }}>
                               <span style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
                                 <span style={{ width: 6, height: 6, borderRadius: "50%", background: isMe ? "#10b981" : "#3b82f6" }} />
                                 {u.name} {isMe && <span style={{ opacity: 0.5, fontSize: "0.65rem" }}>(You)</span>}
@@ -6467,9 +7330,50 @@ export default function ChatRoom() {
                         })}
                       </div>
                     </div>
-                    <div style={{ borderTop: "1px solid rgba(255, 255, 255, 0.1)", paddingTop: 10, marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
-                      <label onClick={(e) => e.stopPropagation()} style={{ display: "flex", minHeight: 44, alignItems: "center", justifyContent: "center", borderRadius: 10, cursor: "pointer", fontSize: ".8rem", fontWeight: 700, background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.1)" }}>Change avatar<input type="file" accept="image/*" hidden onChange={(e) => openAvatarCrop(e.target.files?.[0])} /></label>
-                      <label onClick={(e) => e.stopPropagation()} style={{ display: "flex", minHeight: 44, alignItems: "center", justifyContent: "center", borderRadius: 10, cursor: backgroundLocked && !ownerToken ? "not-allowed" : "pointer", opacity: backgroundLocked && !ownerToken ? .45 : 1, fontSize: ".8rem", fontWeight: 700, background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.1)" }}>{backgroundLocked && !ownerToken ? "Background managed by owner" : "Change chat background"}<input type="file" disabled={backgroundLocked && !ownerToken} accept="image/*" hidden onChange={(e) => requestBackgroundChange(e.target.files?.[0])} /></label>
+                    <div style={{ borderTop: "1px solid rgba(255,255,255,0.07)", paddingTop: 10, marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+                      <label onClick={(e) => e.stopPropagation()} style={{ display: "flex", minHeight: 44, alignItems: "center", justifyContent: "center", borderRadius: 10, cursor: "pointer", fontSize: ".8rem", fontWeight: 700, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.04)" }}>Change avatar<input type="file" accept="image/*" hidden onChange={(e) => openAvatarCrop(e.target.files?.[0])} /></label>
+                      <label onClick={(e) => e.stopPropagation()} style={{ display: "flex", minHeight: 44, alignItems: "center", justifyContent: "center", borderRadius: 10, cursor: backgroundLocked && !ownerToken ? "not-allowed" : "pointer", opacity: backgroundLocked && !ownerToken ? .45 : 1, fontSize: ".8rem", fontWeight: 700, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.04)" }}>{backgroundLocked && !ownerToken ? "Background managed by owner" : "Change chat background"}<input type="file" disabled={backgroundLocked && !ownerToken} accept="image/*" hidden onChange={(e) => requestBackgroundChange(e.target.files?.[0])} /></label>
+
+                      {/* ── Settings ── */}
+                      <div style={{ borderTop: "1px solid rgba(255,255,255,0.07)", paddingTop: 10 }}>
+                        <div style={{ fontSize: "0.68rem", fontWeight: 800, letterSpacing: ".12em", textTransform: "uppercase", color: "#7a7f95", marginBottom: 8 }}>Settings</div>
+                        <div
+                          role="switch"
+                          aria-checked={swipeReplyEnabled}
+                          tabIndex={0}
+                          onClick={toggleSwipeReply}
+                          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleSwipeReply(); } }}
+                          style={{
+                            display: "flex", alignItems: "center", gap: 10,
+                            padding: "10px 12px", borderRadius: 12,
+                            background: swipeReplyEnabled ? "rgba(99,102,241,0.10)" : "rgba(255,255,255,0.07)",
+                            border: `1px solid ${swipeReplyEnabled ? "rgba(129,140,248,0.35)" : "rgba(255,255,255,0.07)"}`,
+                            cursor: "pointer", transition: "all 0.2s ease",
+                            userSelect: "none", WebkitUserSelect: "none",
+                          }}
+                        >
+                          <span style={{ fontSize: "1rem", lineHeight: 1 }}>↔️</span>
+                          <span style={{ flex: 1, minWidth: 0 }}>
+                            <span style={{ display: "block", fontSize: "0.8rem", fontWeight: 700 }}>Swipe to reply</span>
+                            <span style={{ display: "block", fontSize: "0.68rem", opacity: 0.55, marginTop: 2 }}>Drag a message sideways to answer it</span>
+                          </span>
+                          <span style={{
+                            width: 42, height: 24, borderRadius: 999, flexShrink: 0,
+                            position: "relative",
+                            background: swipeReplyEnabled ? "linear-gradient(135deg, #6366f1, #8b5cf6)" : "rgba(255,255,255,0.14)",
+                            border: "1px solid rgba(255,255,255,0.08)",
+                            transition: "background 0.22s ease",
+                          }}>
+                            <span style={{
+                              position: "absolute", top: 2, left: swipeReplyEnabled ? 20 : 2,
+                              width: 18, height: 18, borderRadius: "50%",
+                              background: "#fff",
+                              boxShadow: "0 2px 6px rgba(0,0,0,0.35)",
+                              transition: "left 0.22s cubic-bezier(0.16,1,0.3,1)",
+                            }} />
+                          </span>
+                        </div>
+                      </div>
                       {(userAvatar || roomBackground) && <button type="button" onClick={() => setConfirmation({ title: "Reset your appearance?", body: ownerToken ? "Your profile photo and the owner-managed room background will be removed." : "Your profile photo and local chat background will be removed from this device.", confirmLabel: "Reset appearance", onConfirm: () => { localStorage.removeItem("cheprabai:user-avatar"); localStorage.removeItem(`cheprabai:room-background:${roomId}`); setUserAvatar(""); setRoomBackground(""); socketRef.current?.emit("updateProfile", { avatar: "" }); if (ownerToken) socketRef.current?.emit("setRoomBackground", { background: "", scope: "everyone" }); toast.success("Appearance reset."); } })} style={{ minHeight: 44, borderRadius: 10, border: "1px solid rgba(255,107,107,.35)", color: "#ff9aa2", background: "rgba(255,71,87,.08)", cursor: "pointer", fontSize: ".8rem", fontWeight: 700 }}>Reset appearance</button>}
                       <button
                         onClick={exportChat}
@@ -6503,12 +7407,12 @@ export default function ChatRoom() {
                         style={{
                           display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
                           width: "100%", padding: "8px 12px", borderRadius: 10,
-                          background: "rgba(255, 255, 255, 0.04)", border: "1px solid rgba(255, 255, 255, 0.08)",
+                          background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.07)",
                           color: "var(--chakra-colors-textSecondary)", cursor: "pointer", fontSize: "0.8rem", fontWeight: 600,
                           textDecoration: "none", boxSizing: "border-box", transition: "all 0.2s"
                         }}
                         onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.15)"; e.currentTarget.style.color = "var(--chakra-colors-textPrimary)"; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.08)"; e.currentTarget.style.color = "var(--chakra-colors-textSecondary)"; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)"; e.currentTarget.style.color = "var(--chakra-colors-textSecondary)"; }}
                       >
                         <ShieldCheck size={14} aria-hidden="true" /> Admin Panel
                       </Link> */}
@@ -6565,7 +7469,7 @@ export default function ChatRoom() {
             </ActionButton>
             )}
 
-            {!isMobile && features.messageSearch !== false && (
+            {features.messageSearch !== false && (
             <ActionButton onClick={() => { setShowSearch(!showSearch); if (showSearch) setSearchQuery(""); }} title="Search Messages">
               <FaSearch />
             </ActionButton>
@@ -6575,7 +7479,7 @@ export default function ChatRoom() {
               <FaSignOutAlt color="white" />
             </ActionButton>
 
-            {!isMobile && features.bookmarks !== false && (
+            {features.bookmarks !== false && (
             <ActionButton onClick={() => setShowBookmarks(!showBookmarks)} title="Saved messages / Bookmarks" style={{ color: showBookmarks ? "var(--chakra-colors-brandPrimary)" : "inherit" }}>
               🔖
             </ActionButton>
@@ -6605,8 +7509,8 @@ export default function ChatRoom() {
         {renderPinnedMessagesBanner()}
         {Object.entries(features).some(([, v]) => v === false) && (
           <div style={{
-            background: "var(--chakra-colors-surface, rgba(255,255,255,0.04))",
-            border: "1px solid var(--chakra-colors-border, rgba(255,255,255,0.08))",
+            background: "var(--chakra-colors-surface, rgba(255,255,255,0.07))",
+            border: "1px solid var(--chakra-colors-border, rgba(255,255,255,0.07))",
             borderRadius: 10,
             padding: "8px 14px",
             margin: "0 16px 4px",
@@ -6620,6 +7524,85 @@ export default function ChatRoom() {
             <span>Some features are limited. <span style={{ color: "var(--chakra-colors-brandPrimary, #818cf8)", cursor: "pointer", fontWeight: 600 }}>Contact admin</span> to enable more.</span>
           </div>
         )}
+        {editingMessageId && createPortal(
+          <div
+            onClick={() => setEditingMessageId(null)}
+            style={{
+              position: "fixed", inset: 0, zIndex: 100000,
+              background: "rgba(4,5,10,0.72)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)",
+              display: "flex", alignItems: "center", justifyContent: "center", padding: 16,
+            }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                width: "min(760px, 100%)", maxHeight: "88vh",
+                display: "flex", flexDirection: "column", gap: 14,
+                background: "#12141f", border: "1px solid rgba(255,255,255,0.07)",
+                borderRadius: 18, padding: 20, boxSizing: "border-box",
+                boxShadow: "0 24px 80px rgba(0,0,0,0.6)",
+                fontFamily: "inherit", color: "#fff",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: 800 }}>✏️ Edit message</h3>
+                <button
+                  type="button"
+                  onClick={() => setEditingMessageId(null)}
+                  aria-label="Cancel editing"
+                  style={{ background: "rgba(255,255,255,0.055)", border: "1px solid rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.7)", width: 32, height: 32, borderRadius: 9, cursor: "pointer", fontSize: "0.85rem" }}
+                >
+                  ✕
+                </button>
+              </div>
+
+              <textarea
+                value={editInput}
+                onChange={(e) => setEditInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if ((e.ctrlKey || e.metaKey) && e.key === "Enter") handleSaveEdit(editingMessageId);
+                  if (e.key === "Escape") setEditingMessageId(null);
+                }}
+                autoFocus
+                spellCheck={false}
+                style={{
+                  flex: 1, minHeight: 220, resize: "vertical",
+                  padding: "14px 16px", borderRadius: 12,
+                  border: "1px solid rgba(99,102,241,0.45)",
+                  background: "rgba(0,0,0,0.35)", color: "#fff",
+                  outline: "none", boxSizing: "border-box",
+                  fontFamily: "'SF Mono','Fira Code',Consolas,monospace",
+                  fontSize: "0.88rem", lineHeight: 1.6,
+                  whiteSpace: "pre-wrap", overflowWrap: "break-word",
+                }}
+              />
+
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                <span style={{ fontSize: "0.7rem", opacity: 0.55 }}>
+                  Formatting, indentation & code blocks are preserved · Ctrl+Enter to save · Esc to cancel
+                </span>
+                <div style={{ marginLeft: "auto", display: "flex", gap: 10 }}>
+                  <button
+                    type="button"
+                    onClick={() => setEditingMessageId(null)}
+                    style={{ background: "rgba(255,255,255,0.07)", border: "none", color: "inherit", padding: "9px 18px", borderRadius: 10, cursor: "pointer", fontSize: "0.82rem", fontWeight: 600 }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSaveEdit(editingMessageId)}
+                    style={{ background: "linear-gradient(135deg, var(--chakra-colors-brandPrimary), var(--chakra-colors-brandSecondary))", border: "none", color: "#fff", padding: "9px 22px", borderRadius: 10, cursor: "pointer", fontWeight: 800, fontSize: "0.82rem" }}
+                  >
+                    Save changes
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
         {viewer && (
           <Suspense fallback={<div style={{ position: "fixed", inset: 0, background: "#06070b", zIndex: 999999, display: "flex", alignItems: "center", justifyContent: "center", color: "#818cf8", fontWeight: 700 }}>Loading preview…</div>}>
             {(() => {
@@ -6628,11 +7611,11 @@ export default function ChatRoom() {
               const name = isObject ? viewer.name : (getEmbedData(url)?.type || "Web Link");
               const type = isObject ? viewer.type : null;
               const embed = getEmbedData(url);
-              const displayUrl = embed ? embed.src : url;
-
+              // Keep the ORIGINAL url for copy/download/open-external actions;
+              // only the iframe renders the embed source.
               return (
                 <UniversalFileViewer
-                  url={displayUrl}
+                  url={url}
                   name={isObject ? name : undefined}
                   type={type}
                   mode={isObject ? undefined : "web"}
@@ -6677,10 +7660,22 @@ export default function ChatRoom() {
                 className="chat-message-item"
                 key={i}
                 ref={(node) => { if (m.id) messageRefs.current[m.id] = node; }}
+                data-mid={m.id ? String(m.id) : undefined}
+                $highlighted={highlightMessageId === String(m.id || "")}
                 $isSender={m.userName === userName}
                 $isSystem={isSystem}
                 $systemType={systemType}
                 $isFile={!!m.file}
+                onTouchStart={(e) => !isSystem && handleBubbleTouchStart(e, m.id || i)}
+                onTouchMove={(e) => !isSystem && handleBubbleTouchMove(e, m.id || i)}
+                onTouchEnd={(e) => !isSystem && handleBubbleTouchEnd(e, m.id || i, m)}
+                onTouchCancel={(e) => {
+                  const key = m.id || i;
+                  delete swipeGesturesRef.current[key];
+                  e.currentTarget.style.transition = "transform 0.2s ease";
+                  e.currentTarget.style.transform = "translateX(0)";
+                  e.currentTarget.style.boxShadow = "";
+                }}
               >
                 {!isSystem && m.forwarded && (
                   <div style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: "0.72rem", opacity: 0.6, marginBottom: 4, fontStyle: "italic", padding: m.file ? "12px 14px 0px" : "0" }}>
@@ -6696,7 +7691,7 @@ export default function ChatRoom() {
                 )}
 
                 {!isSystem && m.replyTo && (
-                  <button type="button" aria-label="Jump to replied message" onClick={() => { const target = messageRefs.current[m.replyTo.id]; target?.scrollIntoView({ behavior: "smooth", block: "center" }); target?.animate([{ boxShadow: "0 0 0 0 rgba(5,150,105,0)", backgroundColor: "transparent" }, { boxShadow: "0 0 0 4px rgba(5,150,105,.9)", backgroundColor: "rgba(5,150,105,.16)", offset: 0.12 }, { boxShadow: "0 0 0 4px rgba(5,150,105,.7)", backgroundColor: "rgba(5,150,105,.12)", offset: 0.82 }, { boxShadow: "0 0 0 0 rgba(5,150,105,0)", backgroundColor: "transparent" }], { duration: 2600, easing: "ease-in-out" }); }} style={{ width: m.file ? "calc(100% - 28px)" : "100%", margin: m.file ? "8px 14px 10px" : "0 0 8px", textAlign: "left", border: 0, borderLeft: "3px solid var(--chakra-colors-brandPrimary)", background: "rgba(255,255,255,.055)", borderRadius: 8, padding: "7px 9px", fontSize: ".76rem", lineHeight: 1.35, display: "flex", gap: 9, alignItems: "center", color: "inherit", cursor: "pointer", boxSizing: "border-box" }}>
+                  <button type="button" aria-label="Jump to replied message" onClick={() => jumpToMessage(m.replyTo.id)} style={{ width: m.file ? "calc(100% - 28px)" : "100%", margin: m.file ? "8px 14px 10px" : "0 0 8px", textAlign: "left", border: 0, borderLeft: "3px solid var(--chakra-colors-brandPrimary)", background: "rgba(255,255,255,.055)", borderRadius: 8, padding: "7px 9px", fontSize: ".76rem", lineHeight: 1.35, display: "flex", gap: 9, alignItems: "center", color: "inherit", cursor: "pointer", boxSizing: "border-box" }}>
                     <ReplyAttachmentPreview reply={m.replyTo} roomKey={roomKey} />
                     <div style={{ minWidth: 0, flex: 1 }}><div style={{ color: "var(--chakra-colors-brandPrimary)", fontWeight: 700 }}>{m.replyTo.userName || "Message"}</div><div style={{ opacity: .78, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.replyTo.file?.viewOnce ? "View-once media · unavailable" : (m.replyTo.preview || "Attachment")}</div></div>
                   </button>
@@ -6717,64 +7712,9 @@ export default function ChatRoom() {
                 {!isSystem && m.poll && renderPoll(m)}
 
                 {!isSystem && m.text && (
-                  editingMessageId === m.id ? (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%", marginTop: 4, minWidth: 200, padding: m.file ? "4px 14px 10px" : "0" }}>
-                      <textarea
-                        value={editInput}
-                        onChange={(e) => setEditInput(e.target.value)}
-                        style={{
-                          width: "100%",
-                          minHeight: 60,
-                          maxHeight: 300,
-                          padding: "10px 14px",
-                          borderRadius: 10,
-                          border: "1px solid var(--chakra-colors-brandPrimary)",
-                          background: "rgba(0,0,0,0.25)",
-                          color: "#fff",
-                          outline: "none",
-                          fontFamily: "'SF Mono','Fira Code',Consolas,monospace",
-                          fontSize: "0.88rem",
-                          lineHeight: 1.55,
-                          resize: "vertical",
-                          boxSizing: "border-box",
-                          whiteSpace: "pre-wrap",
-                          wordWrap: "break-word",
-                        }}
-                        onKeyDown={(e) => {
-                          if ((e.ctrlKey || e.metaKey) && e.key === "Enter") handleSaveEdit(m.id);
-                          if (e.key === "Escape") setEditingMessageId(null);
-                        }}
-                        autoFocus
-                        ref={(el) => {
-                          if (el) {
-                            el.style.height = "auto";
-                            el.style.height = Math.min(el.scrollHeight, 300) + "px";
-                          }
-                        }}
-                      />
-                      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                        <button
-                          onClick={() => handleSaveEdit(m.id)}
-                          style={{ background: "var(--chakra-colors-brandPrimary)", border: "none", color: "#fff", padding: "6px 16px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: "0.82rem" }}
-                        >
-                          Save
-                        </button>
-                        <button
-                          onClick={() => setEditingMessageId(null)}
-                          style={{ background: "rgba(255,255,255,0.1)", border: "none", color: "inherit", padding: "6px 16px", borderRadius: 8, cursor: "pointer", fontSize: "0.82rem" }}
-                        >
-                          Cancel
-                        </button>
-                        <span style={{ fontSize: "0.68rem", color: "var(--chakra-colors-textSecondary)", marginLeft: "auto" }}>
-                          {isMobile ? "Save to confirm" : "Ctrl+Enter to save · Esc to cancel"}
-                        </span>
-                      </div>
-                    </div>
-                  ) : (
-                    m.file ? (
-                      <div style={{ padding: "4px 14px 10px" }}>{renderSmartMessage(m.text)}</div>
-                    ) : renderSmartMessage(m.text)
-                  )
+                  m.file ? (
+                    <div style={{ padding: "4px 14px 10px" }}>{renderSmartMessage(m.text)}</div>
+                  ) : renderSmartMessage(m.text)
                 )}
 
                 {m.gif && (
@@ -6788,7 +7728,7 @@ export default function ChatRoom() {
                 )}
 
                 {m.file && (
-                  <div style={{ position: "relative", width: "100%", minWidth: 0, flexShrink: 0, borderTop: "1px solid rgba(255,255,255,.04)", borderBottom: "1px solid rgba(255,255,255,.04)" }}>
+                  <div style={{ position: "relative", width: "100%", minWidth: 0, flexShrink: 0 }}>
                     {m.file.loading ? (
                       <div style={{ padding: isMobile ? "10px 12px" : "12px 14px" }}>
                         <UploadProgressCard file={m.file} isMobile={isMobile} />
@@ -6799,7 +7739,7 @@ export default function ChatRoom() {
                   </div>
                 )}
 
-                <div style={m.file ? { padding: "10px 14px 10px", borderTop: "1px solid rgba(255,255,255,.08)", background: "rgba(0,0,0,.15)" } : undefined}>
+                <div style={m.file ? { padding: "8px 12px 6px" } : undefined}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: 'space-between', width: "100%", gap: 6 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                       {m.editedAt && <span style={{ fontSize: "0.65rem", opacity: 0.6, fontStyle: "italic", color: "var(--chakra-colors-textSecondary)" }}>(edited)</span>}
@@ -6845,8 +7785,8 @@ export default function ChatRoom() {
                                 gap: 3,
                                 padding: isMobile ? "2px 6px" : "3px 10px",
                                 borderRadius: 20,
-                                border: "1px solid rgba(255,255,255,.12)",
-                                background: "rgba(255,255,255,.08)",
+                                border: "1px solid rgba(255,255,255,.05)",
+                                background: "rgba(255,255,255,.04)",
                                 color: "inherit",
                                 cursor: "pointer",
                                 fontSize: isMobile ? ".68rem" : ".75rem",
@@ -6857,7 +7797,7 @@ export default function ChatRoom() {
                                 e.currentTarget.style.transform = "scale(1.05)";
                               }}
                               onMouseLeave={(e) => {
-                                e.currentTarget.style.background = "rgba(255,255,255,.08)";
+                                e.currentTarget.style.background = "rgba(255,255,255,.04)";
                                 e.currentTarget.style.transform = "scale(1)";
                               }}
                             >
@@ -7031,7 +7971,7 @@ export default function ChatRoom() {
                                 transition: ".15s",
                               }}
                               onMouseEnter={(e) => {
-                                e.currentTarget.style.background = "rgba(255,255,255,.12)";
+                                e.currentTarget.style.background = "rgba(255,255,255,.05)";
                                 e.currentTarget.style.transform = "scale(1.2)";
                               }}
                               onMouseLeave={(e) => {
@@ -7316,7 +8256,7 @@ export default function ChatRoom() {
                 alignItems: "center",
                 gap: 10,
                 padding: "10px 14px",
-                background: "rgba(255,255,255,.06)",
+                background: "rgba(255,255,255,.03)",
                 borderRadius: 12,
                 borderLeft: "3px solid var(--chakra-colors-brandPrimary)",
                 animation: "fadeIn .15s ease",
@@ -7335,7 +8275,7 @@ export default function ChatRoom() {
                   onClick={() => setReplyTo(null)}
                   aria-label="Cancel reply"
                   style={{
-                    background: "rgba(255,255,255,.08)",
+                    background: "rgba(255,255,255,.04)",
                     border: "none",
                     color: "var(--chakra-colors-textSecondary)",
                     cursor: "pointer",
@@ -7349,7 +8289,7 @@ export default function ChatRoom() {
                     transition: "background .2s, color .2s",
                   }}
                   onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,71,87,.18)"; e.currentTarget.style.color = "#ff6b6b"; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,.08)"; e.currentTarget.style.color = "var(--chakra-colors-textSecondary)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,.04)"; e.currentTarget.style.color = "var(--chakra-colors-textSecondary)"; }}
                 >
                   ✕
                 </button>
@@ -7453,7 +8393,7 @@ export default function ChatRoom() {
                   right: isMobile ? 12 : 24,
                   background: "rgba(20, 20, 25, 0.95)",
                   backdropFilter: "blur(20px)",
-                  border: "1px solid rgba(255, 255, 255, 0.08)",
+                  border: "1px solid rgba(255,255,255,0.07)",
                   borderRadius: "14px",
                   boxShadow: "0 -8px 24px rgba(0, 0, 0, 0.4), 0 10px 30px rgba(0, 0, 0, 0.3)",
                   maxHeight: "200px",
@@ -7495,7 +8435,7 @@ export default function ChatRoom() {
                           width: "24px",
                           height: "24px",
                           borderRadius: "50%",
-                          background: "rgba(255, 255, 255, 0.1)",
+                          background: "rgba(255,255,255,0.07)",
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
@@ -7560,12 +8500,30 @@ export default function ChatRoom() {
                 </>
                 )}
 
+                <IconButton
+                  type="button"
+                  onClick={() => setCodeBlockMode(v => !v)}
+                  title={codeBlockMode ? "Code block mode ON — message will send as code" : "Share as code block"}
+                  aria-pressed={codeBlockMode}
+                  style={{
+                    color: codeBlockMode ? "var(--chakra-colors-brandPrimary)" : "inherit",
+                    background: codeBlockMode ? "rgba(99,102,241,0.15)" : "transparent",
+                    border: codeBlockMode ? "1px solid rgba(99,102,241,0.4)" : "none",
+                    fontWeight: 800,
+                    fontSize: "0.8rem",
+                    fontFamily: "'SF Mono','Fira Code',Consolas,monospace",
+                  }}
+                >
+                  {"</>"}
+                </IconButton>
+
                 <MessageInput
                   rows={1}
-                  placeholder={ephemeralMode ? "💨 Ephemeral message..." : "Type a message..."}
+                  placeholder={codeBlockMode ? "// Code block mode — paste your code…" : ephemeralMode ? "💨 Ephemeral message..." : "Type a message..."}
                   value={message}
                   onChange={handleInputChange}
                   onKeyDown={handleInputKeyDown}
+                  style={codeBlockMode ? { fontFamily: "'SF Mono','Fira Code',Consolas,monospace", fontSize: "0.85rem" } : undefined}
                   onInput={(e) => {
                     e.target.style.height = "auto";
                     e.target.style.height = Math.min(e.target.scrollHeight, 150) + "px";
@@ -7676,13 +8634,13 @@ export default function ChatRoom() {
 
         {showScheduler && (
           <div role="dialog" aria-modal="true" style={{ position: "fixed", inset: 0, zIndex: 22000, background: "rgba(0,0,0,.68)", display: "grid", placeItems: "center", padding: 20 }}>
-            <div style={{ width: "min(400px, 100%)", padding: 24, borderRadius: 18, background: "var(--chakra-colors-surface)", border: "1px solid rgba(255,255,255,.12)", boxShadow: "0 24px 80px rgba(0,0,0,.45)" }}>
+            <div style={{ width: "min(400px, 100%)", padding: 24, borderRadius: 18, background: "var(--chakra-colors-surface)", border: "1px solid rgba(255,255,255,.05)", boxShadow: "0 24px 80px rgba(0,0,0,.45)" }}>
               <h3 style={{ margin: "0 0 8px" }}>⏰ Schedule Message</h3>
               <p style={{ margin: "0 0 16px", color: "var(--chakra-colors-textSecondary)", fontSize: "0.85rem" }}>
                 Choose when to send your composed message.
               </p>
 
-              <div style={{ background: "rgba(255,255,255,0.03)", padding: "12px 14px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.06)", marginBottom: 16, fontSize: "0.9rem", color: "var(--chakra-colors-textPrimary)" }}>
+              <div style={{ background: "rgba(255,255,255,0.055)", padding: "12px 14px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.055)", marginBottom: 16, fontSize: "0.9rem", color: "var(--chakra-colors-textPrimary)" }}>
                 {pendingFiles.length > 0 && (
                   <div style={{ marginBottom: message.trim() ? 8 : 0, display: "flex", flexDirection: "column", gap: 4 }}>
                     <span style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--chakra-colors-brandPrimary)", fontWeight: 700 }}>Files to Schedule:</span>
@@ -7722,7 +8680,7 @@ export default function ChatRoom() {
               />
 
               <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
-                <button type="button" onClick={() => setShowScheduler(false)} style={{ border: 0, padding: "8px 16px", borderRadius: 8, cursor: "pointer", background: "rgba(255,255,255,.08)", color: "#fff", fontWeight: 700 }}>
+                <button type="button" onClick={() => setShowScheduler(false)} style={{ border: 0, padding: "8px 16px", borderRadius: 8, cursor: "pointer", background: "rgba(255,255,255,.04)", color: "#fff", fontWeight: 700 }}>
                   Cancel
                 </button>
                 <button type="button" onClick={handleScheduleMessage} style={{ border: 0, padding: "8px 16px", borderRadius: 8, cursor: "pointer", background: "var(--chakra-colors-brandPrimary)", color: "#fff", fontWeight: 800 }}>
@@ -7731,11 +8689,11 @@ export default function ChatRoom() {
               </div>
 
               {scheduledMessages.length > 0 && (
-                <div style={{ marginTop: 24, borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 16 }}>
+                <div style={{ marginTop: 24, borderTop: "1px solid rgba(255,255,255,0.07)", paddingTop: 16 }}>
                   <h4 style={{ margin: "0 0 10px", fontSize: "0.9rem" }}>Pending Scheduled</h4>
                   <div style={{ display: "grid", gap: 8, maxHeight: 150, overflowY: "auto" }}>
                     {scheduledMessages.map((m) => (
-                      <div key={m.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(255,255,255,0.03)", padding: 8, borderRadius: 6, fontSize: "0.8rem" }}>
+                      <div key={m.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(255,255,255,0.055)", padding: 8, borderRadius: 6, fontSize: "0.8rem" }}>
                         <div style={{ minWidth: 0, flex: 1 }}>
                           <div style={{ textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap", fontWeight: 600 }}>
                             {m.file ? `📎 File: ${m.file.name}` : m.text || "Scheduled message"}
@@ -7755,8 +8713,8 @@ export default function ChatRoom() {
         )}
 
         {showBookmarks && (
-          <div role="dialog" aria-modal="true" style={{ position: "fixed", top: 0, bottom: 0, right: 0, width: "min(380px, 100vw)", zIndex: 20000, background: "var(--chakra-colors-surface)", borderLeft: "1px solid rgba(255,255,255,0.12)", boxShadow: "-10px 0 40px rgba(0,0,0,0.5)", display: "flex", flexDirection: "column" }}>
-            <div style={{ padding: "20px 24px", borderBottom: "1px solid rgba(255,255,255,0.1)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div role="dialog" aria-modal="true" style={{ position: "fixed", top: 0, bottom: 0, right: 0, width: "min(380px, 100vw)", zIndex: 20000, background: "var(--chakra-colors-surface)", borderLeft: "1px solid rgba(255,255,255,0.08)", boxShadow: "-10px 0 40px rgba(0,0,0,0.5)", display: "flex", flexDirection: "column" }}>
+            <div style={{ padding: "20px 24px", borderBottom: "1px solid rgba(255,255,255,0.07)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <h3 style={{ margin: 0 }}>Saved Messages 🔖</h3>
               <button type="button" onClick={() => setShowBookmarks(false)} style={{ border: 0, background: "transparent", color: "inherit", cursor: "pointer", fontSize: "1.2rem" }}>✕</button>
             </div>
@@ -7768,7 +8726,7 @@ export default function ChatRoom() {
                 </div>
               ) : (
                 bookmarks.map((b) => (
-                  <div key={b.id} style={{ background: "rgba(255,255,255,0.03)", padding: 14, borderRadius: 12, border: "1px solid rgba(255,255,255,0.06)", position: "relative" }}>
+                  <div key={b.id} style={{ background: "rgba(255,255,255,0.055)", padding: 14, borderRadius: 12, border: "1px solid rgba(255,255,255,0.055)", position: "relative" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
                       <span style={{ fontWeight: 700, fontSize: "0.85rem", color: "var(--chakra-colors-brandPrimary)" }}>{b.userName}</span>
                       <span style={{ fontSize: "0.7rem", opacity: 0.5 }}>{new Date(b.ts).toLocaleDateString()}</span>
@@ -7777,16 +8735,7 @@ export default function ChatRoom() {
                       {b.text}
                     </div>
                     <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 10 }}>
-                      <button type="button" onClick={() => {
-                        const target = messageRefs.current[b.id];
-                        if (target) {
-                          target.scrollIntoView({ behavior: "smooth", block: "center" });
-                          target?.animate([{ boxShadow: "0 0 0 0 rgba(5,150,105,0)", backgroundColor: "transparent" }, { boxShadow: "0 0 0 4px rgba(5,150,105,.9)", backgroundColor: "rgba(5,150,105,.16)", offset: 0.12 }, { boxShadow: "0 0 0 4px rgba(5,150,105,.7)", backgroundColor: "rgba(5,150,105,.12)", offset: 0.82 }, { boxShadow: "0 0 0 0 rgba(5,150,105,0)", backgroundColor: "transparent" }], { duration: 2600, easing: "ease-in-out" });
-                          setShowBookmarks(false);
-                        } else {
-                          toast.error("Message not loaded in current view");
-                        }
-                      }} style={{ border: 0, background: "transparent", color: "var(--chakra-colors-brandPrimary)", cursor: "pointer", fontSize: "0.75rem", fontWeight: 700 }}>
+                      <button type="button" onClick={() => { jumpToMessage(b.id); setShowBookmarks(false); }} style={{ border: 0, background: "transparent", color: "var(--chakra-colors-brandPrimary)", cursor: "pointer", fontSize: "0.75rem", fontWeight: 700 }}>
                         Jump
                       </button>
                       <button type="button" onClick={() => toggleBookmark(b)} style={{ border: 0, background: "transparent", color: "#ff4757", cursor: "pointer", fontSize: "0.75rem", fontWeight: 700 }}>
@@ -7802,7 +8751,7 @@ export default function ChatRoom() {
 
         {showShortcutsHelp && (
           <div role="dialog" aria-modal="true" style={{ position: "fixed", inset: 0, zIndex: 22000, background: "rgba(0,0,0,.68)", display: "grid", placeItems: "center", padding: 20 }}>
-            <div style={{ width: "min(400px, 100%)", padding: 24, borderRadius: 18, background: "var(--chakra-colors-surface)", border: "1px solid rgba(255,255,255,.12)", boxShadow: "0 24px 80px rgba(0,0,0,.45)" }}>
+            <div style={{ width: "min(400px, 100%)", padding: 24, borderRadius: 18, background: "var(--chakra-colors-surface)", border: "1px solid rgba(255,255,255,.05)", boxShadow: "0 24px 80px rgba(0,0,0,.45)" }}>
               <h3 style={{ margin: "0 0 16px", display: "flex", alignItems: "center", gap: 8 }}>
                 <span>⌨️</span> Keyboard Shortcuts
               </h3>
@@ -7820,7 +8769,7 @@ export default function ChatRoom() {
                     <span style={{ color: "var(--chakra-colors-textSecondary)" }}>{item.desc}</span>
                     <div style={{ display: "flex", gap: 4 }}>
                       {item.keys.map((k, i) => (
-                        <kbd key={i} style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, padding: "2px 6px", fontSize: "0.75rem", fontWeight: 700, fontFamily: "monospace" }}>{k}</kbd>
+                        <kbd key={i} style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 4, padding: "2px 6px", fontSize: "0.75rem", fontWeight: 700, fontFamily: "monospace" }}>{k}</kbd>
                       ))}
                     </div>
                   </div>
@@ -7864,10 +8813,10 @@ export default function ChatRoom() {
         )}
 
         {renderAvatarCropDialog()}
-        {backgroundTarget && <div role="dialog" aria-modal="true" aria-label="Choose background audience" style={{ position: "fixed", inset: 0, zIndex: 21500, display: "grid", placeItems: "center", padding: 20, background: "rgba(0,0,0,.68)", backdropFilter: "blur(8px)" }}><section style={{ width: "min(100%, 420px)", padding: 24, borderRadius: 18, background: "var(--chakra-colors-surface)", border: "1px solid rgba(255,255,255,.12)" }}><h3 style={{ margin: "0 0 8px" }}>Where should this background apply?</h3><p style={{ margin: "0 0 20px", color: "var(--chakra-colors-textSecondary)", lineHeight: 1.5 }}>Choose a personal background, or enforce one for the whole room.</p><div style={{ display: "grid", gap: 10 }}><button type="button" onClick={() => { const file = backgroundTarget; setBackgroundTarget(null); applyBackgroundChange(file, "personal"); }} style={{ minHeight: 48, borderRadius: 11, border: "1px solid rgba(255,255,255,.15)", background: "rgba(255,255,255,.06)", color: "inherit", cursor: "pointer", fontWeight: 750 }}>Only me</button><button type="button" onClick={() => { const file = backgroundTarget; setBackgroundTarget(null); applyBackgroundChange(file, "everyone"); }} style={{ minHeight: 48, borderRadius: 11, border: 0, background: "var(--chakra-colors-brandPrimary)", color: "white", cursor: "pointer", fontWeight: 800 }}>Everyone in this room</button><button type="button" onClick={() => setBackgroundTarget(null)} style={{ minHeight: 40, border: 0, background: "transparent", color: "var(--chakra-colors-textSecondary)", cursor: "pointer" }}>Cancel</button></div></section></div>}
+        {backgroundTarget && <div role="dialog" aria-modal="true" aria-label="Choose background audience" style={{ position: "fixed", inset: 0, zIndex: 21500, display: "grid", placeItems: "center", padding: 20, background: "rgba(0,0,0,.68)", backdropFilter: "blur(8px)" }}><section style={{ width: "min(100%, 420px)", padding: 24, borderRadius: 18, background: "var(--chakra-colors-surface)", border: "1px solid rgba(255,255,255,.05)" }}><h3 style={{ margin: "0 0 8px" }}>Where should this background apply?</h3><p style={{ margin: "0 0 20px", color: "var(--chakra-colors-textSecondary)", lineHeight: 1.5 }}>Choose a personal background, or enforce one for the whole room.</p><div style={{ display: "grid", gap: 10 }}><button type="button" onClick={() => { const file = backgroundTarget; setBackgroundTarget(null); applyBackgroundChange(file, "personal"); }} style={{ minHeight: 48, borderRadius: 11, border: "1px solid rgba(255,255,255,.15)", background: "rgba(255,255,255,.03)", color: "inherit", cursor: "pointer", fontWeight: 750 }}>Only me</button><button type="button" onClick={() => { const file = backgroundTarget; setBackgroundTarget(null); applyBackgroundChange(file, "everyone"); }} style={{ minHeight: 48, borderRadius: 11, border: 0, background: "var(--chakra-colors-brandPrimary)", color: "white", cursor: "pointer", fontWeight: 800 }}>Everyone in this room</button><button type="button" onClick={() => setBackgroundTarget(null)} style={{ minHeight: 40, border: 0, background: "transparent", color: "var(--chakra-colors-textSecondary)", cursor: "pointer" }}>Cancel</button></div></section></div>}
         {confirmation && (
           <div role="dialog" aria-modal="true" style={{ position: "fixed", inset: 0, zIndex: 21000, background: "rgba(0,0,0,.68)", display: "grid", placeItems: "center", padding: 20 }}>
-            <div style={{ width: "min(420px, 100%)", padding: 24, borderRadius: 18, background: "var(--chakra-colors-surface)", border: "1px solid rgba(255,255,255,.12)", boxShadow: "0 24px 80px rgba(0,0,0,.45)" }}>
+            <div style={{ width: "min(420px, 100%)", padding: 24, borderRadius: 18, background: "var(--chakra-colors-surface)", border: "1px solid rgba(255,255,255,.05)", boxShadow: "0 24px 80px rgba(0,0,0,.45)" }}>
               <h3 style={{ margin: "0 0 8px" }}>{confirmation.title}</h3>
               <p style={{ margin: "0 0 22px", color: "var(--chakra-colors-textSecondary)", lineHeight: 1.5 }}>{confirmation.body}</p>
               <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
@@ -7920,7 +8869,7 @@ export default function ChatRoom() {
                       }
                     }}
                     style={{
-                      background: "rgba(255, 255, 255, 0.08)",
+                      background: "rgba(255,255,255,0.07)",
                       border: "1px solid rgba(255, 255, 255, 0.16)",
                       color: "var(--chakra-colors-textPrimary)",
                       width: "44px",
@@ -7943,7 +8892,7 @@ export default function ChatRoom() {
                       downloadMedia(fullscreen.url, fullscreen.name);
                     }}
                     style={{
-                      background: "rgba(255, 255, 255, 0.08)",
+                      background: "rgba(255,255,255,0.07)",
                       border: "1px solid rgba(255, 255, 255, 0.16)",
                       color: "var(--chakra-colors-textPrimary)",
                       width: "44px",
@@ -8069,7 +9018,7 @@ export default function ChatRoom() {
               </div>
             )}
             {(!fullscreen.type || (!fullscreen.type.startsWith("image") && !fullscreen.type.startsWith("video"))) && (
-              <div style={{ textAlign: "center", color: "var(--chakra-colors-textPrimary)", padding: "40px", background: "rgba(255, 255, 255, 0.03)", borderRadius: "24px", border: "1px solid rgba(255, 255, 255, 0.08)", maxWidth: "500px", animation: "popIn 0.35s cubic-bezier(0.16, 1, 0.3, 1)" }} onClick={(e) => e.stopPropagation()}>
+              <div style={{ textAlign: "center", color: "var(--chakra-colors-textPrimary)", padding: "40px", background: "rgba(255,255,255,0.055)", borderRadius: "24px", border: "1px solid rgba(255,255,255,0.07)", maxWidth: "500px", animation: "popIn 0.35s cubic-bezier(0.16, 1, 0.3, 1)" }} onClick={(e) => e.stopPropagation()}>
                 <FaFile size={100} style={{ marginBottom: 20, opacity: 0.3 }} />
                 <h2 style={{ marginBottom: 10, fontSize: "1.4rem", fontWeight: 700 }}>{fullscreen.name}</h2>
                 <p style={{ opacity: 0.6, marginBottom: 20, lineHeight: 1.6 }}>This file type cannot be previewed in the browser.</p>

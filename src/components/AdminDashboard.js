@@ -26,9 +26,35 @@ import {
 import { toast, ToastContainer } from "react-toastify";
 import { generateKeyFromSecret, decryptBinary } from "../utils/crypto";
 import AdminControlCenter from "./AdminControlCenter";
+import ThemeSwitcher from "./ThemeSwitcher";
 
 const AdminWrapper = styled.div`
   min-height: 100dvh;
+  position: relative;
+  &::before,
+  &::after {
+    content: "";
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(90px);
+    opacity: 0.16;
+    pointer-events: none;
+    z-index: 0;
+  }
+  &::before {
+    width: 560px;
+    height: 560px;
+    top: -180px;
+    right: -140px;
+    background: radial-gradient(circle, var(--chakra-colors-brandPrimary), transparent 70%);
+  }
+  &::after {
+    width: 480px;
+    height: 480px;
+    bottom: -160px;
+    left: -120px;
+    background: radial-gradient(circle, var(--chakra-colors-brandSecondary), transparent 70%);
+  }
   background: var(--chakra-colors-bg);
   color: var(--chakra-colors-textPrimary);
   display: flex;
@@ -41,15 +67,20 @@ const Header = styled.header`
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
   padding: 18px 32px;
+  position: sticky;
+  top: 0;
+  z-index: 30;
   background: var(--chakra-colors-glassBg);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(22px) saturate(1.4);
+  -webkit-backdrop-filter: blur(22px) saturate(1.4);
   border-bottom: 1px solid var(--chakra-colors-border);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
   flex-shrink: 0;
 
   @media (max-width: 768px) {
-    padding: 16px 20px;
+    padding: 14px 16px;
   }
 `;
 
@@ -95,19 +126,35 @@ const StatsGrid = styled.div`
 `;
 
 const StatCard = styled.div`
-  background: var(--chakra-colors-surface);
+  position: relative;
+  overflow: hidden;
+  background: var(--chakra-colors-glassBg);
+  backdrop-filter: blur(18px) saturate(1.3);
+  -webkit-backdrop-filter: blur(18px) saturate(1.3);
   border: 1px solid var(--chakra-colors-border);
   border-radius: 18px;
   padding: 24px;
   display: flex;
   align-items: center;
   gap: 20px;
-  box-shadow: var(--chakra-shadows-cardShadow);
-  transition: transform 0.2s ease, border-color 0.2s ease;
+  box-shadow: var(--chakra-shadows-cardShadow), inset 0 1px 0 var(--chakra-colors-borderSubtle);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s ease, box-shadow 0.25s ease;
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--chakra-colors-brandPrimary), transparent);
+    opacity: 0;
+    transition: opacity 0.25s ease;
+  }
 
   &:hover {
-    transform: translateY(-2px);
+    transform: translateY(-3px);
     border-color: var(--chakra-colors-brandPrimary);
+
+    &::before { opacity: 1; }
   }
 
   @media (max-width: 480px) {
@@ -250,11 +297,13 @@ const SearchInput = styled.input`
 `;
 
 const TableCard = styled.div`
-  background: var(--chakra-colors-surface);
+  background: var(--chakra-colors-glassBg);
+  backdrop-filter: blur(16px) saturate(1.25);
+  -webkit-backdrop-filter: blur(16px) saturate(1.25);
   border: 1px solid var(--chakra-colors-border);
   border-radius: 18px;
   overflow: hidden;
-  box-shadow: var(--chakra-shadows-cardShadow);
+  box-shadow: var(--chakra-shadows-cardShadow), inset 0 1px 0 var(--chakra-colors-borderSubtle);
 
   @media (max-width: 768px) {
     border: none;
@@ -986,7 +1035,7 @@ export default function AdminDashboard() {
   if (!token) {
     return (
       <LoginContainer>
-        <ToastContainer position="top-center" theme="dark" />
+        <ToastContainer position="top-center" autoClose={2600} limit={3} theme="dark" newestOnTop closeOnClick pauseOnHover={false} icon={false} />
         <FloatingBlob />
         <form onSubmit={handleLogin} style={{ zIndex: 2, position: "relative" }}>
           <LoginCard>
@@ -1030,7 +1079,7 @@ export default function AdminDashboard() {
 
   return (
     <AdminWrapper>
-      <ToastContainer position="top-center" theme="dark" />
+      <ToastContainer position="top-center" autoClose={2600} limit={3} theme="dark" newestOnTop closeOnClick pauseOnHover={false} icon={false} />
       {decryptTarget && <div role="dialog" aria-modal="true" aria-label="Secure file download" style={{ position: "fixed", inset: 0, zIndex: 20000, display: "grid", placeItems: "center", padding: 20, background: "rgba(0,0,0,.62)" }}>
         <div style={{ width: "min(420px, 100%)", padding: 24, borderRadius: 20, background: "#10192e", border: "1px solid rgba(255,255,255,.12)", boxShadow: "0 24px 70px rgba(0,0,0,.55)" }}>
           <h2 style={{ margin: 0, fontSize: "1.1rem" }}>Secure download</h2>
@@ -1043,7 +1092,8 @@ export default function AdminDashboard() {
         <Brand>
           <FaShieldAlt /> Admin Panel
         </Brand>
-        <div style={{ display: "flex", gap: "10px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <ThemeSwitcher />
           <ActionButton onClick={() => setShowChangePassword(true)}>
             <FaCog /> <span className="hide-mobile">Settings</span>
           </ActionButton>

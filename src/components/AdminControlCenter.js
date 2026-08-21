@@ -81,15 +81,22 @@ const RoomGrid = styled.div`
 `;
 
 const RoomCard = styled.article`
-  background: rgba(255, 255, 255, 0.025);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--chakra-colors-glassBg);
+  backdrop-filter: blur(16px) saturate(1.25);
+  -webkit-backdrop-filter: blur(16px) saturate(1.25);
+  border: 1px solid var(--chakra-colors-border);
+  box-shadow: var(--chakra-shadows-cardShadow), inset 0 1px 0 var(--chakra-colors-borderSubtle);
   border-radius: 14px;
   padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 10px;
-  transition: all 0.2s ease;
-  &:hover { border-color: rgba(255, 63, 94, 0.2); background: rgba(255, 255, 255, 0.04); }
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease, box-shadow 0.22s ease;
+  &:hover {
+    border-color: var(--chakra-colors-brandPrimary);
+    transform: translateY(-3px);
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.28);
+  }
 `;
 
 const CardHeader = styled.div`
