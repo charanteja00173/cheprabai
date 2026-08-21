@@ -46,13 +46,12 @@ import {
   exportKey,
   importKey
 } from "../utils/crypto";
-import { createDecryptionHtmlTemplate } from "../utils/exportTemplate";
 import { copyRoomShareLink, parseRoomRouteParams } from "../utils/shareLink";
-import { ImNewTab } from "react-icons/im";
-import { AiFillCloseSquare } from "react-icons/ai";
+import { safeCopyText, safeCopyImage } from "../utils/clipboard";
 // Lazy-load heavy components
 const Whiteboard = React.lazy(() => import("./Whiteboard"));
 const LiveMeeting = React.lazy(() => import("./LiveMeeting"));
+const UniversalFileViewer = React.lazy(() => import("./UniversalFileViewer"));
 
 // Platform-aware aspect ratio for media embeds and file uploads
 const getMediaAspectRatio = (sourceStr = "", fileType = "") => {
@@ -87,6 +86,11 @@ const getFileType = (file) => {
 // Security code validation is handled server-side to support per-room passwords
 
 const urlRegex = /(https?:\/\/[^\s]+)/g;
+
+// Inline clipboard helper for exported HTML (works on http + https).
+// Lazily defines window.__cbCopy on first click, then reuses it.
+const INLINE_CLIPBOARD_FALLBACK =
+  "(window.__cbCopy||(window.__cbCopy=function(t){try{if(navigator.clipboard&&navigator.clipboard.writeText)return navigator.clipboard.writeText(t);var a=document.createElement('textarea');a.value=t;a.setAttribute('readonly','');a.style.position='fixed';a.style.top='-9999px';a.style.left='-9999px';document.body.appendChild(a);a.select();document.execCommand('copy');document.body.removeChild(a);}catch(e){}}))";
 
 /* ================= STYLES ================= */
 
@@ -2562,39 +2566,21 @@ const downloadMedia = (decryptedUrl, name) => {
 
 const copyImageToClipboard = async (decryptedUrl) => {
   if (!decryptedUrl) return;
-  if (!navigator.clipboard) { toast.error("Clipboard not available in this browser."); return; }
   try {
-    const response = await fetch(decryptedUrl);
-    const blob = await response.blob();
-    if (blob.type.includes("png")) {
-      await navigator.clipboard.write([
-        new ClipboardItem({ "image/png": blob })
-      ]);
-      toast.success("📋 Image copied to clipboard!");
-    } else {
-      await navigator.clipboard.writeText(decryptedUrl);
-      toast.success("📋 Image URL copied to clipboard!");
-    }
+    const { ok, mode } = await safeCopyImage(decryptedUrl);
+    if (!ok) { toast.error("Failed to copy image."); return; }
+    toast.success(mode === "image" ? "📋 Image copied to clipboard!" : "📋 Image link copied!");
   } catch (err) {
     console.error(err);
-    try {
-      await navigator.clipboard.writeText(decryptedUrl);
-      toast.success("📋 Image link copied!");
-    } catch (e2) {
-      toast.error("Failed to copy image.");
-    }
+    toast.error("Failed to copy image.");
   }
 };
 
 const copyLinkToClipboard = async (url) => {
   if (!url) return;
-  if (!navigator.clipboard) { toast.error("Clipboard not available in this browser."); return; }
-  try {
-    await navigator.clipboard.writeText(url);
-    toast.success("📋 Link copied to clipboard!");
-  } catch (err) {
-    toast.error("Failed to copy link.");
-  }
+  const ok = await safeCopyText(url);
+  if (ok) toast.success("📋 Link copied to clipboard!");
+  else toast.error("Failed to copy link.");
 };
 
 // Skeleton placeholder for media loading — MUST be defined outside E2EEFileAttachment
@@ -2632,7 +2618,378 @@ const MediaSkeleton = ({ isMobile }) => (
   </div>
 );
 
+// ── Stunning progressive-reveal upload card ──
+// The final attachment layout sits as a dimmed skeleton; as upload % grows,
+// a lit "revealed" layer sweeps across it (clip-path), like a curtain lifting.
+// Keyframes are injected as plain CSS so they work inside inline styles.
+
+const formatBytes = (bytes) => {
+  if (!bytes && bytes !== 0) return "";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+};
+
 // Stateful component to handle downloading, decrypting and displaying E2EE files
+// ── Eased counter: smoothly animates a number toward its target (rAF lerp) ──
+const useEasedValue = (target, duration = 600) => {
+  const [val, setVal] = useState(target);
+  const valRef = useRef(target);
+  const rafRef = useRef();
+  useEffect(() => {
+    const from = valRef.current;
+    if (Math.abs(from - target) < 0.5) { valRef.current = target; setVal(target); return; }
+    const start = performance.now();
+    const step = (now) => {
+      const t = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - t, 3);
+      const next = from + (target - from) * eased;
+      valRef.current = next;
+      setVal(next);
+      if (t < 1) rafRef.current = requestAnimationFrame(step);
+    };
+    rafRef.current = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [target, duration]);
+  return val;
+};
+
+// ── Upload card type: photo · video · file ──
+const getUploadTypeMeta = (type = "", name = "") => {
+  const t = (type || "").toLowerCase();
+  const ext = (name.split(".").pop() || "").toLowerCase();
+  if (t.startsWith("image/") || ["png", "jpg", "jpeg", "gif", "webp", "avif", "svg", "bmp", "heic", "ico"].includes(ext)) {
+    return { kind: "image", label: "Photo", from: "#f43f5e", to: "#fb923c" };
+  }
+  if (t.startsWith("video/") || ["mp4", "mov", "webm", "mkv", "avi", "m4v", "mpeg"].includes(ext)) {
+    return { kind: "video", label: "Video", from: "#8b5cf6", to: "#e879f9" };
+  }
+  return { kind: "file", label: "File", from: "#38bdf8", to: "#34d399" };
+};
+
+// ── Upload progress card ──
+// Photos & videos show the actual content large — it starts soft/dim and
+// sharpens into full view as the upload progresses. Files show a compact row.
+// Friendly copy only: Getting ready… → Sending → Almost done…
+const UploadProgressCard = ({ file, isMobile }) => {
+  const phase = file.phase || "uploading"; // "encrypting" | "uploading" | "finalizing"
+  const target = phase === "encrypting" ? 0 : Math.max(0, Math.min(100, file.progress ?? 0));
+  const eased = useEasedValue(target);
+  const shown = Math.round(eased);
+  const meta = getUploadTypeMeta(file.type, file.name);
+  const speed = file.speed || 0;
+  const hasPreview = Boolean(file.previewUrl) && meta.kind !== "file";
+  const uploading = phase === "uploading";
+  const indeterminate = phase === "encrypting" || phase === "finalizing";
+  const amountText = file.total
+    ? `${formatBytes(file.loaded || 0)} / ${formatBytes(file.total)}`
+    : formatBytes(file.size);
+
+  const statusText =
+    phase === "encrypting" ? "Getting ready…" :
+    phase === "finalizing" ? "Finishing up…" :
+    "Sending";
+
+  // ── Media variant: big live preview with progress woven over it ──
+  if (hasPreview) {
+    return (
+      <div style={{
+        position: "relative",
+        width: "100%",
+        overflow: "hidden",
+        borderRadius: 14,
+        border: "1px solid rgba(255,255,255,0.08)",
+        background: "#0d0e15"
+      }}>
+        <style>{`
+          @keyframes upc-sweep {
+            0% { transform: translateX(-120%) skewX(-14deg); }
+            100% { transform: translateX(340%) skewX(-14deg); }
+          }
+          @keyframes upc-pulse {
+            0%, 100% { opacity: 0.45; }
+            50% { opacity: 1; }
+          }
+        @keyframes upc-indeterminate {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(400%); }
+        }
+        @keyframes upc-spin {
+          to { transform: rotate(360deg); }
+        }
+        `}</style>
+
+        {/* the content itself — sharpens as it sends */}
+        <div style={{ position: "relative", width: "100%", maxHeight: isMobile ? 240 : 300, overflow: "hidden" }}>
+          {meta.kind === "image" ? (
+            <img
+              src={file.previewUrl}
+              alt=""
+              style={{
+                width: "100%", maxHeight: isMobile ? 240 : 300, objectFit: "cover", display: "block",
+                filter: `blur(${((100 - eased) * 0.09).toFixed(2)}px) brightness(${(0.55 + eased * 0.0045).toFixed(3)})`,
+                transition: "filter .25s linear"
+              }}
+            />
+          ) : (
+            <video
+              src={`${file.previewUrl}#t=0.1`}
+              muted playsInline preload="metadata"
+              style={{
+                width: "100%", maxHeight: isMobile ? 240 : 300, objectFit: "cover", display: "block",
+                filter: `blur(${((100 - eased) * 0.09).toFixed(2)}px) brightness(${(0.55 + eased * 0.0045).toFixed(3)})`,
+                transition: "filter .25s linear"
+              }}
+            />
+          )}
+
+          {/* dark veil that lifts with progress */}
+          <div style={{
+            position: "absolute", inset: 0,
+            background: `linear-gradient(180deg, rgba(10,11,18,${(0.45 * (1 - eased / 100)).toFixed(3)}), rgba(10,11,18,${(0.55 * (1 - eased / 100)).toFixed(3)}))`
+          }} />
+
+          {/* shimmer sweep */}
+          <div style={{ position: "absolute", inset: 0, overflow: "hidden" }}>
+            <div style={{
+              position: "absolute", top: 0, bottom: 0, left: 0, width: "30%",
+              background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.10), transparent)",
+              animation: "upc-sweep 1.9s ease-in-out infinite"
+            }} />
+          </div>
+
+          {/* centered % pill */}
+          <div style={{
+            position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
+            display: "flex", flexDirection: "column", alignItems: "center", gap: 8
+          }}>
+            <div style={{
+              width: isMobile ? 58 : 66, height: isMobile ? 58 : 66, borderRadius: "50%",
+              padding: 3,
+              background: `conic-gradient(${meta.to} ${eased * 3.6}deg, rgba(255,255,255,0.22) ${eased * 3.6}deg)`
+            }}>
+              <div style={{
+                width: "100%", height: "100%", borderRadius: "50%",
+                background: "rgba(13,14,21,0.82)", backdropFilter: "blur(6px)",
+                border: "1px solid rgba(255,255,255,0.12)",
+                display: "flex", alignItems: "center", justifyContent: "center"
+              }}>
+                {uploading ? (
+                  <span style={{
+                    fontSize: isMobile ? ".8rem" : ".9rem", fontWeight: 800, color: "#fff",
+                    fontVariantNumeric: "tabular-nums"
+                  }}>
+                    {shown}%
+                  </span>
+                ) : phase === "finalizing" ? (
+                  <span style={{
+                    width: isMobile ? 14 : 16, height: isMobile ? 14 : 16, borderRadius: "50%",
+                    border: "2px solid rgba(255,255,255,0.25)", borderTopColor: meta.to,
+                    animation: "upc-spin .8s linear infinite", display: "block"
+                  }} />
+                ) : null}
+              </div>
+            </div>
+            {phase === "encrypting" && (
+              <span style={{ fontSize: ".72rem", fontWeight: 600, color: "rgba(255,255,255,0.85)", animation: "upc-pulse 1.4s ease-in-out infinite" }}>
+                Getting ready…
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* footer: name + progress bar + status */}
+        <div style={{ padding: isMobile ? "10px 13px 11px" : "12px 15px 13px", background: "rgba(255,255,255,0.03)" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 8 }}>
+            <span style={{
+              fontSize: isMobile ? ".78rem" : ".84rem", fontWeight: 650, color: "#fff",
+              whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0
+            }}>
+              {file.name}
+            </span>
+            {phase === "uploading" && speed > 0 && (
+              <span style={{ fontSize: ".68rem", color: "rgba(255,255,255,0.5)", fontVariantNumeric: "tabular-nums", flexShrink: 0 }}>
+                {formatBytes(speed)}/s
+              </span>
+            )}
+          </div>
+
+          <div style={{ height: 4, borderRadius: 4, background: "rgba(255,255,255,0.09)", overflow: "hidden", position: "relative" }}>
+            {indeterminate ? (
+              <div style={{
+                position: "absolute", top: 0, bottom: 0, left: 0, width: "25%", borderRadius: 4,
+                background: `linear-gradient(90deg, transparent, ${meta.from}, ${meta.to}, transparent)`,
+                animation: "upc-indeterminate 1.2s ease-in-out infinite"
+              }} />
+            ) : (
+              <div style={{
+                height: "100%", borderRadius: 4, width: `${eased}%`,
+                background: `linear-gradient(90deg, ${meta.from}, ${meta.to})`,
+                boxShadow: `0 0 10px ${meta.from}55`
+              }} />
+            )}
+          </div>
+
+          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 7 }}>
+            <span style={{ fontSize: ".68rem", fontWeight: 600, color: uploading ? "rgba(255,255,255,0.55)" : meta.to }}>
+              {statusText}
+            </span>
+            <span style={{ fontSize: ".68rem", color: "rgba(255,255,255,0.42)", fontVariantNumeric: "tabular-nums" }}>
+              {file.total ? amountText : formatBytes(file.size)}
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Compact variant: files & anything without a preview ──
+  return (
+    <div style={{
+      position: "relative",
+      width: "100%",
+      overflow: "hidden",
+      borderRadius: 14,
+      border: "1px solid rgba(255,255,255,0.07)",
+      background: "linear-gradient(160deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02))",
+      boxShadow: "0 4px 24px rgba(0,0,0,0.18)"
+    }}>
+      <style>{`
+        @keyframes upc-sweep {
+          0% { transform: translateX(-120%) skewX(-14deg); }
+          100% { transform: translateX(340%) skewX(-14deg); }
+        }
+        @keyframes upc-pulse {
+          0%, 100% { opacity: 0.45; }
+          50% { opacity: 1; }
+        }
+        @keyframes upc-indeterminate {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(400%); }
+        }
+        @keyframes upc-dot {
+          0% { box-shadow: 0 0 0 0 ${meta.from}55; }
+          70% { box-shadow: 0 0 0 6px ${meta.from}00; }
+          100% { box-shadow: 0 0 0 0 ${meta.from}00; }
+        }
+      `}</style>
+
+      <div style={{ padding: isMobile ? "13px 14px 11px" : "15px 16px 12px", display: "flex", alignItems: "center", gap: 13 }}>
+        {/* icon tile */}
+        <div style={{
+          width: isMobile ? 46 : 54, height: isMobile ? 46 : 54, flexShrink: 0, borderRadius: 12,
+          background: `linear-gradient(135deg, ${meta.from}26, ${meta.to}14)`,
+          border: `1px solid ${meta.from}33`,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: isMobile ? 20 : 23
+        }}>
+          📄
+        </div>
+
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{
+            fontSize: isMobile ? ".84rem" : ".9rem", fontWeight: 650, color: "#fff",
+            whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"
+          }}>
+            {file.name}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 7, marginTop: 4 }}>
+            <span style={{
+              fontSize: ".6rem", fontWeight: 800, letterSpacing: ".09em", textTransform: "uppercase",
+              color: meta.to, background: `${meta.from}1a`,
+              padding: "2px 7px", borderRadius: 5, border: `1px solid ${meta.from}30`
+            }}>
+              {meta.label}
+            </span>
+            <span style={{ fontSize: ".68rem", color: "rgba(255,255,255,0.5)", fontVariantNumeric: "tabular-nums" }}>
+              {formatBytes(file.size)}
+            </span>
+          </div>
+        </div>
+
+        {/* % ring */}
+        <div style={{
+          width: isMobile ? 44 : 50, height: isMobile ? 44 : 50, flexShrink: 0,
+          borderRadius: "50%", position: "relative",
+          background: `conic-gradient(${meta.from} ${eased * 3.6}deg, rgba(255,255,255,0.07) ${eased * 3.6}deg)`,
+          display: "flex", alignItems: "center", justifyContent: "center"
+        }}>
+          <div style={{
+            position: "absolute", inset: 3, borderRadius: "50%",
+            background: "#14151d", border: "1px solid rgba(255,255,255,0.06)"
+          }} />
+          {uploading ? (
+            <span style={{
+              position: "relative", fontSize: isMobile ? ".66rem" : ".72rem", fontWeight: 800,
+              color: "#fff", fontVariantNumeric: "tabular-nums"
+            }}>
+              {shown}%
+            </span>
+          ) : phase === "finalizing" ? (
+            <span style={{
+              position: "relative", width: isMobile ? 12 : 14, height: isMobile ? 12 : 14,
+              borderRadius: "50%", display: "block",
+              border: "2px solid rgba(255,255,255,0.25)", borderTopColor: meta.to,
+              animation: "upc-spin .8s linear infinite"
+            }} />
+          ) : (
+            <span style={{ position: "relative", fontSize: ".7rem" }}>🔒</span>
+          )}
+        </div>
+      </div>
+
+      <div style={{ padding: isMobile ? "0 14px 11px" : "0 16px 13px" }}>
+        <div style={{ height: 4, borderRadius: 4, background: "rgba(255,255,255,0.07)", overflow: "hidden", position: "relative" }}>
+          {indeterminate ? (
+            <div style={{
+              position: "absolute", top: 0, bottom: 0, left: 0, width: "25%", borderRadius: 4,
+              background: `linear-gradient(90deg, transparent, ${meta.from}, ${meta.to}, transparent)`,
+              animation: "upc-indeterminate 1.2s ease-in-out infinite"
+            }} />
+          ) : (
+            <div style={{
+              height: "100%", borderRadius: 4, width: `${eased}%`,
+              background: `linear-gradient(90deg, ${meta.from}, ${meta.to})`,
+              boxShadow: `0 0 10px ${meta.from}55`
+            }} />
+          )}
+        </div>
+
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8, gap: 8 }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+            <span style={{
+              width: 6, height: 6, borderRadius: "50%", flexShrink: 0,
+              background: meta.from,
+              animation: "upc-dot 1.5s ease-out infinite"
+            }} />
+            <span style={{
+              fontSize: ".68rem", fontWeight: 600,
+              color: uploading ? "rgba(255,255,255,0.55)" : meta.to,
+              animation: !uploading ? "upc-pulse 1.4s ease-in-out infinite" : "none",
+              whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"
+            }}>
+              {statusText}
+            </span>
+          </span>
+          {uploading && (
+            <span style={{ fontSize: ".68rem", color: "rgba(255,255,255,0.42)", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
+              {speed > 0 ? `${formatBytes(speed)}/s · ` : ""}{amountText}
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div style={{ position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none", borderRadius: 14 }}>
+        <div style={{
+          position: "absolute", top: 0, bottom: 0, left: 0, width: "28%",
+          background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent)",
+          animation: "upc-sweep 2.2s ease-in-out infinite"
+        }} />
+      </div>
+    </div>
+  );
+};
 function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile, setViewer }) {
   const fileType = getFileType(file);
   const [decryptedUrl, setDecryptedUrl] = useState(null);
@@ -2934,15 +3291,13 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile, setViewer 
             </span>
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            {((file.name.match(/\.(pdf|txt|json|js|ts|py|html|css|md|csv|xml|sh|yaml|yml)$/i)) || (file.type && file.type.startsWith("text"))) && (
-              <button
-                type="button"
-                onClick={() => setViewer({ url: decryptedUrl, name: file.name, type: file.type || getFileType(file) })}
-                style={{ background: "rgba(255,255,255,0.12)", border: "none", color: "#fff", cursor: "pointer", borderRadius: 8, padding: "0 10px", height: 28, fontSize: "0.72rem", fontWeight: "bold" }}
-              >
-                Preview
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => setViewer({ url: decryptedUrl, name: file.name, type: file.type || getFileType(file) })}
+              style={{ background: "rgba(255,255,255,0.12)", border: "none", color: "#fff", cursor: "pointer", borderRadius: 8, padding: "0 10px", height: 28, fontSize: "0.72rem", fontWeight: "bold" }}
+            >
+              Preview
+            </button>
             <button
               type="button"
               onClick={() => {
@@ -3005,67 +3360,6 @@ function GifCardComponent({ gif, onSelect }) {
         </CardOverlay>
       )}
     </GifCard>
-  );
-}
-
-function CodeViewerArea({ url, filename }) {
-  const [content, setContent] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
-
-  useEffect(() => {
-    let active = true;
-    fetch(url)
-      .then(r => {
-        if (!r.ok) throw new Error("Load failed");
-        return r.text();
-      })
-      .then(txt => {
-        if (active) {
-          setContent(txt);
-          setLoading(false);
-        }
-      })
-      .catch(e => {
-        if (active) {
-          setError(true);
-          setContent("");
-          setLoading(false);
-        }
-      });
-    return () => { active = false; };
-  }, [url]);
-
-  if (loading) {
-    return (
-      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 12, color: "#fff", background: "#0d0e15", minHeight: "350px" }}>
-        <div style={{ width: 32, height: 32, borderRadius: "50%", border: "3px solid rgba(255,255,255,0.15)", borderTopColor: "#818cf8", animation: "spin 0.8s linear infinite" }} />
-        <span style={{ fontSize: "0.85rem", opacity: 0.7 }}>Loading secure document...</span>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "#ef4444", fontSize: "0.9rem", background: "#0d0e15", minHeight: "350px" }}>
-        ⚠️ Failed to load secure document preview. Download to view it.
-      </div>
-    );
-  }
-
-  const lines = content.split("\n");
-
-  return (
-    <div style={{ flex: 1, width: "100%", height: "100%", overflow: "auto", display: "flex", background: "#0d0e15", fontFamily: "'JetBrains Mono', 'Fira Code', monospace", fontSize: "0.82rem", lineHeight: 1.6, minHeight: "350px" }}>
-      <div style={{ padding: "16px 12px", background: "#0a0a0f", color: "#4b5563", borderRight: "1px solid rgba(255,255,255,0.06)", userSelect: "none" }}>
-        {lines.map((_, idx) => (
-          <div key={idx} style={{ height: 21, textAlign: "right" }}>{idx + 1}</div>
-        ))}
-      </div>
-      <pre style={{ margin: 0, padding: 16, overflow: "visible", whiteSpace: "pre-wrap", wordBreak: "break-all", color: "#e2e8f0", flex: 1, textAlign: "left" }}>
-        {content}
-      </pre>
-    </div>
   );
 }
 
@@ -3186,11 +3480,6 @@ export default function ChatRoom() {
   const [showEphemeralMenu, setShowEphemeralMenu] = useState(false);
   const [confirmation, setConfirmation] = useState(null);
   const DEFAULT_EPHEMERAL_DURATION = 15; // fallback seconds if single message timer fails
-
-  // ── Session Exporting ──
-  const [showExportModal, setShowExportModal] = useState(false);
-  const [exportPassword, setExportPassword] = useState("");
-  const [isExporting, setIsExporting] = useState(false);
 
   // ── Voice Notes ──
   const [isRecording, setIsRecording] = useState(false);
@@ -3934,68 +4223,6 @@ export default function ChatRoom() {
   leaveRoomNowRef.current = leaveRoomNow;
   const handleLeaveRoom = () => setConfirmation({ title: "Leave this room?", body: "You can rejoin later with the room credentials.", confirmLabel: "Leave room", onConfirm: leaveRoomNow });
 
-  // ── Encrypted Session Export ──
-  const handleExportSession = async (password) => {
-    if (!password || password.length < 4) { toast.error("Password must be at least 4 characters."); return; }
-    setIsExporting(true);
-    try {
-      const activeMessages = messages.filter(m => m.type !== "system");
-      if (activeMessages.length === 0) { toast.warn("No messages to export."); setIsExporting(false); return; }
-      toast.info("Encrypting session... please wait.", { autoClose: false, toastId: "export-toast" });
-
-      const processedMessages = [];
-      for (const m of activeMessages) {
-        let fileData = null;
-        if (m.file && !m.file.loading && !m.file.viewOnce && m.file.url && m.file.iv) {
-          try {
-            let fetchUrl = m.file.url;
-            if (!m.file.url.startsWith(window.location.origin) && !m.file.url.includes("/uploads/")) {
-              const backendUrl = process.env.REACT_APP_SOCKET_ENDPOINT || "https://cheprabai-backend.onrender.com";
-              fetchUrl = `${backendUrl}/api/proxy-file?url=${encodeURIComponent(m.file.url)}`;
-            }
-            const res = await fetch(fetchUrl);
-            if (res.ok) {
-              const encBuf = await res.arrayBuffer();
-              const ivBytes = new Uint8Array(atob(m.file.iv).split("").map(c => c.charCodeAt(0)));
-              let dk = roomKey;
-              if (m.file.keyB64) dk = await importKey(m.file.keyB64);
-              if (dk) {
-                const decBuf = await decryptBinary(dk, { iv: ivBytes, data: encBuf });
-                const blob = new Blob([decBuf], { type: m.file.type || "application/octet-stream" });
-                const dataUrl = await new Promise(r => { const fr = new FileReader(); fr.onloadend = () => r(fr.result); fr.readAsDataURL(blob); });
-                fileData = { name: m.file.name, type: m.file.type, dataUrl };
-              }
-            }
-          } catch (err) { console.warn("Export file decrypt fail:", m.file.name, err); }
-        }
-        processedMessages.push({ userName: m.userName, text: m.text || "", ts: m.ts, file: fileData });
-      }
-
-      const exportSalt = window.crypto.getRandomValues(new Uint8Array(16));
-      const exportIv = window.crypto.getRandomValues(new Uint8Array(12));
-      const enc = new TextEncoder();
-      const rawKey = await window.crypto.subtle.importKey("raw", enc.encode(password), "PBKDF2", false, ["deriveKey"]);
-      const aesKey = await window.crypto.subtle.deriveKey({ name: "PBKDF2", salt: exportSalt, iterations: 100000, hash: "SHA-256" }, rawKey, { name: "AES-GCM", length: 256 }, true, ["encrypt"]);
-      const payload = JSON.stringify({ room: roomId, exportedAt: Date.now(), messages: processedMessages });
-      const encrypted = await window.crypto.subtle.encrypt({ name: "AES-GCM", iv: exportIv }, aesKey, enc.encode(payload));
-
-      const b64Data = btoa(String.fromCharCode(...new Uint8Array(encrypted)));
-      const b64Salt = btoa(String.fromCharCode(...exportSalt));
-      const b64Iv = btoa(String.fromCharCode(...exportIv));
-      const html = createDecryptionHtmlTemplate(roomId, b64Data, b64Salt, b64Iv);
-
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(new Blob([html], { type: "text/html" }));
-      link.download = `cheprabai-session-${roomId}.html`;
-      document.body.appendChild(link); link.click(); document.body.removeChild(link);
-
-      toast.update("export-toast", { render: "🔒 Encrypted session exported!", type: "success", autoClose: 3000 });
-      setShowExportModal(false); setExportPassword("");
-    } catch (e) {
-      console.error(e);
-      toast.update("export-toast", { render: "Export failed.", type: "error", autoClose: 3000 });
-    } finally { setIsExporting(false); }
-  };
   const handleKickFromRoom = (targetSocketId, targetName) => {
     setConfirmation({
       title: "Remove participant?",
@@ -4442,6 +4669,14 @@ export default function ChatRoom() {
       if (ringtoneRef.current) { ringtoneRef.current.stop(); ringtoneRef.current = null; }
     });
 
+    // ── Ringtone failsafe: never ring forever ──
+    // Auto-dismiss + stop after 45s (covers callers who close without signaling),
+    // and stop instantly the moment you join any call.
+    const ringFailsafe = setTimeout(() => {
+      setIncomingCall(null);
+      if (ringtoneRef.current) { ringtoneRef.current.stop(); ringtoneRef.current = null; }
+    }, 45000);
+
     // Latency Tracking (Ping-Pong)
     const pingInterval = setInterval(() => {
       if (socketRef.current && socketRef.current.connected) {
@@ -4466,10 +4701,21 @@ export default function ChatRoom() {
       if (socketRef.current) {
         registeredEvents.forEach(evt => socketRef.current.off(evt));
       }
+      clearTimeout(ringFailsafe);
       clearInterval(pingInterval);
       if (ringtoneRef.current) { ringtoneRef.current.stop(); ringtoneRef.current = null; }
     };
   }, [joined]);
+
+  // Stop ringing instantly when you join any call (accept button also handles this,
+  // but joining from elsewhere — rejoin, active session, etc. — must silence it too)
+  useEffect(() => {
+    if (showMeeting && ringtoneRef.current) {
+      ringtoneRef.current.stop();
+      ringtoneRef.current = null;
+      setIncomingCall(null);
+    }
+  }, [showMeeting]);
 
   useEffect(() => {
     if (!joined) return;
@@ -4486,21 +4732,44 @@ export default function ChatRoom() {
 
   const uploadFile = async (file, viewOnce = false, scheduleTime = null) => {
     let tempId;
+    let previewUrl = null;
     try {
       tempId = `uploading-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      setMessages(m => [...m, { id: tempId, userName, file: { name: file.name, loading: true, progress: 0 }, ts: Date.now() }]);
+      const looksMedia = /^(image|video)\//.test(file.type) ||
+        /\.(png|jpe?g|gif|webp|avif|bmp|svg|mp4|mov|webm|mkv|m4v)$/i.test(file.name || "");
+      if (looksMedia) {
+        try { previewUrl = URL.createObjectURL(file); } catch { previewUrl = null; }
+      }
+      const willEncrypt = Boolean(roomKey && file.size <= 200 * 1024 * 1024);
+      setMessages(m => [...m, {
+        id: tempId,
+        userName,
+        file: {
+          name: file.name, type: file.type, size: file.size,
+          loading: true, progress: 0, speed: 0,
+          loaded: 0, total: file.size,
+          phase: willEncrypt ? "encrypting" : "uploading",
+          ...(previewUrl && { previewUrl })
+        },
+        ts: Date.now()
+      }]);
+
+      const updateTempFile = (patch) => {
+        setMessages(msgs => msgs.map(msg => msg.id === tempId ? { ...msg, file: { ...msg.file, ...patch } } : msg));
+      };
 
       let fileToUpload = file;
       let ivString = null;
       let keyB64 = null;
 
-      if (roomKey && file.size <= 200 * 1024 * 1024) {
+      if (willEncrypt) {
         const fileBuffer = await file.arrayBuffer();
         const encrypted = await encryptBinary(roomKey, fileBuffer);
         const encryptedBlob = new Blob([encrypted.data], { type: "application/octet-stream" });
         fileToUpload = new File([encryptedBlob], file.name + ".enc", { type: "application/octet-stream" });
         ivString = btoa(String.fromCharCode(...new Uint8Array(encrypted.iv)));
         keyB64 = await exportKey(roomKey);
+        updateTempFile({ phase: "uploading" });
       }
 
       const backendUrl = process.env.REACT_APP_SOCKET_ENDPOINT || "https://cheprabai-backend.onrender.com";
@@ -4508,18 +4777,42 @@ export default function ChatRoom() {
       const formData = new FormData();
       formData.append("file", fileToUpload);
 
+      // Real-time progress tracking: smooth % + live transfer speed
+      let lastTickTime = performance.now();
+      let lastTickLoaded = 0;
+      let lastEmit = 0;
       const res = await axios.post(
         `${backendUrl}/api/upload`,
         formData,
         {
           headers: { "Content-Type": "multipart/form-data" },
           onUploadProgress: (progressEvent) => {
-            if (progressEvent.total) {
-              const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-              // Throttle: only update state on 5% increments or completion
-              if (percent % 5 === 0 || percent === 100) {
-                setMessages(msgs => msgs.map(msg => msg.id === tempId ? { ...msg, file: { ...msg.file, progress: percent } } : msg));
+            // Some axios/browser combos never populate `total` for multipart —
+            // fall back to the known payload size so progress ALWAYS works.
+            const total = progressEvent.total || fileToUpload.size;
+            if (!total) return;
+            const now = performance.now();
+            const loaded = Math.min(progressEvent.loaded, total);
+            const percent = Math.min(100, (loaded * 100) / total);
+            const dt = now - lastTickTime;
+            if (dt >= 400) {
+              const bytesSinceTick = loaded - lastTickLoaded;
+              if (bytesSinceTick > 0) {
+                updateTempFile({ speed: Math.round((bytesSinceTick / dt) * 1000) });
               }
+              lastTickTime = now;
+              lastTickLoaded = loaded;
+            }
+            // Throttle React updates to ~12fps for buttery-smooth reveal without re-render storms
+            if (now - lastEmit >= 80 || percent >= 100) {
+              lastEmit = now;
+              updateTempFile({
+                // True byte-level percentage — no artificial caps
+                progress: Math.floor(percent),
+                loaded,
+                total,
+                ...(percent >= 100 ? { phase: "finalizing" } : {})
+              });
             }
           }
         }
@@ -4569,11 +4862,13 @@ export default function ChatRoom() {
         await handleSend({ file: fileData }, keyB64);
       }
       setMessages(m => m.filter(msg => msg.id !== tempId));
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
     } catch (err) {
       console.error(err);
       const errorMsg = err.response?.data?.error || "File upload failed!";
       toast.error(errorMsg);
       if (tempId) setMessages(m => m.filter(msg => msg.id !== tempId));
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
     }
   };
 
@@ -4887,7 +5182,6 @@ export default function ChatRoom() {
     });
   };
 
-  const isBookmarked = (msgId) => bookmarks.some(b => b.id === msgId);
   const bookmarkIds = useMemo(() => new Set(bookmarks.map(b => b.id)), [bookmarks]);
   const pinnedIds = useMemo(() => new Set(pinnedMessages.map(pm => pm.id)), [pinnedMessages]);
 
@@ -5942,7 +6236,8 @@ export default function ChatRoom() {
     escaped = escaped.replace(/~(.+?)~/g, "<del>$1</del>");
     escaped = escaped.replace(/`([^`]+)`/g, (match, code) => {
       const escapedInline = encodeURIComponent(code);
-      const copyInlineJs = `navigator.clipboard?.writeText?.(decodeURIComponent('${escapedInline}')); var btn = this.querySelector('.inline-copy-btn'); if(btn){ btn.textContent = '✓'; btn.style.color = '#00bfa5'; setTimeout(function(){ btn.textContent = '📋'; btn.style.color = 'rgba(255,255,255,0.35)'; }, 1500); }`;
+      const copyHelper = INLINE_CLIPBOARD_FALLBACK;
+      const copyInlineJs = `${copyHelper}(decodeURIComponent('${escapedInline}')); var btn = this.querySelector('.inline-copy-btn'); if(btn){ btn.textContent = '✓'; btn.style.color = '#00bfa5'; setTimeout(function(){ btn.textContent = '📋'; btn.style.color = 'rgba(255,255,255,0.35)'; }, 1500); }`;
       return `<span onclick="${copyInlineJs}" style="background:rgba(255,255,255,.08);padding:2px 6px;border-radius:4px;font-family:monospace;font-size:.85em;cursor:pointer;position:relative;display:inline-flex;align-items:center;gap:4px;transition:background .2s" onmouseover="this.style.background='rgba(255,255,255,.14)'" onmouseout="this.style.background='rgba(255,255,255,.08)'"><code style="font-family:inherit">${code}</code><span class="inline-copy-btn" style="font-size:.7em;color:rgba(255,255,255,0.35);flex-shrink:0">📋</span></span>`;
     });
 
@@ -5977,7 +6272,7 @@ export default function ChatRoom() {
     codeBlocks.forEach((block) => {
       const escapedCodeForHtml = escapeHtml(block.code);
       const escapedCodeForClipboard = encodeURIComponent(block.code);
-      const copyCodeJs = `navigator.clipboard?.writeText?.(decodeURIComponent('${escapedCodeForClipboard}')); this.innerText = '✓ Copied'; this.style.color = '#00bfa5'; setTimeout(() => { this.innerText = 'Copy'; this.style.color = 'inherit'; }, 2000);`;
+      const copyCodeJs = `${INLINE_CLIPBOARD_FALLBACK}(decodeURIComponent('${escapedCodeForClipboard}')); this.innerText = '✓ Copied'; this.style.color = '#00bfa5'; setTimeout(() => { this.innerText = 'Copy'; this.style.color = 'inherit'; }, 2000);`;
 
       const blockHtml = `
 <div style="background:#0b0c10; border:1px solid rgba(255,255,255,0.08); border-radius:12px; margin:12px 0; overflow:hidden; font-family:'SF Mono','Fira Code',Consolas,monospace; font-size:0.85rem; box-shadow:0 8px 24px rgba(0,0,0,0.3); max-width: 100%; text-align: left; box-sizing: border-box;">
@@ -6009,7 +6304,7 @@ export default function ChatRoom() {
       }}
     >
       <button
-        onClick={() => navigator.clipboard?.writeText(url)}
+        onClick={() => safeCopyText(url).then(ok => ok ? toast.success("📋 Link copied!") : toast.error("Failed to copy link"))}
         style={actionBtnStyle}
       >
         📋 Copy Link
@@ -6325,148 +6620,29 @@ export default function ChatRoom() {
             <span>Some features are limited. <span style={{ color: "var(--chakra-colors-brandPrimary, #818cf8)", cursor: "pointer", fontWeight: 600 }}>Contact admin</span> to enable more.</span>
           </div>
         )}
-        {viewer && (() => {
-          const isObject = typeof viewer === "object" && viewer !== null;
-          const url = isObject ? viewer.url : viewer;
-          const name = isObject ? viewer.name : (getEmbedData(url)?.type || "Web Link");
-          const type = isObject ? viewer.type : null;
-          const embed = getEmbedData(url);
-          const displayUrl = embed ? embed.src : url;
+        {viewer && (
+          <Suspense fallback={<div style={{ position: "fixed", inset: 0, background: "#06070b", zIndex: 999999, display: "flex", alignItems: "center", justifyContent: "center", color: "#818cf8", fontWeight: 700 }}>Loading preview…</div>}>
+            {(() => {
+              const isObject = typeof viewer === "object" && viewer !== null;
+              const url = isObject ? viewer.url : viewer;
+              const name = isObject ? viewer.name : (getEmbedData(url)?.type || "Web Link");
+              const type = isObject ? viewer.type : null;
+              const embed = getEmbedData(url);
+              const displayUrl = embed ? embed.src : url;
 
-          return (
-            <div
-              style={{
-                position: "fixed",
-                inset: 0,
-                background: "#0a0b10",
-                zIndex: 999999,
-                display: "flex",
-                flexDirection: "column",
-                fontFamily: "system-ui, -apple-system, sans-serif"
-              }}
-            >
-              {/* Header */}
-              <div
-                style={{
-                  height: 60,
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  padding: "0 20px",
-                  background: "#11131e",
-                  borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
-                  boxShadow: "0 4px 20px rgba(0,0,0,0.3)"
-                }}
-              >
-                <div
-                  style={{
-                    color: "#fff",
-                    fontWeight: 700,
-                    fontSize: "0.9rem",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 10,
-                    minWidth: 0,
-                    flex: 1
-                  }}
-                >
-                  <span style={{ opacity: 0.6, flexShrink: 0 }}>🔍 Previewing:</span>
-                  <span style={{ color: "var(--chakra-colors-brandPrimary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</span>
-                  <button
-                    onClick={async () => {
-                      try {
-                        await navigator.clipboard?.writeText?.(url);
-                        toast.success("Link copied!");
-                      } catch {
-                        toast.error("Failed to copy link");
-                      }
-                    }}
-                    style={{
-                      background: "rgba(255,255,255,0.06)",
-                      border: "1px solid rgba(255,255,255,0.1)",
-                      color: "#fff",
-                      cursor: "pointer",
-                      borderRadius: 6,
-                      padding: "4px 8px",
-                      fontSize: "0.75rem",
-                      marginLeft: 8,
-                      flexShrink: 0
-                    }}
-                  >
-                    Copy Link
-                  </button>
-                </div>
-
-                <div style={{ display: "flex", gap: 12, alignItems: "center", flexShrink: 0 }}>
-                  <button
-                    onClick={() => window.open(url, "_blank")}
-                    style={{
-                      background: "rgba(255,255,255,0.06)",
-                      border: "1px solid rgba(255,255,255,0.1)",
-                      color: "#fff",
-                      cursor: "pointer",
-                      borderRadius: 8,
-                      width: 36,
-                      height: 36,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center"
-                    }}
-                    title="Open in new tab"
-                  >
-                    <ImNewTab size={16} />
-                  </button>
-
-                  <button
-                    onClick={() => setViewer(null)}
-                    style={{
-                      background: "#ef4444",
-                      border: "none",
-                      color: "#fff",
-                      cursor: "pointer",
-                      borderRadius: 8,
-                      width: 36,
-                      height: 36,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center"
-                    }}
-                    title="Close preview"
-                  >
-                    <AiFillCloseSquare size={20} />
-                  </button>
-                </div>
-              </div>
-
-              {/* Viewer Body */}
-              <div style={{ flex: 1, position: "relative", width: "100%", overflow: "hidden", display: "flex", background: "#06070a" }}>
-                {/* 1. PDF Documents */}
-                {((name && name.toLowerCase().endsWith(".pdf")) || type === "application/pdf") ? (
-                  <iframe
-                    src={`${displayUrl}#toolbar=0`}
-                    title="PDF Previewer"
-                    style={{ border: 0, width: "100%", height: "100%", background: "#1e1e24" }}
-                  />
-                ) : (name && name.toLowerCase().match(/\.(txt|json|js|ts|py|html|css|md|csv|xml|sh|yaml|yml)$/i)) ? (
-                  /* 2. Text & Source Code Viewer */
-                  <CodeViewerArea url={displayUrl} filename={name} />
-                ) : (
-                  /* 3. standard Frame / Web pages & Social Media Embeds */
-                  <iframe
-                    src={displayUrl}
-                    title="Web Previewer"
-                    allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
-                    allowFullScreen
-                    style={{ border: 0, width: "100%", height: "100%" }}
-                  />
-                )}
-              </div>
-            </div>
-          );
-        })()}
+              return (
+                <UniversalFileViewer
+                  url={displayUrl}
+                  name={isObject ? name : undefined}
+                  type={type}
+                  mode={isObject ? undefined : "web"}
+                  embedSrc={embed?.src}
+                  onClose={() => setViewer(null)}
+                />
+              );
+            })()}
+          </Suspense>
+        )}
 
         <MessageContainer ref={messagesContainerRef} onScroll={handleScroll}>
           {hasMoreMessages && (
@@ -6614,16 +6790,8 @@ export default function ChatRoom() {
                 {m.file && (
                   <div style={{ position: "relative", width: "100%", minWidth: 0, flexShrink: 0, borderTop: "1px solid rgba(255,255,255,.04)", borderBottom: "1px solid rgba(255,255,255,.04)" }}>
                     {m.file.loading ? (
-                      <div style={{
-                        width: "100%", padding: "24px 18px", background: "rgba(255, 255, 255, 0.03)", display: "flex", alignItems: "center", justifyContent: "center"
-                      }}>
-                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, textAlign: "center" }}>
-                          <div style={{ width: 32, height: 32, borderRadius: "50%", border: "3px solid rgba(255,255,255,.15)", borderTopColor: "var(--chakra-colors-brandPrimary)", animation: "spin .8s linear infinite" }} />
-                          <span style={{ fontSize: ".82rem", fontWeight: 600 }}>Sending {m.file.name}</span>
-                          <span style={{ fontSize: ".72rem", opacity: .62 }}>
-                            {m.file.progress !== undefined ? `Uploading ${m.file.progress}%…` : "Encrypted and uploading securely…"}
-                          </span>
-                        </div>
+                      <div style={{ padding: isMobile ? "10px 12px" : "12px 14px" }}>
+                        <UploadProgressCard file={m.file} isMobile={isMobile} />
                       </div>
                     ) : (
                       <E2EEFileAttachment file={m.file} roomKey={roomKey} setFullscreen={setFullscreen} isMobile={isMobile} setViewer={setViewer} />
@@ -6722,9 +6890,10 @@ export default function ChatRoom() {
                             type="button"
                             onClick={() => {
                               const copyText = m.text || m.file?.name || "";
-                              navigator.clipboard?.writeText?.(copyText)?.then(() => {
-                                toast.success("Copied to clipboard", { autoClose: 1200 });
-                              })?.catch(() => toast.error("Failed to copy"));
+                              safeCopyText(copyText).then((ok) => {
+                                if (ok) toast.success("Copied to clipboard", { autoClose: 1200 });
+                                else toast.error("Failed to copy");
+                              });
                             }}
                             data-tooltip="Copy"
                           >
@@ -7066,7 +7235,22 @@ export default function ChatRoom() {
                         )}
                       </PreviewMediaWrapper>
 
-                      {pendingFiles.length === 1 ? null : (
+                      {pendingFiles.length === 1 ? (
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginTop: 12 }}>
+                          <PreviewFileInfo style={{ margin: 0 }}>
+                            <PreviewFileName>{pf.name}</PreviewFileName>
+                            <PreviewFileMeta>
+                              {pf.type ? pf.type.replace("application/", "").replace("image/", "Image").replace("video/", "Video").replace("audio/", "Audio") : "File"} • {(pf.size / 1024 / 1024).toFixed(2)} MB
+                            </PreviewFileMeta>
+                          </PreviewFileInfo>
+                          <PreviewRemoveButton
+                            onClick={() => setPendingFiles([])}
+                            title="Remove this file"
+                          >
+                            ✕
+                          </PreviewRemoveButton>
+                        </div>
+                      ) : (
                         <>
                           <PreviewFileInfo>
                             <PreviewFileName>{pf.name}</PreviewFileName>

@@ -10,7 +10,7 @@ import {
   FaLeaf, FaBolt, FaHeadphones, FaGem, FaExclamationTriangle,
   FaPlay, FaPause, FaPlayCircle,
   FaRedo, FaUndo, FaStop, FaThumbtack, FaPaintBrush,
-  FaMagic, FaPalette
+  FaMagic, FaPalette, FaPlus, FaMinus
 } from "react-icons/fa";
 import * as PeerModule from "peerjs";
 import { toast } from "react-toastify";
@@ -938,15 +938,54 @@ const PipWidget = styled.div`
     right: 6px;
     display: flex;
     justify-content: center;
-    gap: 6px;
+    gap: 5px;
     background: rgba(0, 0, 0, 0.65);
     backdrop-filter: blur(8px);
-    padding: 4px;
-    border-radius: 8px;
+    padding: 4px 5px;
+    border-radius: 9px;
   }
 
+  /* Compact buttons so three controls fit even a 110px-wide PiP */
+  .pip-controls > button {
+    width: 26px !important;
+    height: 26px !important;
+    border-radius: 7px !important;
+    font-size: 0.66rem !important;
+    padding: 0 !important;
+  }
+
+  /* Resize stack: top-right corner, out of the way of faces */
+  .pip-resize {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .pip-resize button {
+    width: 22px;
+    height: 22px;
+    border-radius: 7px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.6rem;
+    cursor: pointer;
+    padding: 0;
+    transition: all 0.18s ease;
+  }
+  .pip-resize button:hover { background: rgba(0, 0, 0, 0.88); color: #fff; }
+  .pip-resize button:disabled { opacity: 0.35; cursor: default; }
+
   @media (max-width: 480px) {
-    .pip-controls { bottom: 4px; left: 4px; right: 4px; gap: 4px; padding: 3px; border-radius: 6px; }
+    .pip-controls { bottom: 4px; left: 4px; right: 4px; gap: 4px; padding: 3px 4px; border-radius: 7px; }
+    .pip-controls > button { width: 24px !important; height: 24px !important; }
+    .pip-resize { top: 4px; right: 4px; }
   }
 `;
 
@@ -1035,6 +1074,349 @@ const ParticipantStrip = styled.div`
   @media (max-width: 480px) {
     padding: 4px 6px;
     gap: 4px;
+  }
+`;
+
+/* ═══ THEATER MODE: full-screen stage + persistent right rail of participant cards ═══ */
+const TheaterLayout = styled.div`
+  display: flex;
+  width: 100%;
+  height: 100%;
+  gap: 10px;
+  min-height: 0;
+  animation: ${fadeIn} 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+
+  @media (max-width: 600px) {
+    gap: 6px;
+    /* Mobile: stage on top, rail as a horizontal card strip below */
+    flex-direction: column;
+  }
+`;
+
+const TheaterStage = styled.div`
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  position: relative;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #000;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.55);
+
+  video {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: #000;
+  }
+`;
+
+const TheaterBadgeRow = styled.div`
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 12;
+
+  .badge-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(10, 12, 20, 0.78);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #fff;
+    padding: 5px 11px;
+    border-radius: 20px;
+    font-size: 0.72rem;
+    font-weight: 800;
+    max-width: 46vw;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+`;
+
+const TheaterCloseBtn = styled.button`
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 12;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(10, 12, 20, 0.78);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: #fff;
+  font-size: 0.9rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.18s ease;
+
+  &:hover {
+    background: #ef4444;
+    border-color: #ef4444;
+    transform: rotate(90deg);
+  }
+`;
+
+/* Right rail: every participant as a live card */
+const ParticipantsRail = styled.aside`
+  width: 236px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  animation: ${slideInRight} 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+
+  .rail-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 2px 4px 0;
+    flex-shrink: 0;
+
+    h4 {
+      margin: 0;
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.55);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+  }
+
+  @media (max-width: 600px) {
+    width: 100%;
+    height: 116px;
+    /* Header label wastes precious vertical space on phones */
+    .rail-header { display: none; }
+  }
+`;
+
+const RailScroll = styled.div`
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 2px 2px 6px;
+
+  &::-webkit-scrollbar { width: 4px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 2px; }
+
+  @media (max-width: 600px) {
+    /* Horizontal swipe strip on mobile */
+    flex-direction: row;
+    overflow-y: hidden;
+    overflow-x: auto;
+    align-items: stretch;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    &::-webkit-scrollbar { display: none; }
+  }
+`;
+
+/* Card with name bar IN FLOW (never cropped) */
+const RailCard = styled.div`
+  position: relative;
+  flex-shrink: 0;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #11131e;
+  border: 2px solid ${props => props.$isSpeaking ? "#00f2fe" : props.$isFocused ? "#f59e0b" : props.$isPinned ? "#a5b4fc" : "rgba(255,255,255,0.07)"};
+  box-shadow: ${props => props.$isSpeaking ? "0 0 18px rgba(0,242,254,0.25)" : "0 4px 14px rgba(0,0,0,0.35)"};
+  cursor: pointer;
+  transition: border-color 0.22s ease, box-shadow 0.22s ease, transform 0.18s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    border-color: ${props => props.$isSpeaking ? "#00f2fe" : "rgba(255,255,255,0.28)"};
+    .rail-card-actions { opacity: 1; }
+  }
+
+  .video-zone {
+    width: 100%;
+    aspect-ratio: 16 / 10;
+    background: #000;
+    position: relative;
+    overflow: hidden;
+
+    video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+  }
+
+  /* Touch devices have no hover — keep actions visible */
+  @media (hover: none) {
+    .rail-card-actions { opacity: 1; }
+  }
+
+  @media (max-width: 600px) {
+    /* Fixed-width card inside the horizontal strip */
+    width: 132px;
+    flex-shrink: 0;
+
+    .name-bar {
+      padding: 5px 8px;
+      .nm { font-size: 0.64rem; }
+    }
+    .rail-card-actions {
+      top: 4px;
+      right: 4px;
+      gap: 3px;
+    }
+    .rail-card-actions button { width: 22px; height: 22px; font-size: 0.6rem; }
+  }
+
+  /* Name bar occupies its own space below video — nothing overlaps or crops */
+  .name-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 10px;
+    background: linear-gradient(180deg, rgba(17,19,30,0.92), rgba(10,11,18,0.96));
+    border-top: 1px solid rgba(255,255,255,0.06);
+
+    .nm {
+      flex: 1;
+      min-width: 0;
+      color: #fff;
+      font-size: 0.72rem;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  }
+`;
+
+const RailCardActions = styled.div`
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.18s ease;
+  z-index: 6;
+`;
+
+const RailActionBtn = styled.button`
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  border: none;
+  cursor: pointer;
+  font-size: 0.68rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.62);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  transition: all 0.15s ease;
+
+  &:hover { transform: scale(1.12); background: rgba(0,0,0,0.85); }
+  ${props => props.$active && css`
+    background: rgba(245, 158, 11, 0.9);
+    color: #000;
+  `}
+`;
+
+/* Bottom-right focus card: one person, large & fully visible */
+const FocusCard = styled.div`
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  width: clamp(200px, 24vw, 320px);
+  border-radius: 18px;
+  overflow: hidden;
+  background: #11131e;
+  border: 2px solid ${props => props.$isSpeaking ? "#00f2fe" : "rgba(165, 180, 252, 0.45)"};
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(0,0,0,0.4), ${props => props.$isSpeaking ? "0 0 26px rgba(0,242,254,0.3)" : "none"};
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+  animation: ${slideUp} 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+
+  .focus-video-zone {
+    width: 100%;
+    aspect-ratio: 16 / 10;
+    background: #000;
+    position: relative;
+    overflow: hidden;
+
+    video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+  }
+
+  /* In-flow footer so mic/name never get cropped */
+  .focus-footer {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 12px;
+    background: linear-gradient(180deg, rgba(19,21,34,0.97), rgba(11,12,20,0.99));
+    border-top: 1px solid rgba(255,255,255,0.07);
+
+    .nm {
+      flex: 1;
+      min-width: 0;
+      color: #fff;
+      font-size: 0.78rem;
+      font-weight: 800;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .close-focus {
+      width: 24px;
+      height: 24px;
+      flex-shrink: 0;
+      border-radius: 7px;
+      border: none;
+      background: rgba(255,255,255,0.08);
+      color: rgba(255,255,255,0.75);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.62rem;
+      transition: all 0.15s;
+      &:hover { background: #ef4444; color: #fff; }
+    }
+  }
+
+  @media (max-width: 600px) {
+    right: 8px;
+    bottom: 8px;
+    width: clamp(150px, 44vw, 220px);
+    border-radius: 14px;
+
+    .focus-footer { padding: 7px 9px; .nm { font-size: 0.66rem; } }
   }
 `;
 
@@ -1404,7 +1786,7 @@ const createMixedStream = (mainStream, cameraStream, options = {}) => {
     cameraVideo.play().catch(() => {});
     
     let active = true;
-    const draw = () => {
+    const drawFrame = () => {
       if (!active) return;
       
       // Draw main track
@@ -1451,16 +1833,48 @@ const createMixedStream = (mainStream, cameraStream, options = {}) => {
         ctx.restore();
       }
       
+    };
+    const draw = () => {
+      if (!active) return;
+      drawFrame();
       requestAnimationFrame(draw);
     };
-    
+
     draw();
-    
+
+    // 🛡️ Tab-hidden resilience: requestAnimationFrame is suspended when the tab
+    // is hidden, which would freeze the mixed stream for every viewer. While
+    // hidden, keep drawing on a 30fps timer instead; switch back to rAF on return.
+    let hiddenTimer = null;
+    const startHiddenLoop = () => {
+      if (hiddenTimer || !active) return;
+      hiddenTimer = setInterval(() => {
+        if (!active) return;
+        drawFrame();
+      }, 33);
+    };
+    const stopHiddenLoop = () => {
+      if (hiddenTimer) { clearInterval(hiddenTimer); hiddenTimer = null; }
+    };
+    const handleVisibilityForMixer = () => {
+      if (document.hidden) {
+        stopHiddenLoop();
+        startHiddenLoop();
+      } else {
+        stopHiddenLoop();
+        requestAnimationFrame(draw);
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityForMixer);
+    if (document.hidden) startHiddenLoop();
+
     const canvasStream = canvas.captureStream(30);
     mixedVideoTrack = canvasStream.getVideoTracks()[0];
     
     mixerCleanup = () => {
       active = false;
+      stopHiddenLoop();
+      document.removeEventListener("visibilitychange", handleVisibilityForMixer);
       mainVideo.pause();
       mainVideo.srcObject = null;
       mainVideo.remove();
@@ -1642,6 +2056,11 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const [pipPosition, setPipPosition] = useState({ x: 0, y: 0 });
   const pipPositionRef = useRef({ x: 0, y: 0 });
   useEffect(() => { pipPositionRef.current = pipPosition; }, [pipPosition]);
+  // Resizable PiP: scale multiplier applied around the bottom-right corner
+  const [pipScale, setPipScale] = useState(1);
+  const changePipScale = useCallback((delta) => {
+    setPipScale(prev => Math.round(Math.min(2, Math.max(0.7, prev + delta)) * 100) / 100);
+  }, []);
   const [layoutMode, setLayoutMode] = useState("grid"); // "grid" | "spotlight"
   const [pinnedPeerId, setPinnedPeerId] = useState(null);
   const [speakingPeers, setSpeakingPeers] = useState({});
@@ -1669,6 +2088,9 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const [streamUrlInput, setStreamUrlInput] = useState("");
   const [minimizedPeers, setMinimizedPeers] = useState(new Set());
   const [highlightedPeers, setHighlightedPeers] = useState(new Set());
+  // 🎬 Theater mode: fullscreen stage + right rail of participant cards + bottom-right focus card
+  const [theaterMode, setTheaterMode] = useState(false);
+  const [focusPeerId, setFocusPeerId] = useState(null);
 
   const toggleMinimizePeer = useCallback((peerId) => {
     setMinimizedPeers(prev => {
@@ -1709,6 +2131,10 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const mixedStreamCleanupRef = useRef(null);
   const originalTracksRef = useRef({ video: null, audio: null });
   const fileInputRef = useRef(null);
+  const analyserCleanupsRef = useRef({}); // { [peerId]: fn } — stops rAF loops on disconnect
+  const remoteVideoElsRef = useRef({}); // { [peerId]: HTMLVideoElement } — for reactive volume
+  const autoDowngradedRef = useRef(false); // true if ABR auto-downgraded (allows auto-recovery)
+  const goodStreakRef = useRef(0); // consecutive "good" polls for recovery hysteresis
   const isRoomHost = useMemo(() => Boolean(isAdmin || ownerToken), [isAdmin, ownerToken]);
 
   // Keep isVideoOffRef in sync with state
@@ -1721,6 +2147,73 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       videoEl.srcObject = displayStream;
     }
   }, [displayStream]);
+
+  // ── Remote video element registry + reactive per-participant volume ──
+  const registerRemoteVideoEl = useCallback((peerId, el) => {
+    if (el) remoteVideoElsRef.current[peerId] = el;
+    else delete remoteVideoElsRef.current[peerId];
+  }, []);
+
+  useEffect(() => {
+    Object.entries(remoteStreams).forEach(([peerId, info]) => {
+      const el = remoteVideoElsRef.current[peerId];
+      if (el) {
+        // HTMLMediaElement.volume is clamped to [0, 1]
+        el.volume = Math.max(0, Math.min(1, (info.volume ?? 100) / 100));
+        if (el.srcObject !== info.stream && info.stream) {
+          el.srcObject = info.stream;
+          // Explicit play: autoplay policies can silently skip attribute-driven playback
+          const p = el.play();
+          if (p && typeof p.catch === "function") p.catch(() => {});
+        }
+      }
+    });
+  }, [remoteStreams]);
+
+  // ── Playback & AudioContext revival ──
+  // Browsers suspend AudioContexts and can stall <video> playback until a user
+  // gesture (or after tab restore). One global listener revives everything the
+  // moment the user interacts or returns to the tab.
+  useEffect(() => {
+    const revivePlayback = () => {
+      try {
+        if (audioContextRef.current?.state === "suspended") audioContextRef.current.resume();
+      } catch (e) {}
+      Object.values(remoteVideoElsRef.current).forEach(el => {
+        if (el && el.srcObject && el.paused) {
+          const p = el.play();
+          if (p && typeof p.catch === "function") p.catch(() => {});
+        }
+      });
+    };
+    const opts = { capture: true };
+    window.addEventListener("pointerdown", revivePlayback, opts);
+    window.addEventListener("keydown", revivePlayback, opts);
+    document.addEventListener("visibilitychange", revivePlayback, opts);
+    return () => {
+      window.removeEventListener("pointerdown", revivePlayback, opts);
+      window.removeEventListener("keydown", revivePlayback, opts);
+      document.removeEventListener("visibilitychange", revivePlayback, opts);
+    };
+  }, []);
+
+  // ── Latest remoteStreams mirror for non-reactive reads ──
+  const remoteStreamsRef = useRef(remoteStreams);
+  useEffect(() => { remoteStreamsRef.current = remoteStreams; }, [remoteStreams]);
+
+  // ── Theater / streaming rail: pick a sensible default focus participant ──
+  const railVisible = theaterMode || isFileStreaming;
+  useEffect(() => {
+    if (railVisible) {
+      setFocusPeerId(prev => {
+        if (prev && (prev === "local" || remoteStreamsRef.current[prev])) return prev;
+        const firstRemote = Object.keys(remoteStreamsRef.current)[0];
+        return firstRemote || "local";
+      });
+    } else {
+      setFocusPeerId(null);
+    }
+  }, [railVisible]);
 
   // Reset PIP position on state change
   useEffect(() => {
@@ -1797,7 +2290,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   }, []);
 
   // ─── WebRTC Bitrate / ABR Controller (Dynamic Low Bandwidth Optimizer) ───
-  const applyBandwidthMode = useCallback((mode) => {
+  const applyBandwidthMode = useCallback((mode, opts = {}) => {
     setBandwidthMode(mode);
     const targetBitrate = mode === "audio-only" ? 24000 : mode === "saver" ? 120000 : mode === "hd" ? 1800000 : 600000;
     const scaleFactor = mode === "saver" ? 2.5 : mode === "hd" ? 1.0 : 1.5;
@@ -1808,6 +2301,18 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       const vTrack = localStreamRef.current.getVideoTracks()[0];
       if (vTrack) {
         vTrack.enabled = mode !== "audio-only" && !isVideoOff;
+        // Capture-side adaptation: lowers CPU + upstream before the encoder even runs.
+        const captureProfile = {
+          "audio-only": null,
+          saver: { width: { ideal: 640 }, height: { ideal: 360 }, frameRate: { ideal: 15, max: 15 } },
+          auto: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 24, max: 30 } },
+          hd: { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30, max: 30 } }
+        }[mode];
+        if (captureProfile && typeof vTrack.applyConstraints === "function") {
+          vTrack.applyConstraints(captureProfile).catch(() => {});
+        }
+        // Hint the encoder: webcam = motion, screen/content = detail (sharper text at low bitrate)
+        try { vTrack.contentHint = "motion"; } catch (e) {}
       }
     }
 
@@ -1823,22 +2328,30 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
             params.encodings[0].maxBitrate = targetBitrate;
             params.encodings[0].scaleResolutionDownBy = scaleFactor;
             params.encodings[0].maxFramerate = maxFps;
+            // Camera & streamed media: keep motion smooth under congestion
+            // (drop resolution, never devolve into a slideshow).
+            params.degradationPreference = "maintain-framerate";
             sender.setParameters(params).catch(() => {});
           } else if (sender.track?.kind === "audio") {
             const params = sender.getParameters();
             if (!params.encodings || params.encodings.length === 0) params.encodings = [{}];
             params.encodings[0].maxBitrate = mode === "saver" ? 24000 : 48000;
+            try { params.encodings[0].networkPriority = "high"; } catch (e) {}
             sender.setParameters(params).catch(() => {});
           }
         });
       } catch (e) {}
     });
 
+    if (opts.silent) return;
     toast.info(`Bandwidth mode updated: ${mode.toUpperCase()}`);
   }, [isVideoOff]);
 
   // ─── Network Quality Poller (getStats) ───
   useEffect(() => {
+    let lastSentBytes = 0;
+    let lastStatsTs = 0;
+
     statsIntervalRef.current = setInterval(async () => {
       const activeCalls = Object.values(peers.current);
       if (activeCalls.length === 0) return;
@@ -1846,7 +2359,9 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       try {
         let totalRtt = 0;
         let totalLoss = 0;
-        let count = 0;
+        let lossSamples = 0;
+        let rttCount = 0;
+        let sentBytes = 0;
 
         for (const call of activeCalls) {
           const pc = call.peerConnection;
@@ -1856,34 +2371,62 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
             if (report.type === "candidate-pair" && report.state === "succeeded") {
               if (report.currentRoundTripTime) {
                 totalRtt += report.currentRoundTripTime * 1000;
-                count++;
+                rttCount++;
               }
             }
             if (report.type === "inbound-rtp" && report.packetsLost && report.packetsReceived) {
               const totalPackets = report.packetsLost + report.packetsReceived;
               if (totalPackets > 0) {
-                totalLoss = (report.packetsLost / totalPackets) * 100;
+                totalLoss += (report.packetsLost / totalPackets) * 100;
+                lossSamples++;
               }
+            }
+            if (report.type === "outbound-rtp" && typeof report.bytesSent === "number") {
+              sentBytes += report.bytesSent;
             }
           }
         }
 
-        const avgRtt = count > 0 ? Math.round(totalRtt / count) : 35;
-        const lossPercent = Math.min(100, Math.round(totalLoss * 10) / 10);
+        const avgRtt = rttCount > 0 ? Math.round(totalRtt / rttCount) : 35;
+        const lossPercent = lossSamples > 0 ? Math.min(100, Math.round((totalLoss / lossSamples) * 10) / 10) : 0;
         let status = "good";
         if (avgRtt > 350 || lossPercent > 12) status = "poor";
         else if (avgRtt > 180 || lossPercent > 5) status = "fair";
 
-        const newBitrate = bandwidthModeRef.current === "saver" ? 120 : 650;
+        // Real measured upstream bitrate (kbps)
+        const now = Date.now();
+        let measuredKbps = 0;
+        if (lastStatsTs && now > lastStatsTs) {
+          measuredKbps = Math.round(((sentBytes - lastSentBytes) * 8) / (now - lastStatsTs));
+        }
+        lastSentBytes = sentBytes;
+        lastStatsTs = now;
+        const newBitrate = measuredKbps > 0 ? measuredKbps : (bandwidthModeRef.current === "saver" ? 120 : bandwidthModeRef.current === "hd" ? 1800 : 650);
+
         setNetworkQuality(prev => {
           if (prev.rtt === avgRtt && prev.loss === lossPercent && prev.status === status && prev.bitrate === newBitrate) return prev;
           return { rtt: avgRtt, loss: lossPercent, bitrate: newBitrate, status };
         });
 
-        // Auto-adapt when network degrades
-        if (bandwidthModeRef.current === "auto" && status === "poor") {
-          applyBandwidthMode("saver");
-          toast.warning("Network unstable: Auto-switched to Data Saver mode to protect voice quality.");
+        // Auto-adapt when network degrades…
+        if (bandwidthModeRef.current === "auto") {
+          if (status === "poor") {
+            goodStreakRef.current = 0;
+            autoDowngradedRef.current = true;
+            applyBandwidthMode("saver", { silent: false });
+            toast.warning("Network unstable: Auto-switched to Data Saver mode to protect voice quality.");
+          } else if (status === "good") {
+            // …and recover back up after the network stays healthy (hysteresis, no flapping)
+            goodStreakRef.current += 1;
+            if (autoDowngradedRef.current && goodStreakRef.current >= 3) {
+              autoDowngradedRef.current = false;
+              goodStreakRef.current = 0;
+              applyBandwidthMode("auto", { silent: true });
+              toast.success("Network recovered — video quality restored.");
+            }
+          } else {
+            goodStreakRef.current = 0;
+          }
         }
       } catch (e) {}
     }, 3000);
@@ -1903,6 +2446,19 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     };
   }, []);
 
+  // ─── Theater Mode: Esc exits (after native fullscreen exits first) ───
+  useEffect(() => {
+    if (!theaterMode) return;
+    const onKey = (e) => {
+      if (e.key === "Escape" && !document.fullscreenElement) {
+        setTheaterMode(false);
+        setPinnedPeerId(null);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [theaterMode]);
+
   // ─── Web Audio Activity Detection (Speaking Indicator) ───
   const setupAudioAnalysis = useCallback((stream, id) => {
     if (!stream || !stream.getAudioTracks().length) return;
@@ -1913,6 +2469,11 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       const ctx = audioContextRef.current;
       if (ctx.state === "suspended") ctx.resume();
 
+      // Stop any previous analyser loop for this peer before starting a new one
+      if (analyserCleanupsRef.current[id]) {
+        try { analyserCleanupsRef.current[id](); } catch (e) {}
+      }
+
       const source = ctx.createMediaStreamSource(stream);
       const analyser = ctx.createAnalyser();
       analyser.fftSize = 256;
@@ -1920,7 +2481,9 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       const data = new Uint8Array(analyser.frequencyBinCount);
 
       let animId;
+      let stopped = false;
       const checkVolume = () => {
+        if (stopped) return;
         analyser.getByteFrequencyData(data);
         const avg = data.reduce((a, b) => a + b, 0) / data.length;
         const isSpeaking = avg > 24;
@@ -1928,8 +2491,27 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         animId = requestAnimationFrame(checkVolume);
       };
       checkVolume();
-      return () => cancelAnimationFrame(animId);
+      analyserCleanupsRef.current[id] = () => {
+        stopped = true;
+        cancelAnimationFrame(animId);
+        try { source.disconnect(); } catch (e) {}
+        try { analyser.disconnect(); } catch (e) {}
+        setSpeakingPeers(prev => {
+          if (!(id in prev)) return prev;
+          const next = { ...prev };
+          delete next[id];
+          return next;
+        });
+      };
+      return analyserCleanupsRef.current[id];
     } catch (e) {}
+  }, []);
+
+  const stopAudioAnalysis = useCallback((id) => {
+    if (analyserCleanupsRef.current[id]) {
+      try { analyserCleanupsRef.current[id](); } catch (e) {}
+      delete analyserCleanupsRef.current[id];
+    }
   }, []);
 
   // ─── Peer Call Event Handler ───
@@ -1940,10 +2522,45 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         [remotePeerId]: {
           stream: remoteStream,
           name: prev[remotePeerId]?.name || "Participant",
-          volume: 100
+          volume: prev[remotePeerId]?.volume ?? 100
         }
       }));
       setupAudioAnalysis(remoteStream, remotePeerId);
+
+      // ── Low-latency playout: shrink receiver-side buffering so audio/video
+      // stays in sync and lag stays minimal (supported browsers only). ──
+      const tuneReceivers = () => {
+        try {
+          const pc = call.peerConnection;
+          if (!pc) return;
+          pc.getReceivers().forEach(receiver => {
+            try { if ("jitterBufferTarget" in receiver && receiver.jitterBufferTarget !== 0) receiver.jitterBufferTarget = 60; } catch (e) {}
+            try { if ("playoutDelayHint" in receiver) receiver.playoutDelayHint = 0; } catch (e) {}
+          });
+        } catch (e) {}
+      };
+      tuneReceivers();
+      // Retune shortly after connect (receiver list can settle late)
+      setTimeout(tuneReceivers, 1500);
+
+      // ── Truth from the wire: socket media events can be lost on flaky links,
+      // so mirror actual track states into the UI as well. ──
+      remoteStream.getTracks().forEach(track => {
+        const syncFromTrack = () => {
+          setParticipantStates(prev => ({
+            ...prev,
+            [remotePeerId]: {
+              ...(prev[remotePeerId] || {}),
+              ...(track.kind === "audio"
+                ? { isMuted: !track.enabled || track.muted }
+                : { isVideoOff: !track.enabled || track.muted })
+            }
+          }));
+        };
+        track.addEventListener("mute", syncFromTrack);
+        track.addEventListener("unmute", syncFromTrack);
+        track.addEventListener("ended", syncFromTrack);
+      });
     });
 
     call.on("close", () => {
@@ -1951,17 +2568,48 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         try { peers.current[remotePeerId].close(); } catch (e) {}
         delete peers.current[remotePeerId];
       }
+      stopAudioAnalysis(remotePeerId);
       setRemoteStreams(prev => {
         const next = { ...prev };
         delete next[remotePeerId];
         return next;
       });
+      setParticipantStates(prev => {
+        const next = { ...prev };
+        delete next[remotePeerId];
+        return next;
+      });
+      setFocusPeerId(prev => prev === remotePeerId ? null : prev);
+      setPinnedPeerId(prev => prev === remotePeerId ? null : prev);
     });
 
     call.on("error", (err) => {
       console.warn(`Call error with ${remotePeerId}:`, err);
     });
-  }, [setupAudioAnalysis]);
+
+    // 🛡️ Low-bandwidth resilience: auto ICE-restart when the connection drops,
+    // so calls recover instead of freezing on flaky networks.
+    const pc = call.peerConnection;
+    if (pc) {
+      const handleState = () => {
+        if (pc.connectionState === "failed") {
+          console.warn(`[WebRTC] Connection to ${remotePeerId} failed — attempting ICE restart`);
+          toast.warning("Reconnecting to a participant…", { toastId: `ice-${remotePeerId}` });
+          try {
+            if (typeof pc.restartIce === "function") pc.restartIce();
+            else if (pc.signalingState !== "closed") {
+              pc.createOffer({ iceRestart: true })
+                .then(offer => pc.setLocalDescription(offer))
+                .catch(() => {});
+            }
+          } catch (e) {}
+        } else if (pc.connectionState === "connected") {
+          toast.dismiss(`ice-${remotePeerId}`);
+        }
+      };
+      pc.addEventListener("connectionstatechange", handleState);
+    }
+  }, [setupAudioAnalysis, stopAudioAnalysis]);
 
   // ─── Call Peer Function ───
   const callPeer = useCallback((targetPeerId) => {
@@ -2036,6 +2684,16 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     if (recorderRef.current && recorderRef.current.state !== "inactive") {
       try { recorderRef.current.stop(); } catch (e) {}
     }
+    // Stop all audio analysers (rAF loops)
+    Object.keys(analyserCleanupsRef.current).forEach(id => {
+      try { analyserCleanupsRef.current[id](); } catch (e) {}
+    });
+    analyserCleanupsRef.current = {};
+    // Close shared AudioContext
+    if (audioContextRef.current) {
+      try { audioContextRef.current.close(); } catch (e) {}
+      audioContextRef.current = null;
+    }
     // Stop screen share tracks
     if (screenStreamRef.current) {
       try { screenStreamRef.current.getTracks().forEach(t => t.stop()); } catch (e) {}
@@ -2100,8 +2758,12 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
           },
           audio: {
             echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true
+            noiseSuppression: { ideal: "high" },
+            autoGainControl: true,
+            // Studio-grade capture where supported: full-band speech, no compression
+            sampleRate: { ideal: 48000 },
+            sampleSize: { ideal: 16 },
+            channelCount: { ideal: 1 }
           }
         });
       } catch (err) {
@@ -2188,7 +2850,10 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       // Default: use PeerJS Cloud (0.peerjs.com) — free, reliable, works everywhere
       // Only override if REACT_APP_PEER_HOST is explicitly set (e.g., self-hosted PeerJS)
       const peerOptions = {
-        config: { iceServers },
+        config: {
+          iceServers,
+          iceCandidatePoolSize: 4 // pre-gather candidates → faster, more resilient connects
+        },
         debug: 1 // 0=none, 1=errors, 2=warnings, 3=all
       };
 
@@ -2305,11 +2970,19 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
             try { peers.current[disconnectedId].close(); } catch (e) {}
             delete peers.current[disconnectedId];
           }
+          stopAudioAnalysis(disconnectedId);
           setRemoteStreams(prev => {
             const next = { ...prev };
             delete next[disconnectedId];
             return next;
           });
+          setParticipantStates(prev => {
+            const next = { ...prev };
+            delete next[disconnectedId];
+            return next;
+          });
+          setFocusPeerId(prev => prev === disconnectedId ? null : prev);
+          setPinnedPeerId(prev => prev === disconnectedId ? null : prev);
         });
 
         socket.on("user-media-change", ({ peerId, isMuted: remoteMuted, isVideoOff: remoteVideoOff }) => {
@@ -2379,6 +3052,15 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         socket.off("admin-kick-user");
         socket.off("admin-mute-user");
         socket.off("reaction");
+      }
+      // Stop all audio analysers (rAF loops)
+      Object.keys(analyserCleanupsRef.current).forEach(id => {
+        try { analyserCleanupsRef.current[id](); } catch (e) {}
+      });
+      analyserCleanupsRef.current = {};
+      if (audioContextRef.current) {
+        try { audioContextRef.current.close(); } catch (e) {}
+        audioContextRef.current = null;
       }
       // Stop screen share
       if (screenStreamRef.current) {
@@ -2450,23 +3132,12 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     }
   };
 
-  const handleFullscreenVideo = (e) => {
-    e.stopPropagation();
-    const tile = e.currentTarget.closest(".video-tile");
-    if (!tile) return;
-    const video = tile.querySelector("video");
-    if (video) {
-      if (video.requestFullscreen) {
-        video.requestFullscreen();
-      } else if (video.webkitEnterFullscreen) {
-        video.webkitEnterFullscreen();
-      } else if (video.msRequestFullscreen) {
-        video.msRequestFullscreen();
-      } else {
-        toast.error("Fullscreen is not supported on this browser/device.");
-      }
-    } else {
-      toast.error("No active video feed to display in fullscreen.");
+  // Fullscreen = in-app Theater Mode: big stage + right rail of everyone + focus card.
+  // (Native <video> fullscreen would hide all participant cards, so we render our own.)
+  const handleFullscreenVideo = (peerId) => {
+    enterTheater(peerId || "local");
+    if (containerRef.current?.requestFullscreen) {
+      containerRef.current.requestFullscreen().catch(() => {});
     }
   };
 
@@ -2539,6 +3210,10 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
       screenStreamRef.current = screenStream;
 
+      // Hint the encoder for text/detail sharpness at low bitrates
+      const screenVideoTrack = screenStream.getVideoTracks()[0];
+      try { if (screenVideoTrack) screenVideoTrack.contentHint = "detail"; } catch (e) {}
+
       const hasAudioTrack = screenStream.getAudioTracks().length > 0;
       if (!hasAudioTrack) {
         toast.info("💡 Tip: To share computer sound, select 'Tab' or check 'Share audio' in the browser popup.", { autoClose: 7000 });
@@ -2570,6 +3245,14 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         pc.getSenders().forEach(sender => {
           if (sender.track?.kind === "video" && mixedVideoTrack) {
             sender.replaceTrack(mixedVideoTrack);
+            // Screen content: protect resolution (readable text) over framerate
+            try {
+              const params = sender.getParameters();
+              if (!params.encodings || params.encodings.length === 0) params.encodings = [{}];
+              params.encodings[0].maxBitrate = Math.max(params.encodings[0].maxBitrate || 0, 2000000);
+              params.degradationPreference = "maintain-resolution";
+              sender.setParameters(params).catch(() => {});
+            } catch (e) {}
           }
           if (sender.track?.kind === "audio" && mixedAudioTrack) {
             sender.replaceTrack(mixedAudioTrack);
@@ -2647,6 +3330,16 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
       video.onloadedmetadata = () => {
         setFileStreamDuration(video.duration || 0);
+        // Start playback explicitly — autoplay attributes alone can be flaky,
+        // and captureStream emits silence/black until the element is playing.
+        const playP = video.play();
+        if (playP && typeof playP.catch === "function") {
+          playP.catch(() => {
+            // Retry once on the next user gesture
+            const retry = () => { video.play().catch(() => {}); window.removeEventListener("pointerdown", retry); };
+            window.addEventListener("pointerdown", retry, { once: true });
+          });
+        }
         const stream = video.captureStream ? video.captureStream() : (video.mozCaptureStream ? video.mozCaptureStream() : null);
         if (!stream) {
           toast.error("Media stream capture is not supported for this source format.");
@@ -2793,8 +3486,10 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
   const changeFileStreamVolume = (vol) => {
     if (fileVideoRef.current) {
-      fileVideoRef.current.volume = vol;
-      setFileStreamVolume(vol);
+      // HTMLMediaElement.volume throws outside [0, 1] — clamp every write
+      const safeVol = Math.max(0, Math.min(1, Number(vol) || 0));
+      fileVideoRef.current.volume = safeVol;
+      setFileStreamVolume(safeVol);
     }
   };
 
@@ -2844,26 +3539,32 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   };
 
   const setParticipantVolume = (peerId, vol) => {
+    // Clamp defensively: stale localStorage/hot-reload state could carry >100 values
+    const safeVol = Math.max(0, Math.min(100, Number(vol) || 0));
     setRemoteStreams(prev => {
       if (!prev[peerId]) return prev;
       return {
         ...prev,
-        [peerId]: { ...prev[peerId], volume: vol }
+        [peerId]: { ...prev[peerId], volume: safeVol }
       };
     });
   };
 
+  // Fullscreen = native fullscreen + Theater Mode (stage + right rail + focus card)
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
       if (containerRef.current?.requestFullscreen) {
-        containerRef.current.requestFullscreen();
+        containerRef.current.requestFullscreen().catch(() => {});
         setIsFullscreen(true);
       }
+      setTheaterMode(true);
     } else {
       if (document.exitFullscreen) {
-        document.exitFullscreen();
+        document.exitFullscreen().catch(() => {});
         setIsFullscreen(false);
       }
+      setTheaterMode(false);
+      setPinnedPeerId(null);
     }
   };
 
@@ -2878,6 +3579,8 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     if (pinnedPeerId && (pinnedPeerId === "local" || remoteStreams[pinnedPeerId])) {
       return pinnedPeerId;
     }
+    // While streaming a file, the stage mirrors what everyone is watching (host's mixed feed)
+    if (isFileStreaming) return "local";
     const activeSpeakers = Object.keys(speakingPeers).filter(id => speakingPeers[id]);
     if (activeSpeakers.length > 0) {
       const remoteSpeaker = activeSpeakers.find(id => id !== "local" && remoteStreams[id]);
@@ -2887,7 +3590,36 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     const remotes = Object.keys(remoteStreams);
     if (remotes.length > 0) return remotes[0];
     return "local";
-  }, [pinnedPeerId, speakingPeers, remoteStreams]);
+  }, [pinnedPeerId, speakingPeers, remoteStreams, isFileStreaming]);
+
+  // ─── Theater mode helpers ───
+  const enterTheater = useCallback((peerId) => {
+    if (peerId === "local" || peerId) setPinnedPeerId(peerId);
+    setTheaterMode(true);
+  }, []);
+
+  const exitTheater = useCallback(() => {
+    setTheaterMode(false);
+    setPinnedPeerId(null);
+    if (document.fullscreenElement && document.exitFullscreen) {
+      document.exitFullscreen().catch(() => {});
+    }
+  }, []);
+
+  const toggleFocusPeer = useCallback((peerId) => {
+    setFocusPeerId(prev => prev === peerId ? null : peerId);
+  }, []);
+
+  // Ref factory: registers remote <video> elements for reactive volume control
+  const makeRemoteVideoRef = useCallback((peerId, info) => (el) => {
+    registerRemoteVideoEl(peerId, el);
+    if (el && info?.stream && el.srcObject !== info.stream) {
+      try {
+        el.srcObject = info.stream;
+        el.volume = Math.max(0, Math.min(1, (Number(info?.volume) || 100) / 100));
+      } catch (e) { /* volume can throw on exotic elements — never crash the call */ }
+    }
+  }, [registerRemoteVideoEl]);
 
   return (
     <StyleSheetManager shouldForwardProp={(prop) => !prop.startsWith('$')}>
@@ -2895,7 +3627,15 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         ref={containerRef} 
         $minimized={isMinimized}
         data-pip-container={isMinimized ? "" : undefined}
-        style={isMinimized ? { transform: `translate3d(${pipPositionRef.current.x}px, ${pipPositionRef.current.y}px, 0)` } : {}}
+        style={isMinimized ? (() => {
+          const w = window.innerWidth;
+          const base = w <= 480 ? { width: 160, height: 100 } : w <= 768 ? { width: 200, height: 120 } : { width: 320, height: 190 };
+          return {
+            transform: `translate3d(${pipPositionRef.current.x}px, ${pipPositionRef.current.y}px, 0)`,
+            width: `${Math.round(base.width * pipScale)}px`,
+            height: `${Math.round(base.height * pipScale)}px`
+          };
+        })() : {}}
         onMouseDown={isMinimized ? handleDragStart : undefined}
         onTouchStart={isMinimized ? handleDragStart : undefined}
       >
@@ -2933,12 +3673,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                 return (
                   <video
                     autoPlay playsInline
-                    ref={el => {
-                      if (el && remoteInfo.stream && el.srcObject !== remoteInfo.stream) {
-                        el.srcObject = remoteInfo.stream;
-                        el.volume = (remoteInfo.volume || 100) / 100;
-                      }
-                    }}
+                    ref={makeRemoteVideoRef(firstRemote[0], remoteInfo)}
                   />
                 );
               } else if (isVideoOff || !localStream) {
@@ -2957,15 +3692,40 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
               onMouseDown={e => e.stopPropagation()}
               onTouchStart={e => e.stopPropagation()}
             >
-              <IconButton $active={isMuted} onClick={toggleMute}>
+              <IconButton $active={isMuted} onClick={toggleMute} title={isMuted ? "Unmute" : "Mute"}>
                 {isMuted ? <FaMicrophoneSlash /> : <FaMicrophone />}
               </IconButton>
-              <IconButton $active={isVideoOff} onClick={toggleVideo}>
+              <IconButton $active={isVideoOff} onClick={toggleVideo} title={isVideoOff ? "Turn camera on" : "Turn camera off"}>
                 {isVideoOff ? <FaVideoSlash /> : <FaVideo />}
               </IconButton>
-              <IconButton onClick={() => setIsMinimized(false)}>
+              <IconButton onClick={() => setIsMinimized(false)} title="Back to full call">
                 <FaExpand />
               </IconButton>
+            </div>
+
+            {/* Resize stack — top-right corner, always reachable */}
+            <div 
+              className="pip-resize"
+              onClick={e => e.stopPropagation()}
+              onMouseDown={e => e.stopPropagation()}
+              onTouchStart={e => e.stopPropagation()}
+            >
+              <button
+                onClick={() => changePipScale(0.25)}
+                disabled={pipScale >= 2}
+                title="Bigger"
+                aria-label="Bigger picture-in-picture"
+              >
+                <FaPlus />
+              </button>
+              <button
+                onClick={() => changePipScale(-0.25)}
+                disabled={pipScale <= 0.7}
+                title="Smaller"
+                aria-label="Smaller picture-in-picture"
+              >
+                <FaMinus />
+              </button>
             </div>
           </PipWidget>
         )}
@@ -3072,7 +3832,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
             </IconButton>
 
             {/* Minimize */}
-            <IconButton className="hide-mobile" onClick={() => setIsMinimized(true)} title="Picture-in-Picture">
+            <IconButton onClick={() => setIsMinimized(true)} title="Picture-in-Picture">
               <FaWindowMinimize />
             </IconButton>
           </HeaderRight>
@@ -3087,6 +3847,191 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                 <h3 style={{ margin: 0, fontSize: "1.1rem" }}>Connecting to meeting...</h3>
                 <p style={{ margin: 0, opacity: 0.6, fontSize: "0.8rem" }}>Optimizing network & media devices</p>
               </AvatarPlaceholder>
+            ) : railVisible ? (
+              /* ═══ THEATER MODE: big stage + right rail of everyone + focus card ═══ */
+              <TheaterLayout>
+                <TheaterStage>
+                  {(() => {
+                    const isLocal = spotlightPeerId === "local";
+                    const info = isLocal ? null : remoteStreams[spotlightPeerId];
+                    const state = isLocal ? {} : (participantStates[spotlightPeerId] || {});
+                    const stageName = isLocal ? `${userName} (You)` : (info?.name || "Participant");
+                    const peerVideoOff = !isLocal && (state.isVideoOff || bandwidthMode === "audio-only");
+                    const localVideoOff = isVideoOff || !localStream || bandwidthMode === "audio-only";
+                    const showAvatar = isLocal ? localVideoOff : (peerVideoOff || !info?.stream);
+
+                    return (
+                      <>
+                        <TheaterBadgeRow>
+                          <span className="badge-pill">
+                            {isFileStreaming ? <FaPlayCircle color="#ef4444" /> : <FaDesktop color="#38bdf8" />}
+                            <span>{isFileStreaming ? fileStreamName || "Streaming" : `Spotlight · ${stageName}`}</span>
+                          </span>
+                          <span className="badge-pill" style={{ opacity: 0.75 }}>
+                            <FaUsers size={10} /> {totalCount}
+                          </span>
+                        </TheaterBadgeRow>
+
+                        <TheaterCloseBtn onClick={exitTheater} title="Exit fullscreen (Esc)">
+                          <FaTimes />
+                        </TheaterCloseBtn>
+
+                        {showAvatar ? (
+                          <AvatarPlaceholder>
+                            <div className="circle">{getInitials(isLocal ? userName : info?.name)}</div>
+                          </AvatarPlaceholder>
+                        ) : isLocal ? (
+                          <video ref={localVideoCallbackRef} autoPlay playsInline muted />
+                        ) : (
+                          <video ref={makeRemoteVideoRef(spotlightPeerId, info)} autoPlay playsInline />
+                        )}
+                      </>
+                    );
+                  })()}
+
+                  {/* Bottom-right focus card — fully visible, nothing cropped */}
+                  {focusPeerId && focusPeerId !== spotlightPeerId && (() => {
+                    const isLocalFocus = focusPeerId === "local";
+                    const fInfo = isLocalFocus ? null : remoteStreams[focusPeerId];
+                    if (!isLocalFocus && !fInfo) return null;
+                    const fState = isLocalFocus ? {} : (participantStates[focusPeerId] || {});
+                    const fSpeaking = isLocalFocus ? speakingPeers.local : speakingPeers[focusPeerId];
+                    const fMuted = isLocalFocus ? isMuted : fState.isMuted;
+                    const fVideoOff = isLocalFocus
+                      ? (isVideoOff || !localStream || bandwidthMode === "audio-only")
+                      : (fState.isVideoOff || bandwidthMode === "audio-only" || !fInfo.stream);
+                    return (
+                      <FocusCard $isSpeaking={!!fSpeaking}>
+                        <div className="focus-video-zone">
+                          {fVideoOff ? (
+                            <AvatarPlaceholder>
+                              <div className="circle" style={{ width: 52, height: 52, fontSize: "1.2rem" }}>
+                                {getInitials(isLocalFocus ? userName : fInfo.name)}
+                              </div>
+                            </AvatarPlaceholder>
+                          ) : isLocalFocus ? (
+                            <video ref={localVideoCallbackRef} autoPlay playsInline muted />
+                          ) : (
+                            <video ref={makeRemoteVideoRef(focusPeerId, fInfo)} autoPlay playsInline />
+                          )}
+                        </div>
+                        <div className="focus-footer">
+                          <span className="nm">
+                            {isLocalFocus ? `${userName} (You)` : (fInfo.name || "Participant")}
+                          </span>
+                          {fSpeaking && (
+                            <EqualizerWaves>
+                              <span /><span /><span />
+                            </EqualizerWaves>
+                          )}
+                          {fMuted && <FaMicrophoneSlash color="#ff4757" size={12} />}
+                          <button className="close-focus" onClick={() => setFocusPeerId(null)} title="Hide focus card">
+                            <FaTimes />
+                          </button>
+                        </div>
+                      </FocusCard>
+                    );
+                  })()}
+                </TheaterStage>
+
+                {/* Right rail: every participant as a live card */}
+                <ParticipantsRail>
+                  <div className="rail-header">
+                    <h4><FaUsers /> Everyone ({totalCount})</h4>
+                  </div>
+                  <RailScroll>
+                    {/* Local card */}
+                    <RailCard
+                      $isSpeaking={speakingPeers.local}
+                      $isFocused={focusPeerId === "local"}
+                      $isPinned={spotlightPeerId === "local"}
+                      onClick={() => toggleFocusPeer("local")}
+                      title="Click to show/hide in focus card"
+                    >
+                      <div className="video-zone">
+                        <RailCardActions className="rail-card-actions" onClick={e => e.stopPropagation()}>
+                          <RailActionBtn
+                            $active={spotlightPeerId === "local"}
+                            onClick={() => setPinnedPeerId("local")}
+                            title="Put on main stage"
+                          >
+                            <FaThumbtack />
+                          </RailActionBtn>
+                        </RailCardActions>
+                        {(isVideoOff || !localStream || bandwidthMode === "audio-only") ? (
+                          <AvatarPlaceholder>
+                            <div className="circle" style={{ width: 44, height: 44, fontSize: "1.05rem" }}>{getInitials(userName)}</div>
+                          </AvatarPlaceholder>
+                        ) : (
+                          <video ref={localVideoCallbackRef} autoPlay playsInline muted />
+                        )}
+                      </div>
+                      <div className="name-bar">
+                        <span className="nm">{userName} (You)</span>
+                        {speakingPeers.local && (
+                          <EqualizerWaves>
+                            <span /><span /><span />
+                          </EqualizerWaves>
+                        )}
+                        {isMuted && <FaMicrophoneSlash color="#ff4757" size={11} />}
+                      </div>
+                    </RailCard>
+
+                    {/* Remote cards */}
+                    {remoteEntries.map(([peerId, rInfo]) => {
+                      const rState = participantStates[peerId] || {};
+                      const rSpeaking = speakingPeers[peerId];
+                      const rVideoOff = rState.isVideoOff || bandwidthMode === "audio-only" || !rInfo.stream;
+                      return (
+                        <RailCard
+                          key={peerId}
+                          $isSpeaking={rSpeaking}
+                          $isFocused={focusPeerId === peerId}
+                          $isPinned={spotlightPeerId === peerId}
+                          onClick={() => toggleFocusPeer(peerId)}
+                          title="Click to show/hide in focus card"
+                        >
+                          <div className="video-zone">
+                            <RailCardActions className="rail-card-actions" onClick={e => e.stopPropagation()}>
+                              {isRoomHost && (
+                                <RailActionBtn
+                                  onClick={() => handleMuteParticipant(peerId, rInfo.name || "Participant")}
+                                  title="Mute for everyone"
+                                >
+                                  <FaVolumeMute />
+                                </RailActionBtn>
+                              )}
+                              <RailActionBtn
+                                $active={spotlightPeerId === peerId}
+                                onClick={() => setPinnedPeerId(peerId)}
+                                title="Put on main stage"
+                              >
+                                <FaThumbtack />
+                              </RailActionBtn>
+                            </RailCardActions>
+                            {rVideoOff ? (
+                              <AvatarPlaceholder>
+                                <div className="circle" style={{ width: 44, height: 44, fontSize: "1.05rem" }}>{getInitials(rInfo.name)}</div>
+                              </AvatarPlaceholder>
+                            ) : (
+                              <video ref={makeRemoteVideoRef(peerId, rInfo)} autoPlay playsInline />
+                            )}
+                          </div>
+                          <div className="name-bar">
+                            <span className="nm">{rInfo.name || "Participant"}</span>
+                            {rSpeaking && (
+                              <EqualizerWaves>
+                                <span /><span /><span />
+                              </EqualizerWaves>
+                            )}
+                            {rState.isMuted && <FaMicrophoneSlash color="#ff4757" size={11} />}
+                          </div>
+                        </RailCard>
+                      );
+                    })}
+                  </RailScroll>
+                </ParticipantsRail>
+              </TheaterLayout>
             ) : layoutMode === "spotlight" ? (
               <SpotlightContainer>
                 {/* 1. Large Main Spotlight View */}
@@ -3108,7 +4053,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                           <FaThumbtack />
                         </TileActionButton>
                         <TileActionButton 
-                          onClick={handleFullscreenVideo}
+                          onClick={() => handleFullscreenVideo("local")}
                           title="View Fullscreen"
                         >
                           <FaExpand />
@@ -3173,7 +4118,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                             <FaThumbtack />
                           </TileActionButton>
                           <TileActionButton 
-                            onClick={handleFullscreenVideo}
+                            onClick={() => handleFullscreenVideo(spotlightPeerId)}
                             title="View Fullscreen"
                           >
                             <FaExpand />
@@ -3187,12 +4132,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                           <video
                             autoPlay
                             playsInline
-                            ref={el => {
-                              if (el && info.stream && el.srcObject !== info.stream) {
-                                el.srcObject = info.stream;
-                                el.volume = (info.volume || 100) / 100;
-                              }
-                            }}
+                            ref={makeRemoteVideoRef(spotlightPeerId, info)}
                           />
                         )}
                         <TileUserInfo>
@@ -3255,12 +4195,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                             <video
                               autoPlay
                               playsInline
-                              ref={el => {
-                                if (el && info.stream && el.srcObject !== info.stream) {
-                                  el.srcObject = info.stream;
-                                  el.volume = (info.volume || 100) / 100;
-                                }
-                              }}
+                              ref={makeRemoteVideoRef(peerId, info)}
                             />
                           )}
                           <div style={{ position: "absolute", bottom: 6, left: 6, display: "flex", alignItems: "center", gap: 4, background: "rgba(0,0,0,0.6)", padding: "2px 6px", borderRadius: 8, fontSize: "0.68rem" }}>
@@ -3291,7 +4226,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                       <FaThumbtack />
                     </TileActionButton>
                     <TileActionButton 
-                      onClick={handleFullscreenVideo}
+                      onClick={() => handleFullscreenVideo("local")}
                       title="View Fullscreen"
                     >
                       <FaExpand />
@@ -3358,7 +4293,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                           <FaThumbtack />
                         </TileActionButton>
                         <TileActionButton 
-                          onClick={handleFullscreenVideo}
+                          onClick={() => handleFullscreenVideo(peerId)}
                           title="View Fullscreen"
                         >
                           <FaExpand />
@@ -3373,12 +4308,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                         <video
                           autoPlay
                           playsInline
-                          ref={el => {
-                            if (el && info.stream && el.srcObject !== info.stream) {
-                              el.srcObject = info.stream;
-                              el.volume = (info.volume || 100) / 100;
-                            }
-                          }}
+                          ref={makeRemoteVideoRef(peerId, info)}
                         />
                       )}
 
@@ -3405,8 +4335,8 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
             ))}
           </MainVideoArea>
 
-          {/* ═══ PARTICIPANT STRIP (Teams-style bottom bar) ═══ */}
-          {totalCount > 1 && (
+          {/* ═══ PARTICIPANT STRIP (Teams-style bottom bar) — hidden in theater/streaming (rail replaces it) ═══ */}
+          {totalCount > 1 && !railVisible && (
             <ParticipantStrip>
               {/* Local Widget */}
               <ParticipantWidget
@@ -3469,12 +4399,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                       <video
                         autoPlay
                         playsInline
-                        ref={el => {
-                          if (el && info.stream && el.srcObject !== info.stream) {
-                            el.srcObject = info.stream;
-                            el.volume = (info.volume || 100) / 100;
-                          }
-                        }}
+                        ref={makeRemoteVideoRef(peerId, info)}
                       />
                     )}
                     <WidgetControls className="widget-controls">
@@ -3557,7 +4482,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                         <input
                           type="range"
                           min="0"
-                          max="150"
+                          max="100"
                           value={info.volume ?? 100}
                           onChange={(e) => setParticipantVolume(peerId, Number(e.target.value))}
                           style={{ flex: 1, accentColor: "#4f46e5", height: 4 }}
