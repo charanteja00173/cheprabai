@@ -2642,6 +2642,7 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile, setViewer 
   const [viewedOnce, setViewedOnce] = useState(false);
   const containerRef = useRef(null);
   const [isInView, setIsInView] = useState(false);
+  const [retryTick, setRetryTick] = useState(0);
 
   const lastDecryptedIvRef = useRef(null);
   const lastDecryptedSourceUrlRef = useRef(null);
@@ -2757,7 +2758,7 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile, setViewer 
       active = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isInView, file.url, file.iv, roomKey, file.keyB64]);
+  }, [isInView, file.url, file.iv, roomKey, file.keyB64, retryTick]);
 
   if (loading) {
     return (
@@ -2777,6 +2778,10 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile, setViewer 
     return (
       <div ref={containerRef} style={{ display: "flex", alignItems: "center", gap: "10px", padding: "12px", background: "rgba(255, 107, 107, 0.05)", borderRadius: "10px", border: "1px solid rgba(255, 107, 107, 0.2)", color: "#ff6b6b" }}>
         <span style={{ fontSize: "0.85rem" }}>🔒 File decryption failed</span>
+        <button
+          onClick={() => { setError(false); setLoading(true); setRetryTick(t => t + 1); }}
+          style={{ marginLeft: "auto", fontSize: "0.75rem", padding: "4px 10px", borderRadius: 6, border: "1px solid rgba(255,107,107,0.35)", background: "transparent", color: "#ff6b6b", cursor: "pointer" }}
+        >Retry</button>
       </div>
     );
   }
@@ -2811,7 +2816,6 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile, setViewer 
           <img
             alt={file.name}
             src={decryptedUrl}
-            loading="lazy"
             decoding="async"
             onLoad={() => setMediaLoaded(true)}
             onError={() => setMediaLoaded(true)}
@@ -4080,6 +4084,10 @@ export default function ChatRoom() {
             try {
               const decryptedPayload = JSON.parse(decryptedText);
               Object.assign(item, decryptedPayload);
+              // Background-synced files: prefer the upgraded outer URL over the stale local one inside encryptedPayload
+              if (item.file?.url?.includes("/uploads/") && msg.file?.url && !msg.file.url.includes("/uploads/")) {
+                item.file = { ...item.file, url: msg.file.url };
+              }
             } catch {
               item.text = decryptedText;
             }
@@ -4105,6 +4113,10 @@ export default function ChatRoom() {
             try {
               const decryptedPayload = JSON.parse(decryptedText);
               Object.assign(item, decryptedPayload);
+              // Background-synced files: prefer the upgraded outer URL over the stale local one inside encryptedPayload
+              if (item.file?.url?.includes("/uploads/") && msg.file?.url && !msg.file.url.includes("/uploads/")) {
+                item.file = { ...item.file, url: msg.file.url };
+              }
             } catch {
               item.text = decryptedText;
             }
@@ -4126,9 +4138,13 @@ export default function ChatRoom() {
         try {
           const decryptedText = await decryptMessage(rk, formattedMsg.encryptedPayload);
           try {
-            const decryptedPayload = JSON.parse(decryptedText);
-            Object.assign(formattedMsg, decryptedPayload);
-          } catch {
+          const decryptedPayload = JSON.parse(decryptedText);
+          Object.assign(formattedMsg, decryptedPayload);
+          // Background-synced files: prefer the upgraded outer URL over the stale local one inside encryptedPayload
+          if (formattedMsg.file?.url?.includes("/uploads/") && msg.file?.url && !msg.file.url.includes("/uploads/")) {
+            formattedMsg.file = { ...formattedMsg.file, url: msg.file.url };
+          }
+        } catch {
             formattedMsg.text = decryptedText;
           }
         } catch (e) {
@@ -4289,6 +4305,10 @@ export default function ChatRoom() {
             try {
               const decryptedPayload = JSON.parse(decryptedText);
               Object.assign(item, decryptedPayload);
+              // Background-synced files: prefer the upgraded outer URL over the stale local one inside encryptedPayload
+              if (item.file?.url?.includes("/uploads/") && msg.file?.url && !msg.file.url.includes("/uploads/")) {
+                item.file = { ...item.file, url: msg.file.url };
+              }
             } catch {
               item.text = decryptedText;
             }
@@ -4311,6 +4331,10 @@ export default function ChatRoom() {
             try {
               const decryptedPayload = JSON.parse(decryptedText);
               Object.assign(item, decryptedPayload);
+              // Background-synced files: prefer the upgraded outer URL over the stale local one inside encryptedPayload
+              if (item.file?.url?.includes("/uploads/") && msg.file?.url && !msg.file.url.includes("/uploads/")) {
+                item.file = { ...item.file, url: msg.file.url };
+              }
             } catch {
               item.text = decryptedText;
             }
@@ -4330,9 +4354,13 @@ export default function ChatRoom() {
         try {
           const decryptedText = await decryptMessage(rk, newPayload.encryptedPayload);
           try {
-            const decryptedPayload = JSON.parse(decryptedText);
-            Object.assign(formatted, decryptedPayload);
-          } catch {
+          const decryptedPayload = JSON.parse(decryptedText);
+          Object.assign(formatted, decryptedPayload);
+          // Background-synced files: prefer the upgraded outer URL over the stale local one inside encryptedPayload
+          if (formatted.file?.url?.includes("/uploads/") && newPayload.file?.url && !newPayload.file.url.includes("/uploads/")) {
+            formatted.file = { ...formatted.file, url: newPayload.file.url };
+          }
+        } catch {
             formatted.text = decryptedText;
           }
         } catch (e) {
@@ -4506,6 +4534,9 @@ export default function ChatRoom() {
         ...(viewOnce && /^(image|video)\//.test(file.type) && { viewOnce: true }),
         ...(ivString && { iv: ivString })
       };
+      if (!fileData.url) {
+        throw new Error(res.data?.error || "Upload service did not return a file URL. Please try again.");
+      }
       if (scheduleTime) {
         const plainPayload = {
           file: { ...fileData, ...(keyB64 && { keyB64 }) },
