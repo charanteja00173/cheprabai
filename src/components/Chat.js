@@ -617,7 +617,7 @@ function FeatureDevPicker() {
 
   return (
     <>
-      <button
+      {/* <button
         type="button"
         onClick={() => setOpen(true)}
         style={{
@@ -631,7 +631,7 @@ function FeatureDevPicker() {
         }}
       >
         🧩 PICK TOUR FEATURES
-      </button>
+      </button> */}
 
       {open && (
         <div
