@@ -1366,57 +1366,185 @@ function hexGlow(hex, alpha) {
 
 
 const LandingWrapper = styled.div`
+  position: relative;
+
   display: flex;
   justify-content: center;
   align-items: center;
+
   width: 100%;
-  max-width: 100vw;
+  min-width: 0;
+
+  /*
+   * IMPORTANT:
+   * Never give this container a fixed height.
+   * Content is allowed to make it taller than the viewport.
+   */
   min-height: 100dvh;
   height: auto;
-  position: relative;
-  background: var(--chakra-colors-bg);
-  /* FX layers bleed past the edges by design — clip them, never scroll */
-  overflow: hidden auto;
-  overscroll-behavior: contain;
-  padding: 24px 0;
+
+  padding: 32px 24px;
+
   box-sizing: border-box;
 
-  @media (max-width: 480px) {
-    align-items: center;
-    padding: 16px 0;
-    overscroll-behavior: contain;
-    background: var(--chakra-colors-bg);
-    &::before, &::after { display: none; }
-  }
+  background: var(--chakra-colors-bg);
 
-  /* Digital grid pattern overlay */
+  /*
+   * clip prevents horizontal FX from creating a scroll container,
+   * while still allowing the document to grow vertically.
+   */
+  overflow-x: clip;
+  overflow-y: visible;
+
+  isolation: isolate;
+
+  /* =========================
+     GRID
+     ========================= */
+
   &::before {
     content: "";
+
     position: absolute;
     inset: 0;
-    background-image: 
-      linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+
+    background-image:
+      linear-gradient(
+        rgba(255, 255, 255, 0.02) 1px,
+        transparent 1px
+      ),
+      linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0.02) 1px,
+        transparent 1px
+      );
+
     background-size: 30px 30px;
-    background-position: center center;
+    background-position: center;
+
     pointer-events: none;
-    z-index: 1;
+
+    z-index: -1;
   }
 
-  /* Animated glowing mesh gradients */
+  /* =========================
+     GLOW
+     ========================= */
+
   &::after {
     content: "";
+
     position: absolute;
+
     width: clamp(200px, 40vw, 400px);
     height: clamp(200px, 40vw, 400px);
-    background: radial-gradient(circle, var(--chakra-colors-brandPrimary) 0%, transparent 70%);
-    opacity: 0.16;
-    filter: blur(50px);
+
     top: 15%;
     left: 15%;
-    animation: floating-glow-1 14s infinite alternate ease-in-out;
+
+    background: radial-gradient(
+      circle,
+      var(--chakra-colors-brandPrimary) 0%,
+      transparent 70%
+    );
+
+    opacity: 0.16;
+    filter: blur(50px);
+
     pointer-events: none;
-    z-index: 0;
+
+    z-index: -1;
+
+    animation: floating-glow-1 14s infinite alternate ease-in-out;
+  }
+
+  /* =========================
+     TABLET
+     ========================= */
+
+  @media (max-width: 768px) {
+    align-items: flex-start;
+
+    min-height: 100dvh;
+
+    padding: 32px 20px 48px;
+
+    &::before {
+      background-size: 25px 25px;
+    }
+
+    &::after {
+      width: 280px;
+      height: 280px;
+
+      top: 5%;
+      left: 50%;
+
+      transform: translateX(-50%);
+
+      opacity: 0.12;
+      filter: blur(45px);
+    }
+  }
+
+  /* =========================
+     MOBILE
+     ========================= */
+
+  @media (max-width: 480px) {
+    /*
+     * Let the content determine the height.
+     * This is the important part.
+     */
+    display: flex;
+
+    align-items: flex-start;
+    justify-content: center;
+
+    min-height: 100dvh;
+    height: auto;
+
+    padding: 20px 12px 48px;
+
+    overflow-x: clip;
+    overflow-y: visible;
+
+    &::before {
+      background-size: 22px 22px;
+      opacity: 0.6;
+    }
+
+    &::after {
+      width: 220px;
+      height: 220px;
+
+      top: 0;
+      left: 50%;
+
+      transform: translateX(-50%);
+
+      opacity: 0.08;
+      filter: blur(35px);
+
+      animation-duration: 18s;
+    }
+  }
+
+  /* =========================
+     SMALL PHONES
+     ========================= */
+
+  @media (max-width: 360px) {
+    padding: 16px 8px 40px;
+
+    &::before {
+      background-size: 20px 20px;
+    }
+
+    &::after {
+      width: 180px;
+      height: 180px;
+    }
   }
 `;
 
@@ -7771,6 +7899,7 @@ export default function ChatRoom() {
             <span className="fb-icon"><FileUp size={13} /></span>Encrypted file vault
           </BubblePill>
           </FeatureBubble>
+           <FeatureExplorer />
           <LandingGrid>
           <JoinContainer>
             <CardHalo />
@@ -7930,7 +8059,6 @@ export default function ChatRoom() {
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7, color: "var(--chakra-colors-textSecondary)", fontSize: ".75rem", lineHeight: 1.4, textAlign: "center", animation: "fade-in-up .55s ease-out both", animationDelay: "520ms" }}><LockKeyhole size={14} aria-hidden="true" /> End-to-end encrypted session</div>
 
           </JoinContainer>
-          <FeatureExplorer />
           </LandingGrid>
           <FeatureDevPicker />
           {renderAvatarCropDialog()}

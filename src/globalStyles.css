@@ -517,11 +517,6 @@ img, video, canvas, svg {
   .skel-shimmer::after { animation: none; }
 }
 
-/* Global safety: nothing may cause sideways scroll anywhere */
-html, body {
-  overflow-x: clip;
-}
-
 /* Hide button labels on narrow screens (admin header etc.) */
 @media (max-width: 640px) {
   .hide-mobile { display: none !important; }
