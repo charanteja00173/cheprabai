@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense } from "react";
 import styled, { keyframes, StyleSheetManager, css } from "styled-components";
 import { 
   FaMicrophone, FaMicrophoneSlash, FaVideo, FaVideoSlash, 
@@ -336,10 +336,10 @@ const IconButton = styled.button`
   }
 
   @media (max-width: 480px) {
-    width: 30px;
-    height: 30px;
-    font-size: 0.72rem;
-    border-radius: 8px;
+    width: 38px;
+    height: 38px;
+    font-size: 0.8rem;
+    border-radius: 9px;
   }
 
   .badge {
@@ -510,8 +510,8 @@ const TileOverlay = styled.div`
 `;
 
 const TileActionButton = styled.button`
-  width: 30px;
-  height: 30px;
+  width: 36px;
+  height: 36px;
   border-radius: 8px;
   border: none;
   background: ${props => {
@@ -1946,14 +1946,14 @@ const createMixedStream = (mainStream, cameraStream, options = {}) => {
   const mainAudioTrack = mainStream.getAudioTracks()[0];
   const cameraAudioTrack = cameraStream?.getAudioTracks()[0];
   
-  if (mixAudio && cameraAudioTrack && mainAudioTrack) {
+  if (mixAudio && cameraAudioTrack) {
     try {
       const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      const mainSrc = audioCtx.createMediaStreamSource(new MediaStream([mainAudioTrack]));
+      const mainSrc = mainAudioTrack ? audioCtx.createMediaStreamSource(new MediaStream([mainAudioTrack])) : null;
       const camSrc = audioCtx.createMediaStreamSource(new MediaStream([cameraAudioTrack]));
       const dst = audioCtx.createMediaStreamDestination();
-      
-      mainSrc.connect(dst);
+
+      if (mainSrc) mainSrc.connect(dst);
       
       // Dynamic DSP effects routing
       const camGain = audioCtx.createGain();
@@ -2040,8 +2040,8 @@ const createMixedStream = (mainStream, cameraStream, options = {}) => {
       
       mixedAudioTrack = dst.stream.getAudioTracks()[0];
     } catch (e) {
-      console.warn("Audio mixing failed, using main audio track:", e);
-      mixedAudioTrack = mainAudioTrack;
+      console.warn("Audio mixing failed, using camera audio:", e);
+      mixedAudioTrack = mainAudioTrack || cameraAudioTrack;
     }
   } else {
     mixedAudioTrack = mainAudioTrack || cameraAudioTrack || null;
@@ -2054,6 +2054,155 @@ const createMixedStream = (mainStream, cameraStream, options = {}) => {
   const mixedStream = new MediaStream(tracks);
   
   return { stream: mixedStream, cleanup: mixerCleanup };
+};
+
+/* ═══════════════════ FX PROCESSORS — normal-call pipelines ═══════════════════
+   The share mixer only runs while screen sharing, so voice/video effects were
+   dead in regular calls. These wrap a raw camera/mic track into a processed
+   one that gets replaceTrack()'d onto every peer connection. */
+const createVoiceProcessor = (audioTrack, getVoiceFilter) => {
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const src = ctx.createMediaStreamSource(new MediaStream([audioTrack]));
+  const dst = ctx.createMediaStreamDestination();
+
+  const clean = ctx.createGain();
+  clean.gain.value = 1.0;
+  src.connect(clean);
+  clean.connect(dst);
+
+  // Robot: ring-modulate the mic with a low carrier
+  const carrier = ctx.createOscillator();
+  carrier.type = "sine";
+  carrier.frequency.value = 55;
+  const carrierGain = ctx.createGain();
+  carrierGain.gain.value = 0.5;
+  carrier.connect(carrierGain);
+  const multiplier = ctx.createGain();
+  multiplier.gain.value = 1.0;
+  carrierGain.connect(multiplier.gain);
+  src.connect(multiplier);
+  const robot = ctx.createGain();
+  robot.gain.value = 0.0;
+  multiplier.connect(robot);
+  robot.connect(dst);
+  carrier.start();
+
+  // Telephone: narrow bandpass around 1kHz
+  const bandpass = ctx.createBiquadFilter();
+  bandpass.type = "bandpass";
+  bandpass.frequency.value = 1000;
+  bandpass.Q.value = 8;
+  const teleGain = ctx.createGain();
+  teleGain.gain.value = 2.0;
+  src.connect(bandpass);
+  bandpass.connect(teleGain);
+  const telephone = ctx.createGain();
+  telephone.gain.value = 0.0;
+  teleGain.connect(telephone);
+  telephone.connect(dst);
+
+  // Echo: feedback delay
+  const delay = ctx.createDelay(1.0);
+  delay.delayTime.value = 0.18;
+  const feedback = ctx.createGain();
+  feedback.gain.value = 0.4;
+  const echoOut = ctx.createGain();
+  src.connect(delay);
+  delay.connect(feedback);
+  feedback.connect(delay);
+  delay.connect(echoOut);
+  const echo = ctx.createGain();
+  echo.gain.value = 0.0;
+  echoOut.connect(echo);
+  echo.connect(dst);
+
+  const applyInterval = setInterval(() => {
+    try {
+      const fx = getVoiceFilter() || "none";
+      const t = ctx.currentTime;
+      clean.gain.setTargetAtTime(fx === "none" ? 1.0 : 0.0, t, 0.05);
+      robot.gain.setTargetAtTime(fx === "robot" ? 1.0 : 0.0, t, 0.05);
+      telephone.gain.setTargetAtTime(fx === "telephone" ? 1.0 : 0.0, t, 0.05);
+      echo.gain.setTargetAtTime(fx === "echo" ? 1.0 : 0.0, t, 0.05);
+    } catch (e) {}
+  }, 400);
+
+  let track = dst.stream.getAudioTracks()[0];
+  return {
+    track,
+    cleanup: () => {
+      clearInterval(applyInterval);
+      try { carrier.stop(); } catch (e) {}
+      try { ctx.close(); } catch (e) {}
+    }
+  };
+};
+
+const createVideoFilterRenderer = (videoTrack, getVideoFilter) => {
+  let width = 1280, height = 720;
+  try {
+    const s = videoTrack.getSettings?.() || {};
+    if (s.width && s.height) {
+      const scale = Math.min(1, 1280 / s.width, 720 / s.height);
+      width = Math.round(s.width * scale);
+      height = Math.round(s.height * scale);
+    }
+  } catch (e) {}
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d", { alpha: false, desynchronized: true });
+  const video = document.createElement("video");
+  video.srcObject = new MediaStream([videoTrack]);
+  video.muted = true;
+  video.playsInline = true;
+  video.play().catch(() => {});
+
+  const FILTER_CSS = {
+    grayscale: "grayscale(100%)",
+    sepia: "sepia(100%)",
+    invert: "invert(100%)",
+    blur: "blur(6px)",
+    vintage: "contrast(125%) sepia(45%) saturate(140%)"
+  };
+
+  let active = true;
+  const drawFrame = () => {
+    if (!active) return;
+    const f = getVideoFilter();
+    ctx.filter = (f && FILTER_CSS[f]) || "none";
+    const vw = video.videoWidth, vh = video.videoHeight;
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    if (video.readyState >= 2 && vw && vh) {
+      // Cover-fill: face cam should fill the frame like a normal call tile
+      const s = Math.max(canvas.width / vw, canvas.height / vh);
+      ctx.drawImage(video, (canvas.width - vw * s) / 2, (canvas.height - vh * s) / 2, vw * s, vh * s);
+    }
+    ctx.filter = "none";
+  };
+  const draw = () => {
+    if (!active) return;
+    drawFrame();
+    if (typeof video.requestVideoFrameCallback === "function") {
+      video.requestVideoFrameCallback(() => draw());
+    } else {
+      requestAnimationFrame(draw);
+    }
+  };
+  draw();
+
+  const outTrack = canvas.captureStream(30).getVideoTracks()[0];
+  return {
+    track: outTrack,
+    cleanup: () => {
+      active = false;
+      video.pause();
+      video.srcObject = null;
+      video.remove();
+      canvas.remove();
+    }
+  };
 };
 
 /* ═══════════════════════════════ PURE FUNCTIONS (outside component) ═══════════════════════════════ */
@@ -2083,7 +2232,9 @@ const CallDuration = React.memo(({ startTime }) => {
 });
 
 /* ═══════════════════════════════ MAIN COMPONENT ═══════════════════════════════ */
-export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin, ownerToken, userAvatar, onOpenWhiteboard }) {
+const WhiteboardLazy = lazy(() => import("./Whiteboard"));
+
+export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin, ownerToken, userAvatar, onOpenWhiteboard, whiteboardOpen = false, onToggleWhiteboard }) {
   // ── States ──
   const [localStream, setLocalStream] = useState(null);
 
@@ -2100,6 +2251,11 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   useEffect(() => {
     videoFilterRef.current = videoFilter;
   }, [videoFilter]);
+  const fxVideoRef = useRef(null); // { track, cleanup } | null — processed camera for normal calls
+  const fxAudioRef = useRef(null); // { track, cleanup } | null
+  const fxMonitorRef = useRef(null); // hidden <audio> for voice FX self-monitoring
+  const voiceMonitorWantedRef = useRef(false);
+  const [voiceMonitorOn, setVoiceMonitorOn] = useState(false);
   const [displayStream, setDisplayStream] = useState(null); // tracks active display (camera or screenshare)
   const [remoteStreams, setRemoteStreams] = useState({}); // { [peerId]: { stream, name, isMuted, isVideoOff, volume } }
   const [participantStates, setParticipantStates] = useState({}); // { [peerId]: { isMuted, isVideoOff, role } }
@@ -2715,7 +2871,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     if (peers.current[targetPeerId] || targetPeerId === peerRef.current?.id) return false;
 
     try {
-      const call = peerRef.current.call(targetPeerId, localStreamRef.current);
+      const call = peerRef.current.call(targetPeerId, buildSendStream());
       if (call) {
         peers.current[targetPeerId] = call;
         handleCallEvents(call, targetPeerId);
@@ -2903,7 +3059,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       if (pendingCallsRef.current.length > 0) {
         pendingCallsRef.current.forEach(pendingCall => {
           try {
-            pendingCall.answer(stream);
+            pendingCall.answer(buildSendStream());
             peers.current[pendingCall.peer] = pendingCall;
             handleCallEvents(pendingCall, pendingCall.peer);
           } catch (e) { console.warn("Failed to answer pending call:", e); }
@@ -2986,7 +3142,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       // Handle incoming calls — queue if local stream not ready yet
       peer.on("call", (incomingCall) => {
         if (localStreamRef.current) {
-          incomingCall.answer(localStreamRef.current);
+          incomingCall.answer(buildSendStream());
           peers.current[incomingCall.peer] = incomingCall;
           handleCallEvents(incomingCall, incomingCall.peer);
         } else {
@@ -3126,7 +3282,9 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
           }
         });
 
-        socket.on("reaction", (emoji) => {
+        socket.on("reaction", (data) => {
+          const emoji = typeof data === "object" && data !== null ? data.emoji : data;
+          if (!emoji) return;
           const id = Date.now() + Math.random();
           setReactions(prev => [...prev, { id, emoji, x: Math.random() * 80 + 10 }]);
           setTimeout(() => setReactions(prev => prev.filter(r => r.id !== id)), 2800);
@@ -3210,6 +3368,118 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   }, [roomId, socket]);
 
   // ─── Actions & Toggles ───
+
+  // ─── FX engine: real-time voice/video effects for normal calls ───
+  // Wraps the raw camera/mic in DSP/canvas processors and replaceTrack()s the
+  // result onto every peer connection. Screen-share path keeps using the mixer.
+  const teardownFx = () => {
+    [fxVideoRef.current, fxAudioRef.current].forEach((fx) => {
+      if (fx) { try { fx.cleanup(); } catch (e) {} }
+    });
+    fxVideoRef.current = null;
+    fxAudioRef.current = null;
+    stopVoiceMonitor();
+  };
+
+  // Local preview mirrors the PROCESSED tracks so you see your own filters live,
+  // not just what remote peers receive.
+  const syncPreviewWithFx = () => {
+    if (screenStreamRef.current) return;
+    const raw = localStreamRef.current;
+    if (!raw) return;
+    const send = getSendTracks();
+    const tracks = [send.video || raw.getVideoTracks()[0], send.audio || raw.getAudioTracks()[0]].filter(Boolean);
+    setDisplayStream(tracks.length ? new MediaStream(tracks) : raw);
+  };
+
+  // Voice FX self-monitor ("hear myself") — user-invoked, low volume, headphone-safe warning
+  const startVoiceMonitorEl = (track) => {
+    try {
+      stopVoiceMonitor();
+      const el = new Audio();
+      el.srcObject = new MediaStream([track]);
+      el.volume = 0.35;
+      el.play().catch(() => {});
+      fxMonitorRef.current = el;
+      toast.info("Monitoring your mic — headphones recommended.", { autoClose: 3200 });
+    } catch {}
+  };
+  function stopVoiceMonitor() {
+    if (fxMonitorRef.current) {
+      try { fxMonitorRef.current.srcObject = null; fxMonitorRef.current.pause(); } catch {}
+      fxMonitorRef.current = null;
+    }
+  }
+  const toggleVoiceMonitor = () => {
+    voiceMonitorWantedRef.current = !voiceMonitorWantedRef.current;
+    setVoiceMonitorOn(voiceMonitorWantedRef.current);
+    if (voiceMonitorWantedRef.current) {
+      const t = fxAudioRef.current?.track || localStreamRef.current?.getAudioTracks()?.[0];
+      if (!t) { toast.error("No microphone to monitor."); return; }
+      startVoiceMonitorEl(t);
+    } else {
+      stopVoiceMonitor();
+    }
+  };
+
+  // Tracks that should be broadcast when NOT screen sharing (processed if FX active)
+  const getSendTracks = () => {
+    const raw = localStreamRef.current;
+    if (!raw) return { video: null, audio: null };
+    return {
+      video: fxVideoRef.current?.track || raw.getVideoTracks()[0] || null,
+      audio: fxAudioRef.current?.track || raw.getAudioTracks()[0] || null
+    };
+  };
+
+  const applyFxToPeers = () => {
+    const send = getSendTracks();
+    Object.values(peers.current).forEach((call) => {
+      const pc = call.peerConnection;
+      if (!pc) return;
+      pc.getSenders().forEach((sender) => {
+        if (sender.track?.kind === "video" && send.video && sender.track !== send.video) sender.replaceTrack(send.video);
+        if (sender.track?.kind === "audio" && send.audio && sender.track !== send.audio) sender.replaceTrack(send.audio);
+      });
+    });
+  };
+
+  const buildSendStream = () => {
+    const raw = localStreamRef.current;
+    if (!raw) return raw;
+    const send = getSendTracks();
+    const tracks = [];
+    if (send.video) tracks.push(send.video);
+    if (send.audio) tracks.push(send.audio);
+    return tracks.length ? new MediaStream(tracks) : raw;
+  };
+
+  useEffect(() => {
+    if (screenStreamRef.current) return undefined; // share mixer owns processing while sharing
+    teardownFx();
+    const raw = localStreamRef.current;
+    try {
+      if (videoFilter !== "none" && raw?.getVideoTracks()?.[0]) {
+        fxVideoRef.current = createVideoFilterRenderer(raw.getVideoTracks()[0], () => videoFilterRef.current);
+      }
+      if (voiceFilter !== "none" && raw?.getAudioTracks()?.[0]) {
+        fxAudioRef.current = createVoiceProcessor(raw.getAudioTracks()[0], () => voiceFilterRef.current);
+      }
+    } catch (e) {
+      console.warn("FX pipeline failed:", e);
+    }
+    applyFxToPeers();
+    syncPreviewWithFx();
+    // Re-point or drop the self-monitor to match the rebuilt pipeline
+    if (voiceMonitorWantedRef.current && fxAudioRef.current) startVoiceMonitorEl(fxAudioRef.current.track);
+    else if (!fxAudioRef.current) { voiceMonitorWantedRef.current = false; setVoiceMonitorOn(false); stopVoiceMonitor(); }
+    return () => {};
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [voiceFilter, videoFilter]);
+
+  // Release FX pipelines when the meeting unmounts
+  useEffect(() => () => teardownFx(), []);
+
   const toggleMute = () => {
     if (localStreamRef.current) {
       const aTrack = localStreamRef.current.getAudioTracks()[0];
@@ -3265,12 +3535,21 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         localStreamRef.current.addTrack(newVideoTrack);
       }
 
+      // Rebuild the video FX pipeline around the NEW camera track
+      if (fxVideoRef.current) { try { fxVideoRef.current.cleanup(); } catch {} fxVideoRef.current = null; }
+      if (!screenStreamRef.current && videoFilter !== "none") {
+        try { fxVideoRef.current = createVideoFilterRenderer(newVideoTrack, () => videoFilterRef.current); } catch {}
+      }
+
       if (!screenStreamRef.current) {
+        const target = (videoFilter !== "none")
+          ? (fxVideoRef.current?.track || newVideoTrack)
+          : newVideoTrack;
         Object.values(peers.current).forEach(call => {
           const sender = call.peerConnection?.getSenders().find(s => s.track?.kind === "video");
-          if (sender) sender.replaceTrack(newVideoTrack);
+          if (sender && target) sender.replaceTrack(target);
         });
-        setDisplayStream(localStreamRef.current);
+        syncPreviewWithFx();
       }
       toast.success("Camera flipped");
     } catch (e) {
@@ -3296,11 +3575,13 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         const pc = call.peerConnection;
         if (!pc) return;
         pc.getSenders().forEach(sender => {
-          if (sender.track?.kind === "video" && origVideo) {
-            sender.replaceTrack(origVideo);
+          const sendVideo = fxVideoRef.current?.track || origVideo;
+          const sendAudio = fxAudioRef.current?.track || origAudio;
+          if (sender.track?.kind === "video" && sendVideo) {
+            sender.replaceTrack(sendVideo);
           }
-          if (sender.track?.kind === "audio" && origAudio) {
-            sender.replaceTrack(origAudio);
+          if (sender.track?.kind === "audio" && sendAudio) {
+            sender.replaceTrack(sendAudio);
           }
         });
       });
@@ -3308,7 +3589,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
     originalTracksRef.current = { video: null, audio: null };
     window.__cheprabaiScreenSharing = false;
-    setDisplayStream(localStreamRef.current);
+    syncPreviewWithFx(); // preview matches what peers receive (FX re-applied if active)
     toast.info("Screen sharing ended.");
   }, []);
 
@@ -3538,11 +3819,13 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         const pc = call.peerConnection;
         if (!pc) return;
         pc.getSenders().forEach(sender => {
-          if (sender.track?.kind === "video" && origVideo) {
-            sender.replaceTrack(origVideo);
+          const sendVideo = fxVideoRef.current?.track || origVideo;
+          const sendAudio = fxAudioRef.current?.track || origAudio;
+          if (sender.track?.kind === "video" && sendVideo) {
+            sender.replaceTrack(sendVideo);
           }
-          if (sender.track?.kind === "audio" && origAudio) {
-            sender.replaceTrack(origAudio);
+          if (sender.track?.kind === "audio" && sendAudio) {
+            sender.replaceTrack(sendAudio);
           }
         });
       });
@@ -3921,10 +4204,14 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
               <FaChartLine />
             </IconButton>
 
-            {/* Collaborative Whiteboard */}
-            {onOpenWhiteboard && (
-              <IconButton onClick={onOpenWhiteboard} title="Open Collaborative Whiteboard & Screen Annotations">
-                <FaPaintBrush color="#38bdf8" />
+            {/* Collaborative Whiteboard — opens inside the call */}
+            {(onOpenWhiteboard || onToggleWhiteboard) && (
+              <IconButton
+                $active={whiteboardOpen}
+                onClick={() => (onToggleWhiteboard ? onToggleWhiteboard(!whiteboardOpen) : onOpenWhiteboard())}
+                title="Collaborative Whiteboard (opens inside the call)"
+              >
+                <FaPaintBrush color={whiteboardOpen ? "#fbbf24" : "#38bdf8"} />
               </IconButton>
             )}
 
@@ -4767,7 +5054,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                 <span style={{ fontSize: "0.75rem" }}>Voice</span>
               </DockButton>
               {showVoiceMenu && (
-                <div style={{ position: "absolute", bottom: "calc(100% + 10px)", left: "50%", transform: "translateX(-50%)", width: 220, background: "rgba(18,20,32,0.96)", backdropFilter: "blur(24px)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 8, boxShadow: "0 16px 40px rgba(0,0,0,0.6)", zIndex: 1000 }}>
+                <div style={{ position: "fixed", bottom: "calc(76px + env(safe-area-inset-bottom))", left: "50%", transform: "translateX(-50%)", width: "min(250px, calc(100vw - 24px))", maxHeight: "52dvh", overflowY: "auto", background: "rgba(18,20,32,0.97)", backdropFilter: "blur(24px)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 8, boxShadow: "0 16px 40px rgba(0,0,0,0.6)", zIndex: 3200 }}>
                   {[
                     { id: "none", label: "🎙️ Normal Voice", desc: "No effects" },
                     { id: "robot", label: "🤖 Robot", desc: "Ring modulation 55Hz" },
@@ -4778,6 +5065,10 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                       <div><span>{opt.label}</span><br /><span style={{ fontSize: "0.65rem", opacity: 0.6 }}>{opt.desc}</span></div>
                     </button>
                   ))}
+                  <button onClick={toggleVoiceMonitor} style={{ width: "100%", marginTop: 6, paddingTop: 8, borderTop: "1px solid rgba(255,255,255,0.08)", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 10px", borderRadius: 10, border: "none", background: "transparent", color: voiceMonitorOn ? "#fbbf24" : "rgba(255,255,255,0.7)", fontSize: "0.75rem", fontWeight: 700, textAlign: "left", cursor: "pointer" }}>
+                    <span>👂 Hear myself</span>
+                    <span style={{ fontSize: "0.62rem", opacity: 0.75 }}>{voiceMonitorOn ? "ON — stop" : "OFF (headphones!)"}</span>
+                  </button>
                 </div>
               )}
             </div>
@@ -4789,7 +5080,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                 <span style={{ fontSize: "0.75rem" }}>Filter</span>
               </DockButton>
               {showVideoMenu && (
-                <div style={{ position: "absolute", bottom: "calc(100% + 10px)", left: "50%", transform: "translateX(-50%)", width: 220, background: "rgba(18,20,32,0.96)", backdropFilter: "blur(24px)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 8, boxShadow: "0 16px 40px rgba(0,0,0,0.6)", zIndex: 1000 }}>
+                <div style={{ position: "fixed", bottom: "calc(76px + env(safe-area-inset-bottom))", left: "50%", transform: "translateX(-50%)", width: "min(250px, calc(100vw - 24px))", maxHeight: "52dvh", overflowY: "auto", background: "rgba(18,20,32,0.97)", backdropFilter: "blur(24px)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 8, boxShadow: "0 16px 40px rgba(0,0,0,0.6)", zIndex: 3200 }}>
                   {[
                     { id: "none", label: "✨ Normal", desc: "No filter" },
                     { id: "grayscale", label: "🖤 Grayscale", desc: "Black & white" },
@@ -4914,7 +5205,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                 <FaMagic />
               </DockButton>
               {showVoiceMenu && (
-                <div style={{ position: "absolute", bottom: "calc(100% + 10px)", left: "50%", transform: "translateX(-50%)", width: 220, background: "rgba(18,20,32,0.96)", backdropFilter: "blur(24px)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 8, boxShadow: "0 16px 40px rgba(0,0,0,0.6)", zIndex: 1000 }}>
+                <div style={{ position: "fixed", bottom: "calc(76px + env(safe-area-inset-bottom))", left: "50%", transform: "translateX(-50%)", width: "min(250px, calc(100vw - 24px))", maxHeight: "52dvh", overflowY: "auto", background: "rgba(18,20,32,0.97)", backdropFilter: "blur(24px)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 8, boxShadow: "0 16px 40px rgba(0,0,0,0.6)", zIndex: 3200 }}>
                   {[
                     { id: "none", label: "🎙️ Normal Voice", desc: "No effects" },
                     { id: "robot", label: "🤖 Robot", desc: "Ring modulation 55Hz" },
@@ -4925,6 +5216,10 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                       <div><span>{opt.label}</span><br /><span style={{ fontSize: "0.65rem", opacity: 0.6 }}>{opt.desc}</span></div>
                     </button>
                   ))}
+                  <button onClick={toggleVoiceMonitor} style={{ width: "100%", marginTop: 6, paddingTop: 8, borderTop: "1px solid rgba(255,255,255,0.08)", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 10px", borderRadius: 10, border: "none", background: "transparent", color: voiceMonitorOn ? "#fbbf24" : "rgba(255,255,255,0.7)", fontSize: "0.75rem", fontWeight: 700, textAlign: "left", cursor: "pointer" }}>
+                    <span>👂 Hear myself</span>
+                    <span style={{ fontSize: "0.62rem", opacity: 0.75 }}>{voiceMonitorOn ? "ON — stop" : "OFF (headphones!)"}</span>
+                  </button>
                 </div>
               )}
             </div>
@@ -4933,7 +5228,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                 <FaPalette />
               </DockButton>
               {showVideoMenu && (
-                <div style={{ position: "absolute", bottom: "calc(100% + 10px)", left: "50%", transform: "translateX(-50%)", width: 220, background: "rgba(18,20,32,0.96)", backdropFilter: "blur(24px)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 8, boxShadow: "0 16px 40px rgba(0,0,0,0.6)", zIndex: 1000 }}>
+                <div style={{ position: "fixed", bottom: "calc(76px + env(safe-area-inset-bottom))", left: "50%", transform: "translateX(-50%)", width: "min(250px, calc(100vw - 24px))", maxHeight: "52dvh", overflowY: "auto", background: "rgba(18,20,32,0.97)", backdropFilter: "blur(24px)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 8, boxShadow: "0 16px 40px rgba(0,0,0,0.6)", zIndex: 3200 }}>
                   {[
                     { id: "none", label: "✨ Normal", desc: "No filter" },
                     { id: "grayscale", label: "🖤 Grayscale", desc: "Black & white" },
@@ -5215,6 +5510,30 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
               </div>
             </ModalContent>
           </ModalBackdrop>
+        )}
+
+        {/* ── Embedded collaborative whiteboard (opens INSIDE the call) ── */}
+        {whiteboardOpen && (
+          <div style={{ position: "absolute", inset: 0, zIndex: 2600, background: "rgba(6,8,14,.92)", backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)" }}>
+            <Suspense fallback={<div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", color: "#94a3b8", fontSize: ".8rem", fontWeight: 700 }}>Loading whiteboard…</div>}>
+              <WhiteboardLazy
+                socket={socket}
+                roomId={roomId}
+                isAdmin={!!ownerToken || isAdmin}
+                embedded
+                onClose={() => onToggleWhiteboard?.(false)}
+              />
+            </Suspense>
+            <button
+              type="button"
+              onClick={() => onToggleWhiteboard?.(false)}
+              aria-label="Close whiteboard"
+              title="Back to call"
+              style={{ position: "absolute", top: "calc(12px + env(safe-area-inset-top))", right: 14, zIndex: 2610, display: "inline-flex", alignItems: "center", gap: 7, padding: "8px 14px", borderRadius: 999, border: "1px solid rgba(255,255,255,.16)", background: "rgba(10,12,20,.85)", color: "#e2e8f0", fontSize: ".72rem", fontWeight: 800, cursor: "pointer", backdropFilter: "blur(8px)", boxShadow: "0 6px 18px rgba(0,0,0,.4)" }}
+            >
+              <FaTimes size={12} /> Back to call
+            </button>
+          </div>
         )}
       </MeetingContainer>
     </StyleSheetManager>

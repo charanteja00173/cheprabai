@@ -9,6 +9,7 @@ import {
   FaCheck,
   FaTimes,
   FaEyeSlash,
+  FaMicrophoneSlash,
   FaTrash,
   FaCog,
   FaSync,
@@ -783,6 +784,13 @@ export default function AdminControlCenter({ token, backendUrl }) {
     toast.info(`Kicked ${participantName} from room.`);
   };
 
+  const handleMuteParticipant = (roomId, participantName) => {
+    if (!socketRef.current) return;
+    // Same event the in-call host moderation uses; LiveMeeting mutes on receipt
+    socketRef.current.emit("admin-mute-user", { roomId, name: participantName });
+    toast.info(`Mute request sent for ${participantName}.`);
+  };
+
   const markAllRead = async () => {
     try {
       await axios.post(`${backendUrl}/api/admin/notifications/read`, {}, { headers: authHeaders() });
@@ -876,6 +884,9 @@ export default function AdminControlCenter({ token, backendUrl }) {
                       return (
                         <ParticipantTag key={i}>
                           <span>{name}</span>
+                          <button className="kick-btn" onClick={() => handleMuteParticipant(room.roomId, name)} title="Force-mute their microphone">
+                            <FaMicrophoneSlash size={9} /> Mute
+                          </button>
                           <button className="kick-btn" onClick={() => handleKickParticipant(room.roomId, name)}>
                             <FaTimes size={9} /> Kick
                           </button>

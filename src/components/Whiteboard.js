@@ -5,33 +5,33 @@ import { FaTimes, FaExpand, FaCompress, FaTrash, FaPaintBrush, FaDownload } from
 import { toast } from "react-toastify";
 
 const Overlay = styled.div`
-  position: fixed;
+  position: ${(props) => (props.$embedded ? "absolute" : "fixed")};
   inset: 0;
-  z-index: 9999;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(8px);
+  z-index: ${(props) => (props.$embedded ? "auto" : "9999")};
+  background: ${(props) => (props.$embedded ? "transparent" : "rgba(0, 0, 0, 0.6)")};
+  backdrop-filter: ${(props) => (props.$embedded ? "none" : "blur(8px)")};
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: ${(props) => (props.$isFullScreen && props.$isMobile ? "0" : "40px")};
+  padding: ${(props) => (props.$isFullScreen && props.$isMobile ? "0" : props.$embedded ? "10px" : "40px")};
   box-sizing: border-box;
 
   @media (max-width: 768px) {
-    padding: 0;
-    background: var(--chakra-colors-bg);
+    padding: ${(props) => (props.$embedded ? "8px" : "0")};
+    background: ${(props) => (props.$embedded ? "transparent" : "var(--chakra-colors-bg)")};
     backdrop-filter: none;
   }
 `;
 
 const WhiteboardContainer = styled.div`
   position: relative;
-  width: ${(props) => (props.$isFullScreen && props.$isMobile ? "100%" : "90%")};
-  max-width: ${(props) => (props.$isFullScreen && props.$isMobile ? "100%" : "1600px")};
-  height: ${(props) => (props.$isFullScreen && props.$isMobile ? "100dvh" : "85dvh")};
+  width: ${(props) => (props.$embedded || (props.$isFullScreen && props.$isMobile)) ? "100%" : "90%"};
+  max-width: ${(props) => (props.$embedded ? "none" : props.$isFullScreen && props.$isMobile ? "100%" : "1600px")};
+  height: ${(props) => (props.$embedded ? "100%" : props.$isFullScreen && props.$isMobile ? "100dvh" : "85dvh")};
   background: var(--chakra-colors-surface);
-  border-radius: ${(props) => (props.$isFullScreen && props.$isMobile ? "0" : "clamp(12px, 2vw, 16px)")};
-  box-shadow: ${(props) => (props.$isFullScreen && props.$isMobile ? "none" : "var(--chakra-shadows-cardShadowHover)")};
-  border: ${(props) => (props.$isFullScreen && props.$isMobile ? "none" : "1px solid var(--chakra-colors-border)")};
+  border-radius: ${(props) => (props.$embedded ? "14px" : props.$isFullScreen && props.$isMobile ? "0" : "clamp(12px, 2vw, 16px)")};
+  box-shadow: ${(props) => (props.$embedded ? "0 18px 50px rgba(0,0,0,.45)" : props.$isFullScreen && props.$isMobile ? "none" : "var(--chakra-shadows-cardShadowHover)")};
+  border: ${(props) => (props.$embedded ? "1px solid var(--chakra-colors-border)" : props.$isFullScreen && props.$isMobile ? "none" : "1px solid var(--chakra-colors-border)")};
   padding: ${(props) => (props.$isFullScreen && props.$isMobile ? "0" : "clamp(16px, 3vw, 24px)")};
   box-sizing: border-box;
   display: flex;
@@ -152,7 +152,7 @@ const IconButton = styled.button`
   }
 `;
 
-export default function Whiteboard({ socket, roomId, onClose, isAdmin }) {
+export default function Whiteboard({ socket, roomId, onClose, isAdmin, embedded = false }) {
   const appRef = useRef(null);
   const isSyncing = useRef(false);
   const isInteracting = useRef(false);
@@ -295,8 +295,8 @@ export default function Whiteboard({ socket, roomId, onClose, isAdmin }) {
   );
 
   return (
-    <Overlay $isFullScreen={isFullScreen} $isMobile={isMobile} onClick={onClose}>
-      <WhiteboardContainer $isFullScreen={isFullScreen} $isMobile={isMobile} onClick={(e) => e.stopPropagation()}>
+    <Overlay $embedded={embedded} $isFullScreen={isFullScreen} $isMobile={isMobile} onClick={embedded ? undefined : onClose}>
+      <WhiteboardContainer $embedded={embedded} $isFullScreen={isFullScreen} $isMobile={isMobile} onClick={(e) => e.stopPropagation()}>
         {!isFullScreen && (
           <ModalHeader>
             <HeaderTitle><FaPaintBrush style={{ flexShrink: 0 }} /> <span className="hide-mobile">Collaborative</span> Whiteboard</HeaderTitle>

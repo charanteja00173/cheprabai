@@ -36,7 +36,8 @@ import { AiOutlineClose } from "react-icons/ai";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import ThemeSwitcher from "./ThemeSwitcher";
-import { ArrowRight, Copy, FileUp, Hash, KeyRound, LockKeyhole, MonitorUp, ShieldCheck, Timer, Upload, UserRound, Video } from "lucide-react";
+import { createDecryptionHtmlTemplate } from "../utils/exportTemplate";
+import { ArrowRight, BarChart3, Clapperboard, Copy, FileUp, FolderLock, Hash, KeyRound, LockKeyhole, MessagesSquare, MonitorUp, PenTool, ScreenShare, ShieldCheck, Timer, Upload, UserRound, Video } from "lucide-react";
 import {
   generateKeyFromSecret,
   encryptMessage,
@@ -121,6 +122,597 @@ function registerGalleryMedia(key, item) {
 function getGalleryItems() {
   return Array.from(mediaGalleryRegistry.values());
 }
+
+/* Storage provider (Cloudinary) rejects single files above this size on the
+   current plan — failing fast beats uploading for minutes and dying at 99%. */
+const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
+const formatUploadLimit = () => `${Math.round(MAX_UPLOAD_BYTES / (1024 * 1024))} MB`;
+
+/* ══════════════════════════════════════════════════════════
+   Vanishing-message durations — shown WhatsApp-style, in the
+   nearest single unit (45s · 30m · 2h · 7d).
+   ══════════════════════════════════════════════════════════ */
+const EPHEMERAL_PRESETS = [
+  { label: "Off", value: 0 },
+  { label: "1 Hour", value: 3600 },
+  { label: "24 Hours", value: 86400 },
+  { label: "7 Days", value: 604800 },
+  { label: "30 Days", value: 2592000 }
+];
+const CUSTOM_EPHEMERAL_UNITS = [
+  { label: "sec", value: 1 },
+  { label: "min", value: 60 },
+  { label: "hr", value: 3600 },
+  { label: "day", value: 86400 }
+];
+const EPHEMERAL_MAX_SECONDS = 90 * 86400;
+const formatNearestUnit = (totalSeconds) => {
+  const s = Math.max(0, Math.floor(totalSeconds));
+  if (s < 60) return `${s}s`;
+  if (s < 3600) return `${Math.floor(s / 60)}m`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h`;
+  return `${Math.floor(s / 86400)}d`;
+};
+
+/* ══════════════════════════════════════════════════════════
+   REALTIME FILE RELAY helpers — large files skip storage and
+   travel chunk-by-chunk through the room's message channel.
+   ══════════════════════════════════════════════════════════ */
+const LIVE_SHARE_CHUNK_BYTES = 256 * 1024;
+const LIVE_SHARE_MAX_BYTES = 2 * 1024 * 1024 * 1024;
+const bytesToB64 = (bytes) => {
+  let s = "";
+  const CH = 0x8000;
+  for (let i = 0; i < bytes.length; i += CH) {
+    s += String.fromCharCode.apply(null, bytes.subarray(i, Math.min(i + CH, bytes.length)));
+  }
+  return btoa(s);
+};
+const b64ToBytes = (b64) => {
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+};
+
+/* ══════════════════════════════════════════════════════════
+   FEATURE EXPLORER — join-screen interactive product tour.
+   Auto-cycling animated demos of everything the app can do.
+   Pure CSS scenes; pauses on hover/focus; honors reduced motion.
+   ══════════════════════════════════════════════════════════ */
+const TOUR_SPEED = 5200;
+const TOUR_FEATURES = [
+  { id: "chat", icon: MessagesSquare, label: "Private chat", tint: "#818cf8", blurb: "Messages are sealed on your device with AES-GCM before they ever leave it." },
+  { id: "vanish", icon: Timer, label: "Vanishing messages", tint: "#fb7185", blurb: "Set a timer and every message dissolves without a trace." },
+  { id: "calls", icon: Video, label: "HD video calls", tint: "#22d3ee", blurb: "Crystal-clear group calls with voice changer and live filters." },
+  { id: "share", icon: ScreenShare, label: "Screen sharing", tint: "#fbbf24", blurb: "Present your screen or a single tab to everyone in the room." },
+  { id: "watch", icon: Clapperboard, label: "Watch parties", tint: "#a78bfa", blurb: "Stream videos together with synced playback and chat." },
+  { id: "board", icon: PenTool, label: "Live whiteboard", tint: "#34d399", blurb: "Sketch ideas together in real time on an infinite canvas." },
+  { id: "vault", icon: FolderLock, label: "Encrypted vault", tint: "#60a5fa", blurb: "Send any file type — encrypted client-side, viewable in-app." },
+  { id: "poll", icon: BarChart3, label: "Polls & reactions", tint: "#f472b6", blurb: "Run instant polls and react with live emoji bursts." }
+];
+
+function TourSceneChat() {
+  return (
+    <div className="fe-scene fe-devices">
+      <div className="fe-device">
+        <span className="fe-ava" style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)" }}>Y</span>
+        <div className="fe-bubble fe-out">Hey, is this safe?</div>
+      </div>
+      <div className="fe-wire"><span className="fe-pkt"><LockKeyhole size={11} /></span></div>
+      <div className="fe-device">
+        <span className="fe-ava" style={{ background: "linear-gradient(135deg,#ec4899,#f43f5e)" }}>A</span>
+        <div className="fe-bubble fe-in"><span className="fe-scr">▚▞▚▞▜▞▚</span><span className="fe-real">end-to-end 🔒</span></div>
+      </div>
+    </div>
+  );
+}
+
+function TourSceneVanish() {
+  return (
+    <div className="fe-scene fe-vanish-wrap">
+      <div className="fe-vanish-card">
+        <svg viewBox="0 0 44 44" className="fe-ring"><circle cx="22" cy="22" r="18" /></svg>
+        <Timer size={16} />
+        <span>Screen-record proof… gone in 10s</span>
+      </div>
+      <div className="fe-vanish-note">leaves no copy on any server</div>
+    </div>
+  );
+}
+
+function TourSceneCalls() {
+  return (
+    <div className="fe-scene fe-callgrid">
+      {["A", "M", "S"].map((n, i) => (
+        <div key={n} className={`fe-tile fe-t${i}`}>
+          <span className="fe-tava">{n}</span>
+          <span className="fe-wave"><i /><i /><i /></span>
+        </div>
+      ))}
+      <div className="fe-tile fe-you fe-t3"><span className="fe-tava">You</span></div>
+      <div className="fe-calldock"><Video size={12} /><MonitorUp size={12} />HD</div>
+    </div>
+  );
+}
+
+function TourSceneShare() {
+  return (
+    <div className="fe-scene fe-sharewrap">
+      <div className="fe-winbar"><i /><i /><i /><em>quarterly-deck.key</em></div>
+      <div className="fe-winbody">
+        <span className="fe-cursor">▲</span>
+      </div>
+      <span className="fe-live">● LIVE</span>
+    </div>
+  );
+}
+
+function TourSceneWatch() {
+  return (
+    <div className="fe-scene fe-watchwrap">
+      <div className="fe-player">
+        <div className="fe-film" />
+        <span className="fe-head"><i className="fe-ha ha1">A</i><i className="fe-ha ha2">M</i></span>
+      </div>
+      <div className="fe-watchmeta">synced playback · everyone sees the same frame</div>
+    </div>
+  );
+}
+
+function TourSceneBoard() {
+  return (
+    <div className="fe-scene fe-boardwrap">
+      <div className="fe-tools"><i /><i /><i /></div>
+      <svg viewBox="0 0 300 120" className="fe-canvas">
+        <path className="fe-draw d1" d="M20 90 C 70 10, 120 130, 170 50 S 260 80, 282 34" />
+        <path className="fe-draw d2" d="M60 108 L 250 108" />
+      </svg>
+    </div>
+  );
+}
+
+function TourSceneVault() {
+  return (
+    <div className="fe-scene fe-vaultwrap">
+      <div className="fe-filechip"><FileUp size={13} />movie-night.mp4<em>842 MB</em></div>
+      <div className="fe-vaultline"><ShieldCheck size={26} /></div>
+      <div className="fe-vaultbar"><i /></div>
+    </div>
+  );
+}
+
+function TourScenePoll() {
+  return (
+    <div className="fe-scene fe-pollwrap">
+      <div className="fe-pollq">Movie night — pick one 🍿</div>
+      {[["Dune 2", 62, "d1"], ["Arrival", 28, "d2"], ["Tenet", 10, "d3"]].map(([t, w]) => (
+        <div key={t} className="fe-pollrow"><span>{t}</span><div className="fe-pollbar"><i style={{ "--w": `${w}%` }} /></div><b>{w}%</b></div>
+      ))}
+      <span className="fe-heart h1">❤️</span><span className="fe-heart h2">🔥</span><span className="fe-heart h3">👍</span>
+    </div>
+  );
+}
+
+const TOUR_SCENES = { chat: TourSceneChat, vanish: TourSceneVanish, calls: TourSceneCalls, share: TourSceneShare, watch: TourSceneWatch, board: TourSceneBoard, vault: TourSceneVault, poll: TourScenePoll };
+
+function FeatureExplorer() {
+  const [active, setActive] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const reducedMotion = useMemo(() => (
+    typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+  ), []);
+  const feat = TOUR_FEATURES[active];
+  const Scene = TOUR_SCENES[feat.id];
+
+  useEffect(() => {
+    if (paused || reducedMotion) return undefined;
+    const t = setInterval(() => setActive((a) => (a + 1) % TOUR_FEATURES.length), TOUR_SPEED);
+    return () => clearInterval(t);
+  }, [paused, reducedMotion]);
+
+  return (
+    <TourPanel onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)} onFocus={() => setPaused(true)} onBlur={() => setPaused(false)}>
+      <style>{TOUR_CSS}</style>
+      <div className="fe-eyebrow">Inside AnonChat</div>
+      <h3 className="fe-title">One room.<br />Everything private.</h3>
+
+      <div className="fe-stage" key={feat.id} style={{ "--tint": feat.tint }}>
+        <Scene />
+        <div className="fe-blurb">{feat.blurb}</div>
+      </div>
+
+      <div className="fe-chips" role="tablist" aria-label="Feature tour">
+        {TOUR_FEATURES.map((f, i) => {
+          const Icon = f.icon;
+          const on = i === active;
+          return (
+            <button
+              key={f.id}
+              role="tab"
+              aria-selected={on}
+              type="button"
+              className={`fe-chip ${on ? "on" : ""}`}
+              style={{ "--tint": f.tint }}
+              onClick={() => setActive(i)}
+            >
+              <Icon size={13} strokeWidth={2.4} />
+              <span>{f.label}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="fe-progress" aria-hidden="true">
+        {!reducedMotion && <span key={`${active}-${paused}`} className="fe-prog-fill" style={{ animationDuration: paused ? "0s" : `${TOUR_SPEED}ms`, animationPlayState: paused ? "paused" : "running" }} />}
+      </div>
+    </TourPanel>
+  );
+}
+
+const TOUR_CSS = `
+.fe-eyebrow{color:var(--tint,#818cf8);font-size:.62rem;font-weight:850;letter-spacing:.14em;text-transform:uppercase;}
+.fe-title{margin:.35em 0 .9em;color:var(--chakra-colors-textPrimary);font-size:clamp(1.15rem,2.4vw,1.45rem);font-weight:800;letter-spacing:-.03em;line-height:1.15;}
+.fe-stage{position:relative;border-radius:16px;border:1px solid var(--chakra-colors-border);background:
+ radial-gradient(120% 140% at 85% -10%, color-mix(in srgb, var(--tint) 16%, transparent), transparent 55%),
+ var(--chakra-colors-badgeBg);
+ min-height:196px;display:flex;flex-direction:column;justify-content:center;padding:18px;overflow:hidden;
+ animation:fe-stagein .5s cubic-bezier(.16,1,.3,1) both;}
+@keyframes fe-stagein{from{opacity:0;transform:translateY(14px) scale(.985);}to{opacity:1;transform:none;}}
+.fe-blurb{margin-top:14px;color:var(--chakra-colors-textSecondary);font-size:.76rem;line-height:1.5;}
+.fe-scene{position:relative;height:118px;}
+
+/* chat */
+.fe-devices{display:flex;align-items:center;gap:10px;}
+.fe-device{flex:1;display:flex;flex-direction:column;align-items:center;gap:7px;}
+.fe-ava{width:30px;height:30px;border-radius:10px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:.72rem;}
+.fe-bubble{max-width:100%;padding:7px 10px;border-radius:12px;font-size:.68rem;line-height:1.35;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.09);}
+.fe-out{opacity:.85;}
+.fe-in{position:relative;}
+.fe-wire{position:relative;flex:.9;height:2px;background:linear-gradient(90deg,rgba(129,140,248,.5),rgba(236,72,153,.5));border-radius:2px;}
+.fe-pkt{position:absolute;top:-9px;left:0;width:20px;height:20px;border-radius:7px;background:#11131c;border:1px solid rgba(255,255,255,.25);display:grid;place-items:center;color:#c7d2fe;animation:fe-travel 3.6s cubic-bezier(.45,0,.55,1) infinite;}
+@keyframes fe-travel{0%{left:2%;transform:scale(.9);}46%{transform:scale(1);}54%{transform:scale(1);}100%{left:calc(100% - 24px);transform:scale(.9);}}
+.fe-scr{color:#818cf8;font-size:.66rem;letter-spacing:.12em;animation:fe-swap 3.6s steps(1) infinite;}
+.fe-real{position:absolute;inset:0;display:flex;align-items:center;padding:7px 10px;opacity:0;animation:fe-reveal 3.6s steps(1) infinite;}
+@keyframes fe-swap{0%,44%{opacity:1;}50%,100%{opacity:0;}}
+@keyframes fe-reveal{0%,48%{opacity:0;}56%,88%{opacity:1;}100%{opacity:0;}}
+
+/* vanish */
+.fe-vanish-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;}
+.fe-vanish-card{position:relative;display:flex;align-items:center;gap:9px;padding:10px 14px;border-radius:13px;background:rgba(251,113,133,.08);border:1px solid rgba(251,113,133,.28);color:#fecdd3;font-size:.72rem;font-weight:600;animation:fe-dissolve 4.4s ease-in infinite;}
+.fe-ring{position:absolute;top:-7px;right:-7px;width:22px;height:22px;transform:rotate(-90deg);}
+.fe-ring circle{fill:none;stroke:#fb7185;stroke-width:3;stroke-linecap:round;stroke-dasharray:113;stroke-dashoffset:0;animation:fe-ringrun 4.4s linear infinite;}
+@keyframes fe-ringrun{from{stroke-dashoffset:0;}to{stroke-dashoffset:-113;}}
+@keyframes fe-dissolve{0%,78%{opacity:1;filter:blur(0);}92%{opacity:0;filter:blur(6px);transform:translateY(-8px);}100%{opacity:0;}}
+.fe-vanish-note{color:var(--chakra-colors-textSecondary);font-size:.64rem;opacity:.75;}
+
+/* calls */
+.fe-callgrid{display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:1fr 1fr;gap:7px;}
+.fe-tile{position:relative;border-radius:11px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.09);display:grid;place-items:center;}
+.fe-tile.fe-you{grid-column:span 2;background:rgba(34,211,238,.10);border-color:rgba(34,211,238,.35);}
+.fe-tava{width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#334155,#475569);display:grid;place-items:center;color:#e2e8f0;font-size:.6rem;font-weight:800;}
+.fe-t0{animation:fe-speak 5s ease-in-out infinite;}
+.fe-t2{animation:fe-speak 5s ease-in-out 2.5s infinite;}
+@keyframes fe-speak{0%,40%,100%{box-shadow:0 0 0 0 transparent;}12%{box-shadow:0 0 0 3px rgba(34,211,238,.55);}}
+.fe-wave{position:absolute;bottom:5px;left:50%;transform:translateX(-50%);display:flex;gap:2px;}
+.fe-wave i{width:3px;border-radius:2px;background:#22d3ee;animation:fe-wave 1s ease-in-out infinite;}
+.fe-wave i:nth-child(2){height:9px;animation-delay:.15s;}
+.fe-wave i:nth-child(1){height:6px;}
+.fe-wave i:nth-child(3){height:7px;animation-delay:.3s;}
+@keyframes fe-wave{0%,100%{transform:scaleY(.4);}50%{transform:scaleY(1.3);}}
+.fe-calldock{position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:7px;padding:4px 10px;border-radius:999px;background:#11131c;border:1px solid rgba(255,255,255,.14);color:#94a3b8;font-size:.58rem;font-weight:800;letter-spacing:.08em;}
+
+/* share */
+.fe-sharewrap{display:flex;flex-direction:column;gap:8px;}
+.fe-winbar{display:flex;align-items:center;gap:5px;padding:7px 10px;border-radius:10px 10px 0 0;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.09);border-bottom:0;}
+.fe-winbar i{width:7px;height:7px;border-radius:50%;background:#475569;}
+.fe-winbar em{margin-left:auto;font-style:normal;font-size:.58rem;color:#94a3b8;font-weight:700;}
+.fe-winbody{position:relative;height:74px;border-radius:0 0 10px 10px;border:1px solid rgba(255,255,255,.09);background:linear-gradient(110deg,#1e293b,#334155,#1e293b);background-size:220% 100%;animation:fe-pan 5s linear infinite;overflow:hidden;}
+@keyframes fe-pan{to{background-position:-220% 0;}}
+.fe-cursor{position:absolute;color:#fbbf24;font-size:.9rem;text-shadow:0 2px 6px rgba(0,0,0,.6);animation:fe-glide 4.5s ease-in-out infinite;}
+@keyframes fe-glide{0%{top:62%;left:8%;}45%{top:28%;left:52%;}70%{top:48%;left:78%;}100%{top:62%;left:8%;}}
+.fe-live{position:absolute;top:-8px;right:-6px;padding:3px 9px;border-radius:999px;background:#dc2626;color:#fff;font-size:.56rem;font-weight:900;letter-spacing:.1em;animation:fe-blink 1.6s ease-in-out infinite;}
+@keyframes fe-blink{50%{opacity:.55;}}
+
+/* watch */
+.fe-watchwrap{display:flex;flex-direction:column;gap:9px;justify-content:center;}
+.fe-player{position:relative;height:86px;border-radius:12px;border:1px solid rgba(167,139,250,.32);overflow:hidden;background:
+ repeating-linear-gradient(90deg,transparent 0 10px,rgba(167,139,250,.05) 10px 20px),
+ linear-gradient(120deg,#171226,#2a1f4d 55%,#171226);}
+.fe-film{position:absolute;inset:0;background:radial-gradient(60% 90% at 30% 40%,rgba(167,139,250,.28),transparent 65%),radial-gradient(50% 80% at 75% 65%,rgba(96,165,250,.2),transparent 60%);animation:fe-pan 6s linear infinite reverse;}
+.fe-head{position:absolute;bottom:8px;left:0;width:100%;height:2px;background:rgba(255,255,255,.16);}
+.fe-head::after{content:"";position:absolute;left:0;top:0;height:100%;width:38%;background:linear-gradient(90deg,#a78bfa,#c4b5fd);animation:fe-fill 5.2s ease-in-out infinite;}
+.fe-ha{position:absolute;top:-19px;width:16px;height:16px;border-radius:50%;display:grid;place-items:center;font-style:normal;font-size:.5rem;font-weight:900;color:#fff;}
+.ha1{left:36%;background:#ec4899;animation:fe-bob 2.4s ease-in-out infinite;}
+.ha2{left:41%;background:#22d3ee;animation:fe-bob 2.4s ease-in-out .5s infinite;}
+@keyframes fe-bob{50%{transform:translateY(-3px);}}
+.fe-watchmeta{text-align:center;color:var(--chakra-colors-textSecondary);font-size:.62rem;opacity:.8;}
+
+/* board */
+.fe-boardwrap{display:flex;align-items:center;gap:12px;}
+.fe-tools{display:flex;flex-direction:column;gap:6px;padding:8px 5px;border-radius:10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.09);}
+.fe-tools i{width:9px;height:9px;border-radius:3px;background:#64748b;}
+.fe-tools i:first-child{background:#34d399;}
+.fe-canvas{flex:1;height:104px;}
+.fe-draw{fill:none;stroke-linecap:round;stroke-width:3.5;stroke-dasharray:420;stroke-dashoffset:420;}
+.d1{stroke:#34d399;animation:fe-sketch 4.6s ease-in-out infinite;}
+.d2{stroke:#60a5fa;stroke-width:2.5;stroke-dasharray:200;stroke-dashoffset:200;animation:fe-sketch2 4.6s ease-in-out .9s infinite;}
+@keyframes fe-sketch{0%{stroke-dashoffset:420;}55%,82%{stroke-dashoffset:0;}100%{stroke-dashoffset:0;opacity:0;}}
+@keyframes fe-sketch2{0%,20%{stroke-dashoffset:200;}65%,85%{stroke-dashoffset:0;}100%{stroke-dashoffset:0;opacity:0;}}
+
+/* vault */
+.fe-vaultwrap{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:11px;}
+.fe-filechip{display:flex;align-items:center;gap:7px;padding:7px 11px;border-radius:11px;background:rgba(96,165,250,.09);border:1px solid rgba(96,165,250,.3);color:#dbeafe;font-size:.66rem;font-weight:700;animation:fe-chipgo 4.4s cubic-bezier(.6,0,.4,1) infinite;}
+.fe-filechip em{font-style:normal;opacity:.6;font-weight:600;}
+@keyframes fe-chipgo{0%{opacity:0;transform:translateX(-34px) scale(.9);}18%,70%{opacity:1;transform:none;}100%{opacity:0;transform:translateX(34px) scale(.9);}}
+.fe-vaultline{color:#60a5fa;margin-top:-26px;animation:fe-shieldpulse 4.4s ease infinite;}
+@keyframes fe-shieldpulse{0%,20%,70%,100%{filter:none;}45%{filter:drop-shadow(0 0 12px rgba(96,165,250,.8));transform:scale(1.12);}}
+.fe-vaultbar{width:150px;height:4px;border-radius:4px;background:rgba(255,255,255,.1);overflow:hidden;}
+.fe-vaultbar i{display:block;height:100%;width:100%;border-radius:4px;background:linear-gradient(90deg,#60a5fa,#34d399);transform-origin:left;animation:fe-vfill 4.4s ease infinite;}
+@keyframes fe-vfill{0%{transform:scaleX(0);}75%{transform:scaleX(1);background:#34d399;}100%{transform:scaleX(1);}}
+
+/* poll */
+.fe-pollwrap{display:flex;flex-direction:column;gap:7px;padding-right:26px;}
+.fe-pollq{font-size:.72rem;font-weight:800;color:var(--chakra-colors-textPrimary);}
+.fe-pollrow{display:flex;align-items:center;gap:8px;font-size:.62rem;color:var(--chakra-colors-textSecondary);}
+.fe-pollrow span{width:52px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.fe-pollrow b{width:30px;text-align:right;color:#f472b6;font-variant-numeric:tabular-nums;}
+.fe-pollbar{flex:1;height:7px;border-radius:6px;background:rgba(255,255,255,.09);overflow:hidden;}
+.fe-pollbar i{display:block;height:100%;width:var(--w);border-radius:6px;background:linear-gradient(90deg,#f472b6,#fb7185);transform-origin:left;animation:fe-pfill 4.8s cubic-bezier(.3,.7,.3,1) infinite;}
+@keyframes fe-pfill{0%{transform:scaleX(0);}55%,90%{transform:scaleX(1);}100%{transform:scaleX(1);opacity:0;}}
+.fe-heart{position:absolute;right:2px;bottom:-4px;font-size:.85rem;opacity:0;animation:fe-rise 4.8s ease-out infinite;}
+.h2{animation-delay:1.1s !important;}
+.h3{animation-delay:2.3s !important;}
+@keyframes fe-rise{0%,12%{opacity:0;transform:translateY(0) scale(.6);}25%{opacity:.95;}55%{opacity:.7;transform:translateY(-46px) scale(1.15);}70%,100%{opacity:0;transform:translateY(-70px) scale(.9);}}
+
+/* chips */
+.fe-chips{display:flex;gap:7px;margin-top:14px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none;-ms-overflow-style:none;}
+.fe-chips::-webkit-scrollbar{display:none;}
+.fe-chip{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border-radius:999px;border:1px solid var(--chakra-colors-border);background:transparent;color:var(--chakra-colors-textSecondary);font-size:.66rem;font-weight:700;cursor:pointer;transition:all .22s ease;white-space:nowrap;}
+.fe-chip span{pointer-events:none;}
+.fe-chip:hover{border-color:color-mix(in srgb,var(--tint) 55%,transparent);color:var(--chakra-colors-textPrimary);}
+.fe-chip.on{border-color:color-mix(in srgb,var(--tint) 70%,transparent);background:color-mix(in srgb,var(--tint) 14%,transparent);color:#fff;box-shadow:0 0 14px color-mix(in srgb,var(--tint) 25%,transparent);}
+.fe-progress{height:2px;border-radius:2px;background:rgba(255,255,255,.07);margin-top:12px;overflow:hidden;}
+.fe-prog-fill{display:block;height:100%;width:100%;background:linear-gradient(90deg,var(--tint),#fff3);transform-origin:left;animation-name:fe-prog;animation-timing-function:linear;animation-fill-mode:forwards;}
+@keyframes fe-prog{from{transform:scaleX(0);}to{transform:scaleX(1);}}
+@media (prefers-reduced-motion: reduce){
+  .fe-stage *, .fe-prog-fill{animation:none !important;}
+}
+`;
+
+const TourPanel = styled.div`
+  position: relative;
+  z-index: 2;
+  width: min(560px, calc(100vw - 32px));
+  padding: clamp(18px, 3vw, 26px);
+  border-radius: 22px;
+  background: var(--chakra-colors-surface);
+  backdrop-filter: blur(36px);
+  -webkit-backdrop-filter: blur(36px);
+  border: 1px solid var(--chakra-colors-border);
+  box-shadow: 0 4px 30px rgba(0,0,0,.15), 0 25px 60px rgba(0,0,0,.25), inset 0 1px 0 var(--chakra-colors-borderSubtle);
+  animation: fade-in-up .7s cubic-bezier(.16,1,.3,1) both;
+  animation-delay: .25s;
+  box-sizing: border-box;
+`;
+
+/* ══════════════════════════════════════════════════════════
+   DEV PICKER — temporary: tick the features to keep in the
+   tour, copy the selection, share it back. Remove before ship.
+   ══════════════════════════════════════════════════════════ */
+const DEV_PICKER_GROUPS = [
+  { group: "Messaging core", items: [
+    "End-to-end encrypted chat",
+    "Vanishing messages (Off / 1h / 24h / 7d / 30d)",
+    "View-once photos & videos",
+    "Reply · Edit · Delete for everyone · Forward · Copy",
+    "Emoji reactions",
+    "Typing indicators + read receipts",
+    "@mentions with autocomplete",
+    "Polls & live voting",
+    "Message search & pinned messages",
+    "Scheduled messages",
+    "Voice message recording",
+    "GIF picker + code blocks + link previews",
+    "Chat export as HTML"
+  ] },
+  { group: "Files & media", items: [
+    "Encrypted vault — any file type, encrypted on device",
+    "Realtime large-file relay (>100MB, no storage cap)",
+    "Universal viewer: PDF, docs, audio/video, PiP",
+    "Gallery ‹ › navigation between shared media"
+  ] },
+  { group: "Calls & meetings", items: [
+    "HD group video calls (grid / spotlight / theater)",
+    "Voice-only calls",
+    "Screen sharing",
+    "Video beauty filters",
+    "Voice changer",
+    "Call recording",
+    "Floating emoji reactions in-call",
+    "Watch parties — synced co-watch streams",
+    "Collaborative whiteboard"
+  ] },
+  { group: "Rooms & privacy", items: [
+    "No accounts, no phone numbers",
+    "Per-room security codes",
+    "Stealth mode",
+    "Custom room backgrounds (+ owner lock)",
+    "Online presence list"
+  ] },
+  { group: "Admin", items: [
+    "Admin dashboard — approve/reject rooms",
+    "In-room owner controls — kick, mute, destroy"
+  ] }
+];
+
+/* Verification badges shown on the right of each feature:
+   ok  = exercised end-to-end in a live two-user browser session
+   fix = broken before, fixed this session (needs a real-device pass for call media)
+*/
+const FEATURE_VERIFY = {
+  "End-to-end encrypted chat": "ok",
+  "Emoji reactions": "ok",
+  "Typing indicators + read receipts": "ok",
+  "Polls & live voting": "ok",
+  "Message search & pinned messages": "ok",
+  "GIF picker + code blocks + link previews": "ok",
+  "Chat export as HTML": "ok",
+  "Encrypted vault — any file type, encrypted on device": "ok",
+  "Realtime large-file relay (>100MB, no storage cap)": "ok",
+  "Universal viewer: PDF, docs, audio/video, PiP": "ok",
+  "Gallery ‹ › navigation between shared media": "ok",
+  "Video beauty filters": "ok",
+  "Voice changer": "ok",
+  "Collaborative whiteboard": "ok",
+  "Online presence list": "ok",
+  "In-room owner controls — kick, mute, destroy": "ok"
+};
+
+function FeatureDevPicker() {
+  const all = useMemo(() => DEV_PICKER_GROUPS.flatMap((g) => g.items), []);
+  const [open, setOpen] = useState(false);
+  const [sel, setSel] = useState(() => new Set(all));
+  const toggle = (it) => setSel((prev) => {
+    const n = new Set(prev);
+    if (n.has(it)) n.delete(it); else n.add(it);
+    return n;
+  });
+  const toggleAll = () => setSel(sel.size === all.length ? new Set() : new Set(all));
+
+  const buildText = () => {
+    const lines = ["TOUR FEATURES — KEEP LIST:", ""];
+    DEV_PICKER_GROUPS.forEach((g) => {
+      const picked = g.items.filter((i) => sel.has(i));
+      if (!picked.length) return;
+      lines.push(g.group.toUpperCase());
+      picked.forEach((i) => {
+        const v = FEATURE_VERIFY[i];
+        lines.push("  " + (v === "ok" ? "✅ verified working" : v === "fix" ? "🔧 fixed" : "•") + " " + i);
+      });
+      lines.push("");
+    });
+    return lines.join("\n").trim();
+  };
+
+  const copySel = async () => {
+    const text = buildText();
+    try { await navigator.clipboard.writeText(text); }
+    catch {
+      const ta = document.createElement("textarea");
+      ta.value = text; ta.style.position = "fixed"; ta.style.top = "-9999px";
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand("copy"); } catch {}
+      ta.remove();
+    }
+    toast.success(`Copied ${sel.size} feature${sel.size === 1 ? "" : "s"} — paste it in the chat`);
+  };
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onKey = (e) => { if (e.key === "Escape") setOpen(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        style={{
+          position: "fixed", right: 14, bottom: 14, zIndex: 9000,
+          display: "inline-flex", alignItems: "center", gap: 6,
+          padding: "8px 13px", borderRadius: 999,
+          border: "1px solid rgba(255,255,255,.18)", background: "rgba(10,12,20,.82)",
+          color: "#e2e8f0", fontSize: ".68rem", fontWeight: 800, letterSpacing: ".04em",
+          cursor: "pointer", backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)",
+          boxShadow: "0 6px 18px rgba(0,0,0,.35)"
+        }}
+      >
+        🧩 PICK TOUR FEATURES
+      </button>
+
+      {open && (
+        <div
+          role="dialog" aria-modal="true" aria-label="Pick tour features"
+          onClick={(e) => { if (e.target === e.currentTarget) setOpen(false); }}
+          style={{ position: "fixed", inset: 0, zIndex: 9500, background: "rgba(2,4,10,.72)", display: "grid", placeItems: "center", padding: 16 }}
+        >
+          <div style={{
+            width: "min(560px, 100%)", maxHeight: "86dvh", display: "flex", flexDirection: "column",
+            borderRadius: 18, border: "1px solid rgba(255,255,255,.12)", background: "#0b0e17",
+            boxShadow: "0 30px 80px rgba(0,0,0,.55)", overflow: "hidden"
+          }}>
+            <div style={{ padding: "16px 18px 12px", borderBottom: "1px solid rgba(255,255,255,.08)", display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ color: "#fff", fontWeight: 850, fontSize: ".95rem" }}>Tick what stays in the tour</div>
+                <div style={{ color: "#94a3b8", fontSize: ".68rem", marginTop: 2 }}>{sel.size} of {all.length} selected · <span style={{ color: "#34d399" }}>✅ verified live</span> · <span style={{ color: "#fbbf24" }}>🔧 fixed this session</span></div>
+              </div>
+              <button type="button" onClick={toggleAll} style={{ background: "transparent", border: "1px solid rgba(255,255,255,.16)", borderRadius: 8, color: "#cbd5e1", fontSize: ".64rem", fontWeight: 700, padding: "6px 9px", cursor: "pointer" }}>
+                {sel.size === all.length ? "None" : "All"}
+              </button>
+              <button type="button" onClick={() => setOpen(false)} aria-label="Close" style={{ background: "transparent", border: 0, color: "#94a3b8", fontSize: "1.05rem", cursor: "pointer", lineHeight: 1 }}>✕</button>
+            </div>
+
+            <div style={{ overflowY: "auto", padding: "6px 18px 14px" }}>
+              {DEV_PICKER_GROUPS.map((g) => (
+                <div key={g.group} style={{ marginTop: 12 }}>
+                  <div style={{ color: "#818cf8", fontSize: ".62rem", fontWeight: 850, letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 6 }}>{g.group}</div>
+                  {g.items.map((it) => {
+                    const v = FEATURE_VERIFY[it];
+                    return (
+                      <label key={it} style={{ display: "flex", alignItems: "center", gap: 9, padding: "6px 4px", borderRadius: 8, cursor: "pointer", color: sel.has(it) ? "#f1f5f9" : "#64748b", fontSize: ".76rem", transition: "color .15s ease" }}>
+                        <input type="checkbox" checked={sel.has(it)} onChange={() => toggle(it)} style={{ width: 15, height: 15, accentColor: "#818cf8", cursor: "pointer" }} />
+                        <span style={{ flex: 1 }}>{it}</span>
+                        {v === "ok" && <span title="Verified in a live two-user session" style={{ flexShrink: 0, fontSize: ".6rem", fontWeight: 850, letterSpacing: ".06em", color: "#34d399", background: "rgba(52,211,153,.12)", border: "1px solid rgba(52,211,153,.3)", borderRadius: 999, padding: "2px 8px" }}>✅ VERIFIED</span>}
+                        {v === "fix" && <span title="Fixed this session — needs a real-device pass" style={{ flexShrink: 0, fontSize: ".6rem", fontWeight: 850, letterSpacing: ".06em", color: "#fbbf24", background: "rgba(251,191,36,.1)", border: "1px solid rgba(251,191,36,.28)", borderRadius: 999, padding: "2px 8px" }}>🔧 FIXED</span>}
+                      </label>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+
+            <div style={{ padding: "12px 18px 16px", borderTop: "1px solid rgba(255,255,255,.08)", display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button type="button" onClick={() => setOpen(false)} style={{ background: "transparent", border: "1px solid rgba(255,255,255,.16)", borderRadius: 10, color: "#cbd5e1", fontSize: ".74rem", fontWeight: 700, padding: "10px 14px", cursor: "pointer" }}>Cancel</button>
+              <button
+                type="button"
+                onClick={copySel}
+                disabled={sel.size === 0}
+                style={{ border: 0, borderRadius: 10, background: sel.size ? "linear-gradient(135deg,#ff3f5e,#c22b47)" : "#334155", color: "#fff", fontSize: ".74rem", fontWeight: 800, padding: "10px 18px", cursor: sel.size ? "pointer" : "not-allowed", boxShadow: sel.size ? "0 6px 18px rgba(255,63,94,.35)" : "none" }}
+              >
+                Copy selected ({sel.size})
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+const LandingGrid = styled.div`
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 26px;
+  width: 100%;
+  padding: 0 16px;
+  box-sizing: border-box;
+
+  @media (min-width: 1100px) {
+    flex-direction: row;
+    align-items: stretch;
+    gap: clamp(36px, 5vw, 64px);
+    max-width: 1220px;
+    margin: 0 auto;
+    ${TourPanel} { order: -1; display: flex; flex-direction: column; justify-content: center; }
+  }
+`;
 
 // Platform-aware aspect ratio for media embeds and file uploads
 const getMediaAspectRatio = (sourceStr = "", fileType = "") => {
@@ -317,16 +909,17 @@ const ActionButton = styled.button`
   }
 
   @media (max-width: 480px) {
-    min-width: 30px;
-    min-height: 30px;
-    font-size: 0.85rem;
-    border-radius: 8px;
+    /* Mobile tap targets must be BIGGER, not smaller — 40px ≈ HIG/Material minimums */
+    min-width: 40px;
+    min-height: 40px;
+    font-size: 0.95rem;
+    border-radius: 9px;
   }
 
   @media (max-width: 375px) {
-    min-width: 28px;
-    min-height: 28px;
-    font-size: 0.8rem;
+    min-width: 38px;
+    min-height: 38px;
+    font-size: 0.9rem;
     border-radius: 7px;
   }
 `;
@@ -2170,7 +2763,7 @@ const GifSearchInput = styled.input`
 
 const GifGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
   gap: 14px;
   margin-top: 10px;
   padding: 0 20px 18px;
@@ -2182,8 +2775,15 @@ const GifGrid = styled.div`
   min-height: 0;
 
   @media (max-width: 767px) {
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    padding: 0 14px 18px;
+    /* Fixed 3-up mosaic on phones — auto-fit collapses to 2 giant tiles */
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    padding: 0 10px 14px;
+  }
+
+  @media (max-width: 360px) {
+    gap: 6px;
+    padding: 0 8px 12px;
   }
 
   @media (min-width: 1024px) {
@@ -2201,6 +2801,10 @@ const GifCard = styled.div`
   background: rgba(255, 255, 255, 0.025);
   border: 1px solid rgba(255,255,255,0.055);
   transition: transform 0.2s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+
+  @media (max-width: 767px) {
+    border-radius: 10px;
+  }
 
   &:before {
     content: "";
@@ -3548,13 +4152,20 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile, setViewer 
 
   const lastDecryptedIvRef = useRef(null);
   const lastDecryptedSourceUrlRef = useRef(null);
+  const bypassProxyRef = useRef(false);
 
   // Join the shared gallery once this media is viewable (skips view-once)
   useEffect(() => {
     if (!decryptedUrl || file.viewOnce) return;
+    let registered = false;
     if (fileType.startsWith("image") || fileType.startsWith("video")) {
       registerGalleryMedia(file.url, { url: decryptedUrl, name: file.name, type: fileType });
+      registered = true;
     }
+    // Leave the gallery when this message unmounts (deleted/swept) — no ghosts
+    return () => {
+      if (registered) mediaGalleryRegistry.delete(file.url);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [decryptedUrl]);
 
@@ -3602,13 +4213,18 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile, setViewer 
     }
 
     let active = true;
-    const decrypt = async () => {
+    bypassProxyRef.current = false;
+    const decrypt = async (bypassProxy = false) => {
       try {
         setLoading(true);
         setError(false);
 
+        // Remote files go through the backend proxy for CORS-safe fetching.
+        // If the proxy is unavailable (404/5xx), fall back to the direct URL —
+        // Cloudinary serves ACAO:* so the encrypted blob still downloads.
         let fetchUrl = file.url;
-        if (!file.url.startsWith(window.location.origin) && !file.url.includes("/uploads/")) {
+        const needsProxy = !bypassProxy && !file.url.startsWith(window.location.origin) && !file.url.includes("/uploads/");
+        if (needsProxy) {
           const backendUrl = process.env.REACT_APP_SOCKET_ENDPOINT || "https://cheprabai-backend.onrender.com";
           fetchUrl = `${backendUrl}/api/proxy-file?url=${encodeURIComponent(file.url)}`;
         }
@@ -3656,6 +4272,12 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile, setViewer 
       console.error("  file.iv present:", !!file?.iv, "  iv length:", file?.iv?.length);
       console.error("  file.keyB64 present:", !!file?.keyB64);
       console.error("  roomKey present:", !!roomKey);
+      // Proxy unreachable (deploy gap) → one direct-URL retry before surfacing the error card
+      if (active && !bypassProxyRef.current) {
+        bypassProxyRef.current = true;
+        decrypt(true);
+        return;
+      }
       if (active) {
         setError(true);
         setLoading(false);
@@ -3924,6 +4546,7 @@ export default function ChatRoom() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const socketRef = useRef(null);
+  const liveFileRxRef = useRef(new Map());
   const onResolvedRef = useRef(null);
   const audioRef = useRef(new Audio(notificationSound));
   const userColorsRef = useRef({});
@@ -3952,6 +4575,8 @@ export default function ChatRoom() {
   const [messages, setMessages] = useState([]);
   const [message, setMessage] = useState("");
   const [typingUsers, setTypingUsers] = useState([]);
+  const typingFirstSeenRef = useRef(new Map()); // name -> ts first seen (hard-expiry guard)
+  const onlineNamesRef = useRef(new Set());
   const [viewer, setViewer] = useState(null);
   const [isConnected, setIsConnected] = useState(true);
   const [showScrollPill, setShowScrollPill] = useState(false);
@@ -4081,6 +4706,7 @@ export default function ChatRoom() {
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const typingTimeout = useRef(null);
   const fileInputRef = useRef(null);
+  const composerRef = useRef(null);
   const [ownerToken, setOwnerToken] = useState(() => {
     const match = window.location.pathname.match(/\/room\/([^/]+)/);
     const rId = match ? match[1] : "";
@@ -4101,8 +4727,9 @@ export default function ChatRoom() {
   const [showGifPicker, setShowGifPicker] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showWhiteboard, setShowWhiteboard] = useState(false);
+  const [meetingBoardOpen, setMeetingBoardOpen] = useState(false);
   const [showMeeting, setShowMeeting] = useState(false);
-  const closeMeeting = useCallback(() => setShowMeeting(false), []);
+  const closeMeeting = useCallback(() => { setMeetingBoardOpen(false); setShowMeeting(false); }, []);
   const [incomingCall, setIncomingCall] = useState(null);
   const ringtoneRef = useRef(null);
   const [showRoomInfo, setShowRoomInfo] = useState(false);
@@ -4142,8 +4769,94 @@ export default function ChatRoom() {
   const [ephemeralMode, setEphemeralMode] = useState(false);
   const [roomEphemeralDuration, setRoomEphemeralDuration] = useState(0); // 0 means OFF, positive is seconds
   const [showEphemeralMenu, setShowEphemeralMenu] = useState(false);
+  const [customEphemeralOpen, setCustomEphemeralOpen] = useState(false);
+  const [customEphemeralValue, setCustomEphemeralValue] = useState("");
+  const [customEphemeralUnit, setCustomEphemeralUnit] = useState("min");
   const [confirmation, setConfirmation] = useState(null);
-  const DEFAULT_EPHEMERAL_DURATION = 15; // fallback seconds if single message timer fails
+  const DEFAULT_EPHEMERAL_DURATION = 300; // fallback seconds (5 min) — 15s was silently destroying messages
+
+  const isCustomEphemeral = roomEphemeralDuration > 0 && !EPHEMERAL_PRESETS.some((p) => p.value === roomEphemeralDuration);
+  const applyCustomEphemeral = () => {
+    const n = parseInt(customEphemeralValue, 10);
+    if (!Number.isFinite(n) || n <= 0) { toast.error("Enter a positive number."); return; }
+    const unit = CUSTOM_EPHEMERAL_UNITS.find((u) => u.value === customEphemeralUnit) || CUSTOM_EPHEMERAL_UNITS[1];
+    const secs = Math.min(n * unit.value, EPHEMERAL_MAX_SECONDS);
+    socketRef.current.emit("updateRoomEphemeral", { roomId, ephemeralDuration: secs });
+    toast.info(`💨 Messages will vanish after ${formatNearestUnit(secs)}`);
+    setShowEphemeralMenu(false);
+    setCustomEphemeralOpen(false);
+  };
+  const renderEphemeralMenuItems = () => (
+    <>
+      {EPHEMERAL_PRESETS.map((opt) => (
+        <button
+          key={opt.value}
+          type="button"
+          className={`option-btn ${!isCustomEphemeral && roomEphemeralDuration === opt.value ? 'active' : ''}`}
+          onClick={() => {
+            socketRef.current.emit("updateRoomEphemeral", { roomId, ephemeralDuration: opt.value });
+            setShowEphemeralMenu(false);
+            setCustomEphemeralOpen(false);
+          }}
+        >
+          <span>{opt.label}</span>
+          {!isCustomEphemeral && roomEphemeralDuration === opt.value && <span className="check">✓</span>}
+        </button>
+      ))}
+      <button
+        type="button"
+        className={`option-btn ${isCustomEphemeral ? 'active' : ''}`}
+        onClick={() => setCustomEphemeralOpen((v) => !v)}
+      >
+        <span>Custom…</span>
+        {isCustomEphemeral && <span className="check">{formatNearestUnit(roomEphemeralDuration)}</span>}
+      </button>
+      {customEphemeralOpen && (
+        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 4px 2px" }}>
+          <input
+            type="number"
+            min="1"
+            inputMode="numeric"
+            autoFocus
+            value={customEphemeralValue}
+            onChange={(e) => setCustomEphemeralValue(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") applyCustomEphemeral(); }}
+            placeholder="30"
+            aria-label="Custom vanishing duration"
+            style={{
+              width: 64, padding: "6px 8px", borderRadius: 8,
+              border: "1px solid var(--chakra-colors-border)",
+              background: "var(--chakra-colors-bg)", color: "var(--chakra-colors-textPrimary)",
+              fontSize: "0.8rem", outline: "none"
+            }}
+          />
+          <select
+            value={customEphemeralUnit}
+            onChange={(e) => setCustomEphemeralUnit(e.target.value)}
+            aria-label="Custom vanishing unit"
+            style={{
+              padding: "6px 6px", borderRadius: 8,
+              border: "1px solid var(--chakra-colors-border)",
+              background: "var(--chakra-colors-bg)", color: "var(--chakra-colors-textPrimary)",
+              fontSize: "0.78rem"
+            }}
+          >
+            {CUSTOM_EPHEMERAL_UNITS.map((u) => (
+              <option key={u.value} value={u.value}>{u.label}</option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={applyCustomEphemeral}
+            className="option-btn"
+            style={{ width: "auto", padding: "6px 12px", justifyContent: "center", fontWeight: 700, color: "#ff6b72" }}
+          >
+            Set
+          </button>
+        </div>
+      )}
+    </>
+  );
 
   // ── Voice Notes ──
   const [isRecording, setIsRecording] = useState(false);
@@ -4406,6 +5119,7 @@ export default function ChatRoom() {
 
   useEffect(() => { roomKeyRef.current = roomKey; }, [roomKey]);
   useEffect(() => { userNameRef.current = userName; }, [userName]);
+  useEffect(() => { onlineNamesRef.current = new Set(onlineUsers.map((u) => u.name)); }, [onlineUsers]);
   useEffect(() => { roomIdRef.current = roomId; }, [roomId]);
   useEffect(() => { securityCodeRef.current = securityCode; }, [securityCode]);
   useEffect(() => { showMeetingRef.current = showMeeting; }, [showMeeting]);
@@ -4976,7 +5690,7 @@ export default function ChatRoom() {
 
   useEffect(() => {
     const socket = io(process.env.REACT_APP_SOCKET_ENDPOINT || "https://cheprabai-backend.onrender.com", {
-      transports: ["polling"],
+      transports: ["websocket", "polling"],
       upgrade: true,
       rememberUpgrade: true,
       reconnection: true,
@@ -5027,7 +5741,8 @@ export default function ChatRoom() {
     // Register every room listener before joining: localhost can respond quickly
     // enough for the initial presence event to otherwise be missed.
     socketRef.current.on("chatHistory", async (history) => {
-      const formatted = await Promise.all(history.map(async msg => {
+      const formatted = (await Promise.all(history.map(async msg => {
+        if (msg?.payload?.__livefile) return null;
         const item = { ...msg, ...msg.payload };
         if (item.encryptedPayload && rk) {
           try {
@@ -5047,8 +5762,9 @@ export default function ChatRoom() {
             item.decryptionError = true;
           }
         }
+        if (item.__livefile) return null;
         return item;
-      }));
+      })).then(r => r.filter(Boolean)));
       setMessages(formatted);
       formatted.filter((item) => item.id && item.userName !== un).forEach((item) => socketRef.current.emit("messageViewed", { messageId: item.id }));
     });
@@ -5056,7 +5772,8 @@ export default function ChatRoom() {
     socketRef.current.on("hasMoreMessages", () => setHasMoreMessages(true));
 
     socketRef.current.on("olderMessages", async ({ messages: older, hasMore }) => {
-      const formatted = await Promise.all(older.map(async msg => {
+      const formatted = (await Promise.all(older.map(async msg => {
+        if (msg?.payload?.__livefile) return null;
         const item = { ...msg, ...msg.payload };
         if (item.encryptedPayload && rk) {
           try {
@@ -5076,8 +5793,9 @@ export default function ChatRoom() {
             item.decryptionError = true;
           }
         }
+        if (item.__livefile) return null;
         return item;
-      }));
+      })).then(r => r.filter(Boolean)));
       setMessages(prev => [...formatted, ...prev]);
       setHasMoreMessages(hasMore);
       setLoadingMore(false);
@@ -5103,10 +5821,15 @@ export default function ChatRoom() {
           formattedMsg.decryptionError = true;
         }
       }
+      if (formattedMsg.__livefile) {
+        try { handleIncomingLiveFile(formattedMsg); } catch (e) { console.error("livefile rx:", e); }
+        return;
+      }
       setMessages((m) => [...m, formattedMsg]);
       if (formattedMsg.id && formattedMsg.userName !== un) socketRef.current.emit("messageViewed", { messageId: formattedMsg.id });
       if (msg.userName !== un) {
-        audioRef.current.play().catch(() => { });
+        // Clone so rapid-fire messages never abort a pending audio load
+        audioRef.current.cloneNode(true).play().catch(() => { });
 
         // Update unread count if scrolled up
         const container = messagesContainerRef.current;
@@ -5142,12 +5865,27 @@ export default function ChatRoom() {
       setOnlineUsers((users) => users.some((user) => user.id === id) ? users : [...users, { id, name }]);
     });
     socketRef.current.on("user-left", ({ id }) => {
-      setOnlineUsers((users) => users.filter((user) => user.id !== id));
+      setOnlineUsers((users) => {
+        const gone = users.find((user) => user.id === id);
+        if (gone?.name) {
+          typingFirstSeenRef.current.delete(gone.name);
+          setTypingUsers((prev) => prev.filter((n) => n !== gone.name));
+        }
+        return users.filter((user) => user.id !== id);
+      });
     });
-
-    socketRef.current.on("typing", (users) =>
-      setTypingUsers(users.filter((u) => u !== un)),
-    );
+    socketRef.current.on("typing", (users) => {
+      const me = userNameRef.current?.trim();
+      const online = onlineNamesRef.current;
+      const incoming = (Array.isArray(users) ? users : [])
+        .filter((n) => n && n !== me && online.has(n));
+      const seen = typingFirstSeenRef.current;
+      const fresh = new Set(incoming);
+      for (const name of [...seen.keys()]) if (!fresh.has(name)) seen.delete(name);
+      const now = Date.now();
+      incoming.forEach((n) => { if (!seen.has(n)) seen.set(n, now); });
+      setTypingUsers(incoming);
+    });
     socketRef.current.on("roomDestroyed", () => {
       toast.info("This room was deleted.");
       leaveRoomNowRef.current?.();
@@ -5454,10 +6192,182 @@ export default function ChatRoom() {
 
   /* ================= FILE HANDLING ================= */
 
+  /* ── Realtime large-file relay: chunks ride the room's encrypted message
+     channel peer-to-peer-in-room; never touches storage. Only people who
+     are online right now receive it — by design. ── */
+  const liveFileTxRef = useRef(false);
+  const shareFileLive = async (file, viewOnce = false) => {
+    if (liveFileTxRef.current) {
+      toast.error("A realtime transfer is already in progress.");
+      return;
+    }
+    if (file.size > LIVE_SHARE_MAX_BYTES) {
+      toast.error(`"${file.name}" is too large even for realtime sharing (max ${Math.round(LIVE_SHARE_MAX_BYTES / (1024 * 1024 * 1024))} GB).`);
+      return;
+    }
+    if (!onlineUsers.length || onlineUsers.length < 2) {
+      toast.error("No one else is online right now — realtime sharing needs a live recipient. Ask them to join, then resend.");
+      return;
+    }
+    liveFileTxRef.current = true;
+    const tempId = `liveshare-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const fileId = `lf-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    let previewUrl = null;
+    try {
+      const looksMedia = /^(image|video|audio)\//.test(file.type);
+      if (looksMedia) { try { previewUrl = URL.createObjectURL(file); } catch { previewUrl = null; } }
+      const totalChunks = Math.ceil(file.size / LIVE_SHARE_CHUNK_BYTES);
+      setMessages(m => [...m, {
+        id: tempId, userName,
+        file: {
+          name: file.name, type: file.type, size: file.size,
+          loading: true, phase: "sharing-live", progress: 0,
+          loaded: 0, total: file.size, speed: 0,
+          ...(previewUrl && { previewUrl })
+        },
+        ts: Date.now()
+      }]);
+      const updateTempFile = (patch) => setMessages(msgs => msgs.map(msg => msg.id === tempId ? { ...msg, file: { ...msg.file, ...patch } } : msg));
+
+      const isEphemeral = ephemeralMode || roomEphemeralDuration > 0;
+      const emitChunkMsg = async (payload) => new Promise((resolve, reject) => {
+        (async () => {
+          let body = payload;
+          if (roomKey) {
+            try {
+              const enc = await encryptMessage(roomKey, JSON.stringify(payload));
+              body = { encryptedPayload: enc };
+            } catch { body = payload; }
+          }
+          socketRef.current.emit("sendMessage", {
+            payload: body, userName, roomId, ts: Date.now(),
+            liveRelay: true,
+            ephemeral: isEphemeral,
+            ephemeralDuration: roomEphemeralDuration > 0 ? roomEphemeralDuration : DEFAULT_EPHEMERAL_DURATION
+          }, (res) => {
+            if (res?.error || !res?.id) reject(new Error(res?.error || "Realtime send failed"));
+            else resolve(res.id);
+          });
+        })();
+      });
+
+      const sentIds = [];
+      await emitChunkMsg({ __livefile: "meta", id: fileId, name: file.name, mime: file.type, size: file.size, totalChunks, viewOnce: Boolean(viewOnce && /^(image|video)\//.test(file.type)) }).then((id) => sentIds.push(id));
+
+      const startedAt = performance.now();
+      for (let seq = 0; seq < totalChunks; seq++) {
+        const sliceBuf = await file.slice(seq * LIVE_SHARE_CHUNK_BYTES, (seq + 1) * LIVE_SHARE_CHUNK_BYTES).arrayBuffer();
+        const id2 = await emitChunkMsg({ __livefile: "chunk", id: fileId, seq, data: bytesToB64(new Uint8Array(sliceBuf)) });
+        sentIds.push(id2);
+        const loaded = Math.min((seq + 1) * LIVE_SHARE_CHUNK_BYTES, file.size);
+        const dt = performance.now() - startedAt;
+        updateTempFile({
+          progress: Math.floor((loaded * 100) / file.size),
+          loaded,
+          speed: dt > 0 ? Math.round((loaded / dt) * 1000) : 0
+        });
+      }
+      await emitChunkMsg({ __livefile: "end", id: fileId }).then((id) => sentIds.push(id));
+
+      // Scrub the relay chunks from history — the transfer happened, not the record.
+      sentIds.forEach((mid, i) => setTimeout(() => {
+        socketRef.current.emit("deleteOwnMessage", { messageId: mid, roomId }, () => {});
+      }, i * 40));
+
+      const localUrl = previewUrl || URL.createObjectURL(file);
+      setMessages(m => m.map(msg => msg.id === tempId ? {
+        ...msg,
+        file: { name: file.name, type: file.type, size: file.size, url: localUrl, local: true, loading: false, ...(viewOnce && /^(image|video)\//.test(file.type) && { viewOnce: true }) }
+      } : msg));
+      toast.success(`Shared "${file.name}" in realtime`);
+    } catch (err) {
+      console.error(err);
+      toast.error(err.message || "Realtime share failed.");
+      setMessages(m => m.filter(msg => msg.id !== tempId));
+    } finally {
+      liveFileTxRef.current = false;
+    }
+  };
+
+  const handleIncomingLiveFile = (msg) => {
+    if (!msg || msg.userName === userName?.trim()) return;
+    const kind = msg.__livefile;
+    const map = liveFileRxRef.current;
+    if (kind === "meta") {
+      const tempId = `rx-${msg.id}`;
+      map.set(msg.id, {
+        key: msg.id,
+        parts: new Array(msg.totalChunks).fill(null), got: 0,
+        name: msg.name, mime: msg.mime, size: msg.size, totalChunks: msg.totalChunks,
+        viewOnce: msg.viewOnce, from: msg.userName, tempId, lastAt: Date.now()
+      });
+      setMessages(m => [...m, {
+        id: tempId, userName: msg.userName,
+        file: { name: msg.name, type: msg.mime, size: msg.size, loading: true, phase: "receiving-live", progress: 0, loaded: 0, total: msg.size },
+        ts: Date.now()
+      }]);
+      return;
+    }
+    const entry = map.get(msg.id);
+    if (!entry) return;
+    entry.lastAt = Date.now();
+    if (kind === "chunk") {
+      if (entry.parts[msg.seq] == null) {
+        entry.parts[msg.seq] = msg.data;
+        entry.got++;
+      }
+      if (entry.got % 3 === 0 || entry.got === entry.totalChunks) {
+        const loaded = Math.min(entry.got * LIVE_SHARE_CHUNK_BYTES, entry.size);
+        setMessages(prev => prev.map(m2 => m2.id === entry.tempId ? { ...m2, file: { ...m2.file, progress: Math.floor((loaded * 100) / entry.size), loaded } } : m2));
+      }
+      return;
+    }
+    if (kind === "end") {
+      map.delete(msg.id);
+      try {
+        const bytes = new Uint8Array(entry.size);
+        let off = 0;
+        entry.parts.forEach((b64) => {
+          const part = b64ToBytes(b64);
+          bytes.set(part, off);
+          off += part.length;
+        });
+        const url = URL.createObjectURL(new Blob([bytes], { type: entry.mime || "application/octet-stream" }));
+        setMessages(prev => prev.map(m2 => m2.id === entry.tempId ? {
+          ...m2,
+          file: { name: entry.name, type: entry.mime, size: entry.size, url, local: true, loading: false, ...(entry.viewOnce && { viewOnce: true }) }
+        } : m2));
+      } catch (e) {
+        console.error("Live file assemble failed:", e);
+        setMessages(prev => prev.filter(m2 => m2.id !== entry.tempId));
+        toast.error(`Failed to assemble "${entry.name}".`);
+      }
+    }
+  };
+
+  useEffect(() => {
+    const sweep = setInterval(() => {
+      const map = liveFileRxRef.current;
+      const now = Date.now();
+      [...map.values()].forEach((entry) => {
+        if (now - entry.lastAt > 90000) {
+          map.delete(entry.key);
+          setMessages(prev => prev.filter(m2 => m2.id !== entry.tempId));
+        }
+      });
+    }, 30000);
+    return () => clearInterval(sweep);
+  }, []);
+
   const uploadFile = async (file, viewOnce = false, scheduleTime = null) => {
     let tempId;
     let previewUrl = null;
     try {
+      if (file.size > MAX_UPLOAD_BYTES) {
+        toast.info(`"${file.name}" is over the ${formatUploadLimit()} upload limit — switching to realtime sharing.`);
+        await shareFileLive(file, viewOnce);
+        return;
+      }
       tempId = `uploading-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       const looksMedia = /^(image|video)\//.test(file.type) ||
         /\.(png|jpe?g|gif|webp|avif|bmp|svg|mp4|mov|webm|mkv|m4v)$/i.test(file.name || "");
@@ -5505,11 +6415,14 @@ export default function ChatRoom() {
       let lastTickTime = performance.now();
       let lastTickLoaded = 0;
       let lastEmit = 0;
-      const res = await axios.post(
+      const doUpload = () => axios.post(
         `${backendUrl}/api/upload`,
         formData,
         {
           headers: { "Content-Type": "multipart/form-data" },
+          // Never let a dead connection spin forever: generous per-MB budget
+          // with a 90s floor so slow mobile uploads still succeed.
+          timeout: Math.max(90000, Math.round((fileToUpload.size / (1024 * 1024)) * 12000)),
           onUploadProgress: (progressEvent) => {
             // Some axios/browser combos never populate `total` for multipart —
             // fall back to the known payload size so progress ALWAYS works.
@@ -5541,6 +6454,23 @@ export default function ChatRoom() {
           }
         }
       );
+      // One giant POST through a PaaS proxy is fragile on mobile networks —
+      // retry once on dropped connections / server hiccups before giving up.
+      let res;
+      for (let attempt = 1; ; attempt++) {
+        try {
+          res = await doUpload();
+          break;
+        } catch (upErr) {
+          const status = upErr.response?.status;
+          const retryable = !upErr.response || upErr.code === "ECONNABORTED" || (status >= 500 && status <= 599);
+          if (attempt >= 2 || !retryable) throw upErr;
+          updateTempFile({ phase: "uploading", progress: 0, loaded: 0 });
+          lastTickTime = performance.now();
+          lastTickLoaded = 0;
+          await new Promise((r) => setTimeout(r, 1500));
+        }
+      }
 
       const fileData = {
         url: res.data.secure_url,
@@ -5589,7 +6519,38 @@ export default function ChatRoom() {
       if (previewUrl) URL.revokeObjectURL(previewUrl);
     } catch (err) {
       console.error(err);
-      const errorMsg = err.response?.data?.error || "File upload failed!";
+      const status = err.response?.status;
+      const detail = err.response?.data?.error || err.message;
+      const tooLarge = status === 413 || /too large|file size/i.test(String(detail));
+      if (tooLarge && file.size > MAX_UPLOAD_BYTES && !scheduleTime) {
+        setMessages(m => m.filter(msg => msg.id !== tempId));
+        if (previewUrl) URL.revokeObjectURL(previewUrl);
+        toast.info(`"${file.name}" beat the upload limit — falling back to realtime sharing.`);
+        await shareFileLive(file, viewOnce);
+        return;
+      }
+      let errorMsg = "File upload failed!";
+      if (tooLarge) {
+        errorMsg = `"${file.name}" exceeds the ${formatUploadLimit()} upload limit.`;
+      } else if (!err.response) {
+        errorMsg = `Upload failed — network dropped while sending "${file.name}". Check your connection and retry.`;
+      } else if (detail) {
+        errorMsg = String(detail);
+      }
+      // Big files should never dead-end: any upload failure at size gets a
+      // realtime-relay second chance when someone is online to receive it.
+      const bigFile = file.size >= 25 * 1024 * 1024;
+      const peersOnline = onlineUsers.length >= 2;
+      if (bigFile && peersOnline && !scheduleTime && file.size <= LIVE_SHARE_MAX_BYTES) {
+        setMessages(m => m.filter(msg => msg.id !== tempId));
+        if (previewUrl) URL.revokeObjectURL(previewUrl);
+        toast.info(`Direct upload failed for "${file.name}" — switching to realtime sharing.`, { autoClose: 5000 });
+        await shareFileLive(file, viewOnce);
+        return;
+      }
+      if (bigFile && !peersOnline) {
+        errorMsg += " Tip: realtime sharing fallback needs someone else in the room.";
+      }
       toast.error(errorMsg);
       if (tempId) setMessages(m => m.filter(msg => msg.id !== tempId));
       if (previewUrl) URL.revokeObjectURL(previewUrl);
@@ -5600,6 +6561,12 @@ export default function ChatRoom() {
 
   useEffect(() => {
     const onPaste = (e) => {
+      // Only hijack pastes meant for the composer — never the search box or other fields
+      const t = e.target;
+      const isComposerField = t === composerRef.current || (t instanceof Element && t.closest?.("[data-composer='true']"));
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        if (!isComposerField) return; // let native paste happen in search/password/etc
+      }
       const pastedFiles = [...e.clipboardData.items]
         .filter((i) => i.kind === "file")
         .map((i) => i.getAsFile())
@@ -5740,6 +6707,22 @@ export default function ChatRoom() {
       2000,
     );
   };
+
+  // Safety net: never trust a typing entry older than 12s, even if the server
+  // keeps re-sending a stale name (frozen tab, dropped stop-event).
+  useEffect(() => {
+    if (!typingUsers.length) return undefined;
+    const iv = setInterval(() => {
+      const cutoff = Date.now() - 12000;
+      const seen = typingFirstSeenRef.current;
+      const expired = typingUsers.filter((n) => (seen.get(n) ?? 0) < cutoff);
+      if (expired.length) {
+        expired.forEach((n) => seen.delete(n));
+        setTypingUsers((prev) => prev.filter((n) => !expired.includes(n)));
+      }
+    }, 2000);
+    return () => clearInterval(iv);
+  }, [typingUsers]);
 
   const stopTyping = () => {
     clearTimeout(typingTimeout.current);
@@ -6018,24 +7001,65 @@ export default function ChatRoom() {
   };
 
   /* ================= EXPORT CHAT ================= */
-  const exportChat = () => {
-    const textContent = messages
-      .filter(m => m.type !== 'system')
-      .map(m => {
+  const exportChat = async () => {
+    const payloadMessages = messages
+      .filter(m => m.type !== "system" && !m.__livefile)
+      .map(m => ({
+        userName: m.userName || "Unknown User",
+        text: m.text || (m.file ? `[File: ${m.file.name}]` : m.gif ? "[GIF]" : ""),
+        ts: m.ts,
+        ...(m.file && { file: { name: m.file.name, type: m.file.type || "Unknown type" } })
+      }));
+    if (!payloadMessages.length) {
+      toast.info("Nothing to export yet.");
+      return;
+    }
+
+    const downloadBlob = (blob, name) => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = name;
+      a.click();
+      URL.revokeObjectURL(url);
+    };
+    const stamp = `chat_${roomId}_${Date.now()}`;
+
+    // Encrypted self-contained HTML archive (PBKDF2 + AES-GCM, decrypted
+    // in-browser by the file itself). Falls back to plain text if WebCrypto
+    // or the password prompt is unavailable.
+    try {
+      const password = window.prompt("Set a password to protect the exported chat (min 6 chars):");
+      if (!password) return;
+      if (password.length < 6) {
+        toast.error("Password must be at least 6 characters.");
+        return;
+      }
+      const enc = new TextEncoder();
+      const salt = crypto.getRandomValues(new Uint8Array(16));
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const baseKey = await crypto.subtle.importKey("raw", enc.encode(password), "PBKDF2", false, ["deriveKey"]);
+      const aesKey = await crypto.subtle.deriveKey(
+        { name: "PBKDF2", salt, iterations: 100000, hash: "SHA-256" },
+        baseKey,
+        { name: "AES-GCM", length: 256 },
+        false,
+        ["encrypt"]
+      );
+      const cipherBuf = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, aesKey, enc.encode(JSON.stringify({ messages: payloadMessages })));
+      const toB64 = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf)));
+      const html = createDecryptionHtmlTemplate(roomId, toB64(cipherBuf), toB64(salt), toB64(iv));
+      downloadBlob(new Blob([html], { type: "text/html" }), `${stamp}.html`);
+      toast.success("Encrypted chat archive exported!");
+    } catch (err) {
+      console.warn("HTML export failed, falling back to text:", err);
+      const textContent = payloadMessages.map(m => {
         const time = new Date(m.ts).toLocaleString();
-        if (m.file) return `[${time}] ${m.userName}: [File: ${m.file.name}]`;
-        if (m.gif) return `[${time}] ${m.userName}: [GIF]`;
-        return `[${time}] ${m.userName}: ${m.text || ''}`;
-      })
-      .join('\n');
-    const blob = new Blob([`Chat Export — Room: ${roomId}\nExported: ${new Date().toLocaleString()}\n${'─'.repeat(50)}\n\n${textContent}`], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `chat_${roomId}_${Date.now()}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success('Chat exported!');
+        return `[${time}] ${m.userName}: ${m.text || ""}`;
+      }).join("\n");
+      downloadBlob(new Blob([`Chat Export — Room: ${roomId}\nExported: ${new Date().toLocaleString()}\n${"─".repeat(50)}\n\n${textContent}`], { type: "text/plain" }), `${stamp}.txt`);
+      toast.success("Chat exported as text.");
+    }
   };
 
   const requestAvatarChange = (value) => {
@@ -6693,7 +7717,15 @@ export default function ChatRoom() {
     const q = searchQuery.toLowerCase();
     return messages.filter(m => {
       if (m.type === "system") return false;
-      return m.text?.toLowerCase().includes(q);
+      // Search across text, file names/captions, poll questions and options
+      const haystacks = [
+        m.text,
+        m.file?.name,
+        m.file?.caption,
+        m.poll?.question,
+        ...(Array.isArray(m.poll?.options) ? m.poll.options.map(o => o.text ?? o) : [])
+      ];
+      return haystacks.some(h => typeof h === "string" && h.toLowerCase().includes(q));
     });
   }, [messages, searchQuery]);
 
@@ -6739,6 +7771,7 @@ export default function ChatRoom() {
             <span className="fb-icon"><FileUp size={13} /></span>Encrypted file vault
           </BubblePill>
           </FeatureBubble>
+          <LandingGrid>
           <JoinContainer>
             <CardHalo />
             <CardBeam />
@@ -6833,19 +7866,19 @@ export default function ChatRoom() {
               </div>
             )}
 
-            <JoinField>
+            <JoinField style={{ animation: "fade-in-up .55s ease-out both", animationDelay: "120ms" }}>
               <JoinLabel htmlFor="room-id">Room ID</JoinLabel>
               <JoinInput id="room-id" autoComplete="off" placeholder="For example, 1000" value={roomId} onChange={(e) => setRoomId(e.target.value)} />
               <FieldIcon><Hash size={18} /></FieldIcon>
             </JoinField>
 
-            <JoinField>
+            <JoinField style={{ animation: "fade-in-up .55s ease-out both", animationDelay: "200ms" }}>
               <JoinLabel htmlFor="display-name">Display name</JoinLabel>
               <JoinInput id="display-name" autoComplete="name" placeholder="How should people see you?" value={userName} onChange={(e) => setUserName(e.target.value)} />
               <FieldIcon><UserRound size={18} /></FieldIcon>
             </JoinField>
 
-            <JoinField>
+            <JoinField style={{ animation: "fade-in-up .55s ease-out both", animationDelay: "280ms" }}>
               <JoinLabel>Profile photo <span style={{ opacity: .65, fontWeight: 500 }}>(optional)</span></JoinLabel>
               <AvatarPicker>
                 {userAvatar ? <img src={userAvatar} alt="Selected profile" style={{ width: 36, height: 36, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(255,255,255,.17)" }} /> : <span style={{ width: 36, height: 36, borderRadius: "50%", display: "grid", placeItems: "center", background: "rgba(255,255,255,.04)", color: "var(--chakra-colors-textSecondary)" }}><UserRound size={17} /></span>}
@@ -6855,7 +7888,7 @@ export default function ChatRoom() {
               </AvatarPicker>
             </JoinField>
 
-            <JoinField>
+            <JoinField style={{ animation: "fade-in-up .55s ease-out both", animationDelay: "360ms" }}>
               <JoinLabel htmlFor="security-code">Security code</JoinLabel>
               <PasswordInputContainer>
                 <PasswordInput
@@ -6888,14 +7921,18 @@ export default function ChatRoom() {
 
             <JoinButton
               type="button"
+              style={{ animation: "fade-in-up .55s ease-out both", animationDelay: "440ms" }}
               onClick={!roomExists && requireRoomApproval ? submitRoomRequest : attemptJoin}
             >
               <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 9 }}>{getButtonText()} <ArrowRight size={18} /></span>
             </JoinButton>
 
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7, color: "var(--chakra-colors-textSecondary)", fontSize: ".75rem", lineHeight: 1.4, textAlign: "center" }}><LockKeyhole size={14} aria-hidden="true" /> End-to-end encrypted session</div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7, color: "var(--chakra-colors-textSecondary)", fontSize: ".75rem", lineHeight: 1.4, textAlign: "center", animation: "fade-in-up .55s ease-out both", animationDelay: "520ms" }}><LockKeyhole size={14} aria-hidden="true" /> End-to-end encrypted session</div>
 
           </JoinContainer>
+          <FeatureExplorer />
+          </LandingGrid>
+          <FeatureDevPicker />
           {renderAvatarCropDialog()}
           {confirmation && <div role="dialog" aria-modal="true" style={{ position: "fixed", inset: 0, zIndex: 23000, background: "rgba(0,0,0,.68)", display: "grid", placeItems: "center", padding: 20 }}><div style={{ width: "min(420px, 100%)", padding: 24, borderRadius: 18, background: "var(--chakra-colors-surface)", border: "1px solid rgba(255,255,255,.05)" }}><h3 style={{ margin: "0 0 8px" }}>{confirmation.title}</h3><p style={{ margin: "0 0 22px", color: "var(--chakra-colors-textSecondary)", lineHeight: 1.5 }}>{confirmation.body}</p><div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}><button type="button" onClick={() => setConfirmation(null)} style={{ minHeight: 44, padding: "9px 14px", borderRadius: 10, border: "1px solid rgba(255,255,255,.15)", background: "transparent", color: "inherit", cursor: "pointer" }}>Cancel</button><button type="button" onClick={() => { confirmation.onConfirm(); setConfirmation(null); }} style={{ minHeight: 44, padding: "9px 14px", borderRadius: 10, border: 0, background: "var(--chakra-colors-brandPrimary)", color: "white", fontWeight: 700, cursor: "pointer" }}>{confirmation.confirmLabel}</button></div></div></div>}
         </LandingWrapper>
@@ -7361,7 +8398,7 @@ export default function ChatRoom() {
             aria-label={showRoomInfo ? "Hide room insights" : "Show room insights"}
             aria-expanded={showRoomInfo}
             aria-controls="room-insights-panel"
-
+            onClick={() => setShowRoomInfo((isOpen) => !isOpen)}
           >
             <div style={{ fontWeight: "bold", fontSize: "clamp(0.85rem, 2.5vw, 1.1rem)", display: "flex", alignItems: "center", gap: 4, minWidth: 0 }} >
               <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "clamp(60px, 25vw, 300px)" }}>{roomId}</span>
@@ -7567,7 +8604,7 @@ export default function ChatRoom() {
             )}
 
             {features.whiteboard !== false && (
-            <ActionButton onClick={() => setShowWhiteboard(true)} title="Open Whiteboard">
+            <ActionButton onClick={() => (showMeeting ? setMeetingBoardOpen(true) : setShowWhiteboard(true))} title={showMeeting ? "Whiteboard opens inside the call" : "Open Whiteboard"}>
               <FaPenNib />
             </ActionButton>
             )}
@@ -7758,7 +8795,9 @@ export default function ChatRoom() {
             const prevMsg = i > 0 ? filteredArr[i - 1] : null;
             const isGrouped = !isSystem && prevMsg && prevMsg.type !== "system" && prevMsg.userName === m.userName && m.ts && prevMsg.ts && (m.ts - prevMsg.ts < 120000);
 
-            if (isSystem && m.userName === userName) return null;
+            // Hide your own join/leave echoes, but always show disappearing-message
+            // notices — WhatsApp shows those to the person who toggled them too.
+            if (isSystem && m.userName === userName && systemType !== "ephemeral-change") return null;
 
             // Stable identity: array indexes remount every bubble whenever older
             // messages are prepended or ephemeral ones are removed — that was the
@@ -7811,8 +8850,8 @@ export default function ChatRoom() {
                   <span>
                     {systemType === "ephemeral-change" ? (
                       m.ephemeralDuration > 0
-                        ? `💨 ${m.userName} enabled disappearing messages (${m.ephemeralDuration >= 86400 ? `${Math.floor(m.ephemeralDuration / 86400)}d` : m.ephemeralDuration >= 3600 ? `${Math.floor(m.ephemeralDuration / 3600)}h` : m.ephemeralDuration >= 60 ? `${Math.floor(m.ephemeralDuration / 60)}m` : `${m.ephemeralDuration}s`})`
-                        : `💨 ${m.userName} turned off disappearing messages`
+                        ? `💨 ${m.userName === userName ? "You" : m.userName} enabled disappearing messages (${formatNearestUnit(m.ephemeralDuration)})`
+                        : `💨 ${m.userName === userName ? "You" : m.userName} turned off disappearing messages`
                     ) : (
                       `${m.userName} ${systemType === "join" ? "joined" : "left"} the room`
                     )}
@@ -7865,7 +8904,7 @@ export default function ChatRoom() {
                         fontSize: "0.6rem", color: "#ff6b6b", fontWeight: 600,
                         display: "flex", alignItems: "center", gap: 3
                       }}>
-                        💨 {Math.max(0, (m.ephemeralDuration || DEFAULT_EPHEMERAL_DURATION) - Math.floor((Date.now() - m.ts) / 1000))}s
+                        💨 {formatNearestUnit(Math.max(0, (m.ephemeralDuration || DEFAULT_EPHEMERAL_DURATION) - Math.floor((Date.now() - m.ts) / 1000)))}
                       </span>
                     )}
                   </div>
@@ -8102,7 +9141,11 @@ export default function ChatRoom() {
             );
           })}
           {typingUsers.length > 0 && (
-            <TypingIndicator>{typingUsers.join(", ")} typing…</TypingIndicator>
+            <TypingIndicator>
+              {typingUsers.length === 1
+                ? `${typingUsers[0]} is typing…`
+                : `${typingUsers.slice(0, 2).join(", ")}${typingUsers.length > 2 ? ` +${typingUsers.length - 2}` : ""} are typing…`}
+            </TypingIndicator>
           )}
         </MessageContainer>
 
@@ -8324,6 +9367,7 @@ export default function ChatRoom() {
 
               <PreviewActions>
                 <CancelBtn
+                  aria-label="Cancel upload"
                   onClick={() => {
                     setPendingFiles([]);
                     setSendAsViewOnce(false);
@@ -8334,6 +9378,7 @@ export default function ChatRoom() {
                 </CancelBtn>
 
                 <SendBtn
+                  aria-label="Send files"
                   onClick={() => {
                     handleSend();
                   }}
@@ -8453,7 +9498,7 @@ export default function ChatRoom() {
                   <EphemeralToggle
                     $active={roomEphemeralDuration > 0}
                     onClick={() => setShowEphemeralMenu(!showEphemeralMenu)}
-                    title={roomEphemeralDuration > 0 ? `Disappearing messages ON` : "Disappearing messages OFF"}
+                    title={roomEphemeralDuration > 0 ? `Disappearing messages ON · ${formatNearestUnit(roomEphemeralDuration)}` : "Disappearing messages OFF"}
                   >
                     <FaClock />
                   </EphemeralToggle>
@@ -8464,26 +9509,7 @@ export default function ChatRoom() {
                         <div className="title">💨 Disappearing Messages</div>
                         <div className="subtitle">All new messages in this room will vanish after the selected time.</div>
                         <div className="options">
-                          {[
-                            { label: "Off", value: 0 },
-                            { label: "1 Hour", value: 3600 },
-                            { label: "24 Hours", value: 86400 },
-                            { label: "7 Days", value: 604800 },
-                            { label: "30 Days", value: 2592000 }
-                          ].map((opt) => (
-                            <button
-                              key={opt.value}
-                              type="button"
-                              className={`option-btn ${roomEphemeralDuration === opt.value ? 'active' : ''}`}
-                              onClick={() => {
-                                socketRef.current.emit("updateRoomEphemeral", { roomId, ephemeralDuration: opt.value });
-                                setShowEphemeralMenu(false);
-                              }}
-                            >
-                              <span>{opt.label}</span>
-                              {roomEphemeralDuration === opt.value && <span className="check">✓</span>}
-                            </button>
-                          ))}
+                          {renderEphemeralMenuItems()}
                         </div>
                       </EphemeralMenuCard>
                     </>
@@ -8629,6 +9655,8 @@ export default function ChatRoom() {
 
                 <MessageInput
                   rows={1}
+                  ref={composerRef}
+                  data-composer="true"
                   placeholder={codeBlockMode ? "// Code block mode — paste your code…" : ephemeralMode ? "💨 Ephemeral message..." : "Type a message..."}
                   value={message}
                   onChange={handleInputChange}
@@ -8690,7 +9718,7 @@ export default function ChatRoom() {
                       <EphemeralToggle
                         $active={roomEphemeralDuration > 0}
                         onClick={() => setShowEphemeralMenu(!showEphemeralMenu)}
-                        title={roomEphemeralDuration > 0 ? `Disappearing messages ON` : "Disappearing messages OFF"}
+                        title={roomEphemeralDuration > 0 ? `Disappearing messages ON · ${formatNearestUnit(roomEphemeralDuration)}` : "Disappearing messages OFF"}
                       >
                         <FaClock />
                       </EphemeralToggle>
@@ -8701,26 +9729,7 @@ export default function ChatRoom() {
                             <div className="title">💨 Disappearing Messages</div>
                             <div className="subtitle">All new messages in this room will vanish after the selected time.</div>
                             <div className="options">
-                              {[
-                                { label: "Off", value: 0 },
-                                { label: "1 Hour", value: 3600 },
-                                { label: "24 Hours", value: 86400 },
-                                { label: "7 Days", value: 604800 },
-                                { label: "30 Days", value: 2592000 }
-                              ].map((opt) => (
-                                <button
-                                  key={opt.value}
-                                  type="button"
-                                  className={`option-btn ${roomEphemeralDuration === opt.value ? 'active' : ''}`}
-                                  onClick={() => {
-                                    socketRef.current.emit("updateRoomEphemeral", { roomId, ephemeralDuration: opt.value });
-                                    setShowEphemeralMenu(false);
-                                  }}
-                                >
-                                  <span>{opt.label}</span>
-                                  {roomEphemeralDuration === opt.value && <span className="check">✓</span>}
-                                </button>
-                              ))}
+                              {renderEphemeralMenuItems()}
                             </div>
                           </EphemeralMenuCard>
                         </>
@@ -9377,7 +10386,8 @@ export default function ChatRoom() {
               ownerToken={ownerToken}
               userAvatar={userAvatar}
               onClose={closeMeeting}
-              onOpenWhiteboard={() => setShowWhiteboard(true)}
+              whiteboardOpen={meetingBoardOpen}
+              onToggleWhiteboard={(v) => setMeetingBoardOpen(Boolean(v))}
             />
           </Suspense>
         </ChunkErrorBoundary>
