@@ -268,11 +268,11 @@ img, video, canvas, svg {
 /* Phones — comfortable controls (focus-zoom prevented via viewport maximum-scale) */
 @media (max-width: 600px) {
   html {
-    font-size: 11px;
+    font-size: 13.5px;
   }
 
   body {
-    font-size: 0.9rem;
+    font-size: 0.95rem;
   }
 
   h1 {
@@ -296,11 +296,11 @@ img, video, canvas, svg {
   p,
   label,
   small {
-    font-size: 0.85rem;
+    font-size: 0.95rem;
   }
 
   button {
-    font-size: 0.8rem !important;
+    font-size: 0.85rem !important;
     padding: 6px 10px !important;
     min-height: 30px;
   }
@@ -308,7 +308,7 @@ img, video, canvas, svg {
   input,
   select,
   textarea {
-    font-size: 0.8rem !important;
+    font-size: 0.85rem !important;
     min-height: 32px !important;
     padding: 6px 8px !important;
   }
@@ -323,21 +323,21 @@ img, video, canvas, svg {
   }
 
   .chakra-link-chip {
-    font-size: 0.65rem;
+    font-size: 0.75rem;
     padding: 3px 8px;
   }
 }
 
 @media (max-width: 360px) {
   html {
-    font-size: 10px;
+    font-size: 12px;
   }
   :root {
     --resp-gap: 6px;
   }
 
   button {
-    font-size: 0.75rem !important;
+    font-size: 0.85rem !important;
     padding: 5px 8px !important;
     min-height: 28px;
   }
@@ -345,14 +345,14 @@ img, video, canvas, svg {
   input,
   select,
   textarea {
-    font-size: 0.75rem !important;
+    font-size: 0.85rem !important;
     min-height: 30px !important;
     padding: 5px 7px !important;
   }
 
   p,
   label {
-    font-size: 0.78rem;
+    font-size: 0.9rem;
   }
 }
 
@@ -472,7 +472,7 @@ img, video, canvas, svg {
     width: auto;
     margin: 8px 10px;
     border-radius: 13px;
-    font-size: 0.7rem;
+    font-size: 0.8rem;
   }
   .Toastify__toast-container {
     padding: 0 2px;
