@@ -501,49 +501,59 @@ const TourPanel = styled.div`
    tour, copy the selection, share it back. Remove before ship.
    ══════════════════════════════════════════════════════════ */
 const DEV_PICKER_GROUPS = [
-  { group: "Messaging core", items: [
-    "End-to-end encrypted chat",
-    "Vanishing messages (Off / 1h / 24h / 7d / 30d)",
-    "View-once photos & videos",
-    "Reply · Edit · Delete for everyone · Forward · Copy",
-    "Emoji reactions",
-    "Typing indicators + read receipts",
-    "@mentions with autocomplete",
-    "Polls & live voting",
-    "Message search & pinned messages",
-    "Scheduled messages",
-    "Voice message recording",
-    "GIF picker + code blocks + link previews",
-    "Chat export as HTML"
-  ] },
-  { group: "Files & media", items: [
-    "Encrypted vault — any file type, encrypted on device",
-    "Realtime large-file relay (>100MB, no storage cap)",
-    "Universal viewer: PDF, docs, audio/video, PiP",
-    "Gallery ‹ › navigation between shared media"
-  ] },
-  { group: "Calls & meetings", items: [
-    "HD group video calls (grid / spotlight / theater)",
-    "Voice-only calls",
-    "Screen sharing",
-    "Video beauty filters",
-    "Voice changer",
-    "Call recording",
-    "Floating emoji reactions in-call",
-    "Watch parties — synced co-watch streams",
-    "Collaborative whiteboard"
-  ] },
-  { group: "Rooms & privacy", items: [
-    "No accounts, no phone numbers",
-    "Per-room security codes",
-    "Stealth mode",
-    "Custom room backgrounds (+ owner lock)",
-    "Online presence list"
-  ] },
-  { group: "Admin", items: [
-    "Admin dashboard — approve/reject rooms",
-    "In-room owner controls — kick, mute, destroy"
-  ] }
+  {
+    group: "Messaging core", items: [
+      "End-to-end encrypted chat",
+      "Vanishing messages (Off / 1h / 24h / 7d / 30d)",
+      "View-once photos & videos",
+      "Reply · Edit · Delete for everyone · Forward · Copy",
+      "Emoji reactions",
+      "Typing indicators + read receipts",
+      "@mentions with autocomplete",
+      "Polls & live voting",
+      "Message search & pinned messages",
+      "Scheduled messages",
+      "Voice message recording",
+      "GIF picker + code blocks + link previews",
+      "Chat export as HTML"
+    ]
+  },
+  {
+    group: "Files & media", items: [
+      "Encrypted vault — any file type, encrypted on device",
+      "Realtime large-file relay (>100MB, no storage cap)",
+      "Universal viewer: PDF, docs, audio/video, PiP",
+      "Gallery ‹ › navigation between shared media"
+    ]
+  },
+  {
+    group: "Calls & meetings", items: [
+      "HD group video calls (grid / spotlight / theater)",
+      "Voice-only calls",
+      "Screen sharing",
+      "Video beauty filters",
+      "Voice changer",
+      "Call recording",
+      "Floating emoji reactions in-call",
+      "Watch parties — synced co-watch streams",
+      "Collaborative whiteboard"
+    ]
+  },
+  {
+    group: "Rooms & privacy", items: [
+      "No accounts, no phone numbers",
+      "Per-room security codes",
+      "Stealth mode",
+      "Custom room backgrounds (+ owner lock)",
+      "Online presence list"
+    ]
+  },
+  {
+    group: "Admin", items: [
+      "Admin dashboard — approve/reject rooms",
+      "In-room owner controls — kick, mute, destroy"
+    ]
+  }
 ];
 
 /* Verification badges shown on the right of each feature:
@@ -602,7 +612,7 @@ function FeatureDevPicker() {
       const ta = document.createElement("textarea");
       ta.value = text; ta.style.position = "fixed"; ta.style.top = "-9999px";
       document.body.appendChild(ta); ta.select();
-      try { document.execCommand("copy"); } catch {}
+      try { document.execCommand("copy"); } catch { }
       ta.remove();
     }
     toast.success(`Copied ${sel.size} feature${sel.size === 1 ? "" : "s"} — paste it in the chat`);
@@ -908,20 +918,20 @@ const ActionButton = styled.button`
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
   }
 
-  @media (max-width: 480px) {
-    /* Mobile tap targets must be BIGGER, not smaller — 40px ≈ HIG/Material minimums */
-    min-width: 40px;
-    min-height: 40px;
-    font-size: 0.95rem;
-    border-radius: 9px;
-  }
+  // @media (max-width: 480px) {
+  //   /* Mobile tap targets must be BIGGER, not smaller — 40px ≈ HIG/Material minimums */
+  //   min-width: 32px;
+  //   min-height: 40px;
+  //   font-size: 0.95rem;
+  //   border-radius: 9px;
+  // }
 
-  @media (max-width: 375px) {
-    min-width: 38px;
-    min-height: 38px;
-    font-size: 0.9rem;
-    border-radius: 7px;
-  }
+  // @media (max-width: 375px) {
+  //   min-width: 38px;
+  //   min-height: 38px;
+  //   font-size: 0.9rem;
+  //   border-radius: 7px;
+  // }
 `;
 
 const MessageContainer = styled.div`
@@ -3461,7 +3471,7 @@ function LinkPreviewCard({ url, renderLinkActions }) {
 
   // Deterministic brand gradient from the hostname — every domain gets its own hue
   let host = "link";
-  try { host = new URL(url).hostname.replace(/^www\./, ""); } catch (e) {}
+  try { host = new URL(url).hostname.replace(/^www\./, ""); } catch (e) { }
   let hash = 0;
   for (let i = 0; i < host.length; i++) hash = (hash * 31 + host.charCodeAt(i)) >>> 0;
   const hue = hash % 360;
@@ -3950,8 +3960,8 @@ const UploadProgressCard = ({ file, isMobile }) => {
 
   const statusText =
     phase === "encrypting" ? "Getting ready…" :
-    phase === "finalizing" ? "Finishing up…" :
-    "Sending";
+      phase === "finalizing" ? "Finishing up…" :
+        "Sending";
 
   // Live ETA from measured transfer speed
   let etaText = "";
@@ -4357,33 +4367,33 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile, setViewer 
           fetchUrl = `${backendUrl}/api/proxy-file?url=${encodeURIComponent(file.url)}`;
         }
 
-      const res = await fetch(fetchUrl);
-      if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
-      const encryptedBuffer = await res.arrayBuffer();
+        const res = await fetch(fetchUrl);
+        if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
+        const encryptedBuffer = await res.arrayBuffer();
 
-      if (encryptedBuffer.byteLength === 0) {
-        throw new Error("Received empty response from server.");
-      }
+        if (encryptedBuffer.byteLength === 0) {
+          throw new Error("Received empty response from server.");
+        }
 
-      const ivBytes = new Uint8Array(
-        atob(file.iv)
-          .split("")
-          .map(c => c.charCodeAt(0))
-      );
+        const ivBytes = new Uint8Array(
+          atob(file.iv)
+            .split("")
+            .map(c => c.charCodeAt(0))
+        );
 
-      let decryptionKey = roomKey;
-      if (file.keyB64) {
-        decryptionKey = await importKey(file.keyB64);
-      }
+        let decryptionKey = roomKey;
+        if (file.keyB64) {
+          decryptionKey = await importKey(file.keyB64);
+        }
 
-      if (!decryptionKey) {
-        throw new Error("No decryption key available.");
-      }
+        if (!decryptionKey) {
+          throw new Error("No decryption key available.");
+        }
 
-      const decryptedBuffer = await decryptBinary(decryptionKey, {
-        iv: ivBytes,
-        data: encryptedBuffer
-      });
+        const decryptedBuffer = await decryptBinary(decryptionKey, {
+          iv: ivBytes,
+          data: encryptedBuffer
+        });
 
         const blob = new Blob([decryptedBuffer], { type: file.type || "application/octet-stream" });
         const objectUrl = URL.createObjectURL(blob);
@@ -4394,23 +4404,23 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile, setViewer 
           lastDecryptedSourceUrlRef.current = file.url;
           setLoading(false);
         }
-    } catch (err) {
-      console.error("File decryption failed:", err.message || err);
-      console.error("  file.url:", file?.url);
-      console.error("  file.iv present:", !!file?.iv, "  iv length:", file?.iv?.length);
-      console.error("  file.keyB64 present:", !!file?.keyB64);
-      console.error("  roomKey present:", !!roomKey);
-      // Proxy unreachable (deploy gap) → one direct-URL retry before surfacing the error card
-      if (active && !bypassProxyRef.current) {
-        bypassProxyRef.current = true;
-        decrypt(true);
-        return;
+      } catch (err) {
+        console.error("File decryption failed:", err.message || err);
+        console.error("  file.url:", file?.url);
+        console.error("  file.iv present:", !!file?.iv, "  iv length:", file?.iv?.length);
+        console.error("  file.keyB64 present:", !!file?.keyB64);
+        console.error("  roomKey present:", !!roomKey);
+        // Proxy unreachable (deploy gap) → one direct-URL retry before surfacing the error card
+        if (active && !bypassProxyRef.current) {
+          bypassProxyRef.current = true;
+          decrypt(true);
+          return;
+        }
+        if (active) {
+          setError(true);
+          setLoading(false);
+        }
       }
-      if (active) {
-        setError(true);
-        setLoading(false);
-      }
-    }
     };
 
     decrypt();
@@ -4760,7 +4770,7 @@ export default function ChatRoom() {
         ta.style.opacity = "0";
         document.body.appendChild(ta);
         ta.select();
-        try { document.execCommand("copy"); } catch (e) {}
+        try { document.execCommand("copy"); } catch (e) { }
         document.body.removeChild(ta);
         done();
         notify();
@@ -5302,7 +5312,7 @@ export default function ChatRoom() {
       .then((data) => {
         if (!cancelled && data.features) setFeatures((prev) => ({ ...prev, ...data.features }));
       })
-      .catch(() => {});
+      .catch(() => { });
     return () => { cancelled = true; };
   }, [backendUrl]);
 
@@ -5935,13 +5945,13 @@ export default function ChatRoom() {
         try {
           const decryptedText = await decryptMessage(rk, formattedMsg.encryptedPayload);
           try {
-          const decryptedPayload = JSON.parse(decryptedText);
-          Object.assign(formattedMsg, decryptedPayload);
-          // Background-synced files: prefer the upgraded outer URL over the stale local one inside encryptedPayload
-          if (formattedMsg.file?.url?.includes("/uploads/") && msg.file?.url && !msg.file.url.includes("/uploads/")) {
-            formattedMsg.file = { ...formattedMsg.file, url: msg.file.url };
-          }
-        } catch {
+            const decryptedPayload = JSON.parse(decryptedText);
+            Object.assign(formattedMsg, decryptedPayload);
+            // Background-synced files: prefer the upgraded outer URL over the stale local one inside encryptedPayload
+            if (formattedMsg.file?.url?.includes("/uploads/") && msg.file?.url && !msg.file.url.includes("/uploads/")) {
+              formattedMsg.file = { ...formattedMsg.file, url: msg.file.url };
+            }
+          } catch {
             formattedMsg.text = decryptedText;
           }
         } catch (e) {
@@ -6171,13 +6181,13 @@ export default function ChatRoom() {
         try {
           const decryptedText = await decryptMessage(rk, newPayload.encryptedPayload);
           try {
-          const decryptedPayload = JSON.parse(decryptedText);
-          Object.assign(formatted, decryptedPayload);
-          // Background-synced files: prefer the upgraded outer URL over the stale local one inside encryptedPayload
-          if (formatted.file?.url?.includes("/uploads/") && newPayload.file?.url && !newPayload.file.url.includes("/uploads/")) {
-            formatted.file = { ...formatted.file, url: newPayload.file.url };
-          }
-        } catch {
+            const decryptedPayload = JSON.parse(decryptedText);
+            Object.assign(formatted, decryptedPayload);
+            // Background-synced files: prefer the upgraded outer URL over the stale local one inside encryptedPayload
+            if (formatted.file?.url?.includes("/uploads/") && newPayload.file?.url && !newPayload.file.url.includes("/uploads/")) {
+              formatted.file = { ...formatted.file, url: newPayload.file.url };
+            }
+          } catch {
             formatted.text = decryptedText;
           }
         } catch (e) {
@@ -6399,7 +6409,7 @@ export default function ChatRoom() {
 
       // Scrub the relay chunks from history — the transfer happened, not the record.
       sentIds.forEach((mid, i) => setTimeout(() => {
-        socketRef.current.emit("deleteOwnMessage", { messageId: mid, roomId }, () => {});
+        socketRef.current.emit("deleteOwnMessage", { messageId: mid, roomId }, () => { });
       }, i * 40));
 
       const localUrl = previewUrl || URL.createObjectURL(file);
@@ -7875,190 +7885,190 @@ export default function ChatRoom() {
             background: "radial-gradient(ellipse at 50% 40%, transparent 34%, rgba(6,8,14,.16) 74%, rgba(6,8,14,.3) 100%)"
           }} />
           <FeatureBubble $x="5%" $y="20%" $depth={33} $delay={0.05}>
-            <BubblePill $tint="#818cf8" $dur={9} $delay={0.05}$alt>
-            <span className="fb-icon"><LockKeyhole size={13} /></span>End-to-end encrypted
-          </BubblePill>
+            <BubblePill $tint="#818cf8" $dur={9} $delay={0.05} $alt>
+              <span className="fb-icon"><LockKeyhole size={13} /></span>End-to-end encrypted
+            </BubblePill>
           </FeatureBubble>
           <FeatureBubble $x="83%" $y="13%" $depth={44} $delay={0.15}>
-            <BubblePill $tint="#fb7185" $dur={11} $delay={0.15}$alt>
-            <span className="fb-icon"><Timer size={13} /></span>Disappearing messages
-          </BubblePill>
+            <BubblePill $tint="#fb7185" $dur={11} $delay={0.15} $alt>
+              <span className="fb-icon"><Timer size={13} /></span>Disappearing messages
+            </BubblePill>
           </FeatureBubble>
           <FeatureBubble $x="86%" $y="45%" $depth={55} $delay={0.3}>
-            <BubblePill $tint="#22d3ee" $dur={8} $delay={0.3}$alt>
-            <span className="fb-icon"><Video size={13} /></span>HD video calls
-          </BubblePill>
+            <BubblePill $tint="#22d3ee" $dur={8} $delay={0.3} $alt>
+              <span className="fb-icon"><Video size={13} /></span>HD video calls
+            </BubblePill>
           </FeatureBubble>
           <FeatureBubble $x="77%" $y="77%" $depth={22} $delay={0.6}>
-            <BubblePill $tint="#fbbf24" $dur={12} $delay={0.6}$alt>
-            <span className="fb-icon"><MonitorUp size={13} /></span>Screen sharing
-          </BubblePill>
+            <BubblePill $tint="#fbbf24" $dur={12} $delay={0.6} $alt>
+              <span className="fb-icon"><MonitorUp size={13} /></span>Screen sharing
+            </BubblePill>
           </FeatureBubble>
           <FeatureBubble $x="11%" $y="84%" $depth={33} $delay={0.75} $hideSm>
-            <BubblePill $tint="#a78bfa" $dur={9.5} $delay={0.75}$alt>
-            <span className="fb-icon"><FileUp size={13} /></span>Encrypted file vault
-          </BubblePill>
+            <BubblePill $tint="#a78bfa" $dur={9.5} $delay={0.75} $alt>
+              <span className="fb-icon"><FileUp size={13} /></span>Encrypted file vault
+            </BubblePill>
           </FeatureBubble>
           <LandingGrid>
-               <FeatureExplorer />
-          <JoinContainer>
-            <CardHalo />
-            <CardBeam />
-            <div style={{ textAlign: "center", marginBottom: 4 }}>
-              <div style={{
-                display: "inline-flex",
-                background: "rgba(255, 63, 94, 0.10)",
-                border: "1px solid rgba(255, 63, 94, 0.30)",
-                boxShadow: "0 0 0 5px rgba(255,63,94,.04), 0 8px 20px rgba(0,0,0,.18)",
-                padding: 11,
-                borderRadius: 14,
-                marginBottom: 12
-              }}>
-                <ShieldCheck size={24} strokeWidth={2.2} color="var(--chakra-colors-brandPrimary)" />
-              </div>
-              <div style={{ color: "var(--chakra-colors-brandPrimary)", fontSize: ".67rem", fontWeight: 850, letterSpacing: ".13em", textTransform: "uppercase", marginBottom: 6 }}>Private workspace</div>
-              <h2 style={{ color: "var(--chakra-colors-textPrimary)", margin: 0, fontSize: "clamp(1.35rem, 3.5vw, 1.7rem)", fontWeight: 800, letterSpacing: "-.04em" }}>
-                <ShimmerTitle>{roomId.trim() ? `Join room ${roomId.trim()}` : "Join a secure room"}</ShimmerTitle>
-              </h2>
-              <p style={{ color: "var(--chakra-colors-textSecondary)", fontSize: "clamp(.8rem, 1.8vw, .88rem)", margin: "8px auto 0", maxWidth: 290, lineHeight: 1.5 }}>
-                {roomId.trim()
-                  ? "You've been invited. Enter your details to join this encrypted room."
-                  : "No names. No traces. Just conversation — sealed on your device before it ever leaves."}
-              </p>
-            </div>
-
-            {requireRoomApproval && !roomRequestPending && !showApprovalConfirm && (
-              <div style={{
-                padding: "8px 10px",
-                borderRadius: 8,
-                border: "1px solid rgba(255, 183, 3, 0.25)",
-                background: "rgba(255, 183, 3, 0.05)",
-                color: "var(--chakra-colors-textSecondary)",
-                fontSize: "0.74rem",
-                lineHeight: 1.4,
-              }}>
-                <span style={{ color: "#ffb703", fontWeight: 700 }}>Note:</span> New rooms require admin approval before creation.
-              </div>
-            )}
-
-            {roomRequestPending && (
-              <div style={{
-                padding: "10px 12px",
-                borderRadius: 9,
-                border: "1px solid rgba(76, 201, 240, 0.25)",
-                background: "rgba(76, 201, 240, 0.06)",
-                textAlign: "center",
-              }}>
-                <div style={{ fontWeight: 800, marginBottom: 2, color: "var(--chakra-colors-brandPrimary)", fontSize: "0.82rem" }}>Request pending</div>
-                <div style={{ fontSize: "0.76rem", color: "var(--chakra-colors-textSecondary)", lineHeight: 1.4 }}>
-                  Waiting for admin approval{pendingRequestId ? ` (${pendingRequestId.slice(0, 8)}…)` : ""}. You'll be notified here.
+            <FeatureExplorer />
+            <JoinContainer>
+              <CardHalo />
+              <CardBeam />
+              <div style={{ textAlign: "center", marginBottom: 4 }}>
+                <div style={{
+                  display: "inline-flex",
+                  background: "rgba(255, 63, 94, 0.10)",
+                  border: "1px solid rgba(255, 63, 94, 0.30)",
+                  boxShadow: "0 0 0 5px rgba(255,63,94,.04), 0 8px 20px rgba(0,0,0,.18)",
+                  padding: 11,
+                  borderRadius: 14,
+                  marginBottom: 12
+                }}>
+                  <ShieldCheck size={24} strokeWidth={2.2} color="var(--chakra-colors-brandPrimary)" />
                 </div>
+                <div style={{ color: "var(--chakra-colors-brandPrimary)", fontSize: ".67rem", fontWeight: 850, letterSpacing: ".13em", textTransform: "uppercase", marginBottom: 6 }}>Private workspace</div>
+                <h2 style={{ color: "var(--chakra-colors-textPrimary)", margin: 0, fontSize: "clamp(1.35rem, 3.5vw, 1.7rem)", fontWeight: 800, letterSpacing: "-.04em" }}>
+                  <ShimmerTitle>{roomId.trim() ? `Join room ${roomId.trim()}` : "Join a secure room"}</ShimmerTitle>
+                </h2>
+                <p style={{ color: "var(--chakra-colors-textSecondary)", fontSize: "clamp(.8rem, 1.8vw, .88rem)", margin: "8px auto 0", maxWidth: 290, lineHeight: 1.5 }}>
+                  {roomId.trim()
+                    ? "You've been invited. Enter your details to join this encrypted room."
+                    : "No names. No traces. Just conversation — sealed on your device before it ever leaves."}
+                </p>
               </div>
-            )}
 
-            {showApprovalConfirm && (
-              <div style={{
-                padding: "12px",
-                borderRadius: 10,
-                border: "1px solid rgba(255,183,3,0.25)",
-                background: "rgba(255,183,3,0.04)",
-                display: "flex",
-                flexDirection: "column",
-                gap: 10,
-              }}>
-                <div style={{ fontWeight: 800, fontSize: "0.85rem", color: "#ffb703" }}>Room Creation Approval</div>
-                <div style={{ fontSize: "0.76rem", color: "var(--chakra-colors-textSecondary)", lineHeight: 1.45 }}>
-                  Room <strong>{roomId}</strong> does not exist yet. Submit a creation request using your display name and security code?
+              {requireRoomApproval && !roomRequestPending && !showApprovalConfirm && (
+                <div style={{
+                  padding: "8px 10px",
+                  borderRadius: 8,
+                  border: "1px solid rgba(255, 183, 3, 0.25)",
+                  background: "rgba(255, 183, 3, 0.05)",
+                  color: "var(--chakra-colors-textSecondary)",
+                  fontSize: "0.74rem",
+                  lineHeight: 1.4,
+                }}>
+                  <span style={{ color: "#ffb703", fontWeight: 700 }}>Note:</span> New rooms require admin approval before creation.
                 </div>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <button
-                    type="button"
-                    onClick={() => setShowApprovalConfirm(false)}
-                    style={{
-                      flex: 1, minHeight: 34, borderRadius: 8, border: "1px solid rgba(255,255,255,0.07)",
-                      background: "transparent", color: "inherit", cursor: "pointer", fontSize: "0.78rem"
-                    }}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={submitRoomRequest}
-                    style={{
-                      flex: 1, minHeight: 34, borderRadius: 8, border: 0,
-                      background: "var(--chakra-colors-brandPrimary)", color: "white", fontWeight: 700, cursor: "pointer", fontSize: "0.78rem"
-                    }}
-                  >
-                    Request
-                  </button>
+              )}
+
+              {roomRequestPending && (
+                <div style={{
+                  padding: "10px 12px",
+                  borderRadius: 9,
+                  border: "1px solid rgba(76, 201, 240, 0.25)",
+                  background: "rgba(76, 201, 240, 0.06)",
+                  textAlign: "center",
+                }}>
+                  <div style={{ fontWeight: 800, marginBottom: 2, color: "var(--chakra-colors-brandPrimary)", fontSize: "0.82rem" }}>Request pending</div>
+                  <div style={{ fontSize: "0.76rem", color: "var(--chakra-colors-textSecondary)", lineHeight: 1.4 }}>
+                    Waiting for admin approval{pendingRequestId ? ` (${pendingRequestId.slice(0, 8)}…)` : ""}. You'll be notified here.
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            <JoinField style={{ animation: "fade-in-up .55s ease-out both", animationDelay: "120ms" }}>
-              <JoinLabel htmlFor="room-id">Room ID</JoinLabel>
-              <JoinInput id="room-id" autoComplete="off" placeholder="For example, 1000" value={roomId} onChange={(e) => setRoomId(e.target.value)} />
-              <FieldIcon><Hash size={18} /></FieldIcon>
-            </JoinField>
+              {showApprovalConfirm && (
+                <div style={{
+                  padding: "12px",
+                  borderRadius: 10,
+                  border: "1px solid rgba(255,183,3,0.25)",
+                  background: "rgba(255,183,3,0.04)",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 10,
+                }}>
+                  <div style={{ fontWeight: 800, fontSize: "0.85rem", color: "#ffb703" }}>Room Creation Approval</div>
+                  <div style={{ fontSize: "0.76rem", color: "var(--chakra-colors-textSecondary)", lineHeight: 1.45 }}>
+                    Room <strong>{roomId}</strong> does not exist yet. Submit a creation request using your display name and security code?
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button
+                      type="button"
+                      onClick={() => setShowApprovalConfirm(false)}
+                      style={{
+                        flex: 1, minHeight: 34, borderRadius: 8, border: "1px solid rgba(255,255,255,0.07)",
+                        background: "transparent", color: "inherit", cursor: "pointer", fontSize: "0.78rem"
+                      }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={submitRoomRequest}
+                      style={{
+                        flex: 1, minHeight: 34, borderRadius: 8, border: 0,
+                        background: "var(--chakra-colors-brandPrimary)", color: "white", fontWeight: 700, cursor: "pointer", fontSize: "0.78rem"
+                      }}
+                    >
+                      Request
+                    </button>
+                  </div>
+                </div>
+              )}
 
-            <JoinField style={{ animation: "fade-in-up .55s ease-out both", animationDelay: "200ms" }}>
-              <JoinLabel htmlFor="display-name">Display name</JoinLabel>
-              <JoinInput id="display-name" autoComplete="name" placeholder="How should people see you?" value={userName} onChange={(e) => setUserName(e.target.value)} />
-              <FieldIcon><UserRound size={18} /></FieldIcon>
-            </JoinField>
+              <JoinField style={{ animation: "fade-in-up .55s ease-out both", animationDelay: "120ms" }}>
+                <JoinLabel htmlFor="room-id">Room ID</JoinLabel>
+                <JoinInput id="room-id" autoComplete="off" placeholder="For example, 1000" value={roomId} onChange={(e) => setRoomId(e.target.value)} />
+                <FieldIcon><Hash size={18} /></FieldIcon>
+              </JoinField>
 
-            <JoinField style={{ animation: "fade-in-up .55s ease-out both", animationDelay: "280ms" }}>
-              <JoinLabel>Profile photo <span style={{ opacity: .65, fontWeight: 500 }}>(optional)</span></JoinLabel>
-              <AvatarPicker>
-                {userAvatar ? <img src={userAvatar} alt="Selected profile" style={{ width: 36, height: 36, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(255,255,255,.17)" }} /> : <span style={{ width: 36, height: 36, borderRadius: "50%", display: "grid", placeItems: "center", background: "rgba(255,255,255,.04)", color: "var(--chakra-colors-textSecondary)" }}><UserRound size={17} /></span>}
-                <span style={{ minWidth: 0, flex: 1 }}><span style={{ display: "block", fontWeight: 750, fontSize: ".82rem" }}>{userAvatar ? "Photo selected" : "Add a profile photo"}</span><span style={{ display: "block", marginTop: 1, fontSize: ".7rem", color: "var(--chakra-colors-textSecondary)" }}>Any image · crop and optimise before sharing</span></span>
-                <Upload size={16} aria-hidden="true" color="var(--chakra-colors-brandPrimary)" />
-                <input type="file" accept="image/*" hidden onChange={(e) => openAvatarCrop(e.target.files?.[0])} />
-              </AvatarPicker>
-            </JoinField>
+              <JoinField style={{ animation: "fade-in-up .55s ease-out both", animationDelay: "200ms" }}>
+                <JoinLabel htmlFor="display-name">Display name</JoinLabel>
+                <JoinInput id="display-name" autoComplete="name" placeholder="How should people see you?" value={userName} onChange={(e) => setUserName(e.target.value)} />
+                <FieldIcon><UserRound size={18} /></FieldIcon>
+              </JoinField>
 
-            <JoinField style={{ animation: "fade-in-up .55s ease-out both", animationDelay: "360ms" }}>
-              <JoinLabel htmlFor="security-code">Security code</JoinLabel>
-              <PasswordInputContainer>
-                <PasswordInput
-                  id="security-code"
-                  type={showPassword ? "text" : "password"}
-                  autoComplete="current-password"
-                  placeholder="Enter the room security code"
-                  value={securityCode}
-                  onChange={(e) => setSecurityCode(e.target.value)}
-                  onKeyDown={async (e) => {
-                    if (e.key === "Enter") {
-                      if (!roomExists && requireRoomApproval) {
-                        submitRoomRequest();
-                      } else {
-                        await attemptJoin();
+              <JoinField style={{ animation: "fade-in-up .55s ease-out both", animationDelay: "280ms" }}>
+                <JoinLabel>Profile photo <span style={{ opacity: .65, fontWeight: 500 }}>(optional)</span></JoinLabel>
+                <AvatarPicker>
+                  {userAvatar ? <img src={userAvatar} alt="Selected profile" style={{ width: 36, height: 36, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(255,255,255,.17)" }} /> : <span style={{ width: 36, height: 36, borderRadius: "50%", display: "grid", placeItems: "center", background: "rgba(255,255,255,.04)", color: "var(--chakra-colors-textSecondary)" }}><UserRound size={17} /></span>}
+                  <span style={{ minWidth: 0, flex: 1 }}><span style={{ display: "block", fontWeight: 750, fontSize: ".82rem" }}>{userAvatar ? "Photo selected" : "Add a profile photo"}</span><span style={{ display: "block", marginTop: 1, fontSize: ".7rem", color: "var(--chakra-colors-textSecondary)" }}>Any image · crop and optimise before sharing</span></span>
+                  <Upload size={16} aria-hidden="true" color="var(--chakra-colors-brandPrimary)" />
+                  <input type="file" accept="image/*" hidden onChange={(e) => openAvatarCrop(e.target.files?.[0])} />
+                </AvatarPicker>
+              </JoinField>
+
+              <JoinField style={{ animation: "fade-in-up .55s ease-out both", animationDelay: "360ms" }}>
+                <JoinLabel htmlFor="security-code">Security code</JoinLabel>
+                <PasswordInputContainer>
+                  <PasswordInput
+                    id="security-code"
+                    type={showPassword ? "text" : "password"}
+                    autoComplete="current-password"
+                    placeholder="Enter the room security code"
+                    value={securityCode}
+                    onChange={(e) => setSecurityCode(e.target.value)}
+                    onKeyDown={async (e) => {
+                      if (e.key === "Enter") {
+                        if (!roomExists && requireRoomApproval) {
+                          submitRoomRequest();
+                        } else {
+                          await attemptJoin();
+                        }
                       }
-                    }
-                  }}
-                />
-                <EyeButton
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  aria-label={showPassword ? "Hide security code" : "Show security code"}
-                >
-                  {showPassword ? <FaEyeSlash /> : <FaEye />}
-                </EyeButton>
-              </PasswordInputContainer>
-              <FieldIcon><KeyRound size={18} /></FieldIcon>
-            </JoinField>
+                    }}
+                  />
+                  <EyeButton
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? "Hide security code" : "Show security code"}
+                  >
+                    {showPassword ? <FaEyeSlash /> : <FaEye />}
+                  </EyeButton>
+                </PasswordInputContainer>
+                <FieldIcon><KeyRound size={18} /></FieldIcon>
+              </JoinField>
 
-            <JoinButton
-              type="button"
-              style={{ animation: "fade-in-up .55s ease-out both", animationDelay: "440ms" }}
-              onClick={!roomExists && requireRoomApproval ? submitRoomRequest : attemptJoin}
-            >
-              <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 9 }}>{getButtonText()} <ArrowRight size={18} /></span>
-            </JoinButton>
+              <JoinButton
+                type="button"
+                style={{ animation: "fade-in-up .55s ease-out both", animationDelay: "440ms" }}
+                onClick={!roomExists && requireRoomApproval ? submitRoomRequest : attemptJoin}
+              >
+                <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 9 }}>{getButtonText()} <ArrowRight size={18} /></span>
+              </JoinButton>
 
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7, color: "var(--chakra-colors-textSecondary)", fontSize: ".75rem", lineHeight: 1.4, textAlign: "center", animation: "fade-in-up .55s ease-out both", animationDelay: "520ms" }}><LockKeyhole size={14} aria-hidden="true" /> End-to-end encrypted session</div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7, color: "var(--chakra-colors-textSecondary)", fontSize: ".75rem", lineHeight: 1.4, textAlign: "center", animation: "fade-in-up .55s ease-out both", animationDelay: "520ms" }}><LockKeyhole size={14} aria-hidden="true" /> End-to-end encrypted session</div>
 
-          </JoinContainer>
+            </JoinContainer>
           </LandingGrid>
           <FeatureDevPicker />
           {renderAvatarCropDialog()}
@@ -8719,28 +8729,28 @@ export default function ChatRoom() {
             )}
 
             {features.voiceCalls !== false && (
-            <ActionButton onClick={() => {
-              if (!socketRef.current || !socketRef.current.connected) {
-                toast.error("Connecting to server. Please wait a moment before starting the call.");
-                return;
-              }
-              socketRef.current.emit("start-call", { roomId, userName, avatar: userAvatar });
-              setShowMeeting(true);
-            }} title="Start Video Call">
-              <FaVideo />
-            </ActionButton>
+              <ActionButton onClick={() => {
+                if (!socketRef.current || !socketRef.current.connected) {
+                  toast.error("Connecting to server. Please wait a moment before starting the call.");
+                  return;
+                }
+                socketRef.current.emit("start-call", { roomId, userName, avatar: userAvatar });
+                setShowMeeting(true);
+              }} title="Start Video Call">
+                <FaVideo />
+              </ActionButton>
             )}
 
             {features.whiteboard !== false && (
-            <ActionButton onClick={() => (showMeeting ? setMeetingBoardOpen(true) : setShowWhiteboard(true))} title={showMeeting ? "Whiteboard opens inside the call" : "Open Whiteboard"}>
-              <FaPenNib />
-            </ActionButton>
+              <ActionButton onClick={() => (showMeeting ? setMeetingBoardOpen(true) : setShowWhiteboard(true))} title={showMeeting ? "Whiteboard opens inside the call" : "Open Whiteboard"}>
+                <FaPenNib />
+              </ActionButton>
             )}
 
             {features.messageSearch !== false && (
-            <ActionButton onClick={() => { setShowSearch(!showSearch); if (showSearch) setSearchQuery(""); }} title="Search Messages">
-              <FaSearch />
-            </ActionButton>
+              <ActionButton onClick={() => { setShowSearch(!showSearch); if (showSearch) setSearchQuery(""); }} title="Search Messages">
+                <FaSearch />
+              </ActionButton>
             )}
 
             <ActionButton onClick={handleLeaveRoom} title="Leave Room" style={{ color: "var(--chakra-colors-brandPrimary)" }}>
@@ -8748,15 +8758,15 @@ export default function ChatRoom() {
             </ActionButton>
 
             {features.bookmarks !== false && (
-            <ActionButton onClick={() => setShowBookmarks(!showBookmarks)} title="Saved messages / Bookmarks" style={{ color: showBookmarks ? "var(--chakra-colors-brandPrimary)" : "inherit" }}>
-              🔖
-            </ActionButton>
+              <ActionButton onClick={() => setShowBookmarks(!showBookmarks)} title="Saved messages / Bookmarks" style={{ color: showBookmarks ? "var(--chakra-colors-brandPrimary)" : "inherit" }}>
+                🔖
+              </ActionButton>
             )}
 
             {!isMobile && features.keyboardShortcuts !== false && (
-            <ActionButton onClick={() => setShowShortcutsHelp(true)} title="Keyboard Shortcuts Guide" style={{ fontSize: "1.1rem" }}>
-              ⌨️
-            </ActionButton>
+              <ActionButton onClick={() => setShowShortcutsHelp(true)} title="Keyboard Shortcuts Guide" style={{ fontSize: "1.1rem" }}>
+                ⌨️
+              </ActionButton>
             )}
 
             {showSearch && (
@@ -9594,55 +9604,55 @@ export default function ChatRoom() {
                   )}
                 </div>
                 {features.giphySearch !== false && (
-                <IconButton
-                  onClick={() => {
-                    setShowGifPicker(true);
-                    fetchGifs();
-                  }}
-                  title="Send GIF"
-                >
-                  <HiGif />
-                </IconButton>
+                  <IconButton
+                    onClick={() => {
+                      setShowGifPicker(true);
+                      fetchGifs();
+                    }}
+                    title="Send GIF"
+                  >
+                    <HiGif />
+                  </IconButton>
                 )}
                 {features.polls !== false && (
-                <IconButton
-                  onClick={() => setShowPollCreator(true)}
-                  title="Create Poll"
-                >
-                  📊
-                </IconButton>
+                  <IconButton
+                    onClick={() => setShowPollCreator(true)}
+                    title="Create Poll"
+                  >
+                    📊
+                  </IconButton>
                 )}
                 {features.scheduledMessages !== false && (
-                <IconButton
-                  onClick={() => setShowScheduler(!showScheduler)}
-                  title="Schedule Message"
-                  style={{ color: showScheduler ? "var(--chakra-colors-brandPrimary)" : "inherit" }}
-                >
-                  ⏰
-                </IconButton>
+                  <IconButton
+                    onClick={() => setShowScheduler(!showScheduler)}
+                    title="Schedule Message"
+                    style={{ color: showScheduler ? "var(--chakra-colors-brandPrimary)" : "inherit" }}
+                  >
+                    ⏰
+                  </IconButton>
                 )}
                 {features.ephemeralMessages !== false && (
-                <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
-                  <EphemeralToggle
-                    $active={roomEphemeralDuration > 0}
-                    onClick={() => setShowEphemeralMenu(!showEphemeralMenu)}
-                    title={roomEphemeralDuration > 0 ? `Disappearing messages ON · ${formatNearestUnit(roomEphemeralDuration)}` : "Disappearing messages OFF"}
-                  >
-                    <FaClock />
-                  </EphemeralToggle>
-                  {showEphemeralMenu && (
-                    <>
-                      <EphemeralMenuOverlay onClick={() => setShowEphemeralMenu(false)} />
-                      <EphemeralMenuCard onClick={(e) => e.stopPropagation()}>
-                        <div className="title">💨 Disappearing Messages</div>
-                        <div className="subtitle">All new messages in this room will vanish after the selected time.</div>
-                        <div className="options">
-                          {renderEphemeralMenuItems()}
-                        </div>
-                      </EphemeralMenuCard>
-                    </>
-                  )}
-                </div>
+                  <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                    <EphemeralToggle
+                      $active={roomEphemeralDuration > 0}
+                      onClick={() => setShowEphemeralMenu(!showEphemeralMenu)}
+                      title={roomEphemeralDuration > 0 ? `Disappearing messages ON · ${formatNearestUnit(roomEphemeralDuration)}` : "Disappearing messages OFF"}
+                    >
+                      <FaClock />
+                    </EphemeralToggle>
+                    {showEphemeralMenu && (
+                      <>
+                        <EphemeralMenuOverlay onClick={() => setShowEphemeralMenu(false)} />
+                        <EphemeralMenuCard onClick={(e) => e.stopPropagation()}>
+                          <div className="title">💨 Disappearing Messages</div>
+                          <div className="subtitle">All new messages in this room will vanish after the selected time.</div>
+                          <div className="options">
+                            {renderEphemeralMenuItems()}
+                          </div>
+                        </EphemeralMenuCard>
+                      </>
+                    )}
+                  </div>
                 )}
               </AccessoryRow>
             )}
@@ -9730,9 +9740,9 @@ export default function ChatRoom() {
                 )}
 
                 {features.fileSharing !== false && (
-                <IconButton as="label" htmlFor="file-input" title="Upload File">
-                  <FaPaperclip />
-                </IconButton>
+                  <IconButton as="label" htmlFor="file-input" title="Upload File">
+                    <FaPaperclip />
+                  </IconButton>
                 )}
 
                 <FileInput
@@ -9748,20 +9758,20 @@ export default function ChatRoom() {
                 />
 
                 {features.voiceRecordings !== false && (
-                <>
-                {isRecording ? (
-                  <RecordingIndicator onClick={stopVoiceRecording} title="Stop recording">
-                    <span className="dot" />
-                    <span className="timer">
-                      {Math.floor(recordingTime / 60)}:{String(recordingTime % 60).padStart(2, '0')}
-                    </span>
-                  </RecordingIndicator>
-                ) : (
-                  <IconButton onClick={startVoiceRecording} title="Record voice note">
-                    <FaMicrophone />
-                  </IconButton>
-                )}
-                </>
+                  <>
+                    {isRecording ? (
+                      <RecordingIndicator onClick={stopVoiceRecording} title="Stop recording">
+                        <span className="dot" />
+                        <span className="timer">
+                          {Math.floor(recordingTime / 60)}:{String(recordingTime % 60).padStart(2, '0')}
+                        </span>
+                      </RecordingIndicator>
+                    ) : (
+                      <IconButton onClick={startVoiceRecording} title="Record voice note">
+                        <FaMicrophone />
+                      </IconButton>
+                    )}
+                  </>
                 )}
 
                 <IconButton
@@ -9812,34 +9822,34 @@ export default function ChatRoom() {
                       )}
                     </div>
                     {features.giphySearch !== false && (
-                    <IconButton
-                      onClick={() => {
-                        setShowGifPicker(true);
-                        fetchGifs();
-                      }}
-                      title="Send GIF"
-                    >
-                      <HiGif />
-                    </IconButton>
+                      <IconButton
+                        onClick={() => {
+                          setShowGifPicker(true);
+                          fetchGifs();
+                        }}
+                        title="Send GIF"
+                      >
+                        <HiGif />
+                      </IconButton>
                     )}
 
                     {features.polls !== false && (
-                    <IconButton
-                      onClick={() => setShowPollCreator(true)}
-                      title="Create Poll"
-                    >
-                      📊
-                    </IconButton>
+                      <IconButton
+                        onClick={() => setShowPollCreator(true)}
+                        title="Create Poll"
+                      >
+                        📊
+                      </IconButton>
                     )}
 
                     {features.scheduledMessages !== false && (
-                    <IconButton
-                      onClick={() => setShowScheduler(!showScheduler)}
-                      title="Schedule Message"
-                      style={{ color: showScheduler ? "var(--chakra-colors-brandPrimary)" : "inherit" }}
-                    >
-                      ⏰
-                    </IconButton>
+                      <IconButton
+                        onClick={() => setShowScheduler(!showScheduler)}
+                        title="Schedule Message"
+                        style={{ color: showScheduler ? "var(--chakra-colors-brandPrimary)" : "inherit" }}
+                      >
+                        ⏰
+                      </IconButton>
                     )}
 
                     <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
@@ -10257,15 +10267,15 @@ export default function ChatRoom() {
                       WebkitUserSelect: "none",
                     }}
                   >
-                     {Array.from({ length: 9 }).map((_, index) => (
-                       <div key={index} style={{ whiteSpace: "nowrap" }}>
-                         {userName || "Viewer"} • VIEW ONCE
-                       </div>
-                     ))}
-                   </div>
-                 )}
-               </div>
-             )}
+                    {Array.from({ length: 9 }).map((_, index) => (
+                      <div key={index} style={{ whiteSpace: "nowrap" }}>
+                        {userName || "Viewer"} • VIEW ONCE
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Gallery ‹ › navigation across all shared photos/videos */}
             {(() => {
