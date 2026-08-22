@@ -7899,8 +7899,8 @@ export default function ChatRoom() {
             <span className="fb-icon"><FileUp size={13} /></span>Encrypted file vault
           </BubblePill>
           </FeatureBubble>
-           <FeatureExplorer />
           <LandingGrid>
+               <FeatureExplorer />
           <JoinContainer>
             <CardHalo />
             <CardBeam />
