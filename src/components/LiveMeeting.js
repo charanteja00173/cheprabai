@@ -5065,7 +5065,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                 title={`Co-watch — ${coWatch.name}`}
                 style={{ flex: 1, minHeight: 0, width: "100%", border: 0, background: "#fff" }}
                 allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; fullscreen; web-share"
-                referrerPolicy="strict-origin-when-cross-origin"
+                referrerPolicy="no-referrer"
                 sandbox="allow-scripts allow-same-origin allow-presentation allow-forms allow-popups"
               />
             </div>
