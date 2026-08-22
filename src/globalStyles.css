@@ -1,7 +1,8 @@
 html {
-  /* Fluid root scale: everything rem-based (text, buttons, icons) responds to screen size.
-     Phones get a slightly higher floor for readability; desktop is unchanged. */
-  font-size: clamp(12px, 0.2vw + 12px, 13.5px);
+/* Fluid root scale.
+   Desktop/tablet use fluid sizing.
+   Mobile devices use compact sizing in the responsive rules below. */
+  font-size: clamp(10px, 0.15vw + 10px, 13.5px);
   -webkit-tap-highlight-color: transparent;
   min-height: 100%;
   scroll-behavior: smooth;
@@ -20,7 +21,6 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
-  overflow-x: hidden;
 }
 
 #root {
@@ -181,7 +181,8 @@ svg:not([width]):not([height]) {
   }
 }
 
-/* ═══════════════════════════════ ANTI-SCREENSHOT & ANTI-RECORDING PROTECTION ═══════════════════════════════ */
+/* CONTENT PROTECTION — disables selection/callouts; 
+   browser cannot reliably block OS screenshots or screen recording */
 *, *::before, *::after {
   -webkit-user-select: none !important;
   -moz-user-select: none !important;
@@ -266,19 +267,92 @@ img, video, canvas, svg {
 
 /* Phones — comfortable controls (focus-zoom prevented via viewport maximum-scale) */
 @media (max-width: 600px) {
-  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
-  select,
-  textarea {
-    min-height: 42px;
+  html {
+    font-size: 11px;
   }
 
-  button {
+  body {
     font-size: 0.9rem;
   }
 
-  /* Modals never bleed past the viewport */
+  h1 {
+    font-size: 1.6rem !important;
+  }
+
+  h2 {
+    font-size: 1.4rem !important;
+  }
+
+  h3 {
+    font-size: 1.2rem !important;
+  }
+
+  h4,
+  h5,
+  h6 {
+    font-size: 1rem !important;
+  }
+
+  p,
+  label,
+  small {
+    font-size: 0.85rem;
+  }
+
+  button {
+    font-size: 0.8rem !important;
+    padding: 6px 10px !important;
+    min-height: 30px;
+  }
+
+  input,
+  select,
+  textarea {
+    font-size: 0.8rem !important;
+    min-height: 32px !important;
+    padding: 6px 8px !important;
+  }
+
+  svg {
+    width: 0.9em;
+    height: 0.9em;
+  }
+
   .modal-content {
-    max-width: calc(100vw - 20px);
+    max-width: calc(100vw - 12px);
+  }
+
+  .chakra-link-chip {
+    font-size: 0.65rem;
+    padding: 3px 8px;
+  }
+}
+
+@media (max-width: 360px) {
+  html {
+    font-size: 10px;
+  }
+  :root {
+    --resp-gap: 6px;
+  }
+
+  button {
+    font-size: 0.75rem !important;
+    padding: 5px 8px !important;
+    min-height: 28px;
+  }
+
+  input,
+  select,
+  textarea {
+    font-size: 0.75rem !important;
+    min-height: 30px !important;
+    padding: 5px 7px !important;
+  }
+
+  p,
+  label {
+    font-size: 0.78rem;
   }
 }
 
@@ -293,22 +367,9 @@ img, video, canvas, svg {
   }
 }
 
-/* Very small phones — tighten spacing rhythm */
-@media (max-width: 360px) {
-  :root {
-    --resp-gap: 6px;
-  }
-}
-
 /* ══════════════════════════════════════════════════════════
    Performance layer
    ══════════════════════════════════════════════════════════ */
-
-/* Skip render/paint for off-screen messages — huge win on long chats */
-.chat-message-item {
-  content-visibility: auto;
-  contain-intrinsic-size: auto 72px;
-}
 
 /* Battery: stop decorative blur/glow animations on phones */
 @media (max-width: 600px) {
@@ -411,7 +472,7 @@ img, video, canvas, svg {
     width: auto;
     margin: 8px 10px;
     border-radius: 13px;
-    font-size: 0.8rem;
+    font-size: 0.7rem;
   }
   .Toastify__toast-container {
     padding: 0 2px;
