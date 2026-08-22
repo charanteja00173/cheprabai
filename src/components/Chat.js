@@ -48,10 +48,79 @@ import {
 } from "../utils/crypto";
 import { copyRoomShareLink, parseRoomRouteParams } from "../utils/shareLink";
 import { safeCopyText, safeCopyImage } from "../utils/clipboard";
-// Lazy-load heavy components
-const Whiteboard = React.lazy(() => import("./Whiteboard"));
-const LiveMeeting = React.lazy(() => import("./LiveMeeting"));
-const UniversalFileViewer = React.lazy(() => import("./UniversalFileViewer"));
+// Lazy-load heavy components with retry — survives flaky networks and
+// stale tabs after redeploys (the classic "Loading chunk N failed" error).
+// Retries the import a few times; if the chunk is still missing it means the
+// tab references an old build, so do ONE guarded hard reload to re-sync.
+function lazyWithRetry(importer, retries = 2) {
+  return React.lazy(() =>
+    new Promise((resolve, reject) => {
+      const attempt = (left) => {
+        importer()
+          .then(resolve)
+          .catch((err) => {
+            const msg = String(err?.message || err);
+            const isChunkErr = /loading chunk|chunkloaderror|dynamically imported module|importing a module script failed/i.test(msg);
+            if (left > 0) {
+              setTimeout(() => attempt(left - 1), 600);
+            } else if (isChunkErr && Date.now() - Number(sessionStorage.getItem("__chunk_reload_at") || 0) > 15000) {
+              sessionStorage.setItem("__chunk_reload_at", String(Date.now()));
+              window.location.reload();
+            } else {
+              reject(err);
+            }
+          });
+      };
+      attempt(retries);
+    })
+  );
+}
+
+// Keeps a failed lazy module from crashing the whole app — offers a reload instead.
+class ChunkErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { failed: false };
+  }
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  render() {
+    if (this.state.failed) {
+      return (
+        <div style={{ position: "fixed", inset: 0, zIndex: 99999, display: "grid", placeItems: "center", background: "rgba(4,5,10,.94)", color: "#fff", fontFamily: "inherit" }}>
+          <div style={{ textAlign: "center", padding: 24 }}>
+            <p style={{ opacity: 0.8, marginBottom: 16 }}>Couldn't load this module. Check your connection.</p>
+            <button type="button" onClick={() => window.location.reload()} style={{ border: 0, borderRadius: 12, padding: "12px 22px", fontWeight: 700, cursor: "pointer", background: "linear-gradient(135deg,#6366f1,#818cf8)", color: "#fff" }}>
+              Reload
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+const Whiteboard = lazyWithRetry(() => import("./Whiteboard"));
+const LiveMeeting = lazyWithRetry(() => import("./LiveMeeting"));
+const UniversalFileViewer = lazyWithRetry(() => import("./UniversalFileViewer"));
+
+/* ── Shared media gallery ──
+   Every decrypted photo/video attachment registers itself here when it scrolls
+   into view. The fullscreen viewer walks this list with ‹ › buttons like a
+   gallery app. Keyed by the file's canonical URL; insertion order ≈ chat order.
+   View-once media is never registered (privacy). */
+const mediaGalleryRegistry = new Map();
+function registerGalleryMedia(key, item) {
+  if (!key || !item?.url || !item?.type) return;
+  const prev = mediaGalleryRegistry.get(key);
+  if (prev && prev.url === item.url && prev.type === item.type) return;
+  mediaGalleryRegistry.set(key, item);
+}
+function getGalleryItems() {
+  return Array.from(mediaGalleryRegistry.values());
+}
 
 // Platform-aware aspect ratio for media embeds and file uploads
 const getMediaAspectRatio = (sourceStr = "", fileType = "") => {
@@ -1494,9 +1563,9 @@ const MessageInputContainer = styled.div`
   box-sizing: border-box;
 
   @media (max-width: 600px) {
-    padding: 10px 10px;
-    padding-bottom: calc(10px + var(--safe-bottom));
-    gap: 8px;
+    padding: 8px 10px;
+    padding-bottom: calc(8px + var(--safe-bottom));
+    gap: 6px;
   }
 `;
 
@@ -1522,9 +1591,9 @@ const InputPill = styled.div`
   }
 
   @media (max-width: 600px) {
-    padding: 5px 8px;
+    padding: 4px 6px;
     border-radius: 24px;
-    gap: 4px;
+    gap: 2px;
   }
 `;
 
@@ -1652,9 +1721,9 @@ const MessageInput = styled.textarea`
   }
 
   @media (max-width: 600px) {
-    padding: 10px 12px;
-    font-size: 1.05rem;
-    line-height: 1.45;
+    padding: 7px 10px;
+    font-size: 0.95rem;
+    line-height: 1.4;
   }
 `;
 
@@ -2266,7 +2335,9 @@ const RoomInfoDropdown = styled.div`
     left: max(10px, env(safe-area-inset-left));
     width: min(420px, calc(100vw - 20px));
     max-height: calc(100dvh - 68px - env(safe-area-inset-top));
-    padding: 16px;
+    padding: 12px;
+    border-radius: 14px;
+    font-size: 0.92rem;
   }
 `;
 
@@ -3478,6 +3549,15 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile, setViewer 
   const lastDecryptedIvRef = useRef(null);
   const lastDecryptedSourceUrlRef = useRef(null);
 
+  // Join the shared gallery once this media is viewable (skips view-once)
+  useEffect(() => {
+    if (!decryptedUrl || file.viewOnce) return;
+    if (fileType.startsWith("image") || fileType.startsWith("video")) {
+      registerGalleryMedia(file.url, { url: decryptedUrl, name: file.name, type: fileType });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [decryptedUrl]);
+
   useEffect(() => {
     if (typeof IntersectionObserver === "undefined") {
       setIsInView(true);
@@ -3975,6 +4055,29 @@ export default function ChatRoom() {
   const pendingFilesUrlsRef = useRef({});
   const leaveRoomNowRef = useRef(null);
   const [fullscreen, setFullscreen] = useState(null);
+
+  // Gallery keyboard controls for the fullscreen media viewer
+  useEffect(() => {
+    if (!fullscreen) return;
+    const onGalleryKey = (e) => {
+      if (e.key === "Escape") {
+        setFullscreen(null);
+        return;
+      }
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      const t = fullscreen.type || "";
+      if (!t.startsWith("image") && !t.startsWith("video")) return;
+      const items = getGalleryItems();
+      if (items.length < 2) return;
+      const idx = items.findIndex((it) => it.url === fullscreen.url);
+      if (idx === -1) return;
+      const dir = e.key === "ArrowRight" ? 1 : -1;
+      const next = items[(idx + dir + items.length) % items.length];
+      setFullscreen({ url: next.url, name: next.name, type: next.type });
+    };
+    window.addEventListener("keydown", onGalleryKey);
+    return () => window.removeEventListener("keydown", onGalleryKey);
+  }, [fullscreen]);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const typingTimeout = useRef(null);
   const fileInputRef = useRef(null);
@@ -7604,27 +7707,29 @@ export default function ChatRoom() {
         )}
 
         {viewer && (
-          <Suspense fallback={<div style={{ position: "fixed", inset: 0, background: "#06070b", zIndex: 999999, display: "flex", alignItems: "center", justifyContent: "center", color: "#818cf8", fontWeight: 700 }}>Loading preview…</div>}>
-            {(() => {
-              const isObject = typeof viewer === "object" && viewer !== null;
-              const url = isObject ? viewer.url : viewer;
-              const name = isObject ? viewer.name : (getEmbedData(url)?.type || "Web Link");
-              const type = isObject ? viewer.type : null;
-              const embed = getEmbedData(url);
-              // Keep the ORIGINAL url for copy/download/open-external actions;
-              // only the iframe renders the embed source.
-              return (
-                <UniversalFileViewer
-                  url={url}
-                  name={isObject ? name : undefined}
-                  type={type}
-                  mode={isObject ? undefined : "web"}
-                  embedSrc={embed?.src}
-                  onClose={() => setViewer(null)}
-                />
-              );
-            })()}
-          </Suspense>
+          <ChunkErrorBoundary>
+            <Suspense fallback={<div style={{ position: "fixed", inset: 0, background: "#06070b", zIndex: 999999, display: "flex", alignItems: "center", justifyContent: "center", color: "#818cf8", fontWeight: 700 }}>Loading preview…</div>}>
+              {(() => {
+                const isObject = typeof viewer === "object" && viewer !== null;
+                const url = isObject ? viewer.url : viewer;
+                const name = isObject ? viewer.name : (getEmbedData(url)?.type || "Web Link");
+                const type = isObject ? viewer.type : null;
+                const embed = getEmbedData(url);
+                // Keep the ORIGINAL url for copy/download/open-external actions;
+                // only the iframe renders the embed source.
+                return (
+                  <UniversalFileViewer
+                    url={url}
+                    name={isObject ? name : undefined}
+                    type={type}
+                    mode={isObject ? undefined : "web"}
+                    embedSrc={embed?.src}
+                    onClose={() => setViewer(null)}
+                  />
+                );
+              })()}
+            </Suspense>
+          </ChunkErrorBoundary>
         )}
 
         <MessageContainer ref={messagesContainerRef} onScroll={handleScroll}>
@@ -7655,10 +7760,16 @@ export default function ChatRoom() {
 
             if (isSystem && m.userName === userName) return null;
 
+            // Stable identity: array indexes remount every bubble whenever older
+            // messages are prepended or ephemeral ones are removed — that was the
+            // source of the chat flicker. Fall back to a composite key for any
+            // message without an id.
+            const msgKey = m.id != null ? String(m.id) : `${m.ts ?? "x"}-${m.userName ?? "u"}-${i}`;
+
             return (
               <MessageBubble
                 className="chat-message-item"
-                key={i}
+                key={msgKey}
                 ref={(node) => { if (m.id) messageRefs.current[m.id] = node; }}
                 data-mid={m.id ? String(m.id) : undefined}
                 $highlighted={highlightMessageId === String(m.id || "")}
@@ -7666,12 +7777,11 @@ export default function ChatRoom() {
                 $isSystem={isSystem}
                 $systemType={systemType}
                 $isFile={!!m.file}
-                onTouchStart={(e) => !isSystem && handleBubbleTouchStart(e, m.id || i)}
-                onTouchMove={(e) => !isSystem && handleBubbleTouchMove(e, m.id || i)}
-                onTouchEnd={(e) => !isSystem && handleBubbleTouchEnd(e, m.id || i, m)}
+                onTouchStart={(e) => !isSystem && handleBubbleTouchStart(e, msgKey)}
+                onTouchMove={(e) => !isSystem && handleBubbleTouchMove(e, msgKey)}
+                onTouchEnd={(e) => !isSystem && handleBubbleTouchEnd(e, msgKey, m)}
                 onTouchCancel={(e) => {
-                  const key = m.id || i;
-                  delete swipeGesturesRef.current[key];
+                  delete swipeGesturesRef.current[msgKey];
                   e.currentTarget.style.transition = "transform 0.2s ease";
                   e.currentTarget.style.transform = "translateX(0)";
                   e.currentTarget.style.boxShadow = "";
@@ -8957,6 +9067,7 @@ export default function ChatRoom() {
               >
                 {fullscreen.type.startsWith("image") ? (
                   <img
+                    key={fullscreen.url}
                     alt={fullscreen.name}
                     src={fullscreen.url}
                     style={{
@@ -8971,6 +9082,7 @@ export default function ChatRoom() {
                   />
                 ) : (
                   <video
+                    key={fullscreen.url}
                     src={fullscreen.url}
                     controls
                     autoPlay
@@ -9008,15 +9120,93 @@ export default function ChatRoom() {
                       WebkitUserSelect: "none",
                     }}
                   >
-                    {Array.from({ length: 9 }).map((_, index) => (
-                      <div key={index} style={{ whiteSpace: "nowrap" }}>
-                        {userName || "Viewer"} • VIEW ONCE
-                      </div>
-                    ))}
+                     {Array.from({ length: 9 }).map((_, index) => (
+                       <div key={index} style={{ whiteSpace: "nowrap" }}>
+                         {userName || "Viewer"} • VIEW ONCE
+                       </div>
+                     ))}
+                   </div>
+                 )}
+               </div>
+             )}
+
+            {/* Gallery ‹ › navigation across all shared photos/videos */}
+            {(() => {
+              const t = fullscreen.type || "";
+              if (!t.startsWith("image") && !t.startsWith("video")) return null;
+              const items = getGalleryItems();
+              if (items.length < 2) return null;
+              const idx = items.findIndex((it) => it.url === fullscreen.url);
+              if (idx === -1) return null;
+              const go = (dir) => {
+                const next = items[(idx + dir + items.length) % items.length];
+                setFullscreen({ url: next.url, name: next.name, type: next.type });
+              };
+              const arrowStyle = {
+                position: "absolute",
+                top: "50%",
+                transform: "translateY(-50%)",
+                zIndex: 30,
+                width: "44px",
+                height: "44px",
+                borderRadius: "50%",
+                border: "1px solid rgba(255,255,255,0.18)",
+                background: "rgba(10,12,20,0.72)",
+                backdropFilter: "blur(8px)",
+                WebkitBackdropFilter: "blur(8px)",
+                color: "#fff",
+                fontSize: "1.5rem",
+                lineHeight: 1,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                transition: "all 0.2s ease",
+              };
+              return (
+                <>
+                  <button
+                    type="button"
+                    aria-label="Previous media"
+                    onClick={(e) => { e.stopPropagation(); go(-1); }}
+                    style={{ ...arrowStyle, left: "12px" }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(99,102,241,0.45)"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(10,12,20,0.72)"; }}
+                  >
+                    ‹
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Next media"
+                    onClick={(e) => { e.stopPropagation(); go(1); }}
+                    style={{ ...arrowStyle, right: "12px" }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(99,102,241,0.45)"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(10,12,20,0.72)"; }}
+                  >
+                    ›
+                  </button>
+                  <div
+                    style={{
+                      position: "absolute",
+                      bottom: "16px",
+                      left: "50%",
+                      transform: "translateX(-50%)",
+                      zIndex: 30,
+                      padding: "4px 12px",
+                      borderRadius: "999px",
+                      background: "rgba(10,12,20,0.72)",
+                      border: "1px solid rgba(255,255,255,0.14)",
+                      color: "rgba(255,255,255,0.85)",
+                      fontSize: "0.75rem",
+                      fontWeight: 700,
+                      fontVariantNumeric: "tabular-nums",
+                    }}
+                  >
+                    {idx + 1} / {items.length}
                   </div>
-                )}
-              </div>
-            )}
+                </>
+              );
+            })()}
             {(!fullscreen.type || (!fullscreen.type.startsWith("image") && !fullscreen.type.startsWith("video"))) && (
               <div style={{ textAlign: "center", color: "var(--chakra-colors-textPrimary)", padding: "40px", background: "rgba(255,255,255,0.055)", borderRadius: "24px", border: "1px solid rgba(255,255,255,0.07)", maxWidth: "500px", animation: "popIn 0.35s cubic-bezier(0.16, 1, 0.3, 1)" }} onClick={(e) => e.stopPropagation()}>
                 <FaFile size={100} style={{ marginBottom: 20, opacity: 0.3 }} />
@@ -9073,14 +9263,16 @@ export default function ChatRoom() {
       )}
 
       {showWhiteboard && (
-        <Suspense fallback={<div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.8)', zIndex: 9999, color: '#fff' }}>Loading Whiteboard…</div>}>
-          <Whiteboard
-            socket={socketRef.current}
-            roomId={roomId}
-            isAdmin={!!ownerToken}
-            onClose={() => setShowWhiteboard(false)}
-          />
-        </Suspense>
+        <ChunkErrorBoundary>
+          <Suspense fallback={<div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.8)', zIndex: 9999, color: '#fff' }}>Loading Whiteboard…</div>}>
+            <Whiteboard
+              socket={socketRef.current}
+              roomId={roomId}
+              isAdmin={!!ownerToken}
+              onClose={() => setShowWhiteboard(false)}
+            />
+          </Suspense>
+        </ChunkErrorBoundary>
       )}
 
       {incomingCall && !showMeeting && (
@@ -9175,18 +9367,20 @@ export default function ChatRoom() {
       )}
 
       {showMeeting && (
-        <Suspense fallback={<div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.8)', zIndex: 9999, color: '#fff' }}>Loading Meeting…</div>}>
-          <LiveMeeting
-            socket={socketRef.current}
-            roomId={roomId}
-            userName={userName}
-            isAdmin={!!ownerToken}
-            ownerToken={ownerToken}
-            userAvatar={userAvatar}
-            onClose={closeMeeting}
-            onOpenWhiteboard={() => setShowWhiteboard(true)}
-          />
-        </Suspense>
+        <ChunkErrorBoundary>
+          <Suspense fallback={<div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.8)', zIndex: 9999, color: '#fff' }}>Loading Meeting…</div>}>
+            <LiveMeeting
+              socket={socketRef.current}
+              roomId={roomId}
+              userName={userName}
+              isAdmin={!!ownerToken}
+              ownerToken={ownerToken}
+              userAvatar={userAvatar}
+              onClose={closeMeeting}
+              onOpenWhiteboard={() => setShowWhiteboard(true)}
+            />
+          </Suspense>
+        </ChunkErrorBoundary>
       )}
       {renderPollCreator()}
       {renderForwardDialog()}

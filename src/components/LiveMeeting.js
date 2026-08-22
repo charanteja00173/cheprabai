@@ -652,6 +652,17 @@ const ControlsDock = styled.footer`
     gap: 0;
     padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px));
   }
+
+  /* Phones in landscape — short viewport gets ONE tight row, scrollable if needed */
+  @media (max-width: 950px) and (max-height: 500px) {
+    padding: 6px 10px;
+    gap: 6px;
+    justify-content: safe center;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    &::-webkit-scrollbar { height: 0; }
+  }
 `;
 
 const MobilePrimaryRow = styled.div`
@@ -661,9 +672,9 @@ const MobilePrimaryRow = styled.div`
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
+    gap: 4px;
     width: 100%;
-    padding: 4px 0;
+    padding: 2px 0;
   }
 `;
 
@@ -674,10 +685,10 @@ const MobileSecondaryRow = styled.div`
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 4px;
+    gap: 3px;
     width: 100%;
     overflow-x: auto;
-    padding: 4px 0 2px;
+    padding: 2px 0;
     -webkit-overflow-scrolling: touch;
     &::-webkit-scrollbar { height: 0; }
   }
@@ -732,17 +743,28 @@ const DockButton = styled.button`
   }
 
   @media (max-width: 600px) {
-    min-width: 44px;
-    height: 44px;
+    min-width: 38px;
+    height: 38px;
     padding: 0;
     border-radius: 50%;
-    font-size: 1rem;
+    font-size: 0.95rem;
     span { display: none !important; }
   }
 
   @media (max-width: 380px) {
-    min-width: 40px;
-    height: 40px;
+    min-width: 34px;
+    height: 34px;
+    font-size: 0.9rem;
+  }
+
+  /* Phones in landscape — compact icon-only circles like portrait mode */
+  @media (max-width: 950px) and (max-height: 500px) {
+    min-width: 36px;
+    height: 36px;
+    padding: 0 !important; /* beat leave-btn's inline padding */
+    border-radius: 50%;
+    font-size: 0.95rem;
+    span { display: none !important; }
   }
 `;
 
@@ -752,6 +774,7 @@ const EmojiTray = styled.div`
 
   @media (max-width: 768px) { gap: 3px; }
   @media (max-width: 600px) { display: none !important; }
+  @media (max-width: 950px) and (max-height: 500px) { display: none !important; }
 `;
 
 const DockDivider = styled.div`
@@ -763,6 +786,7 @@ const DockDivider = styled.div`
 
   @media (max-width: 768px) { height: 20px; margin: 0 2px; }
   @media (max-width: 600px) { display: none; }
+  @media (max-width: 950px) and (max-height: 500px) { display: none; }
 `;
 
 const ParticipantsDrawer = styled.aside`
@@ -1165,6 +1189,11 @@ const TheaterCloseBtn = styled.button`
     background: #ef4444;
     border-color: #ef4444;
     transform: rotate(90deg);
+  }
+
+  /* Phones — no floating ✕; the header fullscreen button is the single exit */
+  @media (max-width: 950px) {
+    display: none;
   }
 `;
 
@@ -3642,17 +3671,18 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
   // Fullscreen = native fullscreen + Theater Mode (stage + right rail + focus card)
   const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
+    if (!document.fullscreenElement && !theaterMode) {
+      // Enter: native fullscreen where supported + theater layout
       if (containerRef.current?.requestFullscreen) {
         containerRef.current.requestFullscreen().catch(() => {});
-        setIsFullscreen(true);
       }
       setTheaterMode(true);
     } else {
-      if (document.exitFullscreen) {
+      // Exit: leave BOTH native fullscreen and theater — single reliable exit
+      if (document.fullscreenElement && document.exitFullscreen) {
         document.exitFullscreen().catch(() => {});
-        setIsFullscreen(false);
       }
+      setIsFullscreen(false);
       setTheaterMode(false);
       setPinnedPeerId(null);
     }
@@ -3916,9 +3946,13 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
               <FaThLarge />
             </IconButton>
 
-            {/* Fullscreen Toggle */}
-            <IconButton className="hide-mobile" onClick={toggleFullscreen} title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}>
-              {isFullscreen ? <FaCompress /> : <FaExpand />}
+            {/* Fullscreen / Theater toggle — also the exit on mobile (no ✕ there) */}
+            <IconButton
+              $active={isFullscreen || theaterMode}
+              onClick={toggleFullscreen}
+              title={isFullscreen || theaterMode ? "Exit Fullscreen" : "Fullscreen"}
+            >
+              {isFullscreen || theaterMode ? <FaCompress /> : <FaExpand />}
             </IconButton>
 
             {/* Minimize */}

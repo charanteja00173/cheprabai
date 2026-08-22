@@ -268,41 +268,41 @@ img, video, canvas, svg {
 /* Phones — comfortable controls (focus-zoom prevented via viewport maximum-scale) */
 @media (max-width: 600px) {
   html {
-    font-size: 13.5px;
+    font-size: 12.5px;
   }
 
   body {
-    font-size: 0.95rem;
+    font-size: 0.92rem;
   }
 
   h1 {
-    font-size: 1.6rem !important;
+    font-size: 1.45rem !important;
   }
 
   h2 {
-    font-size: 1.4rem !important;
+    font-size: 1.28rem !important;
   }
 
   h3 {
-    font-size: 1.2rem !important;
+    font-size: 1.1rem !important;
   }
 
   h4,
   h5,
   h6 {
-    font-size: 1rem !important;
+    font-size: 0.95rem !important;
   }
 
   p,
   label,
   small {
-    font-size: 0.95rem;
+    font-size: 0.88rem;
   }
 
   button {
-    font-size: 0.85rem !important;
-    padding-top: 6px !important;
-    padding-bottom: 6px !important;
+    font-size: 0.78rem !important;
+    padding-top: 4px !important;
+    padding-bottom: 4px !important;
     min-height: 30px;
   }
 
@@ -311,10 +311,10 @@ img, video, canvas, svg {
   input,
   select,
   textarea {
-    font-size: 0.85rem !important;
+    font-size: 0.8rem !important;
     min-height: 32px !important;
-    padding-top: 6px !important;
-    padding-bottom: 6px !important;
+    padding-top: 4px !important;
+    padding-bottom: 4px !important;
   }
 
   svg {
@@ -327,38 +327,38 @@ img, video, canvas, svg {
   }
 
   .chakra-link-chip {
-    font-size: 0.75rem;
+    font-size: 0.68rem;
     padding: 3px 8px;
   }
 }
 
 @media (max-width: 360px) {
   html {
-    font-size: 12px;
+    font-size: 11px;
   }
   :root {
     --resp-gap: 6px;
   }
 
   button {
-    font-size: 0.85rem !important;
-    padding-top: 5px !important;
-    padding-bottom: 5px !important;
+    font-size: 0.76rem !important;
+    padding-top: 4px !important;
+    padding-bottom: 4px !important;
     min-height: 28px;
   }
 
   input,
   select,
   textarea {
-    font-size: 0.85rem !important;
+    font-size: 0.76rem !important;
     min-height: 30px !important;
-    padding-top: 5px !important;
-    padding-bottom: 5px !important;
+    padding-top: 4px !important;
+    padding-bottom: 4px !important;
   }
 
   p,
   label {
-    font-size: 0.9rem;
+    font-size: 0.82rem;
   }
 }
 
@@ -478,7 +478,7 @@ img, video, canvas, svg {
     width: auto;
     margin: 8px 10px;
     border-radius: 13px;
-    font-size: 0.8rem;
+    font-size: 0.72rem;
   }
   .Toastify__toast-container {
     padding: 0 2px;
