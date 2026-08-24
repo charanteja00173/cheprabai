@@ -3,6 +3,7 @@ import { Tldraw } from "@tldraw/tldraw";
 import styled from "styled-components";
 import { FaTimes, FaExpand, FaCompress, FaTrash, FaPaintBrush, FaDownload } from "react-icons/fa";
 import { toast } from "react-toastify";
+import { BREAKPOINTS, useIsMobile } from "../hooks/useIsMobile";
 
 const Overlay = styled.div`
   position: ${(props) => (props.$embedded ? "absolute" : "fixed")};
@@ -16,7 +17,7 @@ const Overlay = styled.div`
   padding: ${(props) => (props.$isFullScreen && props.$isMobile ? "0" : props.$embedded ? "10px" : "40px")};
   box-sizing: border-box;
 
-  @media (max-width: 768px) {
+  @media (max-width: ${BREAKPOINTS.lg}px) {
     padding: ${(props) => (props.$embedded ? "8px" : "0")};
     background: ${(props) => (props.$embedded ? "transparent" : "var(--chakra-colors-bg)")};
     backdrop-filter: none;
@@ -38,7 +39,7 @@ const WhiteboardContainer = styled.div`
   flex-direction: column;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
-  @media (max-width: 768px) {
+  @media (max-width: ${BREAKPOINTS.lg}px) {
     width: 100%;
     max-width: 100%;
     height: 100dvh;
@@ -64,7 +65,7 @@ const CanvasWrapper = styled.div`
   /* Override TLDraw variables to pull UI away from the extreme edges so it isn't clipped by rounded corners */
   --tl-padding: 8px;
 
-  @media (max-width: 768px) {
+  @media (max-width: ${BREAKPOINTS.lg}px) {
     border-radius: 12px;
     --tl-padding: 4px;
   }
@@ -90,7 +91,7 @@ const HeaderTitle = styled.h2`
   gap: clamp(6px, 1vw, 10px);
   letter-spacing: 0.2px;
 
-  @media (max-width: 768px) {
+  @media (max-width: ${BREAKPOINTS.lg}px) {
     .hide-mobile {
       display: none;
     }
@@ -157,7 +158,7 @@ export default function Whiteboard({ socket, roomId, onClose, isAdmin, embedded 
   const isSyncing = useRef(false);
   const isInteracting = useRef(false);
   const [isFullScreen, setIsFullScreen] = React.useState(false);
-  const [isMobile, setIsMobile] = React.useState(window.innerWidth <= 768);
+  const isMobile = useIsMobile();
   const [showExportMenu, setShowExportMenu] = React.useState(false);
 
   const handleExport = useCallback(async (format) => {
@@ -177,14 +178,6 @@ export default function Whiteboard({ socket, roomId, onClose, isAdmin, embedded 
       toast.error("Failed to export image.");
     }
     setShowExportMenu(false);
-  }, []);
-
-  React.useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth <= 768);
-    };
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
   const handleClearBoard = useCallback(() => {

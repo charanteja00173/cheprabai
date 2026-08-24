@@ -37,6 +37,7 @@ import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import ThemeSwitcher from "./ThemeSwitcher";
 import { createDecryptionHtmlTemplate } from "../utils/exportTemplate";
+import { BREAKPOINTS, useIsMobile } from "../hooks/useIsMobile";
 import { ArrowRight, BarChart3, Clapperboard, Copy, FileUp, FolderLock, Hash, KeyRound, LockKeyhole, MessagesSquare, MonitorUp, PenTool, ScreenShare, ShieldCheck, Timer, Upload, UserRound, Video } from "lucide-react";
 import {
   generateKeyFromSecret,
@@ -839,12 +840,12 @@ const Header = styled.div`
   z-index: 10;
   flex-shrink: 0;
 
-  @media (max-width: 480px) {
+  @media (max-width: ${BREAKPOINTS.sm}px) {
     padding: 6px 10px;
     min-height: 46px;
   }
 
-  @media (max-width: 375px) {
+  @media (max-width: ${BREAKPOINTS.xs}px) {
     padding: 6px 8px;
     min-height: 42px;
   }
@@ -859,13 +860,13 @@ const Avatar = styled.img`
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.15);
   flex-shrink: 0;
 
-  @media (max-width: 480px) {
+  @media (max-width: ${BREAKPOINTS.sm}px) {
     width: 26px;
     height: 26px;
     margin-right: 6px;
   }
 
-  @media (max-width: 375px) {
+  @media (max-width: ${BREAKPOINTS.xs}px) {
     width: 24px;
     height: 24px;
     margin-right: 5px;
@@ -885,12 +886,12 @@ const RoomActions = styled.div`
   -webkit-overflow-scrolling: touch;
   &::-webkit-scrollbar { display: none; }
 
-  @media (max-width: 480px) {
+  @media (max-width: ${BREAKPOINTS.sm}px) {
     gap: 6px;
     padding-bottom: 2px;
   }
 
-  @media (max-width: 375px) {
+  @media (max-width: ${BREAKPOINTS.xs}px) {
     gap: 4px;
   }
 `;
@@ -918,20 +919,19 @@ const ActionButton = styled.button`
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
   }
 
-  // @media (max-width: 480px) {
-  //   /* Mobile tap targets must be BIGGER, not smaller — 40px ≈ HIG/Material minimums */
-  //   min-width: 32px;
-  //   min-height: 40px;
-  //   font-size: 0.95rem;
-  //   border-radius: 9px;
-  // }
+  @media (max-width: ${BREAKPOINTS.sm}px) {
+    font-size: 0.85rem;
+    min-width: 30px;
+    min-height: 30px;
+    border-radius: 8px;
+  }
 
-  // @media (max-width: 375px) {
-  //   min-width: 38px;
-  //   min-height: 38px;
-  //   font-size: 0.9rem;
-  //   border-radius: 7px;
-  // }
+  @media (max-width: ${BREAKPOINTS.xs}px) {
+    font-size: 0.8rem;
+    min-width: 28px;
+    min-height: 28px;
+    border-radius: 7px;
+  }
 `;
 
 const MessageContainer = styled.div`
@@ -943,6 +943,16 @@ const MessageContainer = styled.div`
   gap: 14px;
   position: relative;
   background: radial-gradient(circle at center, transparent 0%, rgba(0,0,0,0.15) 100%);
+
+  @media (max-width: ${BREAKPOINTS.md}px) {
+    padding: 10px;
+    gap: 8px;
+  }
+
+  @media (max-width: ${BREAKPOINTS.xs}px) {
+    padding: 8px;
+    gap: 6px;
+  }
 `;
 
 const MessageBubble = styled.div`
@@ -992,20 +1002,25 @@ const MessageBubble = styled.div`
     box-shadow: ${(p) => p.$isSystem || p.$isFile ? "none" : "0 10px 30px rgba(0,0,0,0.25)"};
   }
 
-  @media (max-width: 480px) {
-    max-width: ${(p) => (p.$isSystem ? "90%" : "88%")};
-    padding: ${(p) => (p.$isSystem ? "4px 10px" : p.$isFile ? "8px" : "10px 14px")};
+  @media (max-width: ${BREAKPOINTS.sm}px) {
+    max-width: ${(p) => (p.$isSystem ? "90%" : "86%")};
+    padding: ${(p) => (p.$isSystem ? "4px 10px" : p.$isFile ? "8px" : "7px 11px")};
     font-size: ${(p) => (p.$isSystem ? "0.75rem" : "0.92rem")};
     border-radius: ${(p) =>
     p.$isSystem ? "10px" :
-      p.$isSender ? "16px 16px 4px 16px" :
-        "16px 16px 16px 4px"};
+      p.$isSender ? "14px 14px 4px 14px" :
+        "14px 14px 14px 4px"};
+    box-shadow: ${(p) => p.$isSystem ? "none" : "0 3px 10px rgba(0,0,0,0.12)"};
   }
 
-  @media (max-width: 375px) {
-    max-width: ${(p) => (p.$isSystem ? "95%" : "92%")};
-    padding: ${(p) => (p.$isSystem ? "4px 8px" : p.$isFile ? "0" : "8px 12px")};
+  @media (max-width: ${BREAKPOINTS.xs}px) {
+    max-width: ${(p) => (p.$isSystem ? "95%" : "90%")};
+    padding: ${(p) => (p.$isSystem ? "4px 8px" : p.$isFile ? "6px" : "6px 10px")};
     font-size: ${(p) => (p.$isSystem ? "0.72rem" : "0.88rem")};
+    border-radius: ${(p) =>
+    p.$isSystem ? "9px" :
+      p.$isSender ? "13px 13px 4px 13px" :
+        "13px 13px 13px 4px"};
   }
 
   ${p => p.$isFile && `
@@ -1080,7 +1095,7 @@ const FileAttachmentWrapper = styled.div`
     pointer-events: auto;
   }
 
-  @media (max-width: 768px) {
+  @media (max-width: ${BREAKPOINTS.lg}px) {
     .expand-btn {
       opacity: 0.75 !important;
       pointer-events: auto !important;
@@ -1112,10 +1127,15 @@ const BubbleActionButton = styled.button`
     transform: translateY(-1.5px) scale(1.05);
   }
 
-  @media (max-width: 600px) {
-    width: 36px;
-    height: 36px;
-    font-size: 0.9rem;
+  @media (max-width: ${BREAKPOINTS.md}px) {
+    width: 28px;
+    height: 28px;
+    font-size: 0.8rem;
+
+    svg {
+      width: 12px;
+      height: 12px;
+    }
   }
 
   &:active {
@@ -1472,7 +1492,7 @@ const LandingWrapper = styled.div`
      TABLET
      ========================= */
 
-  @media (max-width: 768px) {
+  @media (max-width: ${BREAKPOINTS.lg}px) {
     align-items: flex-start;
 
     min-height: 100dvh;
@@ -1501,7 +1521,7 @@ const LandingWrapper = styled.div`
      MOBILE
      ========================= */
 
-  @media (max-width: 480px) {
+  @media (max-width: ${BREAKPOINTS.sm}px) {
     /*
      * Let the content determine the height.
      * This is the important part.
@@ -1544,7 +1564,7 @@ const LandingWrapper = styled.div`
      SMALL PHONES
      ========================= */
 
-  @media (max-width: 360px) {
+  @media (max-width: ${BREAKPOINTS.xs}px) {
     padding: 16px 8px 40px;
 
     &::before {
@@ -1592,7 +1612,7 @@ const FeatureBubble = styled.div`
   }
 
   /* On phones the card is the hero — floating pills just add noise */
-  @media (max-width: 640px) {
+  @media (max-width: ${BREAKPOINTS.md}px) {
     display: none;
   }
 `;
@@ -1629,7 +1649,7 @@ const BubblePill = styled.div`
     flex-shrink: 0;
   }
 
-  @media (max-width: 600px) {
+  @media (max-width: ${BREAKPOINTS.md}px) {
     padding: 8px 12px 8px 9px;
     font-size: 0.68rem;
     gap: 7px;
@@ -1664,10 +1684,6 @@ const cardEnter = keyframes`
   from { opacity: 0; transform: perspective(1200px) rotateX(7deg) translateY(34px) scale(0.965); filter: blur(8px); }
   to { opacity: 1; transform: perspective(1200px) rotateX(0) translateY(0) scale(1); filter: blur(0); }
 `;
-const glowBreath = keyframes`
-  0%, 100% { opacity: 0.45; }
-  50% { opacity: 0.95; }
-`;
 /* The join card is a "beacon": a slow breathing dual-gone glow behind it and
    one soft light beam flowing along its edge — no hard rotating shapes. */
 const CardHalo = styled.div`
@@ -1688,7 +1704,7 @@ const CardHalo = styled.div`
     50% { opacity: 0.6; transform: scale(1.015); }
   }
 
-  @media (max-width: 600px) { filter: blur(34px); inset: -26px; }
+  @media (max-width: ${BREAKPOINTS.md}px) { filter: blur(34px); inset: -26px; }
   @media (prefers-reduced-motion: reduce) { animation: none; opacity: 0.3; }
 `;
 
@@ -1723,7 +1739,7 @@ const CardBeam = styled.div`
 
   @keyframes beamOrbit { to { transform: rotate(360deg); } }
 
-  @media (max-width: 600px) { display: none; }
+  @media (max-width: ${BREAKPOINTS.md}px) { display: none; }
   @media (prefers-reduced-motion: reduce) {
     &::before { animation-duration: 240s; }
   }
@@ -1755,7 +1771,7 @@ const JoinContainer = styled.div`
   z-index: 2;
   position: relative;
 
-  @media (max-width: 480px) {
+  @media (max-width: ${BREAKPOINTS.sm}px) {
     width: calc(100vw - 32px);
     max-width: none;
     margin: 0 16px;
@@ -1804,7 +1820,7 @@ const JoinInput = styled.input`
     opacity: 0.6;
   }
 
-  @media (max-width: 480px) {
+  @media (max-width: ${BREAKPOINTS.sm}px) {
     padding: 10px 14px 10px 42px;
     font-size: 0.9rem;
     min-height: 42px;
@@ -1930,7 +1946,7 @@ const JoinButton = styled.button`
     transform: translateY(0);
   }
 
-  @media (max-width: 480px) {
+  @media (max-width: ${BREAKPOINTS.sm}px) {
     padding: 10px;
     font-size: 0.9rem;
     min-height: 42px;
@@ -1971,7 +1987,7 @@ const PreviewModal = styled.div`
   will-change: transform, opacity;
   margin: auto;
 
-  @media (max-width: 600px) {
+  @media (max-width: ${BREAKPOINTS.md}px) {
     padding: 0;
     gap: 0;
   }
@@ -2059,7 +2075,7 @@ const PreviewContent = styled.div`
   width: 100%;
   align-content: ${(props) => (props.$singleFile ? "center" : "start")};
 
-  @media (max-width: 767px) {
+  @media (max-width: ${BREAKPOINTS.lg}px) {
     padding: 16px;
     gap: 12px;
     display: ${(props) => (props.$singleFile ? "grid" : "flex")};
@@ -2095,7 +2111,7 @@ const PreviewCard = styled.div`
     }
   }
 
-  @media (max-width: 767px) {
+  @media (max-width: ${BREAKPOINTS.lg}px) {
     min-height: ${(props) => (props.$singleFile ? "320px" : "auto")};
     max-height: none;
     flex-shrink: 0;
@@ -2114,7 +2130,7 @@ const PreviewMediaWrapper = styled.div`
   background: linear-gradient(135deg, rgba(0, 0, 0, 0.16) 0%, rgba(0, 0, 0, 0.08) 100%);
   overflow: hidden;
 
-  @media (max-width: 767px) {
+  @media (max-width: ${BREAKPOINTS.lg}px) {
     height: ${(props) => (props.$singleFile ? "260px" : "80px")};
     width: ${(props) => (props.$singleFile ? "100%" : "80px")};
     min-width: ${(props) => (props.$singleFile ? "auto" : "80px")};
@@ -2165,7 +2181,7 @@ const PreviewFileInfo = styled.div`
   min-width: 0;
   flex: 1;
 
-  @media (max-width: 767px) {
+  @media (max-width: ${BREAKPOINTS.lg}px) {
     padding: 10px 14px;
     gap: 4px;
   }
@@ -2206,7 +2222,7 @@ const PreviewRemoveButton = styled.button`
     background: var(--chakra-colors-surfaceHover);
   }
 
-  @media (max-width: 767px) {
+  @media (max-width: ${BREAKPOINTS.lg}px) {
     position: static;
     flex-shrink: 0;
     width: 28px;
@@ -2225,7 +2241,7 @@ const PreviewActions = styled.div`
   border-top: 1px solid var(--chakra-colors-border);
   background: var(--chakra-colors-glassBg);
 
-  @media (max-width: 767px) {
+  @media (max-width: ${BREAKPOINTS.lg}px) {
     justify-content: stretch;
   }
 `;
@@ -2253,7 +2269,7 @@ const PreviewButton = styled.button`
     transform: scale(0.98);
   }
 
-  @media (max-width: 767px) {
+  @media (max-width: ${BREAKPOINTS.lg}px) {
     width: 100%;
   }
 `;
@@ -2293,7 +2309,7 @@ const MessageInputContainer = styled.div`
   flex-shrink: 0;
   box-sizing: border-box;
 
-  @media (max-width: 600px) {
+  @media (max-width: ${BREAKPOINTS.md}px) {
     padding: 8px 10px;
     padding-bottom: calc(8px + var(--safe-bottom));
     gap: 6px;
@@ -2321,10 +2337,10 @@ const InputPill = styled.div`
     background: var(--chakra-colors-surface);
   }
 
-  @media (max-width: 600px) {
-    padding: 4px 6px;
+  @media (max-width: ${BREAKPOINTS.md}px) {
+    padding: 6px 8px;
     border-radius: 24px;
-    gap: 2px;
+    gap: 4px;
   }
 `;
 
@@ -2345,7 +2361,7 @@ const AccessoryRow = styled.div`
     to { transform: translateY(0); opacity: 1; }
   }
 
-  @media (max-width: 480px) {
+  @media (max-width: ${BREAKPOINTS.sm}px) {
     justify-content: center;
     gap: 14px;
     padding: 8px 12px;
@@ -2377,10 +2393,22 @@ const IconButton = styled.button`
     transform: scale(0.95);
   }
 
-  @media (max-width: 600px) {
-    width: 34px;
-    height: 34px;
-    font-size: 1.05rem;
+  @media (max-width: ${BREAKPOINTS.md}px) {
+    width: 32px;
+    height: 32px;
+    font-size: 0.95rem;
+  }
+
+  @media (max-width: ${BREAKPOINTS.sm}px) {
+    width: 30px;
+    height: 30px;
+    font-size: 0.88rem;
+  }
+
+  @media (max-width: ${BREAKPOINTS.xs}px) {
+    width: 28px;
+    height: 28px;
+    font-size: 0.82rem;
   }
 `;
 
@@ -2417,7 +2445,7 @@ const RecordingIndicator = styled.div`
     font-variant-numeric: tabular-nums;
   }
 
-  @media (max-width: 480px) {
+  @media (max-width: ${BREAKPOINTS.sm}px) {
     padding: 0 4px;
     gap: 4px;
     .dot {
@@ -2451,9 +2479,10 @@ const MessageInput = styled.textarea`
     opacity: 0.6;
   }
 
-  @media (max-width: 600px) {
-    padding: 7px 10px;
-    font-size: 0.95rem;
+  @media (max-width: ${BREAKPOINTS.md}px) {
+    padding: 10px 12px;
+    font-size: 16px;
+    min-height: 42px;
     line-height: 1.4;
   }
 `;
@@ -2492,13 +2521,26 @@ const SendButton = styled.button`
     cursor: not-allowed;
     background: rgba(255,255,255,0.08);
     color: rgba(255, 255, 255, 0.3);
-    box-shadow: none;
   }
 
-  @media (max-width: 600px) {
-    width: 40px;
-    height: 40px;
-    font-size: 0.95rem;
+  @media (max-width: ${BREAKPOINTS.md}px) {
+    width: 36px;
+    height: 36px;
+
+    svg {
+      width: 16px;
+      height: 16px;
+    }
+  }
+
+  @media (max-width: ${BREAKPOINTS.xs}px) {
+    width: 34px;
+    height: 34px;
+
+    svg {
+      width: 15px;
+      height: 15px;
+    }
   }
 `;
 const slideUpMobile = keyframes`
@@ -2535,7 +2577,7 @@ const GifPickerModal = styled.div`
   box-shadow: ${(props) => (props.$isMobile ? "none" : "var(--chakra-shadows-cardShadowHover)")};
   animation: ${scaleUp} 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
 
-  @media (max-width: 767px) {
+  @media (max-width: ${BREAKPOINTS.lg}px) {
     width: 100vw;
     height: 100dvh;
     max-height: 100dvh;
@@ -2637,7 +2679,7 @@ const EphemeralMenuCard = styled.div`
     }
   }
 
-  @media (max-width: 480px) {
+  @media (max-width: ${BREAKPOINTS.sm}px) {
     width: 220px;
     bottom: 50px;
     right: -10px;
@@ -2646,7 +2688,7 @@ const EphemeralMenuCard = styled.div`
 
 const GifDrawerHandle = styled.div`
   display: none;
-  @media (max-width: 767px) {
+  @media (max-width: ${BREAKPOINTS.lg}px) {
     display: flex;
     justify-content: center;
     padding: 10px 0 2px;
@@ -2687,7 +2729,7 @@ const GifPickerTitle = styled.div`
     backdrop-filter: blur(10px);
   }
 
-  @media (max-width: 767px) {
+  @media (max-width: ${BREAKPOINTS.lg}px) {
     span.title { font-size: 1.15rem; }
     span.badge { font-size: 0.65rem; padding: 4px 10px; }
   }
@@ -2700,7 +2742,7 @@ const GifPickerSubtitle = styled.div`
   max-width: 780px;
   letter-spacing: 0.01em;
 
-  @media (max-width: 767px) {
+  @media (max-width: ${BREAKPOINTS.lg}px) {
     font-size: 0.9rem;
   }
 `;
@@ -2734,7 +2776,7 @@ const CloseGifPickerButton = styled.button`
     transform: scale(0.94);
   }
 
-  @media (max-width: 767px) {
+  @media (max-width: ${BREAKPOINTS.lg}px) {
     width: 36px;
     height: 36px;
     min-width: 36px;
@@ -2756,7 +2798,7 @@ const GifPickerHeader = styled.div`
   top: 0;
   z-index: 2;
 
-  @media (max-width: 767px) {
+  @media (max-width: ${BREAKPOINTS.lg}px) {
     padding: 14px 16px 12px;
     gap: 12px;
   }
@@ -2785,7 +2827,7 @@ const GifSearchIcon = styled.div`
   pointer-events: none;
   font-size: 0.95rem;
 
-  @media (max-width: 767px) {
+  @media (max-width: ${BREAKPOINTS.lg}px) {
     left: 14px;
     font-size: 0.88rem;
   }
@@ -2810,7 +2852,7 @@ const GifSearchClearButton = styled.button`
     background: var(--chakra-colors-surfaceHover);
   }
 
-  @media (max-width: 767px) {
+  @media (max-width: ${BREAKPOINTS.lg}px) {
     right: 12px;
   }
 `;
@@ -2891,7 +2933,7 @@ const GifSearchInput = styled.input`
     font-weight: 400;
   }
 
-  @media (max-width: 767px) {
+  @media (max-width: ${BREAKPOINTS.lg}px) {
     padding: 10px 14px 10px 36px;
     border-radius: 12px;
   }
@@ -2912,14 +2954,14 @@ const GifGrid = styled.div`
   flex: 1;
   min-height: 0;
 
-  @media (max-width: 767px) {
+  @media (max-width: ${BREAKPOINTS.lg}px) {
     /* Fixed 3-up mosaic on phones — auto-fit collapses to 2 giant tiles */
     grid-template-columns: repeat(3, 1fr);
     gap: 8px;
     padding: 0 10px 14px;
   }
 
-  @media (max-width: 360px) {
+  @media (max-width: ${BREAKPOINTS.xs}px) {
     gap: 6px;
     padding: 0 8px 12px;
   }
@@ -2940,7 +2982,7 @@ const GifCard = styled.div`
   border: 1px solid rgba(255,255,255,0.055);
   transition: transform 0.2s ease, box-shadow 0.25s ease, border-color 0.25s ease;
 
-  @media (max-width: 767px) {
+  @media (max-width: ${BREAKPOINTS.lg}px) {
     border-radius: 10px;
   }
 
@@ -3028,7 +3070,7 @@ const SearchPopup = styled.div`
   box-shadow: var(--chakra-shadows-cardShadowHover);
   animation: slide-down-fade 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 
-  @media (max-width: 600px) {
+  @media (max-width: ${BREAKPOINTS.md}px) {
     right: 12px;
     left: 12px;
     top: 64px;
@@ -3050,7 +3092,7 @@ const SearchInput = styled.input`
     opacity: 0.6;
   }
 
-  @media (max-width: 600px) {
+  @media (max-width: ${BREAKPOINTS.md}px) {
     flex: 1;
     width: auto;
   }
@@ -3072,7 +3114,7 @@ const RoomInfoDropdown = styled.div`
   box-sizing: border-box;
   animation: slide-down-fade 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 
-  @media (max-width: 600px) {
+  @media (max-width: ${BREAKPOINTS.md}px) {
     top: calc(54px + env(safe-area-inset-top));
     left: max(10px, env(safe-area-inset-left));
     width: min(420px, calc(100vw - 20px));
@@ -3101,7 +3143,7 @@ const RoomInfoTrigger = styled.button`
   flex-direction: column;
   align-items: flex-start;
   min-width: 0;
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   overflow: hidden;
   padding: 2px 4px;
   border: 0;
@@ -4277,7 +4319,7 @@ const UploadProgressCard = ({ file, isMobile }) => {
     </div>
   );
 };
-function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile, setViewer }) {
+function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile, setViewer, reactions, messageId, onToggleReaction }) {
   const fileType = getFileType(file);
   const [decryptedUrl, setDecryptedUrl] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -4291,6 +4333,37 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile, setViewer 
   const lastDecryptedIvRef = useRef(null);
   const lastDecryptedSourceUrlRef = useRef(null);
   const bypassProxyRef = useRef(false);
+
+  const hasReactions = Object.keys(reactions || {}).length > 0;
+  const InlineReactions = hasReactions ? (
+    <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center", flexShrink: 0 }}>
+      {Object.entries(reactions).map(([emoji, users]) => (
+        <button
+          key={emoji}
+          type="button"
+          title={Object.values(users).map((u) => u.name).join(", ")}
+          onClick={(e) => { e.stopPropagation(); onToggleReaction?.(messageId, emoji); }}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 3,
+            padding: isMobile ? "1px 6px" : "2px 7px",
+            borderRadius: 999,
+            border: "1px solid rgba(255,255,255,.14)",
+            background: "rgba(129,140,248,.22)",
+            color: "#c7d2fe",
+            cursor: "pointer",
+            fontSize: isMobile ? ".66rem" : ".7rem",
+            lineHeight: 1.4,
+            transition: ".2s",
+          }}
+        >
+          <span style={{ fontSize: ".78rem", lineHeight: 1 }}>{emoji}</span>
+          <span style={{ fontWeight: 700 }}>{Object.keys(users).length}</span>
+        </button>
+      ))}
+    </div>
+  ) : null;
 
   // Join the shared gallery once this media is viewable (skips view-once)
   useEffect(() => {
@@ -4524,6 +4597,7 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile, setViewer 
                 >
                   Expand
                 </button>
+                {InlineReactions}
               </div>
             </div>
           )}
@@ -4572,6 +4646,7 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile, setViewer 
                 >
                   Fullscreen
                 </button>
+                {InlineReactions}
               </div>
             </div>
           )}
@@ -4633,6 +4708,7 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile, setViewer 
             >
               <FaDownload style={{ fontSize: "0.8rem" }} />
             </button>
+            {InlineReactions}
           </div>
         </div>
       )}
@@ -4841,7 +4917,7 @@ export default function ChatRoom() {
     window.addEventListener("keydown", onGalleryKey);
     return () => window.removeEventListener("keydown", onGalleryKey);
   }, [fullscreen]);
-  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  const isMobile = useIsMobile();
   const typingTimeout = useRef(null);
   const fileInputRef = useRef(null);
   const composerRef = useRef(null);
@@ -5459,14 +5535,6 @@ export default function ChatRoom() {
   const gifCacheRef = useRef(new Map());
   const gifRequestRef = useRef(null);
   const gifPageSizeRef = useRef(20);
-
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth <= 768);
-    };
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
 
   const fetchGifs = useCallback(async (query = "", offset = 0) => {
     const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
@@ -6305,6 +6373,10 @@ export default function ChatRoom() {
       clearInterval(pingInterval);
       if (ringtoneRef.current) { ringtoneRef.current.stop(); ringtoneRef.current = null; }
     };
+    // Socket handlers are registered once per join; they close over the latest
+    // render's helpers, so re-subscribing on every helper identity change would
+    // drop in-flight events.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [joined]);
 
   // Stop ringing instantly when you join any call (accept button also handles this,
@@ -8538,9 +8610,9 @@ export default function ChatRoom() {
             aria-controls="room-insights-panel"
             onClick={() => setShowRoomInfo((isOpen) => !isOpen)}
           >
-            <div style={{ fontWeight: "bold", fontSize: "clamp(0.85rem, 2.5vw, 1.1rem)", display: "flex", alignItems: "center", gap: 4, minWidth: 0 }} >
+            <div style={{ fontWeight: "bold", fontSize: "clamp(1rem, 2.5vw, 1.1rem)", display: "flex", alignItems: "center", gap: 4, minWidth: 0 }} >
               <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "clamp(60px, 25vw, 300px)" }}>{roomId}</span>
-              <span aria-hidden="true" style={{ fontSize: "0.65rem", opacity: 0.8, flexShrink: 0, lineHeight: 1 }} onClick={() => setShowRoomInfo((isOpen) => !isOpen)}>
+              <span aria-hidden="true" style={{ fontSize: "0.9rem", opacity: 0.8, flexShrink: 0, lineHeight: 1 }} onClick={() => setShowRoomInfo((isOpen) => !isOpen)}>
                 {showRoomInfo ? "▲" : "▼"}
               </span>
             </div>
@@ -9021,7 +9093,7 @@ export default function ChatRoom() {
                         <UploadProgressCard file={m.file} isMobile={isMobile} />
                       </div>
                     ) : (
-                      <E2EEFileAttachment file={m.file} roomKey={roomKey} setFullscreen={setFullscreen} isMobile={isMobile} setViewer={setViewer} />
+                      <E2EEFileAttachment file={m.file} roomKey={roomKey} setFullscreen={setFullscreen} isMobile={isMobile} setViewer={setViewer} reactions={m.reactions} messageId={m.id} onToggleReaction={toggleReaction} />
                     )}
                   </div>
                 )}
@@ -9048,52 +9120,20 @@ export default function ChatRoom() {
                   </div>
                   {!isSystem && (
                     <div
+                      className="bubble-actions"
                       style={{
                         display: "flex",
-                        flexDirection: isMobile ? "column" : "row",
-                        alignItems: isMobile ? "stretch" : "center",
+                        flexDirection: "row",
+                        alignItems: "center",
                         justifyContent: "space-between",
-                        gap: isMobile ? 8 : 6,
-                        marginTop: 6,
-                        position: "relative",
+                        flexWrap: "wrap",
+                        gap: 5,
                         minWidth: 0,
+                        marginTop: 4,
+                        position: "relative",
                       }}
                     >
-                      {Object.keys(m.reactions || {}).length > 0 && (
-                        <div style={{ display: "flex", gap: 4, flexWrap: "wrap", minWidth: 0 }}>
-                          {Object.entries(m.reactions).map(([emoji, users]) => (
-                            <button
-                              key={emoji}
-                              title={Object.values(users).map((u) => u.name).join(", ")}
-                              onClick={() => toggleReaction(m.id, emoji)}
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 3,
-                                padding: isMobile ? "2px 6px" : "3px 10px",
-                                borderRadius: 20,
-                                border: "1px solid rgba(255,255,255,.05)",
-                                background: "rgba(255,255,255,.04)",
-                                color: "inherit",
-                                cursor: "pointer",
-                                fontSize: isMobile ? ".68rem" : ".75rem",
-                                transition: ".2s",
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.background = "rgba(255,255,255,.15)";
-                                e.currentTarget.style.transform = "scale(1.05)";
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.background = "rgba(255,255,255,.04)";
-                                e.currentTarget.style.transform = "scale(1)";
-                              }}
-                            >
-                              {emoji} {Object.keys(users).length}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                      <div style={{ display: "flex", gap: 6, justifyContent: isMobile ? "flex-end" : "flex-start", flexWrap: "wrap", alignItems: "center" }}>
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
                         <BubbleActionButton
                           type="button"
                           onClick={() =>
@@ -9214,9 +9254,10 @@ export default function ChatRoom() {
                         <BubbleActionButton
                           type="button"
                           className={`reaction-btn-${m.id}`}
-                          onClick={() =>
-                            setReactionPickerFor(reactionPickerFor === m.id ? null : m.id)
-                          }
+                          onClick={(e) => {
+                            e.currentTarget.closest(".chat-message-item")?.scrollIntoView({ block: "nearest" });
+                            setReactionPickerFor(reactionPickerFor === m.id ? null : m.id);
+                          }}
                           data-tooltip="React"
                         >
                           😊
@@ -9228,7 +9269,7 @@ export default function ChatRoom() {
                           className={`reaction-picker-${m.id}`}
                           style={{
                             position: "absolute",
-                            bottom: "110%",
+                            bottom: "calc(100% + 4px)",
                             right: 0,
                             display: "flex",
                             gap: 5,
@@ -9248,13 +9289,13 @@ export default function ChatRoom() {
                                 setReactionPickerFor(null);
                               }}
                               style={{
-                                width: 34,
-                                height: 34,
+                                width: 30,
+                                height: 30,
                                 borderRadius: "50%",
                                 border: 0,
                                 background: "transparent",
                                 cursor: "pointer",
-                                fontSize: "1.1rem",
+                                fontSize: "1rem",
                                 transition: ".15s",
                               }}
                               onMouseEnter={(e) => {
@@ -9271,6 +9312,43 @@ export default function ChatRoom() {
                           ))}
                         </div>
                       )}
+                    </div>
+                  )}
+
+                  {!isSystem && !m.file && Object.keys(m.reactions || {}).length > 0 && (
+                    <div className="bubble-reactions" style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 5 }}>
+                      {Object.entries(m.reactions).map(([emoji, users]) => (
+                        <button
+                          key={emoji}
+                          title={Object.values(users).map((u) => u.name).join(", ")}
+                          onClick={() => toggleReaction(m.id, emoji)}
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 4,
+                            padding: isMobile ? "2px 8px" : "2px 9px",
+                            borderRadius: 999,
+                            border: "1px solid rgba(255,255,255,.08)",
+                            background: "rgba(129,140,248,.14)",
+                            color: "#c7d2fe",
+                            cursor: "pointer",
+                            fontSize: isMobile ? ".72rem" : ".76rem",
+                            lineHeight: 1.4,
+                            transition: ".2s",
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = "rgba(129,140,248,.28)";
+                            e.currentTarget.style.borderColor = "rgba(129,140,248,.45)";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = "rgba(129,140,248,.14)";
+                            e.currentTarget.style.borderColor = "rgba(255,255,255,.08)";
+                          }}
+                        >
+                          <span style={{ fontSize: ".82rem", lineHeight: 1 }}>{emoji}</span>
+                          <span style={{ fontWeight: 700 }}>{Object.keys(users).length}</span>
+                        </button>
+                      ))}
                     </div>
                   )}
 
@@ -9631,6 +9709,25 @@ export default function ChatRoom() {
                     ⏰
                   </IconButton>
                 )}
+                {features.voiceRecordings !== false && !isRecording && (
+                  <IconButton onClick={startVoiceRecording} title="Record voice note">
+                    <FaMicrophone />
+                  </IconButton>
+                )}
+                <IconButton
+                  type="button"
+                  onClick={() => setCodeBlockMode(v => !v)}
+                  title={codeBlockMode ? "Code block mode ON — message will send as code" : "Share as code block"}
+                  aria-pressed={codeBlockMode}
+                  style={{
+                    color: codeBlockMode ? "var(--chakra-colors-brandPrimary)" : "inherit",
+                    background: codeBlockMode ? "rgba(99,102,241,0.15)" : "transparent",
+                    fontWeight: 800,
+                    fontFamily: "'SF Mono','Fira Code',Consolas,monospace",
+                  }}
+                >
+                  {"</>"}
+                </IconButton>
                 {features.ephemeralMessages !== false && (
                   <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
                     <EphemeralToggle
@@ -9739,7 +9836,7 @@ export default function ChatRoom() {
                   </IconButton>
                 )}
 
-                {features.fileSharing !== false && (
+                {features.fileSharing !== false && !isMobile && (
                   <IconButton as="label" htmlFor="file-input" title="Upload File">
                     <FaPaperclip />
                   </IconButton>
@@ -9757,7 +9854,7 @@ export default function ChatRoom() {
                   }}
                 />
 
-                {features.voiceRecordings !== false && (
+                {features.voiceRecordings !== false && !isMobile && (
                   <>
                     {isRecording ? (
                       <RecordingIndicator onClick={stopVoiceRecording} title="Stop recording">
@@ -9774,22 +9871,24 @@ export default function ChatRoom() {
                   </>
                 )}
 
-                <IconButton
-                  type="button"
-                  onClick={() => setCodeBlockMode(v => !v)}
-                  title={codeBlockMode ? "Code block mode ON — message will send as code" : "Share as code block"}
-                  aria-pressed={codeBlockMode}
-                  style={{
-                    color: codeBlockMode ? "var(--chakra-colors-brandPrimary)" : "inherit",
-                    background: codeBlockMode ? "rgba(99,102,241,0.15)" : "transparent",
-                    border: codeBlockMode ? "1px solid rgba(99,102,241,0.4)" : "none",
-                    fontWeight: 800,
-                    fontSize: "0.8rem",
-                    fontFamily: "'SF Mono','Fira Code',Consolas,monospace",
-                  }}
-                >
-                  {"</>"}
-                </IconButton>
+                {!isMobile && (
+                  <IconButton
+                    type="button"
+                    onClick={() => setCodeBlockMode(v => !v)}
+                    title={codeBlockMode ? "Code block mode ON — message will send as code" : "Share as code block"}
+                    aria-pressed={codeBlockMode}
+                    style={{
+                      color: codeBlockMode ? "var(--chakra-colors-brandPrimary)" : "inherit",
+                      background: codeBlockMode ? "rgba(99,102,241,0.15)" : "transparent",
+                      border: codeBlockMode ? "1px solid rgba(99,102,241,0.4)" : "none",
+                      fontWeight: 800,
+                      fontSize: "1rem",
+                      fontFamily: "'SF Mono','Fira Code',Consolas,monospace",
+                    }}
+                  >
+                    {"</>"}
+                  </IconButton>
+                )}
 
                 <MessageInput
                   rows={1}
@@ -9805,6 +9904,12 @@ export default function ChatRoom() {
                     e.target.style.height = Math.min(e.target.scrollHeight, 150) + "px";
                   }}
                 />
+
+                {isMobile && features.fileSharing !== false && (
+                  <IconButton as="label" htmlFor="file-input" title="Upload File">
+                    <FaPaperclip />
+                  </IconButton>
+                )}
 
                 {!isMobile && (
                   <>
@@ -9876,6 +9981,15 @@ export default function ChatRoom() {
                   </>
                 )}
               </InputPill>
+
+              {isMobile && features.voiceRecordings !== false && isRecording && (
+                <RecordingIndicator onClick={stopVoiceRecording} title="Stop recording">
+                  <span className="dot" />
+                  <span className="timer">
+                    {Math.floor(recordingTime / 60)}:{String(recordingTime % 60).padStart(2, '0')}
+                  </span>
+                </RecordingIndicator>
+              )}
 
               <SendButton onClick={() => handleSend()} disabled={!message.trim() && pendingFiles.length === 0}>
                 <FaPaperPlane />

@@ -14,6 +14,7 @@ import {
 } from "react-icons/fa";
 import * as PeerModule from "peerjs";
 import { toast } from "react-toastify";
+import { BREAKPOINTS } from "../hooks/useIsMobile";
 
 const Peer = PeerModule.Peer || PeerModule.default || PeerModule;
 
@@ -90,7 +91,7 @@ const MeetingContainer = styled.div`
     }
   `}
 
-  @media (max-width: 768px) {
+  @media (max-width: ${BREAKPOINTS.lg}px) {
     ${props => props.$minimized && css`
       width: 200px;
       height: 120px;
@@ -100,7 +101,7 @@ const MeetingContainer = styled.div`
     `}
   }
 
-  @media (max-width: 480px) {
+  @media (max-width: ${BREAKPOINTS.sm}px) {
     ${props => props.$minimized && css`
       width: 160px;
       height: 100px;
@@ -110,8 +111,8 @@ const MeetingContainer = styled.div`
     `}
   }
 
-  .hide-mobile { @media (max-width: 600px) { display: none !important; } }
-  .desktop-only-controls { @media (max-width: 768px) { display: none !important; } }
+  .hide-mobile { @media (max-width: ${BREAKPOINTS.md}px) { display: none !important; } }
+  .desktop-only-controls { @media (max-width: ${BREAKPOINTS.lg}px) { display: none !important; } }
 `;
 
 const BackgroundAtmosphere = styled.div`
@@ -138,12 +139,12 @@ const MeetingHeader = styled.header`
   flex-shrink: 0;
   gap: 12px;
 
-  @media (max-width: 768px) {
+  @media (max-width: ${BREAKPOINTS.lg}px) {
     padding: 10px 14px;
     gap: 8px;
   }
 
-  @media (max-width: 480px) {
+  @media (max-width: ${BREAKPOINTS.sm}px) {
     padding: 8px 10px;
     gap: 6px;
   }
@@ -163,7 +164,7 @@ const HeaderRight = styled.div`
   gap: 6px;
   flex-shrink: 0;
 
-  @media (max-width: 480px) {
+  @media (max-width: ${BREAKPOINTS.sm}px) {
     gap: 4px;
   }
 `;
@@ -185,7 +186,7 @@ const BrandBadge = styled.div`
     animation: ${pulseGlow} 2s infinite;
   }
 
-  @media (max-width: 480px) {
+  @media (max-width: ${BREAKPOINTS.sm}px) {
     span:not(.live-dot) {
       display: none;
     }
@@ -205,7 +206,7 @@ const RoomTag = styled.span`
   text-overflow: ellipsis;
   white-space: nowrap;
 
-  @media (max-width: 600px) {
+  @media (max-width: ${BREAKPOINTS.md}px) {
     display: none;
   }
 `;
@@ -244,9 +245,9 @@ const StatusPill = styled.div`
     filter: brightness(1.1);
   }
 
-  @media (max-width: 500px) {
+  @media (max-width: ${BREAKPOINTS.sm}px) {
     padding: 4px 8px;
-    font-size: 0.65rem;
+    font-size: 0.88rem;
     .status-label {
       display: none !important;
     }
@@ -271,7 +272,7 @@ const BandwidthMenu = styled.div`
   z-index: 1000;
   animation: ${slideUp} 0.2s ease;
 
-  @media (max-width: 600px) {
+  @media (max-width: ${BREAKPOINTS.md}px) {
     left: 0;
     right: auto;
     width: min(240px, calc(100vw - 24px));
@@ -329,13 +330,13 @@ const IconButton = styled.button`
   }
   &:active { transform: scale(0.94); }
 
-  @media (max-width: 768px) {
+  @media (max-width: ${BREAKPOINTS.lg}px) {
     width: 32px;
     height: 32px;
     font-size: 0.78rem;
   }
 
-  @media (max-width: 480px) {
+  @media (max-width: ${BREAKPOINTS.sm}px) {
     width: 38px;
     height: 38px;
     font-size: 0.8rem;
@@ -371,12 +372,12 @@ const ContentArea = styled.main`
   gap: 8px;
   min-height: 0;
 
-  @media (max-width: 768px) {
+  @media (max-width: ${BREAKPOINTS.lg}px) {
     padding: 6px 8px;
     gap: 6px;
   }
 
-  @media (max-width: 600px) {
+  @media (max-width: ${BREAKPOINTS.md}px) {
     padding: 4px 4px;
     gap: 4px;
   }
@@ -391,11 +392,11 @@ const MainVideoArea = styled.div`
   border-radius: 16px;
   overflow: hidden;
 
-  @media (max-width: 768px) {
+  @media (max-width: ${BREAKPOINTS.lg}px) {
     border-radius: 12px;
   }
 
-  @media (max-width: 480px) {
+  @media (max-width: ${BREAKPOINTS.sm}px) {
     border-radius: 8px;
   }
 `;
@@ -429,12 +430,12 @@ const VideoGridContainer = styled.div`
     return "repeat(3, 1fr)";
   }};
 
-  @media (max-width: 768px) {
+  @media (max-width: ${BREAKPOINTS.lg}px) {
     gap: 6px;
     padding: 3px;
   }
 
-  @media (max-width: 600px) {
+  @media (max-width: ${BREAKPOINTS.md}px) {
     grid-template-columns: ${props => {
       const c = props.$count;
       if (c <= 1) return "1fr";
@@ -474,12 +475,12 @@ const VideoTile = styled.div`
     background: #000;
   }
 
-  @media (max-width: 768px) {
+  @media (max-width: ${BREAKPOINTS.lg}px) {
     border-radius: 10px;
     border-width: 1.5px;
   }
 
-  @media (max-width: 480px) {
+  @media (max-width: ${BREAKPOINTS.sm}px) {
     border-radius: 8px;
   }
 `;
@@ -494,14 +495,14 @@ const TileOverlay = styled.div`
   transition: opacity 0.2s ease;
   z-index: 10;
 
-  @media (max-width: 768px) {
+  @media (max-width: ${BREAKPOINTS.lg}px) {
     opacity: 0.8;
     top: 4px;
     right: 4px;
     gap: 3px;
   }
 
-  @media (max-width: 480px) {
+  @media (max-width: ${BREAKPOINTS.sm}px) {
     opacity: 1;
     top: 3px;
     right: 3px;
@@ -538,11 +539,11 @@ const TileActionButton = styled.button`
     }};
   }
 
-  @media (max-width: 600px) {
-    width: 26px;
-    height: 26px;
-    font-size: 0.7rem;
-    border-radius: 6px;
+  @media (max-width: ${BREAKPOINTS.md}px) {
+    width: 34px;
+    height: 34px;
+    font-size: 0.85rem;
+    border-radius: 7px;
   }
 `;
 
@@ -564,21 +565,21 @@ const TileUserInfo = styled.div`
   z-index: 5;
   max-width: calc(100% - 16px);
 
-  @media (max-width: 768px) {
+  @media (max-width: ${BREAKPOINTS.lg}px) {
     bottom: 5px;
     left: 5px;
-    padding: 2px 6px;
-    font-size: 0.65rem;
+    padding: 3px 7px;
+    font-size: 0.78rem;
     border-radius: 8px;
     gap: 3px;
     max-width: calc(100% - 10px);
   }
 
-  @media (max-width: 480px) {
+  @media (max-width: ${BREAKPOINTS.sm}px) {
     bottom: 3px;
     left: 3px;
-    padding: 2px 5px;
-    font-size: 0.6rem;
+    padding: 2px 6px;
+    font-size: 0.88rem;
     border-radius: 6px;
   }
 `;
@@ -599,7 +600,7 @@ const EqualizerWaves = styled.div`
     &:nth-child(3) { animation-delay: 0.4s; }
   }
 
-  @media (max-width: 480px) { height: 10px; span { width: 1.5px; } }
+  @media (max-width: ${BREAKPOINTS.sm}px) { height: 10px; span { width: 1.5px; } }
 `;
 
 const AvatarPlaceholder = styled.div`
@@ -626,7 +627,7 @@ const AvatarPlaceholder = styled.div`
     box-shadow: 0 8px 24px rgba(6, 182, 212, 0.25);
   }
 
-  @media (max-width: 600px) { gap: 6px; }
+  @media (max-width: ${BREAKPOINTS.md}px) { gap: 6px; }
 `;
 
 const ControlsDock = styled.footer`
@@ -641,12 +642,12 @@ const ControlsDock = styled.footer`
   z-index: 20;
   gap: 8px;
 
-  @media (max-width: 768px) {
+  @media (max-width: ${BREAKPOINTS.lg}px) {
     padding: 10px 12px;
     gap: 6px;
   }
 
-  @media (max-width: 600px) {
+  @media (max-width: ${BREAKPOINTS.md}px) {
     flex-direction: column;
     padding: 6px 8px;
     gap: 0;
@@ -668,7 +669,7 @@ const ControlsDock = styled.footer`
 const MobilePrimaryRow = styled.div`
   display: none;
 
-  @media (max-width: 600px) {
+  @media (max-width: ${BREAKPOINTS.md}px) {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -681,7 +682,7 @@ const MobilePrimaryRow = styled.div`
 const MobileSecondaryRow = styled.div`
   display: none;
 
-  @media (max-width: 600px) {
+  @media (max-width: ${BREAKPOINTS.md}px) {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -734,7 +735,7 @@ const DockButton = styled.button`
   }
   &:active { transform: scale(0.96); }
 
-  @media (max-width: 768px) {
+  @media (max-width: ${BREAKPOINTS.lg}px) {
     min-width: 38px;
     height: 38px;
     padding: 0 10px;
@@ -742,7 +743,7 @@ const DockButton = styled.button`
     gap: 5px;
   }
 
-  @media (max-width: 600px) {
+  @media (max-width: ${BREAKPOINTS.md}px) {
     min-width: 38px;
     height: 38px;
     padding: 0;
@@ -751,7 +752,7 @@ const DockButton = styled.button`
     span { display: none !important; }
   }
 
-  @media (max-width: 380px) {
+  @media (max-width: ${BREAKPOINTS.xs}px) {
     min-width: 34px;
     height: 34px;
     font-size: 0.9rem;
@@ -772,8 +773,8 @@ const EmojiTray = styled.div`
   display: flex;
   gap: 4px;
 
-  @media (max-width: 768px) { gap: 3px; }
-  @media (max-width: 600px) { display: none !important; }
+  @media (max-width: ${BREAKPOINTS.lg}px) { gap: 3px; }
+  @media (max-width: ${BREAKPOINTS.md}px) { display: none !important; }
   @media (max-width: 950px) and (max-height: 500px) { display: none !important; }
 `;
 
@@ -784,8 +785,8 @@ const DockDivider = styled.div`
   margin: 0 4px;
   flex-shrink: 0;
 
-  @media (max-width: 768px) { height: 20px; margin: 0 2px; }
-  @media (max-width: 600px) { display: none; }
+  @media (max-width: ${BREAKPOINTS.lg}px) { height: 20px; margin: 0 2px; }
+  @media (max-width: ${BREAKPOINTS.md}px) { display: none; }
   @media (max-width: 950px) and (max-height: 500px) { display: none; }
 `;
 
@@ -804,7 +805,7 @@ const ParticipantsDrawer = styled.aside`
   z-index: 50;
   animation: ${slideInRight} 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 
-  @media (max-width: 600px) {
+  @media (max-width: ${BREAKPOINTS.md}px) {
     width: 100%;
     border-left: none;
     border-top: 1px solid rgba(255,255,255,0.07);
@@ -832,7 +833,7 @@ const DrawerHeader = styled.div`
     gap: 8px;
   }
 
-  @media (max-width: 480px) {
+  @media (max-width: ${BREAKPOINTS.sm}px) {
     padding: 12px 14px;
     h3 { font-size: 0.82rem; }
   }
@@ -894,7 +895,7 @@ const ModalBackdrop = styled.div`
   padding: 12px;
   animation: ${fadeIn} 0.15s ease;
 
-  @media (max-width: 480px) {
+  @media (max-width: ${BREAKPOINTS.sm}px) {
     padding: 8px;
     align-items: flex-end;
   }
@@ -911,7 +912,7 @@ const ModalContent = styled.div`
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
   animation: ${slideUp} 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 
-  @media (max-width: 480px) {
+  @media (max-width: ${BREAKPOINTS.sm}px) {
     padding: 18px 16px;
     border-radius: 16px 16px 0 0;
     width: 100%;
@@ -930,7 +931,7 @@ const ReactionParticle = styled.div`
   pointer-events: none;
   z-index: 40;
 
-  @media (max-width: 600px) { font-size: 1.6rem; bottom: 40px; }
+  @media (max-width: ${BREAKPOINTS.md}px) { font-size: 1.6rem; bottom: 40px; }
 `;
 
 const SpinnerIcon = styled(FaSync)`
@@ -938,7 +939,7 @@ const SpinnerIcon = styled(FaSync)`
   color: #00f2fe;
   font-size: 28px;
 
-  @media (max-width: 480px) { font-size: 24px; }
+  @media (max-width: ${BREAKPOINTS.sm}px) { font-size: 24px; }
 `;
 
 const PipWidget = styled.div`
@@ -1007,7 +1008,7 @@ const PipWidget = styled.div`
   .pip-resize button:hover { background: rgba(0, 0, 0, 0.88); color: #fff; }
   .pip-resize button:disabled { opacity: 0.35; cursor: default; }
 
-  @media (max-width: 480px) {
+  @media (max-width: ${BREAKPOINTS.sm}px) {
     .pip-controls { bottom: 4px; left: 4px; right: 4px; gap: 4px; padding: 3px 4px; border-radius: 7px; }
     .pip-controls > button { width: 24px !important; height: 24px !important; }
     .pip-resize { top: 4px; right: 4px; }
@@ -1023,7 +1024,7 @@ const SpotlightContainer = styled.div`
   position: relative;
   box-sizing: border-box;
 
-  @media (max-width: 600px) { gap: 4px; }
+  @media (max-width: ${BREAKPOINTS.md}px) { gap: 4px; }
 `;
 
 const SpotlightMain = styled.div`
@@ -1035,7 +1036,7 @@ const SpotlightMain = styled.div`
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
   box-sizing: border-box;
 
-  @media (max-width: 600px) { border-radius: 8px; }
+  @media (max-width: ${BREAKPOINTS.md}px) { border-radius: 8px; }
 `;
 
 const SpotlightStrip = styled.div`
@@ -1051,7 +1052,7 @@ const SpotlightStrip = styled.div`
   &::-webkit-scrollbar-track { background: transparent; }
   &::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
 
-  @media (max-width: 480px) { gap: 4px; padding: 2px 0 4px; }
+  @media (max-width: ${BREAKPOINTS.sm}px) { gap: 4px; padding: 2px 0 4px; }
 `;
 
 const SpotlightThumbnail = styled.div`
@@ -1070,8 +1071,8 @@ const SpotlightThumbnail = styled.div`
   &:hover { transform: translateY(-1px); border-color: rgba(255, 255, 255, 0.2); }
   video { width: 100%; height: 100%; object-fit: cover; }
 
-  @media (max-width: 768px) { width: 110px; height: 72px; }
-  @media (max-width: 480px) { width: 90px; height: 60px; border-radius: 8px; }
+  @media (max-width: ${BREAKPOINTS.lg}px) { width: 110px; height: 72px; }
+  @media (max-width: ${BREAKPOINTS.sm}px) { width: 90px; height: 60px; border-radius: 8px; }
 `;
 
 const ParticipantStrip = styled.div`
@@ -1091,12 +1092,12 @@ const ParticipantStrip = styled.div`
   &::-webkit-scrollbar-track { background: transparent; }
   &::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.07); border-radius: 2px; }
 
-  @media (max-width: 768px) {
+  @media (max-width: ${BREAKPOINTS.lg}px) {
     padding: 6px 8px;
     gap: 6px;
   }
 
-  @media (max-width: 480px) {
+  @media (max-width: ${BREAKPOINTS.sm}px) {
     padding: 4px 6px;
     gap: 4px;
   }
@@ -1111,7 +1112,7 @@ const TheaterLayout = styled.div`
   min-height: 0;
   animation: ${fadeIn} 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 
-  @media (max-width: 600px) {
+  @media (max-width: ${BREAKPOINTS.md}px) {
     gap: 6px;
     /* Mobile: stage on top, rail as a horizontal card strip below */
     flex-direction: column;
@@ -1227,7 +1228,7 @@ const ParticipantsRail = styled.aside`
     }
   }
 
-  @media (max-width: 600px) {
+  @media (max-width: ${BREAKPOINTS.md}px) {
     width: 100%;
     height: 116px;
     /* Header label wastes precious vertical space on phones */
@@ -1248,7 +1249,7 @@ const RailScroll = styled.div`
   &::-webkit-scrollbar-track { background: transparent; }
   &::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
 
-  @media (max-width: 600px) {
+  @media (max-width: ${BREAKPOINTS.md}px) {
     /* Horizontal swipe strip on mobile */
     flex-direction: row;
     overflow-y: hidden;
@@ -1298,21 +1299,21 @@ const RailCard = styled.div`
     .rail-card-actions { opacity: 1; }
   }
 
-  @media (max-width: 600px) {
+  @media (max-width: ${BREAKPOINTS.md}px) {
     /* Fixed-width card inside the horizontal strip */
     width: 132px;
     flex-shrink: 0;
 
     .name-bar {
       padding: 5px 8px;
-      .nm { font-size: 0.64rem; }
+      .nm { font-size: 0.7rem; }
     }
     .rail-card-actions {
       top: 4px;
       right: 4px;
       gap: 3px;
     }
-    .rail-card-actions button { width: 22px; height: 22px; font-size: 0.6rem; }
+    .rail-card-actions button { width: 26px; height: 26px; font-size: 0.68rem; }
   }
 
   /* Name bar occupies its own space below video — nothing overlaps or crops */
@@ -1440,7 +1441,7 @@ const FocusCard = styled.div`
     }
   }
 
-  @media (max-width: 600px) {
+  @media (max-width: ${BREAKPOINTS.md}px) {
     right: 8px;
     bottom: 8px;
     width: clamp(150px, 44vw, 220px);
@@ -1477,18 +1478,18 @@ const ParticipantWidget = styled.div`
     object-fit: cover;
   }
 
-  @media (max-width: 768px) {
+  @media (max-width: ${BREAKPOINTS.lg}px) {
     width: 120px;
     height: 78px;
   }
 
-  @media (max-width: 480px) {
+  @media (max-width: ${BREAKPOINTS.sm}px) {
     width: 100px;
     height: 66px;
     border-radius: 8px;
   }
 
-  @media (max-width: 380px) {
+  @media (max-width: ${BREAKPOINTS.xs}px) {
     width: 88px;
     height: 58px;
   }
@@ -1504,7 +1505,7 @@ const WidgetControls = styled.div`
   transition: opacity 0.2s;
   z-index: 5;
 
-  @media (max-width: 480px) { opacity: 0.8; }
+  @media (max-width: ${BREAKPOINTS.sm}px) { opacity: 0.8; }
 `;
 
 const WidgetBtn = styled.button`
@@ -1523,7 +1524,7 @@ const WidgetBtn = styled.button`
 
   &:hover { background: ${props => props.$active ? "rgba(245, 158, 11, 0.5)" : "rgba(255,255,255,0.2)"}; }
 
-  @media (max-width: 480px) { width: 18px; height: 18px; font-size: 0.55rem; }
+  @media (max-width: ${BREAKPOINTS.sm}px) { width: 18px; height: 18px; font-size: 0.55rem; }
 `;
 
 const WidgetNameTag = styled.div`
@@ -1544,7 +1545,7 @@ const WidgetNameTag = styled.div`
   white-space: nowrap;
   backdrop-filter: blur(4px);
 
-  @media (max-width: 480px) { font-size: 0.52rem; padding: 1px 4px; }
+  @media (max-width: ${BREAKPOINTS.sm}px) { font-size: 0.52rem; padding: 1px 4px; }
 `;
 
 const FileStreamControlsCard = styled.div`
@@ -1566,7 +1567,7 @@ const FileStreamControlsCard = styled.div`
   z-index: 1000;
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 
-  @media (max-width: 768px) {
+  @media (max-width: ${BREAKPOINTS.lg}px) {
     bottom: 70px;
     width: min(92vw, 380px);
     padding: 10px 14px;
@@ -1574,7 +1575,7 @@ const FileStreamControlsCard = styled.div`
     border-radius: 12px;
   }
 
-  @media (max-width: 600px) {
+  @media (max-width: ${BREAKPOINTS.md}px) {
     bottom: auto;
     top: 50%;
     transform: translate(-50%, -50%);
@@ -1583,7 +1584,7 @@ const FileStreamControlsCard = styled.div`
     border-radius: 12px;
   }
 
-  @media (max-width: 380px) {
+  @media (max-width: ${BREAKPOINTS.xs}px) {
     width: calc(100vw - 16px);
     padding: 8px 10px;
     gap: 5px;
@@ -1761,7 +1762,7 @@ const FileStreamControlsCard = styled.div`
     100% { opacity: 0.3; }
   }
 
-  @media (max-width: 480px) {
+  @media (max-width: ${BREAKPOINTS.sm}px) {
     .stream-info { font-size: 0.68rem; }
     .stream-time { gap: 4px; font-size: 0.65rem; }
     .controls-group { gap: 3px; }
@@ -2501,10 +2502,11 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       let newY = currentY - dragStartRef.current.y;
 
       const boundsPadding = 10;
-      const pipWidth = window.innerWidth <= 768 ? 260 : 320;
-      const pipHeight = window.innerWidth <= 768 ? 160 : 190;
-      const initialRight = window.innerWidth <= 768 ? 16 : 24;
-      const initialBottom = window.innerWidth <= 768 ? 16 : 24;
+      const isCompact = window.matchMedia(`(max-width: ${BREAKPOINTS.lg}px)`).matches;
+      const pipWidth = isCompact ? 260 : 320;
+      const pipHeight = isCompact ? 160 : 190;
+      const initialRight = isCompact ? 16 : 24;
+      const initialBottom = isCompact ? 16 : 24;
 
       const minX = -(window.innerWidth - pipWidth - initialRight - boundsPadding);
       const maxX = initialRight - boundsPadding;
@@ -2881,6 +2883,9 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       console.error(`Failed to call peer ${targetPeerId}:`, e);
     }
     return false;
+    // buildSendStream reads refs only; keeping it out of deps avoids
+    // re-creating callPeer (and re-binding peer callbacks) every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [handleCallEvents]);
 
   // ─── Kick / Remove User Capability (Admin / Room Owner) ───
@@ -3478,6 +3483,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   }, [voiceFilter, videoFilter]);
 
   // Release FX pipelines when the meeting unmounts
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => () => teardownFx(), []);
 
   const toggleMute = () => {
@@ -3591,6 +3597,9 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     window.__cheprabaiScreenSharing = false;
     syncPreviewWithFx(); // preview matches what peers receive (FX re-applied if active)
     toast.info("Screen sharing ended.");
+    // stopScreenShare runs only from user toggles; syncPreviewWithFx reads refs
+    // and re-created per render, so pinning it here adds churn, not safety.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const startScreenShare = async () => {
@@ -4193,7 +4202,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
               )}
             </BandwidthDropdown>
 
-            <span style={{ fontSize: "0.75rem", opacity: 0.5, fontWeight: 700 }}>
+            <span style={{ fontSize: "0.9rem", opacity: 0.6, fontWeight: 700 }}>
               <CallDuration startTime={callStartTimeRef.current} />
             </span>
           </HeaderLeft>

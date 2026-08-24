@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import styled, { keyframes } from "styled-components";
 import { FaCog, FaTimes } from "react-icons/fa";
 import { useThemeManager } from "../context/ThemeContext";
+import { BREAKPOINTS } from "../hooks/useIsMobile";
 import { THEMES, FONTS } from "../theme";
 
 const SettingsButton = styled.button`
@@ -33,21 +34,21 @@ const SettingsButton = styled.button`
     box-shadow: 0 0 12px var(--chakra-colors-brandGlow);
   }
 
-  @media (max-width: 480px) {
+  @media (max-width: ${BREAKPOINTS.sm}px) {
     min-width: 30px;
     min-height: 30px;
     width: 30px;
     height: 30px;
-    font-size: 0.85rem;
+    font-size: 0.92rem;
     border-radius: 8px;
   }
 
-  @media (max-width: 375px) {
+  @media (max-width: ${BREAKPOINTS.xs}px) {
     min-width: 28px;
     min-height: 28px;
     width: 28px;
     height: 28px;
-    font-size: 0.8rem;
+    font-size: 0.85rem;
     border-radius: 7px;
   }
 `;
@@ -99,7 +100,7 @@ const Modal = styled.div`
   box-sizing: border-box;
   animation: ${scaleUp} 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 
-  @media (max-width: 400px) {
+  @media (max-width: ${BREAKPOINTS.xs}px) {
     width: 95%;
     padding: 16px;
   }
@@ -158,7 +159,7 @@ const OptionGrid = styled.div`
   gap: 10px;
   margin-bottom: 24px;
 
-  @media (max-width: 400px) {
+  @media (max-width: ${BREAKPOINTS.xs}px) {
     grid-template-columns: 1fr;
     gap: 8px;
   }

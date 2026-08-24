@@ -2,7 +2,7 @@ html {
 /* Fluid root scale.
    Desktop/tablet use fluid sizing.
    Mobile devices use compact sizing in the responsive rules below. */
-  font-size: clamp(10px, 0.15vw + 10px, 13.5px);
+  font-size: clamp(9.5px, 0.15vw + 9.5px, 12.5px);
   -webkit-tap-highlight-color: transparent;
   min-height: 100%;
   scroll-behavior: smooth;
@@ -223,6 +223,17 @@ input, textarea {
   backface-visibility: hidden;
 }
 
+/* ── Message action strip (reply/react/copy/…) ──
+   In-flow row at the bottom of the bubble, always visible.
+   Compact controls inside bubbles are exempt from the global
+   tap-target floor so they render at WhatsApp-like sizes. */
+.bubble-actions button,
+.bubble-reactions button,
+[class*="reaction-picker-"] button {
+  -webkit-tap-highlight-color: transparent;
+  min-height: 0;
+}
+
 /* Hardware-accelerated animations for modals, tooltips, and transitions */
 .modal-content,
 .tooltip,
@@ -267,8 +278,9 @@ img, video, canvas, svg {
 
 /* Phones — comfortable controls (focus-zoom prevented via viewport maximum-scale) */
 @media (max-width: 600px) {
+
   html {
-    font-size: 12.5px;
+    font-size: 12px;
   }
 
   body {
@@ -299,11 +311,9 @@ img, video, canvas, svg {
     font-size: 0.88rem;
   }
 
+  /* Components own their font sizes — globals only enforce tap-target floors */
   button {
-    font-size: 0.78rem !important;
-    padding-top: 4px !important;
-    padding-bottom: 4px !important;
-    min-height: 30px;
+    min-height: 32px;
   }
 
   /* No horizontal padding override here — inputs that overlay icons inside
@@ -311,10 +321,8 @@ img, video, canvas, svg {
   input,
   select,
   textarea {
-    font-size: 0.8rem !important;
-    min-height: 32px !important;
-    padding-top: 4px !important;
-    padding-bottom: 4px !important;
+    font-size: 16px;
+    min-height: 38px;
   }
 
   svg {
@@ -332,28 +340,23 @@ img, video, canvas, svg {
   }
 }
 
-@media (max-width: 360px) {
+@media (max-width: 380px) {
   html {
-    font-size: 11px;
+    font-size: 10.5px;
   }
   :root {
     --resp-gap: 6px;
   }
 
   button {
-    font-size: 0.76rem !important;
-    padding-top: 4px !important;
-    padding-bottom: 4px !important;
-    min-height: 28px;
+    min-height: 30px;
   }
 
   input,
   select,
   textarea {
-    font-size: 0.76rem !important;
-    min-height: 30px !important;
-    padding-top: 4px !important;
-    padding-bottom: 4px !important;
+    font-size: 16px;
+    min-height: 36px;
   }
 
   p,
@@ -370,6 +373,14 @@ img, video, canvas, svg {
 
   input[type="range"] {
     min-height: 28px;
+  }
+
+  /* tldraw's internal selection toolbar ships small icon buttons */
+  .c-buzxUF,
+  .c-yILjc,
+  [title="Shape Options"],
+  [title="Delete"] {
+    min-width: 36px !important;
   }
 }
 
@@ -478,10 +489,14 @@ img, video, canvas, svg {
     width: auto;
     margin: 8px 10px;
     border-radius: 13px;
-    font-size: 0.72rem;
+    font-size: 0.88rem;
   }
   .Toastify__toast-container {
     padding: 0 2px;
+  }
+  .Toastify__close-button {
+    width: 26px;
+    align-self: stretch;
   }
 }
 
@@ -518,6 +533,6 @@ img, video, canvas, svg {
 }
 
 /* Hide button labels on narrow screens (admin header etc.) */
-@media (max-width: 640px) {
+@media (max-width: 600px) {
   .hide-mobile { display: none !important; }
 }

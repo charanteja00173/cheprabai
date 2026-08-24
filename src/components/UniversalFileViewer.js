@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import styled, { keyframes } from "styled-components";
 import { toast } from "react-toastify";
+import { BREAKPOINTS } from "../hooks/useIsMobile";
 import ReactMarkdown from "react-markdown";
 import { safeCopyText } from "../utils/clipboard";
 import {
@@ -53,7 +54,7 @@ const ViewerHeader = styled.div`
   -webkit-backdrop-filter: blur(20px);
   border-bottom: 1px solid rgba(255,255,255,0.07);
 
-  @media (max-width: 600px) {
+  @media (max-width: ${BREAKPOINTS.md}px) {
     height: 52px;
     padding: 0 10px;
   }
@@ -107,7 +108,7 @@ const HeaderActions = styled.div`
   align-items: center;
   flex-shrink: 0;
 
-  @media (max-width: 480px) {
+  @media (max-width: ${BREAKPOINTS.sm}px) {
     .hide-xs { display: none !important; }
   }
 `;
@@ -135,7 +136,7 @@ const ActionButton = styled.button`
   }
   &:active { transform: scale(0.95); }
 
-  @media (max-width: 600px) {
+  @media (max-width: ${BREAKPOINTS.md}px) {
     padding: 0 9px;
     height: 34px;
   }
@@ -161,7 +162,7 @@ const ViewerBody = styled.div`
     #06070b;
   padding: ${(p) => (p.$pad === false ? "0" : "22px")};
 
-  @media (max-width: 600px) {
+  @media (max-width: ${BREAKPOINTS.md}px) {
     padding: ${(p) => (p.$pad === false ? "0" : "12px")};
   }
 `;
@@ -197,7 +198,7 @@ const StyledVideo = styled.video`
   box-shadow: 0 24px 70px rgba(0,0,0,0.65);
   outline: none;
 
-  @media (max-width: 600px) {
+  @media (max-width: ${BREAKPOINTS.md}px) {
     max-width: calc(100vw - 24px);
     max-height: calc(100vh - 150px);
     border-radius: 10px;

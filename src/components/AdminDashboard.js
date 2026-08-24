@@ -25,6 +25,7 @@ import {
 } from "react-icons/fa";
 import { toast, ToastContainer } from "react-toastify";
 import { generateKeyFromSecret, decryptBinary } from "../utils/crypto";
+import { BREAKPOINTS } from "../hooks/useIsMobile";
 import AdminControlCenter from "./AdminControlCenter";
 import ThemeSwitcher from "./ThemeSwitcher";
 
@@ -79,7 +80,7 @@ const Header = styled.header`
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
   flex-shrink: 0;
 
-  @media (max-width: 768px) {
+  @media (max-width: ${BREAKPOINTS.lg}px) {
     padding: 14px 16px;
   }
 `;
@@ -107,7 +108,7 @@ const ContentContainer = styled.main`
   margin: 0 auto;
   box-sizing: border-box;
 
-  @media (max-width: 768px) {
+  @media (max-width: ${BREAKPOINTS.lg}px) {
     padding: 20px;
   }
 `;
@@ -118,7 +119,7 @@ const StatsGrid = styled.div`
   gap: 20px;
   margin-bottom: 32px;
 
-  @media (max-width: 480px) {
+  @media (max-width: ${BREAKPOINTS.sm}px) {
     grid-template-columns: repeat(2, 1fr);
     gap: 10px;
     margin-bottom: 20px;
@@ -157,7 +158,7 @@ const StatCard = styled.div`
     &::before { opacity: 1; }
   }
 
-  @media (max-width: 480px) {
+  @media (max-width: ${BREAKPOINTS.sm}px) {
     padding: 12px;
     gap: 8px;
     border-radius: 12px;
@@ -176,7 +177,7 @@ const StatIcon = styled.div`
   justify-content: center;
   font-size: 1.25rem;
 
-  @media (max-width: 480px) {
+  @media (max-width: ${BREAKPOINTS.sm}px) {
     width: 34px;
     height: 34px;
     border-radius: 8px;
@@ -204,7 +205,7 @@ const StatInfo = styled.div`
     text-overflow: ellipsis;
     white-space: nowrap;
 
-    @media (max-width: 480px) {
+    @media (max-width: ${BREAKPOINTS.sm}px) {
       font-size: 0.62rem;
       letter-spacing: 0.1px;
     }
@@ -215,7 +216,7 @@ const StatInfo = styled.div`
     font-weight: 800;
     color: var(--chakra-colors-textPrimary);
 
-    @media (max-width: 480px) {
+    @media (max-width: ${BREAKPOINTS.sm}px) {
       font-size: 1.1rem;
     }
   }
@@ -229,7 +230,7 @@ const FilterSection = styled.div`
   width: 100%;
   flex-wrap: wrap;
 
-  @media (max-width: 480px) {
+  @media (max-width: ${BREAKPOINTS.sm}px) {
     gap: 10px;
     > select { flex: 1 1 calc(50% - 5px); min-width: 0; }
     > button { flex: 1 1 auto; justify-content: center; }
@@ -271,7 +272,7 @@ const SearchInputWrapper = styled.div`
   flex: 1;
   min-width: 280px;
 
-  @media (max-width: 480px) {
+  @media (max-width: ${BREAKPOINTS.sm}px) {
     min-width: 0;
     width: 100%;
   }
@@ -305,7 +306,7 @@ const TableCard = styled.div`
   overflow: hidden;
   box-shadow: var(--chakra-shadows-cardShadow), inset 0 1px 0 var(--chakra-colors-borderSubtle);
 
-  @media (max-width: 768px) {
+  @media (max-width: ${BREAKPOINTS.lg}px) {
     border: none;
     background: transparent;
     box-shadow: none;
@@ -341,7 +342,7 @@ const GridTable = styled.table`
     }
   }
 
-  @media (max-width: 768px) {
+  @media (max-width: ${BREAKPOINTS.lg}px) {
     display: none;
   }
 `;
@@ -355,7 +356,7 @@ const MobileCardList = styled.div`
   // overflow-y: auto;
   overflow-x: hidden;
 
-  @media (max-width: 768px) {
+  @media (max-width: ${BREAKPOINTS.lg}px) {
     display: flex;
   }
 `;
@@ -609,7 +610,7 @@ const LoginContainer = styled.div`
   padding: 24px 0;
   box-sizing: border-box;
 
-  @media (max-width: 480px) {
+  @media (max-width: ${BREAKPOINTS.sm}px) {
     align-items: center;
     padding: 16px 0;
     overscroll-behavior: contain;
@@ -667,7 +668,7 @@ const LoginCard = styled.div`
   z-index: 2;
   position: relative;
 
-  @media (max-width: 480px) {
+  @media (max-width: ${BREAKPOINTS.sm}px) {
     width: calc(100vw - 32px);
     max-width: none;
     margin: 0 16px;
@@ -703,7 +704,7 @@ const LoginInput = styled.input`
 
 const LoginEyeButton = styled.button`
   position: absolute;
-  right: 16px;
+  right: 6px;
   top: 50%;
   transform: translateY(-50%);
   background: none;
@@ -714,7 +715,8 @@ const LoginEyeButton = styled.button`
   align-items: center;
   justify-content: center;
   font-size: 1.15rem;
-  padding: 0;
+  width: 38px;
+  height: 38px;
   z-index: 10;
   transition: color 0.2s;
 
@@ -1052,7 +1054,7 @@ export default function AdminDashboard() {
                 <FaShieldAlt size={24} color="var(--chakra-colors-brandPrimary)" />
               </div>
               <h2 style={{ margin: 0, fontSize: "clamp(1.35rem, 3.5vw, 1.6rem)", fontWeight: 800, letterSpacing: "-.04em", color: "var(--chakra-colors-textPrimary)" }}>Admin Panel</h2>
-              <p style={{ color: "var(--chakra-colors-textSecondary)", fontSize: "0.82rem", margin: "6px auto 0", maxWidth: 280, lineHeight: 1.45 }}>Enter your security key to access the control panel.</p>
+              <p style={{ color: "var(--chakra-colors-textSecondary)", fontSize: "0.9rem", margin: "6px auto 0", maxWidth: 280, lineHeight: 1.45 }}>Enter your security key to access the control panel.</p>
             </div>
 
             <LoginInputContainer>

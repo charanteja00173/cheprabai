@@ -27,6 +27,7 @@ import {
   FaCrown,
 } from "react-icons/fa";
 import { toast } from "react-toastify";
+import { BREAKPOINTS } from "../hooks/useIsMobile";
 
 /* ── STYLED COMPONENTS ── */
 
@@ -78,7 +79,7 @@ const RoomGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 14px;
-  @media (max-width: 480px) { grid-template-columns: 1fr; gap: 10px; }
+  @media (max-width: ${BREAKPOINTS.sm}px) { grid-template-columns: 1fr; gap: 10px; }
 `;
 
 const RoomCard = styled.article`
@@ -157,7 +158,7 @@ const MetricGrid = styled.div`
   border: 1px solid rgba(255, 255, 255, 0.03);
   border-radius: 10px;
   padding: 10px;
-  @media (max-width: 360px) { grid-template-columns: 1fr; }
+  @media (max-width: ${BREAKPOINTS.xs}px) { grid-template-columns: 1fr; }
 `;
 
 const MetricItem = styled.div`
@@ -293,7 +294,7 @@ const NotificationItem = styled.div`
   align-items: center;
   gap: 12px;
   font-size: 0.82rem;
-  @media (max-width: 580px) {
+  @media (max-width: ${BREAKPOINTS.md}px) {
     flex-direction: column;
     align-items: flex-start;
     > div:last-child { width: 100%; }
@@ -342,7 +343,7 @@ const ToggleRow = styled.div`
   padding: 8px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.03);
   &:last-child { border-bottom: none; }
-  @media (max-width: 480px) { gap: 8px; }
+  @media (max-width: ${BREAKPOINTS.sm}px) { gap: 8px; }
 `;
 
 const ToggleLabel = styled.div`
@@ -482,7 +483,7 @@ const ModalActions = styled.div`
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  @media (max-width: 480px) { flex-direction: column-reverse; }
+  @media (max-width: ${BREAKPOINTS.sm}px) { flex-direction: column-reverse; }
 `;
 
 const ModalBtn = styled.button`
