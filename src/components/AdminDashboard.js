@@ -12,7 +12,7 @@ import {
   FaDatabase,
   FaLock,
   FaUsers,
-  FaCog,
+
   FaList,
   FaThLarge,
   FaDoorOpen,
@@ -1097,7 +1097,7 @@ export default function AdminDashboard() {
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <ThemeSwitcher />
           <ActionButton onClick={() => setShowChangePassword(true)}>
-            <FaCog /> <span className="hide-mobile">Settings</span>
+            <FaLock /> <span className="hide-mobile">Password</span>
           </ActionButton>
           <ActionButton onClick={handleLogout}>
             <FaSignOutAlt /> <span className="hide-mobile">Logout</span>

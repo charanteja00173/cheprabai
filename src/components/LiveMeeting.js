@@ -3010,9 +3010,9 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       try {
         stream = await navigator.mediaDevices.getUserMedia({
           video: {
-            width: { ideal: 1280, max: 1920 },
-            height: { ideal: 720, max: 1080 },
-            frameRate: { ideal: 30, max: 30 }
+            width: { ideal: 640, max: 1280 },
+            height: { ideal: 360, max: 720 },
+            frameRate: { ideal: 24, max: 24 }
           },
           audio: {
             echoCancellation: true,
@@ -3850,8 +3850,59 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     toast.info("Media stream stopped.");
   }, []);
 
+  const recreateFileStream = () => {
+    const video = fileVideoRef.current;
+    if (!video) return;
+
+    if (mixedStreamCleanupRef.current) {
+      try { mixedStreamCleanupRef.current(); } catch (e) {}
+      mixedStreamCleanupRef.current = null;
+    }
+
+    const stream = video.captureStream ? video.captureStream() : (video.mozCaptureStream ? video.mozCaptureStream() : null);
+    if (!stream) {
+      toast.error("Media stream capture is not supported for this source format.");
+      return;
+    }
+
+    const mixed = createMixedStream(stream, localStreamRef.current, {
+      mixAudio: true,
+      getVideoFilter: () => videoFilterRef.current,
+      getVoiceFilter: () => voiceFilterRef.current
+    });
+    fileStreamRef.current = mixed.stream;
+    mixedStreamCleanupRef.current = mixed.cleanup;
+
+    const mixedVideoTrack = mixed.stream.getVideoTracks()[0];
+    const mixedAudioTrack = mixed.stream.getAudioTracks()[0];
+
+    Object.values(peers.current).forEach(call => {
+      const pc = call.peerConnection;
+      if (!pc) return;
+      pc.getSenders().forEach(sender => {
+        if (sender.track?.kind === "video" && mixedVideoTrack) {
+          sender.replaceTrack(mixedVideoTrack);
+        }
+        if (sender.track?.kind === "audio" && mixedAudioTrack) {
+          sender.replaceTrack(mixedAudioTrack);
+        }
+      });
+    });
+
+    setDisplayStream(mixed.stream);
+  };
+
+  const checkAndRecreateFileStreamIfNeeded = () => {
+    const stream = fileStreamRef.current;
+    const hasEndedTracks = stream && stream.getTracks().some(t => t.readyState === "ended");
+    if (hasEndedTracks) {
+      recreateFileStream();
+    }
+  };
+
   const toggleFileStreamPlay = () => {
     if (fileVideoRef.current) {
+      checkAndRecreateFileStreamIfNeeded();
       if (fileVideoRef.current.paused) {
         const v = fileVideoRef.current;
         // Replay from start when the media finished
@@ -3872,6 +3923,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
   const seekFileStream = (time) => {
     if (fileVideoRef.current) {
+      checkAndRecreateFileStreamIfNeeded();
       fileVideoRef.current.currentTime = time;
       setFileStreamProgress(time);
     }
@@ -3879,6 +3931,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
   const skipFileStream = (seconds) => {
     if (fileVideoRef.current) {
+      checkAndRecreateFileStreamIfNeeded();
       const newTime = Math.max(0, Math.min(fileVideoRef.current.duration || 0, fileVideoRef.current.currentTime + seconds));
       fileVideoRef.current.currentTime = newTime;
       setFileStreamProgress(newTime);

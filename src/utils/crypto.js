@@ -29,7 +29,7 @@ export async function importKey(base64Str) {
   );
 }
 
-export async function generateKeyFromSecret(secret) {
+export async function generateKeyFromSecret(secret, roomId) {
   const baseKey = await crypto.subtle.importKey(
     "raw",
     encoder.encode(secret),
@@ -38,10 +38,12 @@ export async function generateKeyFromSecret(secret) {
     ["deriveKey"]
   );
 
+  const saltValue = roomId ? `secure-room-${roomId}` : "secure-room";
+
   return crypto.subtle.deriveKey(
     {
       name: "PBKDF2",
-      salt: encoder.encode("secure-room"),
+      salt: encoder.encode(saltValue),
       iterations: 100000,
       hash: "SHA-256",
     },

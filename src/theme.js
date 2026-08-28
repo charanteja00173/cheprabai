@@ -1,4 +1,4 @@
-import { extendTheme } from "@chakra-ui/react";
+
 
 /* ----------------------------------
    PREMIUM THEMES CONFIG
@@ -555,408 +555,117 @@ export function createAppTheme(themeKey = "default", fontKey = "inter") {
   const isDarkOnly = activeTheme.isDarkOnly || false;
   const isLightOnly = activeTheme.isLightOnly || false;
 
-  const config = {
-    initialColorMode: isLightOnly ? "light" : "dark",
-    useSystemColorMode: !(isLightOnly || isDarkOnly),
-  };
+  const mode = isLightOnly ? "light" : "dark";
 
-  const getBg = (mode) => {
+  const getBg = (m) => {
     if (isLightOnly) return activeTheme.colors.lightBg;
     if (isDarkOnly) return activeTheme.colors.darkBg;
-    return mode === "light" ? activeTheme.colors.lightBg : activeTheme.colors.darkBg;
+    return m === "light" ? activeTheme.colors.lightBg : activeTheme.colors.darkBg;
   };
 
-  const getSurface = (mode) => {
+  const getSurface = (m) => {
     if (isLightOnly) return activeTheme.colors.lightSurface;
     if (isDarkOnly) return activeTheme.colors.darkSurface;
-    return mode === "light" ? activeTheme.colors.lightSurface : activeTheme.colors.darkSurface;
+    return m === "light" ? activeTheme.colors.lightSurface : activeTheme.colors.darkSurface;
   };
 
-  const getSurfaceHover = (mode) => {
+  const getSurfaceHover = (m) => {
     if (isLightOnly) return activeTheme.colors.lightSurfaceHover;
     if (isDarkOnly) return activeTheme.colors.darkSurfaceHover;
-    return mode === "light" ? activeTheme.colors.lightSurfaceHover : activeTheme.colors.darkSurfaceHover;
+    return m === "light" ? activeTheme.colors.lightSurfaceHover : activeTheme.colors.darkSurfaceHover;
   };
 
-  const getCard = (mode) => {
+  const getCard = (m) => {
     if (isLightOnly) return activeTheme.colors.lightSurface;
     if (isDarkOnly) return `rgba(${hexToRgb(activeTheme.colors.darkSurface)}, 0.65)`;
-    return mode === "light"
+    return m === "light"
       ? activeTheme.colors.lightSurface
       : `rgba(${hexToRgb(activeTheme.colors.darkSurface)}, 0.65)`;
   };
 
-  // Dark neutrals (Pitch Black etc.) have near-black primaries — borders derived
-  // from them are invisible on their backgrounds. Lift toward white first.
   const liftTowardWhite = (hex, amt) => {
     const [r, g, b] = hexToRgbArr(hex);
     const f = (c) => Math.round(c + (255 - c) * amt);
     return `${f(r)}, ${f(g)}, ${f(b)}`;
   };
 
-  const getBorder = (mode) => {
-    const isDark = isDarkOnly || (mode === "dark" && !isLightOnly);
+  const getBorder = (m) => {
+    const isDark = isDarkOnly || (m === "dark" && !isLightOnly);
     const rgb = isDark ? liftTowardWhite(activeTheme.colors.primary, 0.55) : hexToRgb(activeTheme.colors.primary);
     const opacity = isDark ? "0.16" : "0.1";
     return `rgba(${rgb}, ${opacity})`;
   };
 
-  const getBorderSubtle = (mode) => {
-    const isDark = isDarkOnly || (mode === "dark" && !isLightOnly);
+  const getBorderSubtle = (m) => {
+    const isDark = isDarkOnly || (m === "dark" && !isLightOnly);
     const rgb = isDark ? liftTowardWhite(activeTheme.colors.primary, 0.55) : hexToRgb(activeTheme.colors.primary);
     return `rgba(${rgb}, ${isDark ? "0.09" : "0.055"})`;
   };
 
-  const getTextPrimary = (mode) => {
+  const getTextPrimary = (m) => {
     if (isLightOnly) return "#0F172A";
     if (isDarkOnly) return "#F9FAFB";
-    return mode === "light" ? "#0F172A" : "#F9FAFB";
+    return m === "light" ? "#0F172A" : "#F9FAFB";
   };
 
-  const getTextSecondary = (mode) => {
+  const getTextSecondary = (m) => {
     if (isLightOnly) return "#475569";
     if (isDarkOnly) return "#E5E7EB";
-    return mode === "light" ? "#475569" : "#E5E7EB";
+    return m === "light" ? "#475569" : "#E5E7EB";
   };
 
-  const getTextMuted = (mode) => {
+  const getTextMuted = (m) => {
     if (isLightOnly) return "#64748B";
     if (isDarkOnly) return "#9CA3AF";
-    return mode === "light" ? "#64748B" : "#9CA3AF";
+    return m === "light" ? "#64748B" : "#9CA3AF";
   };
 
-  const colors = {
-    brand: {
-      primary: activeTheme.colors.primary,
-      secondary: activeTheme.colors.secondary,
-      accent: activeTheme.colors.accent,
-      hover: activeTheme.colors.hover,
-      glow: activeTheme.colors.glow,
-    },
-    light: {
-      bg: getBg("light"),
-      surface: getSurface("light"),
-      surfaceHover: getSurfaceHover("light"),
-      card: getCard("light"),
-      border: getBorder("light"),
-      borderSubtle: getBorderSubtle("light"),
-      textPrimary: getTextPrimary("light"),
-      textSecondary: getTextSecondary("light"),
-      textMuted: getTextMuted("light"),
-    },
-    dark: {
-      bg: getBg("dark"),
-      surface: getSurface("dark"),
-      surfaceHover: getSurfaceHover("dark"),
-      card: getCard("dark"),
-      border: getBorder("dark"),
-      borderSubtle: getBorderSubtle("dark"),
-      textPrimary: getTextPrimary("dark"),
-      textSecondary: getTextSecondary("dark"),
-      textMuted: getTextMuted("dark"),
-    },
+  const getGlassBg = (m) => {
+    const targetSurface = isLightOnly ? activeTheme.colors.lightSurface : activeTheme.colors.darkBg;
+    return `rgba(${hexToRgb(targetSurface)}, 0.75)`;
   };
 
-  return extendTheme({
-    config,
-    colors,
-    semanticTokens: {
-      colors: {
-        bg: { default: "light.bg", _dark: "dark.bg" },
-        surface: { default: "light.surface", _dark: "dark.surface" },
-        surfaceHover: { default: "light.surfaceHover", _dark: "dark.surfaceHover" },
-        cardBg: { default: "light.card", _dark: "dark.card" },
-        border: { default: "light.border", _dark: "dark.border" },
-        borderSubtle: { default: "light.borderSubtle", _dark: "dark.borderSubtle" },
-        textPrimary: { default: "light.textPrimary", _dark: "dark.textPrimary" },
-        textSecondary: { default: "light.textSecondary", _dark: "dark.textSecondary" },
-        textMuted: { default: "light.textMuted", _dark: "dark.textMuted" },
-        brandPrimary: { default: "brand.primary", _dark: "brand.primary" },
-        brandSecondary: { default: "brand.secondary", _dark: "brand.secondary" },
-        brandAccent: { default: "brand.accent", _dark: "brand.accent" },
-        brandHover: { default: "brand.hover", _dark: "brand.hover" },
-        brandGlow: { default: "brand.glow", _dark: "brand.glow" },
-        glassBg: {
-          default: `rgba(${hexToRgb(activeTheme.colors.lightSurface)}, 0.75)`,
-          _dark: `rgba(${hexToRgb(activeTheme.colors.darkBg)}, 0.75)`
-        },
-        badgeBg: {
-          default: `rgba(${hexToRgb(activeTheme.colors.primary)}, 0.06)`,
-          _dark: `rgba(${hexToRgb(activeTheme.colors.primary)}, 0.12)`
-        },
-        badgeBorder: {
-          default: `rgba(${hexToRgb(activeTheme.colors.primary)}, 0.12)`,
-          _dark: `rgba(${hexToRgb(activeTheme.colors.primary)}, 0.2)`
-        },
-        featuredBg: {
-          default: `rgba(${hexToRgb(activeTheme.colors.primary)}, 0.02)`,
-          _dark: `rgba(${hexToRgb(activeTheme.colors.primary)}, 0.04)`
-        },
-      },
-      shadows: {
-        cardShadow: { default: "card", _dark: "card-dark" },
-        cardShadowHover: { default: "card-hover", _dark: "card-dark-hover" },
-        glowShadow: { default: "glow", _dark: "glow-lg" },
-      }
-    },
-    fonts: {
-      heading: activeFont.heading,
-      body: activeFont.body,
-      mono: `'JetBrains Mono', 'Fira Code', monospace`,
-    },
-    styles: {
-      global: {
-        html: {
-          minHeight: "100%",
-          scrollBehavior: "smooth",
-        },
-        body: {
-          bg: "bg",
-          color: "textPrimary",
-          minHeight: "100%",
-          lineHeight: "1.7",
-          letterSpacing: "0.01em",
-          transition: "background-color 0.3s ease, color 0.3s ease",
-          overflowX: "hidden",
-        },
-        "#root": {
-          minHeight: "100dvh",
-          width: "100%",
-        },
-        "h1, h2, h3, h4, h5, h6": {
-          fontWeight: "700",
-          letterSpacing: "-0.025em",
-        },
-        "::-webkit-scrollbar": { width: "8px" },
-        "::-webkit-scrollbar-track": { background: "bg" },
-        "::-webkit-scrollbar-thumb": { background: "borderSubtle", borderRadius: "10px" },
-        "::-webkit-scrollbar-thumb:hover": { background: "brandPrimary" },
-      }
-    },
-    shadows: {
-      glow: `0 0 40px rgba(${hexToRgb(activeTheme.colors.primary)}, 0.15)`,
-      "glow-lg": `0 0 60px rgba(${hexToRgb(activeTheme.colors.primary)}, 0.25)`,
-      card: "0 4px 24px rgba(0, 0, 0, 0.04)",
-      "card-hover": `0 12px 40px rgba(${hexToRgb(activeTheme.colors.primary)}, 0.12)`,
-      "card-dark": "0 4px 24px rgba(0, 0, 0, 0.4)",
-      "card-dark-hover": "0 12px 40px rgba(0, 0, 0, 0.6)",
-    },
-    components: {
-      Button: {
-        baseStyle: {
-          borderRadius: "xl",
-          fontWeight: "600",
-          letterSpacing: "0.01em",
-          lineHeight: "1.2",
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "center",
-          transition: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
-        },
-        variants: {
-          solid: {
-            bg: "brandPrimary",
-            color: "white",
-            _hover: {
-              bg: "brandHover",
-              transform: "translateY(-2px)",
-              boxShadow: "glowShadow",
-            },
-            _active: { transform: "translateY(0)" },
-          },
-          outline: {
-            borderColor: "border",
-            color: "textPrimary",
-            _hover: {
-              bg: "surfaceHover",
-              borderColor: "brandPrimary",
-              transform: "translateY(-2px)",
-            },
-            _active: { transform: "translateY(0)" },
-          },
-          ghost: {
-            color: "textSecondary",
-            _hover: {
-              bg: "surfaceHover",
-              color: "brandPrimary",
-            },
-          },
-        },
-      },
-      Card: {
-        baseStyle: {
-          container: {
-            bg: "cardBg",
-            border: "1px solid",
-            borderColor: "border",
-            borderRadius: "2xl",
-            overflow: "hidden",
-            backdropFilter: "blur(24px)",
-            boxShadow: "cardShadow",
-            transition: "all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)",
-            _hover: {
-              transform: "translateY(-6px)",
-              borderColor: "brandPrimary",
-              boxShadow: "cardShadowHover",
-            },
-          },
-        },
-      },
-      Heading: {
-        baseStyle: {
-          fontWeight: "700",
-          letterSpacing: "-0.03em",
-          color: "textPrimary",
-        },
-        sizes: {
-          "4xl": { fontSize: "clamp(1.75rem, 1.2rem + 2vw, 3rem)" },
-          "3xl": { fontSize: "clamp(1.5rem, 1.1rem + 1.6vw, 2.5rem)" },
-          "2xl": { fontSize: "clamp(1.3rem, 1rem + 1.2vw, 2rem)" },
-          xl: { fontSize: "clamp(1.15rem, 0.95rem + 0.8vw, 1.5rem)" },
-          lg: { fontSize: "clamp(1.05rem, 0.9rem + 0.5vw, 1.3rem)" },
-          md: { fontSize: "clamp(0.95rem, 0.85rem + 0.3vw, 1.15rem)" },
-          sm: { fontSize: "clamp(0.85rem, 0.8rem + 0.15vw, 0.95rem)" },
-          xs: { fontSize: "clamp(0.75rem, 0.72rem + 0.1vw, 0.85rem)" },
-        },
-      },
-      Text: {
-        baseStyle: { color: "textSecondary", lineHeight: "1.75" },
-      },
-      Link: {
-        baseStyle: {
-          color: "brandPrimary",
-          fontWeight: "500",
-          transition: "all 0.2s ease",
-          _hover: { textDecoration: "none", opacity: 0.85 },
-        },
-      },
-      Divider: {
-        baseStyle: { borderColor: "border", opacity: 0.6 },
-      },
-      Input: {
-        variants: {
-          outline: {
-            field: {
-              borderColor: "border",
-              bg: "surfaceHover",
-              borderRadius: "xl",
-              _focus: {
-                borderColor: "brandPrimary",
-                boxShadow: `0 0 0 1px rgba(${hexToRgb(activeTheme.colors.primary)}, 0.4)`,
-              },
-              _hover: { borderColor: "border" },
-            },
-          },
-        },
-      },
-      Textarea: {
-        variants: {
-          outline: {
-            borderColor: "border",
-            bg: "surfaceHover",
-            borderRadius: "xl",
-            _focus: {
-              borderColor: "brandPrimary",
-              boxShadow: `0 0 0 1px rgba(${hexToRgb(activeTheme.colors.primary)}, 0.4)`,
-            },
-            _hover: { borderColor: "border" },
-          },
-        },
-      },
-      Tag: {
-        baseStyle: {
-          container: {
-            borderRadius: "full",
-            fontWeight: "500",
-            fontSize: "xs",
-            letterSpacing: "0.02em",
-            bg: "surfaceHover",
-            color: "textSecondary",
-            border: "1px solid",
-            borderColor: "border",
-          },
-        },
-      },
-      Badge: {
-        baseStyle: {
-          borderRadius: "full",
-          fontWeight: "600",
-          fontSize: "xs",
-          letterSpacing: "0.05em",
-          px: 3,
-          py: 1,
-        },
-        variants: {
-          subtle: {
-            bg: "badgeBg",
-            color: "brandPrimary",
-            border: "1px solid",
-            borderColor: "badgeBorder",
-          },
-        },
-        defaultProps: { variant: "subtle" },
-      },
-      Switch: {
-        baseStyle: {
-          track: { _checked: { bg: "brandPrimary" } },
-        },
-      },
-      Alert: {
-        baseStyle: {
-          container: {
-            borderRadius: "2xl",
-            backdropFilter: "blur(20px)",
-            border: "1px solid",
-            borderColor: "border",
-            boxShadow: "cardShadow",
-            p: 4,
-          },
-          title: {
-            fontWeight: "700",
-            fontSize: "sm",
-            color: "textPrimary",
-          },
-          description: {
-            fontSize: "xs",
-            color: "textSecondary",
-          }
-        },
-        variants: {
-          subtle: (props) => {
-            const { colorScheme: c } = props;
-            let statusColor = "brandPrimary";
-            if (c === "red" || c === "error") statusColor = "red.500";
-            if (c === "green" || c === "success") statusColor = "green.500";
-            if (c === "orange" || c === "warning") statusColor = "orange.400";
-            if (c === "blue" || c === "info") statusColor = "blue.400";
+  const getBadgeBg = (m) => {
+    const opacity = isLightOnly ? 0.06 : 0.12;
+    return `rgba(${hexToRgb(activeTheme.colors.primary)}, ${opacity})`;
+  };
 
-            return {
-              container: {
-                bg: "cardBg",
-                borderColor: "border",
-                color: "textPrimary",
-              },
-              icon: {
-                color: statusColor,
-              }
-            };
-          },
-          solid: (props) => {
-            const { colorScheme: c } = props;
-            let statusColor = "brandPrimary";
-            if (c === "red" || c === "error") statusColor = "red.600";
-            if (c === "green" || c === "success") statusColor = "green.600";
-            return {
-              container: {
-                bg: statusColor,
-                color: "white",
-              }
-            };
-          }
-        }
-      },
-    }
-  });
+  const getBadgeBorder = (m) => {
+    const opacity = isLightOnly ? 0.12 : 0.2;
+    return `rgba(${hexToRgb(activeTheme.colors.primary)}, ${opacity})`;
+  };
+
+  const getFeaturedBg = (m) => {
+    const opacity = isLightOnly ? 0.02 : 0.04;
+    return `rgba(${hexToRgb(activeTheme.colors.primary)}, ${opacity})`;
+  };
+
+  return {
+    "--chakra-colors-bg": getBg(mode),
+    "--chakra-colors-surface": getSurface(mode),
+    "--chakra-colors-surfaceHover": getSurfaceHover(mode),
+    "--chakra-colors-cardBg": getCard(mode),
+    "--chakra-colors-border": getBorder(mode),
+    "--chakra-colors-borderSubtle": getBorderSubtle(mode),
+    "--chakra-colors-textPrimary": getTextPrimary(mode),
+    "--chakra-colors-textSecondary": getTextSecondary(mode),
+    "--chakra-colors-textMuted": getTextMuted(mode),
+    "--chakra-colors-brandPrimary": activeTheme.colors.primary,
+    "--chakra-colors-brandSecondary": activeTheme.colors.secondary,
+    "--chakra-colors-brandAccent": activeTheme.colors.accent,
+    "--chakra-colors-brandHover": activeTheme.colors.hover,
+    "--chakra-colors-brandGlow": activeTheme.colors.glow,
+    "--chakra-colors-glassBg": getGlassBg(mode),
+    "--chakra-colors-badgeBg": getBadgeBg(mode),
+    "--chakra-colors-badgeBorder": getBadgeBorder(mode),
+    "--chakra-colors-featuredBg": getFeaturedBg(mode),
+    "--chakra-shadows-cardShadow": isLightOnly ? "0 4px 24px rgba(0, 0, 0, 0.04)" : "0 4px 24px rgba(0, 0, 0, 0.4)",
+    "--chakra-shadows-cardShadowHover": isLightOnly ? `0 12px 40px rgba(${hexToRgb(activeTheme.colors.primary)}, 0.12)` : "0 12px 40px rgba(0, 0, 0, 0.6)",
+    "--chakra-shadows-glowShadow": `0 0 40px rgba(${hexToRgb(activeTheme.colors.primary)}, 0.15)`,
+    "--chakra-fonts-heading": activeFont.heading,
+    "--chakra-fonts-body": activeFont.body,
+    "--chakra-fonts-mono": `'JetBrains Mono', 'Fira Code', monospace`,
+  };
 }
 
 function hexToRgbArr(hex) {

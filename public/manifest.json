@@ -1,6 +1,7 @@
 {
   "short_name": "AnonChat",
-  "name": "",
+  "name": "AnonChat — Secure Chat",
+  "description": "End-to-end encrypted, anonymous chat with voice/video calls, media sharing, and real-time collaboration.",
   "icons": [
     {
       "src": "favicon.ico",
@@ -10,16 +11,25 @@
     {
       "src": "logo192.png",
       "type": "image/png",
-      "sizes": "192x192"
+      "sizes": "192x192",
+      "purpose": "any maskable"
     },
     {
       "src": "logo512.png",
       "type": "image/png",
-      "sizes": "512x512"
+      "sizes": "512x512",
+      "purpose": "any maskable"
     }
   ],
-  "start_url": ".",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "orientation": "portrait-primary",
   "theme_color": "#1B1F3B",
-  "background_color": "#1B1F3B"
+  "background_color": "#1B1F3B",
+  "categories": [
+    "social",
+    "communication"
+  ],
+  "gcm_sender_id": "103953800507"
 }

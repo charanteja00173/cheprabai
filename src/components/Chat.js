@@ -12,6 +12,7 @@ import {
   FaPenNib,
   FaPaperclip,
   FaClock,
+  FaPlus,
   FaFile,
   FaSearch,
   FaMicrophone,
@@ -125,9 +126,13 @@ function getGalleryItems() {
 }
 
 /* Storage provider (Cloudinary) rejects single files above this size on the
-   current plan — failing fast beats uploading for minutes and dying at 99%. */
-const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
-const formatUploadLimit = () => `${Math.round(MAX_UPLOAD_BYTES / (1024 * 1024))} MB`;
+   current plan — failing fast beats uploading for minutes and dying at 99%.
+   Optimized: Matching the backend's 1 GB hard limit. */
+const MAX_UPLOAD_BYTES = 1024 * 1024 * 1024;
+const formatUploadLimit = () => {
+  const mb = MAX_UPLOAD_BYTES / (1024 * 1024);
+  return mb >= 1024 ? `${(mb / 1024).toFixed(0)} GB` : `${Math.round(mb)} MB`;
+};
 
 /* ══════════════════════════════════════════════════════════
    Vanishing-message durations — shown WhatsApp-style, in the
@@ -2328,6 +2333,7 @@ const InputPill = styled.div`
   min-width: 0;
   box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05);
   transition: all 0.25s ease;
+  box-sizing: border-box;
 
   &:focus-within {
     border-color: var(--chakra-colors-brandPrimary);
@@ -2338,9 +2344,9 @@ const InputPill = styled.div`
   }
 
   @media (max-width: ${BREAKPOINTS.md}px) {
-    padding: 6px 8px;
-    border-radius: 24px;
-    gap: 4px;
+    padding: 2px 6px;
+    border-radius: 20px;
+    gap: 2px;
   }
 `;
 
@@ -2362,10 +2368,14 @@ const AccessoryRow = styled.div`
   }
 
   @media (max-width: ${BREAKPOINTS.sm}px) {
-    justify-content: center;
-    gap: 14px;
-    padding: 8px 12px;
-    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 10px;
+    padding: 8px 10px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    &::-webkit-scrollbar { display: none; }
   }
 `;
 
@@ -2473,6 +2483,7 @@ const MessageInput = styled.textarea`
   max-height: 150px;
   line-height: 1.4;
   font-family: inherit;
+  box-sizing: border-box;
 
   &::placeholder {
     color: var(--chakra-colors-textSecondary);
@@ -2480,10 +2491,10 @@ const MessageInput = styled.textarea`
   }
 
   @media (max-width: ${BREAKPOINTS.md}px) {
-    padding: 10px 12px;
+    padding: 6px 8px;
     font-size: 16px;
-    min-height: 42px;
-    line-height: 1.4;
+    min-height: 36px;
+    line-height: 1.35;
   }
 `;
 
@@ -4330,6 +4341,15 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile, setViewer,
   const [isInView, setIsInView] = useState(false);
   const [retryTick, setRetryTick] = useState(0);
 
+  // Clean up decrypted blob URLs to prevent memory leaks in the browser
+  useEffect(() => {
+    return () => {
+      if (decryptedUrl && decryptedUrl.startsWith("blob:")) {
+        URL.revokeObjectURL(decryptedUrl);
+      }
+    };
+  }, [decryptedUrl]);
+
   const lastDecryptedIvRef = useRef(null);
   const lastDecryptedSourceUrlRef = useRef(null);
   const bypassProxyRef = useRef(false);
@@ -4410,6 +4430,9 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile, setViewer,
     if (!file.iv && !file.keyB64) {
       setDecryptedUrl(file.url);
       setLoading(false);
+      if (!fileType.startsWith("image") && !fileType.startsWith("video")) {
+        setMediaLoaded(true);
+      }
       return;
     }
     if (file.iv && !roomKey && !file.keyB64) {
@@ -4476,6 +4499,9 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile, setViewer,
           lastDecryptedIvRef.current = file.iv;
           lastDecryptedSourceUrlRef.current = file.url;
           setLoading(false);
+          if (!fileType.startsWith("image") && !fileType.startsWith("video")) {
+            setMediaLoaded(true);
+          }
         }
       } catch (err) {
         console.error("File decryption failed:", err.message || err);
@@ -4541,178 +4567,139 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile, setViewer,
     );
   }
 
-  if (fileType && fileType.startsWith("audio")) {
-    return (
-      <FileAttachmentWrapper ref={containerRef} style={{ padding: "10px 12px", background: "rgba(255, 255, 255, 0.02)", cursor: "default", width: "100%", boxSizing: "border-box" }}>
-        <PlaybackSpeedAudio file={file} decryptedUrl={decryptedUrl} />
-      </FileAttachmentWrapper>
-    );
-  }
+  const actionBtnStyle = {
+    display: "inline-flex", alignItems: "center", justifyContent: "center",
+    gap: 4, padding: "3px 10px", borderRadius: 999, border: "1px solid rgba(255,255,255,.14)",
+    background: "rgba(129,140,248,.15)", color: "#c7d2fe", cursor: "pointer",
+    fontSize: isMobile ? ".66rem" : ".7rem", fontWeight: 600, lineHeight: 1.4,
+    transition: "background .2s, border-color .2s", whiteSpace: "nowrap",
+    height: isMobile ? 24 : 26,
+  };
+
+  const isImage = fileType && fileType.startsWith("image");
+  const isVideo = fileType && fileType.startsWith("video");
+  const isAudio = fileType && fileType.startsWith("audio");
 
   return (
-    <FileAttachmentWrapper ref={containerRef} style={{ padding: 0 }}>
-      {fileType && fileType.startsWith("image") ? (
-        <div
-          onClick={() => mediaLoaded && setFullscreen({ ...file, url: decryptedUrl })}
-          style={{ position: "relative", borderRadius: 16, overflow: "hidden" }}
-        >
-          {!mediaLoaded && <MediaSkeleton isMobile={isMobile} />}
-          <img
-            alt={file.name}
-            src={decryptedUrl}
-            decoding="async"
-            onLoad={() => setMediaLoaded(true)}
-            onError={() => setMediaLoaded(true)}
-            style={{ width: "100%", height: "auto", maxHeight: isMobile ? "240px" : "300px", objectFit: "cover", display: mediaLoaded ? "block" : "none", borderRadius: 0, background: "rgba(0,0,0,0.25)" }}
-          />
-          {mediaLoaded && (
-            <div style={{ padding: "8px 12px", background: "rgba(10, 10, 10, 0.75)", backdropFilter: "blur(12px)", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.055)", gap: 6 }}>
-              <span style={{ fontSize: "0.72rem", color: "#eee", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, marginRight: 4, fontWeight: 500 }}>{file.name}</span>
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                {!file.viewOnce && (
-                  <>
-                    <button
-                      type="button"
-                      title="Copy to clipboard"
-                      onClick={(e) => { e.stopPropagation(); copyImageToClipboard(decryptedUrl); }}
-                      style={{ background: "rgba(255,255,255,0.08)", border: "none", color: "#fff", cursor: "pointer", borderRadius: 6, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center" }}
-                    >
-                      <Copy size={14} />
-                    </button>
-                    <button
-                      type="button"
-                      title="Download"
-                      onClick={(e) => { e.stopPropagation(); downloadMedia(decryptedUrl, file.name); }}
-                      style={{ background: "rgba(255,255,255,0.08)", border: "none", color: "#fff", cursor: "pointer", borderRadius: 6, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center" }}
-                    >
-                      <FaDownload size={12} />
-                    </button>
-                  </>
-                )}
-                <button
-                  type="button"
-                  className="expand-btn"
-                  onClick={(e) => { e.stopPropagation(); setFullscreen({ ...file, url: decryptedUrl }); }}
-                  style={{ background: "rgba(255,255,255,0.08)", border: "none", color: "#fff", cursor: "pointer", borderRadius: 6, padding: "0 8px", height: 28, fontSize: "0.72rem", fontWeight: "bold" }}
-                >
-                  Expand
-                </button>
-                {InlineReactions}
-              </div>
+    <div style={{ display: "flex", flexDirection: "column", width: "100%" }}>
+      <FileAttachmentWrapper ref={containerRef} style={{ padding: 0, overflow: "hidden" }}>
+        {isImage ? (
+          <div
+            onClick={() => mediaLoaded && setFullscreen({ ...file, url: decryptedUrl })}
+            style={{ position: "relative", borderRadius: 16, overflow: "hidden", cursor: mediaLoaded ? "pointer" : "default" }}
+          >
+            {!mediaLoaded && <MediaSkeleton isMobile={isMobile} />}
+            <img
+              alt={file.name}
+              src={decryptedUrl}
+              decoding="async"
+              onLoad={() => setMediaLoaded(true)}
+              onError={() => setMediaLoaded(true)}
+              style={{ width: "100%", height: "auto", maxHeight: isMobile ? "240px" : "300px", objectFit: "cover", display: mediaLoaded ? "block" : "none", borderRadius: 0, background: "rgba(0,0,0,0.25)" }}
+            />
+          </div>
+        ) : isVideo ? (
+          <div style={{ position: "relative", borderRadius: 16, overflow: "hidden" }}>
+            {!mediaLoaded && <MediaSkeleton isMobile={isMobile} />}
+            <video
+              src={decryptedUrl}
+              controls
+              playsInline
+              preload="auto"
+              onLoadedData={() => setMediaLoaded(true)}
+              onError={() => setMediaLoaded(true)}
+              style={{ width: "100%", height: "auto", maxHeight: isMobile ? "240px" : "300px", objectFit: "contain", display: mediaLoaded ? "block" : "none", background: "#000" }}
+            />
+          </div>
+        ) : isAudio ? (
+          <div style={{ padding: "10px 12px", background: "rgba(255, 255, 255, 0.02)", cursor: "default", width: "100%", boxSizing: "border-box" }}>
+            <PlaybackSpeedAudio file={file} decryptedUrl={decryptedUrl} />
+          </div>
+        ) : (
+          <div
+            style={{
+              display: "flex", alignItems: "center", gap: "10px", padding: "12px",
+              background: "rgba(255, 255, 255, 0.02)", borderRadius: "14px", border: "1px solid rgba(255,255,255,0.055)",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.12)", minWidth: 0, width: "100%", boxSizing: "border-box"
+            }}
+          >
+            <div style={{
+              display: "flex", alignItems: "center", justifyContent: "center",
+              width: 38, height: 38, borderRadius: "10px",
+              background: "rgba(255,255,255,0.07)",
+              border: "1px solid rgba(255,255,255,0.07)",
+              fontSize: "1.3rem", flexShrink: 0
+            }}>
+              {file.name.match(/\.(xlsx|xls|csv)$/i) ? "📊" :
+                file.name.match(/\.(docx|doc)$/i) ? "📝" :
+                  file.name.match(/\.(zip|rar|7z)$/i) ? "🗜️" :
+                    file.name.match(/\.pdf$/i) ? "📕" : "📎"}
             </div>
-          )}
-        </div>
-      ) : fileType && fileType.startsWith("video") ? (
-        <div style={{ position: "relative", borderRadius: 16, overflow: "hidden" }}>
-          {!mediaLoaded && <MediaSkeleton isMobile={isMobile} />}
-          <video
-            src={decryptedUrl}
-            controls
-            playsInline
-            preload="auto"
-            onLoadedData={() => setMediaLoaded(true)}
-            onError={() => setMediaLoaded(true)}
-            style={{ width: "100%", height: "auto", maxHeight: isMobile ? "240px" : "300px", objectFit: "contain", display: mediaLoaded ? "block" : "none", background: "#000" }}
-          />
-          {mediaLoaded && (
-            <div style={{ padding: "8px 12px", background: "rgba(10, 10, 10, 0.75)", backdropFilter: "blur(12px)", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.055)", gap: 6 }}>
-              <span style={{ fontSize: "0.72rem", color: "#eee", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, marginRight: 4, fontWeight: 500 }}>{file.name}</span>
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                {!file.viewOnce && (
-                  <>
-                    <button
-                      type="button"
-                      title="Copy video link"
-                      onClick={(e) => { e.stopPropagation(); copyLinkToClipboard(decryptedUrl); }}
-                      style={{ background: "rgba(255,255,255,0.08)", border: "none", color: "#fff", cursor: "pointer", borderRadius: 6, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center" }}
-                    >
-                      <Copy size={14} />
-                    </button>
-                    <button
-                      type="button"
-                      title="Download"
-                      onClick={(e) => { e.stopPropagation(); downloadMedia(decryptedUrl, file.name); }}
-                      style={{ background: "rgba(255,255,255,0.08)", border: "none", color: "#fff", cursor: "pointer", borderRadius: 6, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center" }}
-                    >
-                      <FaDownload size={12} />
-                    </button>
-                  </>
-                )}
-                <button
-                  type="button"
-                  className="expand-btn"
-                  onClick={(e) => { e.stopPropagation(); setFullscreen({ ...file, url: decryptedUrl }); }}
-                  style={{ background: "rgba(255,255,255,0.08)", border: "none", color: "#fff", cursor: "pointer", borderRadius: 6, padding: "0 8px", height: 28, fontSize: "0.72rem", fontWeight: "bold" }}
-                >
-                  Fullscreen
-                </button>
-                {InlineReactions}
-              </div>
+            <div style={{ display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0, flex: 1, textAlign: "left" }}>
+              <span style={{ fontWeight: "600", fontSize: "0.8rem", color: "var(--chakra-colors-textPrimary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                {file.name}
+              </span>
+              <span style={{ fontSize: "0.68rem", color: "var(--chakra-colors-brandPrimary)", marginTop: "1px", fontWeight: "600" }}>
+                🔒 Secure E2EE Payload
+              </span>
             </div>
+          </div>
+        )}
+      </FileAttachmentWrapper>
+
+      {/* Unified actions + reactions row below the media card */}
+      {mediaLoaded && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 6, alignItems: "center", paddingLeft: 2 }}>
+          {!file.viewOnce && isImage && (
+            <>
+              <button type="button" title="Copy to clipboard" onClick={(e) => { e.stopPropagation(); copyImageToClipboard(decryptedUrl); }} style={actionBtnStyle}>
+                <Copy size={12} /> Copy
+              </button>
+              <button type="button" title="Download" onClick={(e) => { e.stopPropagation(); downloadMedia(decryptedUrl, file.name); }} style={actionBtnStyle}>
+                <FaDownload size={10} /> Save
+              </button>
+              <button type="button" title="Expand" onClick={(e) => { e.stopPropagation(); setFullscreen({ ...file, url: decryptedUrl }); }} style={actionBtnStyle}>
+                Expand
+              </button>
+            </>
           )}
-        </div>
-      ) : (
-        <div
-          style={{
-            display: "flex", alignItems: "center", gap: "10px", padding: "12px",
-            background: "rgba(255, 255, 255, 0.02)", borderRadius: "14px", border: "1px solid rgba(255,255,255,0.055)",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.12)", minWidth: 0, width: "100%", boxSizing: "border-box"
-          }}
-        >
-          <div style={{
-            display: "flex", alignItems: "center", justifyContent: "center",
-            width: 38, height: 38, borderRadius: "10px",
-            background: "rgba(255,255,255,0.07)",
-            border: "1px solid rgba(255,255,255,0.07)",
-            fontSize: "1.3rem", flexShrink: 0
-          }}>
-            {file.name.match(/\.(xlsx|xls|csv)$/i) ? "📊" :
-              file.name.match(/\.(docx|doc)$/i) ? "📝" :
-                file.name.match(/\.(zip|rar|7z)$/i) ? "🗜️" :
-                  file.name.match(/\.pdf$/i) ? "📕" : "📎"}
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0, flex: 1, textAlign: "left" }}>
-            <span style={{ fontWeight: "600", fontSize: "0.8rem", color: "var(--chakra-colors-textPrimary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-              {file.name}
-            </span>
-            <span style={{ fontSize: "0.68rem", color: "var(--chakra-colors-brandPrimary)", marginTop: "1px", fontWeight: "600" }}>
-              🔒 Secure E2EE Payload
-            </span>
-          </div>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <button
-              type="button"
-              onClick={() => setViewer({ url: decryptedUrl, name: file.name, type: file.type || getFileType(file) })}
-              style={{ background: "rgba(255,255,255,0.08)", border: "none", color: "#fff", cursor: "pointer", borderRadius: 8, padding: "0 10px", height: 28, fontSize: "0.72rem", fontWeight: "bold" }}
-            >
-              Preview
+          {!file.viewOnce && isVideo && (
+            <>
+              <button type="button" title="Copy video link" onClick={(e) => { e.stopPropagation(); copyLinkToClipboard(decryptedUrl); }} style={actionBtnStyle}>
+                <Copy size={12} /> Copy
+              </button>
+              <button type="button" title="Download" onClick={(e) => { e.stopPropagation(); downloadMedia(decryptedUrl, file.name); }} style={actionBtnStyle}>
+                <FaDownload size={10} /> Save
+              </button>
+              <button type="button" title="Fullscreen" onClick={(e) => { e.stopPropagation(); setFullscreen({ ...file, url: decryptedUrl }); }} style={actionBtnStyle}>
+                Fullscreen
+              </button>
+            </>
+          )}
+          {isAudio && (
+            <button type="button" title="Download" onClick={(e) => { e.stopPropagation(); downloadMedia(decryptedUrl, file.name); }} style={actionBtnStyle}>
+              <FaDownload size={10} /> Save
             </button>
-            <button
-              type="button"
-              onClick={() => {
-                const link = document.createElement("a");
-                link.href = decryptedUrl;
-                link.download = file.name;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-              }}
-              style={{
-                display: "flex", alignItems: "center", justifyContent: "center",
-                width: 28, height: 28, borderRadius: "50%",
-                background: "rgba(33, 150, 243, 0.1)",
-                border: "1px solid rgba(33, 150, 243, 0.25)",
-                color: "#2196F3", cursor: "pointer", flexShrink: 0
-              }}
-              title="Download file"
-            >
-              <FaDownload style={{ fontSize: "0.8rem" }} />
-            </button>
-            {InlineReactions}
-          </div>
+          )}
+          {!isImage && !isVideo && !isAudio && (
+            <>
+              <button type="button" title="Preview" onClick={() => setViewer({ url: decryptedUrl, name: file.name, type: file.type || getFileType(file) })} style={actionBtnStyle}>
+                Preview
+              </button>
+              <button
+                type="button"
+                title="Download file"
+                onClick={() => { const a = document.createElement("a"); a.href = decryptedUrl; a.download = file.name; document.body.appendChild(a); a.click(); document.body.removeChild(a); }}
+                style={actionBtnStyle}
+              >
+                <FaDownload size={10} /> Save
+              </button>
+            </>
+          )}
+          {InlineReactions}
         </div>
       )}
-    </FileAttachmentWrapper>
+    </div>
   );
 }
 
@@ -5187,7 +5174,7 @@ export default function ChatRoom() {
     }
 
     try {
-      const key = await generateKeyFromSecret(code + trimmedRoom);
+      const key = await generateKeyFromSecret(code + trimmedRoom, trimmedRoom);
       setRoomId(trimmedRoom);
       setRoomKey(key);
       setJoined(true);
@@ -5322,10 +5309,46 @@ export default function ChatRoom() {
       const bg = localStorage.getItem(`cheprabai:room-background:${roomId}`) || "";
       setRoomBackground(bg);
       if ("Notification" in window && Notification.permission === "default") {
-        Notification.requestPermission();
+        Notification.requestPermission().then((perm) => {
+          if (perm === "granted") registerPushSubscription(roomId.trim());
+        });
+      } else if ("Notification" in window && Notification.permission === "granted") {
+        registerPushSubscription(roomId.trim());
       }
     }
-  }, [joined, roomId]);
+
+    async function registerPushSubscription(rid) {
+      try {
+        if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+        const reg = await navigator.serviceWorker.register("/push-sw.js", { scope: "/" });
+        await navigator.serviceWorker.ready;
+        const vapidRes = await fetch(`${backendUrl}/api/push/vapid`);
+        if (!vapidRes.ok) return;
+        const { publicKey } = await vapidRes.json();
+        if (!publicKey) return;
+        const urlBase64ToUint8Array = (base64String) => {
+          const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+          const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+          const raw = atob(base64);
+          const arr = new Uint8Array(raw.length);
+          for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+          return arr;
+        };
+        let sub = await reg.pushManager.getSubscription();
+        if (!sub) {
+          sub = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(publicKey),
+          });
+        }
+        await fetch(`${backendUrl}/api/push/subscribe`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ subscription: sub, roomId: rid, userName: userName.trim(), senderSocketId: socketRef.current?.id }),
+        });
+      } catch (_) { /* push registration is best-effort */ }
+    }
+  }, [joined, roomId, backendUrl]);
 
   useEffect(() => {
     userAvatarRef.current = userAvatar;
@@ -5352,7 +5375,7 @@ export default function ChatRoom() {
         setUserName("Stealth Admin");
         if (parsedKey) {
           setSecurityCode(parsedKey);
-          generateKeyFromSecret(parsedKey + parsedRoomId)
+          generateKeyFromSecret(parsedKey + parsedRoomId, parsedRoomId)
             .then((key) => {
               setRoomKey(key);
               setJoined(true);
@@ -5438,7 +5461,7 @@ export default function ChatRoom() {
       const trimmedName = userName.trim();
       if (code && trimmedName) {
         try {
-          const key = await generateKeyFromSecret(code + resolvedRoomId);
+          const key = await generateKeyFromSecret(code + resolvedRoomId, resolvedRoomId);
           setRoomKey(key);
           setJoined(true);
         } catch {
@@ -7407,7 +7430,7 @@ export default function ChatRoom() {
         forwardedFrom: forwardTarget.userName
       };
 
-      const targetKey = await generateKeyFromSecret(forwardSecurityCode.trim() + forwardRoomId.trim());
+      const targetKey = await generateKeyFromSecret(forwardSecurityCode.trim() + forwardRoomId.trim(), forwardRoomId.trim());
       const encrypted = await encryptMessage(targetKey, JSON.stringify(plainPayload));
 
       let outerFile = null;
@@ -7557,7 +7580,8 @@ export default function ChatRoom() {
                 border: "1px solid rgba(255,255,255,0.07)",
                 background: "rgba(255,255,255,0.08)",
                 color: "#fff",
-                outline: "none"
+                outline: "none",
+                boxSizing: "border-box"
               }}
             />
           </div>
@@ -7582,7 +7606,8 @@ export default function ChatRoom() {
                     border: "1px solid rgba(255,255,255,0.07)",
                     background: "rgba(255,255,255,0.07)",
                     color: "#fff",
-                    outline: "none"
+                    outline: "none",
+                    boxSizing: "border-box"
                   }}
                 />
                 {pollOptions.length > 2 && (
@@ -9823,16 +9848,16 @@ export default function ChatRoom() {
               </div>
             )}
 
-            <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 12, width: "100%" }}>
+            <div style={{ display: "flex", alignItems: "flex-end", gap: isMobile ? 8 : 12, width: "100%" }}>
               <InputPill>
                 {isMobile && (
                   <IconButton
                     type="button"
                     onClick={() => setShowMobileActions(!showMobileActions)}
                     title="More Actions"
-                    style={{ color: showMobileActions ? "var(--chakra-colors-brandPrimary)" : "inherit", transform: showMobileActions ? "rotate(45deg)" : "none", transition: "transform 0.2s" }}
+                    style={{ color: showMobileActions ? "var(--chakra-colors-brandPrimary)" : "inherit", transform: showMobileActions ? "rotate(45deg)" : "none", transition: "transform 0.25s" }}
                   >
-                    ➕
+                    <FaPlus style={{ fontSize: "0.88rem" }} />
                   </IconButton>
                 )}
 

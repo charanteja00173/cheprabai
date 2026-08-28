@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { ChakraProvider, useColorMode } from "@chakra-ui/react";
 import { THEMES, FONTS, createAppTheme } from "../theme";
 import { socket } from "../socket";
 
@@ -7,27 +6,29 @@ const ThemeContext = createContext();
 
 export const useThemeManager = () => useContext(ThemeContext);
 
-function ColorModeSyncer({ activeThemeKey }) {
-  const { colorMode, setColorMode } = useColorMode();
-
-  useEffect(() => {
-    const theme = THEMES[activeThemeKey] || THEMES.default;
-    const isLightTheme = activeThemeKey === "arcticWhite" || activeThemeKey === "pearl" || !!theme.isLightOnly;
-    const targetMode = isLightTheme ? "light" : "dark";
-    if (colorMode !== targetMode) {
-      setColorMode(targetMode);
-    }
-  }, [activeThemeKey, colorMode, setColorMode]);
-
-  return null;
-}
-
 export const ThemeManagerProvider = ({ children }) => {
   const [activeThemeKey, setActiveThemeKey] = useState("default");
   const [activeFontKey, setActiveFontKey] = useState("inter");
 
-  // Generate dynamic Chakra theme
-  const chakraTheme = createAppTheme(activeThemeKey, activeFontKey);
+  // Inject themes directly onto the root DOM element
+  useEffect(() => {
+    try {
+      const themeProperties = createAppTheme(activeThemeKey, activeFontKey);
+      if (themeProperties) {
+        Object.entries(themeProperties).forEach(([key, value]) => {
+          document.documentElement.style.setProperty(key, value);
+        });
+        
+        // Announce color mode as data-theme attribute on root
+        const theme = THEMES[activeThemeKey] || THEMES.default;
+        const isLightTheme = activeThemeKey === "arcticWhite" || activeThemeKey === "pearl" || !!theme.isLightOnly;
+        document.documentElement.setAttribute("data-theme", isLightTheme ? "light" : "dark");
+        document.documentElement.style.colorScheme = isLightTheme ? "light" : "dark";
+      }
+    } catch (err) {
+      console.error("Error setting custom theme properties:", err);
+    }
+  }, [activeThemeKey, activeFontKey]);
 
   useEffect(() => {
     // Listen for room-theme-changed events from the backend
@@ -61,11 +62,9 @@ export const ThemeManagerProvider = ({ children }) => {
       availableThemes: Object.keys(THEMES),
       availableFonts: Object.keys(FONTS)
     }}>
-      <ChakraProvider theme={chakraTheme} resetCSS portalZIndex={9999}>
-        <ColorModeSyncer activeThemeKey={activeThemeKey} />
-        {children}
-      </ChakraProvider>
+      {children}
     </ThemeContext.Provider>
   );
 };
+
 

@@ -161,6 +161,21 @@ export default function Whiteboard({ socket, roomId, onClose, isAdmin, embedded 
   const isMobile = useIsMobile();
   const [showExportMenu, setShowExportMenu] = React.useState(false);
 
+  /* ── Content-hash dedup: prevents the infinite echo loop ── */
+  const lastEmittedHash = useRef("");
+
+  /** Lightweight hash of a shapes record for dedup comparison. */
+  const hashContent = useCallback((shapesMap) => {
+    try {
+      const ids = Object.keys(shapesMap).sort();
+      // Include shape count + sorted IDs + a few mutable props per shape for fast comparison
+      return ids.map(id => {
+        const s = shapesMap[id];
+        return `${id}:${s.point?.[0]|0},${s.point?.[1]|0}:${s.rotation|0}:${s.size?.[0]|0},${s.size?.[1]|0}`;
+      }).join("|");
+    } catch { return ""; }
+  }, []);
+
   const handleExport = useCallback(async (format) => {
     if (!appRef.current) return;
     try {
@@ -182,50 +197,39 @@ export default function Whiteboard({ socket, roomId, onClose, isAdmin, embedded 
 
   const handleClearBoard = useCallback(() => {
     if (!appRef.current) return;
-    // Create empty state structures required by TLDraw to fully clear the board
     const emptyState = { shapes: {}, bindings: {}, assets: {} };
+    isSyncing.current = true;
     appRef.current.replacePageContent(emptyState.shapes, emptyState.bindings, emptyState.assets);
-
-    // Emit the exact same empty state to instantly clear all connected clients
+    isSyncing.current = false;
+    lastEmittedHash.current = "";
     socket.emit("excalidrawUpdate", { roomId, elements: emptyState });
   }, [socket, roomId]);
 
+  /* ── Single mount handler — stores the app ref (NO socket listener here) ── */
   const handleMount = useCallback(
     (app) => {
       appRef.current = app;
-
-      socket.on("excalidrawUpdate", (state) => {
-        if (!appRef.current || isInteracting.current || isSyncing.current) return;
-
-        try {
-          isSyncing.current = true;
-          const { elements } = state;
-          if (elements && elements.shapes) {
-            appRef.current.replacePageContent(
-              elements.shapes,
-              elements.bindings || {},
-              elements.assets || {}
-            );
-          }
-        } catch (e) {
-        } finally {
-          setTimeout(() => { isSyncing.current = false; }, 50);
-        }
-      });
     },
-    [socket]
+    []
   );
 
+  /* ── Single socket listener registered in useEffect (avoids duplicate) ── */
   useEffect(() => {
     const handleGlobalPointerUp = () => { isInteracting.current = false; };
     window.addEventListener("pointerup", handleGlobalPointerUp);
 
-    socket.on("excalidrawUpdate", (elements) => {
-      if (!appRef.current || isInteracting.current || isSyncing.current) return;
+    const onRemoteUpdate = (elements) => {
+      if (!appRef.current || isInteracting.current) return;
 
       try {
-        isSyncing.current = true;
         if (elements && elements.shapes) {
+          // Content-hash dedup: skip if we already have this exact state
+          const hash = hashContent(elements.shapes);
+          if (hash && hash === lastEmittedHash.current) return;
+
+          isSyncing.current = true;
+          lastEmittedHash.current = hash;
+
           appRef.current.replacePageContent(
             elements.shapes,
             elements.bindings || {},
@@ -233,45 +237,55 @@ export default function Whiteboard({ socket, roomId, onClose, isAdmin, embedded 
           );
         }
       } catch (e) {
+        // Silently ignore shape-application errors
       } finally {
-        setTimeout(() => { isSyncing.current = false; }, 100);
+        // Synchronous reset — all onChange triggers from replacePageContent
+        // fire synchronously in the same JS tick, so this is safe.
+        isSyncing.current = false;
       }
-    });
+    };
+
+    socket.on("excalidrawUpdate", onRemoteUpdate);
 
     return () => {
       window.removeEventListener("pointerup", handleGlobalPointerUp);
-      socket.off("excalidrawUpdate");
+      socket.off("excalidrawUpdate", onRemoteUpdate);
     };
-  }, [socket]);
+  }, [socket, hashContent]);
 
-  const lastEmit = useRef(0);
+  const lastEmitTime = useRef(0);
   const handleChange = useCallback(
     (app) => {
       if (isSyncing.current) return;
 
-      // Throttle to 60fps for "Completely Realtime" feel
+      // Throttle to ~30fps (33ms) — balances realtime feel vs network load
       const now = Date.now();
-      if (now - lastEmit.current < 16) return;
-      lastEmit.current = now;
+      if (now - lastEmitTime.current < 33) return;
+      lastEmitTime.current = now;
 
       try {
         const shapesMap = {};
         const bindingsMap = {};
         const assetsMap = {};
 
-        // Version-agnostic normalization
-        const shapes = app.shapes;
-        const bindings = app.bindings;
-        const assets = app.assets;
+        // TldrawApp v1: app.shapes → TDShape[], app.getBindings() → TDBinding[], app.assets → TDAsset[]
+        const shapes = app.shapes || [];
+        const bindings = (typeof app.getBindings === "function") ? app.getBindings() : (app.bindings || []);
+        const assets = app.assets || [];
 
-        if (Array.isArray(shapes)) shapes.forEach(s => shapesMap[s.id] = s);
-        else Object.assign(shapesMap, shapes || {});
+        if (Array.isArray(shapes)) shapes.forEach(s => { shapesMap[s.id] = s; });
+        else Object.assign(shapesMap, shapes);
 
-        if (Array.isArray(bindings)) bindings.forEach(b => bindingsMap[b.id] = b);
-        else Object.assign(bindingsMap, bindings || {});
+        if (Array.isArray(bindings)) bindings.forEach(b => { bindingsMap[b.id] = b; });
+        else Object.assign(bindingsMap, bindings);
 
-        if (Array.isArray(assets)) assets.forEach(a => assetsMap[a.id] = a);
-        else Object.assign(assetsMap, assets || {});
+        if (Array.isArray(assets)) assets.forEach(a => { assetsMap[a.id] = a; });
+        else Object.assign(assetsMap, assets);
+
+        // Content-hash dedup: skip emit if shapes haven't actually changed
+        const hash = hashContent(shapesMap);
+        if (hash === lastEmittedHash.current) return;
+        lastEmittedHash.current = hash;
 
         socket.emit("excalidrawUpdate", {
           roomId,
@@ -282,9 +296,10 @@ export default function Whiteboard({ socket, roomId, onClose, isAdmin, embedded 
           }))
         });
       } catch (e) {
+        // Silently ignore serialization errors
       }
     },
-    [socket, roomId]
+    [socket, roomId, hashContent]
   );
 
   return (
