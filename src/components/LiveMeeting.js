@@ -2318,6 +2318,9 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const [networkQuality, setNetworkQuality] = useState({ rtt: 35, loss: 0, bitrate: 650, status: "good" });
   const [reactions, setReactions] = useState([]);
   const [isRecording, setIsRecording] = useState(false);
+  const [showDiagnosticsModal, setShowDiagnosticsModal] = useState(false);
+  const [testingConnection, setTestingConnection] = useState(false);
+  const [connectionTestResult, setConnectionTestResult] = useState(null);
   const [kickTarget, setKickTarget] = useState(null); // { id, name }
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [isFileStreaming, setIsFileStreaming] = useState(false);
@@ -2690,6 +2693,22 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     return () => clearInterval(statsIntervalRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // bandwidthMode/applyBandwidthMode changes handled via refs
+
+  // ─── Optimize Minimized Peers Video Track Decoding to save CPU/GPU ───
+  useEffect(() => {
+    Object.entries(peers.current).forEach(([peerId, call]) => {
+      try {
+        const pc = call.peerConnection;
+        if (!pc) return;
+        const isMinimized = minimizedPeers.has(peerId) || bandwidthMode === "audio-only";
+        pc.getReceivers().forEach(receiver => {
+          if (receiver.track && receiver.track.kind === "video") {
+            receiver.track.enabled = !isMinimized;
+          }
+        });
+      } catch (e) {}
+    });
+  }, [minimizedPeers, bandwidthMode]);
 
   // ─── Fullscreen Change Event Listener (Sync State on Escape Key) ───
   useEffect(() => {
@@ -4061,6 +4080,50 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     }
   };
 
+  const runConnectionTest = async () => {
+    setTestingConnection(true);
+    setConnectionTestResult(null);
+    const pc = new RTCPeerConnection({
+      iceServers: [
+        { urls: "stun:stun.l.google.com:19302" },
+        { urls: "stun:stun1.l.google.com:19302" },
+        {
+          urls: "turn:openrelay.metered.ca:80",
+          username: "openrelayproject",
+          credential: "openrelayproject"
+        }
+      ]
+    });
+    const candidates = [];
+    pc.onicecandidate = (e) => {
+      if (e.candidate) {
+        candidates.push(e.candidate.candidate);
+      }
+    };
+    pc.createDataChannel("diagnostic-channel");
+    try {
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      pc.close();
+      const hasStun = candidates.some(c => c.toLowerCase().includes("srflx"));
+      const hasTurn = candidates.some(c => c.toLowerCase().includes("relay"));
+      setConnectionTestResult({
+        success: hasStun || hasTurn,
+        hasStun,
+        hasTurn,
+        candidatesCount: candidates.length
+      });
+    } catch (err) {
+      setConnectionTestResult({
+        success: false,
+        error: err.message || "Failed to initiate WebRTC interface"
+      });
+    } finally {
+      setTestingConnection(false);
+    }
+  };
+
   const setParticipantVolume = (peerId, vol) => {
     // Clamp defensively: stale localStorage/hot-reload state could carry >100 values
     const safeVol = Math.max(0, Math.min(100, Number(vol) || 0));
@@ -5271,6 +5334,11 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
               <FaHandPaper />
             </DockButton>
 
+            <DockButton onClick={() => { setShowDiagnosticsModal(true); runConnectionTest(); }} title="Test Connection">
+              <FaWifi />
+              <span style={{ fontSize: "0.75rem" }}>Test</span>
+            </DockButton>
+
             <DockDivider />
 
             {/* Recording (Host) */}
@@ -5311,6 +5379,11 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
             )}
             <DockButton onClick={() => sendReaction("✋")} title="Raise Hand">
               <FaHandPaper />
+            </DockButton>
+
+            <DockButton onClick={() => { setShowDiagnosticsModal(true); runConnectionTest(); }} title="Test Connection">
+              <FaWifi />
+              <span style={{ fontSize: "0.75rem" }}>Test</span>
             </DockButton>
             <DockButton $danger className="leave-btn" onClick={() => setShowLeaveConfirm(true)} title="Leave Call">
               <FaPhoneSlash />
@@ -5654,6 +5727,72 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
             >
               <FaTimes size={12} /> Back to call
             </button>
+          </div>
+        )}
+
+        {/* ── WebRTC Connection Diagnostics Modal ── */}
+        {showDiagnosticsModal && (
+          <div style={{ position: "absolute", inset: 0, zIndex: 2900, background: "rgba(6,8,14,.96)", backdropFilter: "blur(12px)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24 }}>
+            <div style={{ width: "min(460px, 100%)", background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.08)", borderRadius: 20, padding: 28, textAlign: "center", boxShadow: "0 20px 50px rgba(0,0,0,.5)" }}>
+              <div style={{ fontSize: "2rem", marginBottom: 12 }}>🔧</div>
+              <h3 style={{ margin: "0 0 10px", fontSize: "1.15rem", fontWeight: 800 }}>WebRTC Connection Diagnostics</h3>
+              <p style={{ margin: "0 0 20px", fontSize: "0.82rem", color: "#94a3b8", lineHeight: 1.5 }}>
+                Testing connection pathways to STUN/TURN servers to diagnose firewall or network blockages.
+              </p>
+
+              <div style={{ background: "rgba(0,0,0,.25)", borderRadius: 12, padding: 16, marginBottom: 24, textAlign: "left", fontSize: "0.78rem" }}>
+                {testingConnection ? (
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: "10px 0", color: "#818cf8", fontWeight: 700 }}>
+                    <div style={{ width: 14, height: 14, border: "2px solid #818cf8", borderTopColor: "transparent", borderRadius: "50%", animation: "upc-sweep 1s linear infinite" }} />
+                    Gathering ICE network pathways...
+                  </div>
+                ) : connectionTestResult ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    <div style={{ display: "flex", justifyContent: "between", alignItems: "center" }}>
+                      <span>STUN Servers Connection:</span>
+                      <strong style={{ color: connectionTestResult.hasStun ? "#10b981" : "#ef4444" }}>
+                        {connectionTestResult.hasStun ? "✅ PASS" : "❌ FAIL"}
+                      </strong>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "between", alignItems: "center" }}>
+                      <span>TURN Relay Tunnel:</span>
+                      <strong style={{ color: connectionTestResult.hasTurn ? "#10b981" : "#ef4444" }}>
+                        {connectionTestResult.hasTurn ? "✅ PASS" : "❌ FAIL"}
+                      </strong>
+                    </div>
+                    {connectionTestResult.success ? (
+                      <div style={{ marginTop: 8, color: "#10b981", fontWeight: 700, textAlign: "center" }}>
+                        🎉 Diagnostic Passed! Your network supports WebRTC calls.
+                      </div>
+                    ) : (
+                      <div style={{ marginTop: 8, color: "#f59e0b", lineHeight: 1.4 }}>
+                        ⚠️ Diagnostic Failed. Your local firewall, VPN, or router settings are blocking WebRTC data ports. Try switching to a different network or cellular data.
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div style={{ textAlign: "center", color: "#64748b" }}>Test not run yet.</div>
+                )}
+              </div>
+
+              <div style={{ display: "flex", gap: 12 }}>
+                <button
+                  type="button"
+                  onClick={runConnectionTest}
+                  disabled={testingConnection}
+                  style={{ flex: 1, padding: "10px 0", borderRadius: 10, background: "#818cf8", color: "#fff", border: "none", fontSize: "0.8rem", fontWeight: 700, cursor: "pointer", opacity: testingConnection ? 0.6 : 1 }}
+                >
+                  Rerun Test
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowDiagnosticsModal(false)}
+                  style={{ flex: 1, padding: "10px 0", borderRadius: 10, background: "rgba(255,255,255,.08)", color: "#fff", border: "1px solid rgba(255,255,255,.1)", fontSize: "0.8rem", fontWeight: 700, cursor: "pointer" }}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </MeetingContainer>

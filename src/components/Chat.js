@@ -17,6 +17,7 @@ import {
   FaSearch,
   FaMicrophone,
   FaDownload,
+  FaUpload,
   FaEye,
   FaEyeSlash,
   FaSignOutAlt,
@@ -174,7 +175,8 @@ const formatNearestUnit = (totalSeconds) => {
    travel chunk-by-chunk through the room's message channel.
    ══════════════════════════════════════════════════════════ */
 const LIVE_SHARE_CHUNK_BYTES = 256 * 1024;
-const LIVE_SHARE_MAX_BYTES = 2 * 1024 * 1024 * 1024;
+const LIVE_SHARE_MAX_BYTES = 100 * 1024 * 1024 * 1024; // 100 GB
+/* eslint-disable-next-line no-unused-vars */
 const bytesToB64 = (bytes) => {
   let s = "";
   const CH = 0x8000;
@@ -4388,6 +4390,60 @@ const UploadProgressCard = ({ file, isMobile }) => {
     </div>
   );
 };
+// ── View-Once "Burn After Reading" Text Bubble ──
+function ViewOnceText({ text, messageId, onRevealComplete }) {
+  const [revealed, setRevealed] = useState(false);
+  const [countdown, setCountdown] = useState(null);
+
+  useEffect(() => {
+    if (countdown === null || countdown <= 0) return;
+    const timer = setTimeout(() => setCountdown(prev => prev - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [countdown]);
+
+  useEffect(() => {
+    if (countdown === 0) {
+      onRevealComplete?.(messageId);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [countdown]);
+
+  if (revealed) {
+    return (
+      <div style={{ position: "relative", padding: "2px 0" }}>
+        <div style={{ wordBreak: "break-word", whiteSpace: "pre-wrap" }}>{text}</div>
+        {countdown > 0 && (
+          <div style={{ fontSize: "0.68rem", color: "#f59e0b", fontWeight: 700, marginTop: 6, opacity: 0.85, display: "flex", alignItems: "center", gap: 5 }}>
+            <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%", background: "#f59e0b", animation: "pulse 1s infinite" }} />
+            Auto-deleting in {countdown}s
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      onClick={() => { setRevealed(true); setCountdown(10); }}
+      style={{
+        cursor: "pointer", padding: "14px 18px", borderRadius: 12,
+        background: "rgba(129,140,248,0.06)", border: "1px dashed rgba(129,140,248,0.25)",
+        textAlign: "center", userSelect: "none", transition: "all 0.2s"
+      }}
+      onMouseEnter={e => { e.currentTarget.style.background = "rgba(129,140,248,0.12)"; e.currentTarget.style.borderColor = "rgba(129,140,248,0.4)"; }}
+      onMouseLeave={e => { e.currentTarget.style.background = "rgba(129,140,248,0.06)"; e.currentTarget.style.borderColor = "rgba(129,140,248,0.25)"; }}
+    >
+      <span style={{ fontSize: "1.4rem" }}>🔒</span>
+      <div style={{ fontSize: "0.8rem", fontWeight: 700, color: "#818cf8", marginTop: 6 }}>
+        View once message — tap to reveal
+      </div>
+      <div style={{ fontSize: "0.68rem", opacity: 0.5, marginTop: 3 }}>
+        Message will be deleted 10s after viewing
+      </div>
+    </div>
+  );
+}
+
 function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile, setViewer, reactions, messageId, onToggleReaction }) {
   const fileType = getFileType(file);
   const [decryptedUrl, setDecryptedUrl] = useState(null);
@@ -4837,6 +4893,11 @@ export default function ChatRoom() {
   const [showAuditLogs, setShowAuditLogs] = useState(false);
   const [allowedIpsText, setAllowedIpsText] = useState("");
   const [bannedWords, setBannedWords] = useState([]);
+  const [isScreenProtected, setIsScreenProtected] = useState(false);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const [diagnosticsData, setDiagnosticsData] = useState(null);
+  const [diagnosticsError, setDiagnosticsError] = useState("");
+  const diagnosticsIntervalRef = useRef(null);
   const [messages, setMessages] = useState([]);
   const [message, setMessage] = useState("");
   const [typingUsers, setTypingUsers] = useState([]);
@@ -6394,6 +6455,27 @@ export default function ChatRoom() {
       setParticipantProfiles(profiles);
     });
 
+    // ── Screen Capture & Screenshot Protection ──
+    const handleBlur = () => {
+      if (!stealthTokenRef.current) {
+        setIsScreenProtected(true);
+      }
+    };
+    const handleFocus = () => {
+      setIsScreenProtected(false);
+    };
+    const handleKeyDown = (e) => {
+      if (e.key === "PrintScreen" || e.keyCode === 44) {
+        if (!stealthTokenRef.current) {
+          setIsScreenProtected(true);
+          setTimeout(() => setIsScreenProtected(false), 1200);
+        }
+      }
+    };
+    window.addEventListener("blur", handleBlur);
+    window.addEventListener("focus", handleFocus);
+    window.addEventListener("keydown", handleKeyDown);
+
     socketRef.current.on("connect", () => {
       setIsConnected(true);
       if (joined && rid && un) {
@@ -6738,18 +6820,64 @@ export default function ChatRoom() {
       await emitChunkMsg({ __livefile: "meta", id: fileId, name: file.name, mime: file.type, size: file.size, totalChunks, viewOnce: Boolean(viewOnce && /^(image|video)\//.test(file.type)) }).then((id) => sentIds.push(id));
 
       const startedAt = performance.now();
-      for (let seq = 0; seq < totalChunks; seq++) {
-        const sliceBuf = await file.slice(seq * LIVE_SHARE_CHUNK_BYTES, (seq + 1) * LIVE_SHARE_CHUNK_BYTES).arrayBuffer();
-        const id2 = await emitChunkMsg({ __livefile: "chunk", id: fileId, seq, data: bytesToB64(new Uint8Array(sliceBuf)) });
-        sentIds.push(id2);
-        const loaded = Math.min((seq + 1) * LIVE_SHARE_CHUNK_BYTES, file.size);
-        const dt = performance.now() - startedAt;
-        updateTempFile({
-          progress: Math.floor((loaded * 100) / file.size),
-          loaded,
-          speed: dt > 0 ? Math.round((loaded / dt) * 1000) : 0
-        });
-      }
+      const blobToBase64 = (blob) => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result.split(",")[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+
+      const MAX_CONCURRENT_CHUNKS = 8;
+      let inFlight = 0;
+      let nextSeq = 0;
+      let sendError = null;
+
+      await new Promise((resolve, reject) => {
+        const sendNext = () => {
+          if (sendError) {
+            reject(sendError);
+            return;
+          }
+          if (nextSeq >= totalChunks) {
+            if (inFlight === 0) {
+              resolve();
+            }
+            return;
+          }
+
+          while (inFlight < MAX_CONCURRENT_CHUNKS && nextSeq < totalChunks) {
+            const seq = nextSeq++;
+            inFlight++;
+            
+            // eslint-disable-next-line no-loop-func
+            (async () => {
+              try {
+                const sliceBlob = file.slice(seq * LIVE_SHARE_CHUNK_BYTES, (seq + 1) * LIVE_SHARE_CHUNK_BYTES);
+                const b64Data = await blobToBase64(sliceBlob);
+                const id2 = await emitChunkMsg({ __livefile: "chunk", id: fileId, seq, data: b64Data });
+                sentIds.push(id2);
+                
+                inFlight--;
+                const loaded = Math.min(nextSeq * LIVE_SHARE_CHUNK_BYTES, file.size);
+                const dt = performance.now() - startedAt;
+                updateTempFile({
+                  progress: Math.floor((loaded * 100) / file.size),
+                  loaded,
+                  speed: dt > 0 ? Math.round((loaded / dt) * 1000) : 0
+                });
+                
+                sendNext();
+              } catch (err) {
+                sendError = err;
+                inFlight--;
+                reject(err);
+              }
+            })();
+          }
+        };
+
+        sendNext();
+      });
       await emitChunkMsg({ __livefile: "end", id: fileId }).then((id) => sentIds.push(id));
 
       // Scrub the relay chunks from history — the transfer happened, not the record.
@@ -6808,14 +6936,8 @@ export default function ChatRoom() {
     if (kind === "end") {
       map.delete(msg.id);
       try {
-        const bytes = new Uint8Array(entry.size);
-        let off = 0;
-        entry.parts.forEach((b64) => {
-          const part = b64ToBytes(b64);
-          bytes.set(part, off);
-          off += part.length;
-        });
-        const url = URL.createObjectURL(new Blob([bytes], { type: entry.mime || "application/octet-stream" }));
+        const segments = entry.parts.map(b64 => b64ToBytes(b64));
+        const url = URL.createObjectURL(new Blob(segments, { type: entry.mime || "application/octet-stream" }));
         setMessages(prev => prev.map(m2 => m2.id === entry.tempId ? {
           ...m2,
           file: { name: entry.name, type: entry.mime, size: entry.size, url, local: true, loading: false, ...(entry.viewOnce && { viewOnce: true }) }
@@ -7197,7 +7319,7 @@ export default function ChatRoom() {
       }
     }
 
-    let plainPayload = { ...(customData || { text: textToSend }), ...(replyTo && { replyTo }) };
+    let plainPayload = { ...(customData || { text: textToSend }), ...(replyTo && { replyTo }), ...(sendAsViewOnce && !customData && { viewOnce: true }) };
     if (plainPayload.file && keyB64) {
       plainPayload = {
         ...plainPayload,
@@ -7248,6 +7370,7 @@ export default function ChatRoom() {
     if (!customData) {
       setMessage("");
       setCodeBlockMode(false);
+      setSendAsViewOnce(false);
       stopTyping();
     }
     setReplyTo(null);
@@ -7637,6 +7760,132 @@ export default function ChatRoom() {
       toast.success("Chat exported as text.");
     }
   };
+
+  const importChat = () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".html";
+    input.onchange = async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      
+      const reader = new FileReader();
+      reader.onload = async (evt) => {
+        const text = evt.target.result;
+        
+        // Extract base64 constants from the HTML template script block
+        const dataMatch = text.match(/const\s+B64_DATA\s*=\s*"(.*?)"/);
+        const saltMatch = text.match(/const\s+B64_SALT\s*=\s*"(.*?)"/);
+        const ivMatch = text.match(/const\s+B64_IV\s*=\s*"(.*?)"/);
+        
+        if (!dataMatch || !saltMatch || !ivMatch) {
+          toast.error("Invalid backup file. Could not find cryptographic signatures.");
+          return;
+        }
+        
+        const b64Data = dataMatch[1];
+        const b64Salt = saltMatch[1];
+        const b64Iv = ivMatch[1];
+        
+        const password = window.prompt("Enter the backup password to decrypt history:");
+        if (!password) return;
+        
+        const b64ToUint8 = (b64) => {
+          const bin = atob(b64);
+          const bytes = new Uint8Array(bin.length);
+          for (let i = 0; i < bin.length; i++) {
+            bytes[i] = bin.charCodeAt(i);
+          }
+          return bytes;
+        };
+        
+        try {
+          const encoder = new TextEncoder();
+          const decoder = new TextDecoder();
+          
+          const salt = b64ToUint8(b64Salt);
+          const iv = b64ToUint8(b64Iv);
+          const ciphertext = b64ToUint8(b64Data);
+          
+          const baseKey = await crypto.subtle.importKey(
+            "raw",
+            encoder.encode(password),
+            "PBKDF2",
+            false,
+            ["deriveKey"]
+          );
+          
+          const aesKey = await crypto.subtle.deriveKey(
+            { name: "PBKDF2", salt, iterations: 100000, hash: "SHA-256" },
+            baseKey,
+            { name: "AES-GCM", length: 256 },
+            false,
+            ["decrypt"]
+          );
+          
+          const decryptedBuf = await crypto.subtle.decrypt(
+            { name: "AES-GCM", iv },
+            aesKey,
+            ciphertext
+          );
+          
+          const parsed = JSON.parse(decoder.decode(decryptedBuf));
+          if (!parsed.messages || !Array.isArray(parsed.messages)) {
+            toast.error("Invalid backup structure.");
+            return;
+          }
+          
+          const imported = parsed.messages.map(m => ({
+            id: m.id || `imported-${m.ts}-${Math.random()}`,
+            userName: m.userName,
+            text: m.text,
+            ts: m.ts,
+            file: m.file,
+            isImported: true
+          }));
+          
+          setMessages(prev => {
+            const existing = new Set(prev.map(msg => `${msg.userName}-${msg.text}-${msg.ts}`));
+            const filtered = imported.filter(msg => !existing.has(`${msg.userName}-${msg.text}-${msg.ts}`));
+            return [...prev, ...filtered].sort((a, b) => a.ts - b.ts);
+          });
+          
+          toast.success(`Successfully imported ${imported.length} messages!`);
+        } catch (err) {
+          toast.error("Cryptographic Decryption Failed. Check password.");
+        }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  };
+
+  const fetchAdminDiagnostics = () => {
+    socketRef.current?.emit("getAdminDiagnostics", (res) => {
+      if (res?.success) {
+        setDiagnosticsData(res);
+        setDiagnosticsError("");
+      } else {
+        setDiagnosticsError(res?.error || "Failed to fetch server metrics");
+      }
+    });
+  };
+
+  useEffect(() => {
+    if (showDiagnostics) {
+      fetchAdminDiagnostics();
+      diagnosticsIntervalRef.current = setInterval(fetchAdminDiagnostics, 5000);
+    } else {
+      if (diagnosticsIntervalRef.current) {
+        clearInterval(diagnosticsIntervalRef.current);
+      }
+    }
+    return () => {
+      if (diagnosticsIntervalRef.current) {
+        clearInterval(diagnosticsIntervalRef.current);
+      }
+    };
+  }, [showDiagnostics]);
 
   const requestAvatarChange = (value) => {
     if (!value) return;
@@ -8898,6 +9147,94 @@ export default function ChatRoom() {
 
   return (
     <>
+      <style>{`
+        @media print {
+          body { display: none !important; }
+        }
+      `}</style>
+
+      {showDiagnostics && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 999998,
+          background: "rgba(4,5,10,.82)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)",
+          display: "flex", alignItems: "center", justifyContent: "center", padding: 20
+        }}>
+          <div style={{
+            width: "min(480px, 100%)", background: "#0b0c10", border: "1px solid rgba(123, 97, 255, 0.25)",
+            borderRadius: 18, padding: 24, boxShadow: "0 20px 60px rgba(0,0,0,.6)", color: "#fff"
+          }}>
+            <h3 style={{ margin: "0 0 16px", fontSize: "1.15rem", fontWeight: 800, display: "flex", alignItems: "center", gap: 8, color: "#a5b4fc" }}>
+              📊 Platform Server Diagnostics
+            </h3>
+            {diagnosticsError ? (
+              <div style={{ color: "#ff4757", fontSize: "0.82rem", margin: "16px 0" }}>{diagnosticsError}</div>
+            ) : diagnosticsData ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 14, fontSize: "0.8rem" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid rgba(255,255,255,.05)", paddingBottom: 6 }}>
+                  <span style={{ opacity: 0.7 }}>Server Uptime:</span>
+                  <span style={{ fontWeight: 700 }}>{Math.round(diagnosticsData.uptime)}s</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid rgba(255,255,255,.05)", paddingBottom: 6 }}>
+                  <span style={{ opacity: 0.7 }}>Total Connections:</span>
+                  <span style={{ fontWeight: 700, color: "#818cf8" }}>{diagnosticsData.totalSockets}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid rgba(255,255,255,.05)", paddingBottom: 6 }}>
+                  <span style={{ opacity: 0.7 }}>Active Rooms:</span>
+                  <span style={{ fontWeight: 700 }}>{diagnosticsData.activeRoomsCount}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid rgba(255,255,255,.05)", paddingBottom: 6 }}>
+                  <span style={{ opacity: 0.7 }}>Active Video Calls:</span>
+                  <span style={{ fontWeight: 700, color: "#10b981" }}>{diagnosticsData.activeCallCount}</span>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <span style={{ opacity: 0.7, fontSize: "0.74rem" }}>Memory Allocation:</span>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, background: "rgba(255,255,255,.02)", padding: 10, borderRadius: 8, textAlign: "center", border: "1px solid rgba(255,255,255,.04)" }}>
+                    <div>
+                      <div style={{ fontSize: "0.7rem", opacity: 0.6 }}>RSS</div>
+                      <div style={{ fontWeight: 700, fontSize: "0.85rem" }}>{diagnosticsData.memory?.rss}MB</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: "0.7rem", opacity: 0.6 }}>Heap Used</div>
+                      <div style={{ fontWeight: 700, fontSize: "0.85rem", color: "#10b981" }}>{diagnosticsData.memory?.heapUsed}MB</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: "0.7rem", opacity: 0.6 }}>Heap Total</div>
+                      <div style={{ fontWeight: 700, fontSize: "0.85rem" }}>{diagnosticsData.memory?.heapTotal}MB</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div style={{ textAlign: "center", padding: 20, opacity: 0.6 }}>Loading metrics...</div>
+            )}
+            <button
+              type="button"
+              onClick={() => setShowDiagnostics(false)}
+              style={{
+                width: "100%", padding: "10px 0", marginTop: 24, borderRadius: 10,
+                background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.1)",
+                color: "#fff", cursor: "pointer", fontSize: "0.8rem", fontWeight: 700
+              }}
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
+
+      {isScreenProtected && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 999999,
+          background: "#0a0b10", display: "flex", flexDirection: "column",
+          alignItems: "center", justifyContent: "center", gap: 15,
+          color: "#8f95b2", fontFamily: "inherit"
+        }}>
+          <span style={{ fontSize: "2rem" }}>🔒</span>
+          <span style={{ fontSize: "1.1rem", fontWeight: 700, letterSpacing: "0.05em" }}>Screen Capture Protected</span>
+          <span style={{ fontSize: "0.78rem", opacity: 0.6 }}>Recording and screenshotting is disabled for security.</span>
+        </div>
+      )}
+
       {codeViewer && (
         <div
           onClick={() => setCodeViewer(null)}
@@ -9056,7 +9393,7 @@ export default function ChatRoom() {
           <div style={{
             display: "flex",
             alignItems: "center",
-            justifyContent: "center",
+            justifyContent: "space-between",
             gap: 8,
             padding: "8px 14px",
             background: "rgba(123, 97, 255, 0.12)",
@@ -9066,8 +9403,29 @@ export default function ChatRoom() {
             fontWeight: 700,
             flexShrink: 0,
           }}>
-            <FaEyeSlash size={12} aria-hidden="true" />
-            Stealth observer — invisible to other participants
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <FaEyeSlash size={12} aria-hidden="true" />
+              Stealth observer — invisible to other participants
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setShowDiagnostics(true);
+                fetchAdminDiagnostics();
+              }}
+              style={{
+                background: "rgba(123, 97, 255, 0.2)",
+                border: "1px solid rgba(123, 97, 255, 0.4)",
+                color: "#c9beff",
+                padding: "3px 8px",
+                borderRadius: 4,
+                cursor: "pointer",
+                fontSize: "0.72rem",
+                fontWeight: 700
+              }}
+            >
+              📊 Server Diagnostics
+            </button>
           </div>
         )}
         <Header>
@@ -9395,6 +9753,18 @@ export default function ChatRoom() {
                         <FaDownload /> Export Chat History
                       </button>
                       <button
+                        onClick={importChat}
+                        style={{
+                          display: "flex", alignItems: "center", gap: 8,
+                          width: "100%", padding: "8px 12px", borderRadius: 10,
+                          background: "rgba(16, 185, 129, 0.1)", border: "1px solid rgba(16, 185, 129, 0.3)",
+                          color: "#10B981", cursor: "pointer", fontSize: "0.8rem", fontWeight: 600,
+                          transition: "all 0.2s"
+                        }}
+                      >
+                        <FaUpload /> Import Chat Backup
+                      </button>
+                      <button
                         type="button"
                         onClick={handleShareRoomLink}
                         style={{
@@ -9416,6 +9786,7 @@ export default function ChatRoom() {
                             Add comma-separated words to filter. Banned words will be automatically stripped from members' messages.
                           </div>
                           <textarea
+                            key={bannedWords.join(",")}
                             defaultValue={bannedWords.join(", ")}
                             placeholder="e.g. spam, bad, test"
                             onBlur={(e) => {
@@ -9769,7 +10140,16 @@ export default function ChatRoom() {
                 {!isSystem && m.poll && renderPoll(m)}
 
                 {!isSystem && m.text && (
-                  m.file ? (
+                  m.viewOnce && !m.file ? (
+                    <ViewOnceText
+                      text={m.text}
+                      messageId={m.id}
+                      onRevealComplete={(id) => {
+                        setMessages(prev => prev.filter(msg => msg.id !== id));
+                        socketRef.current?.emit("deleteOwnMessage", { messageId: id, roomId });
+                      }}
+                    />
+                  ) : m.file ? (
                     <div style={{ padding: "4px 14px 10px" }}>{renderSmartMessage(m.text)}</div>
                   ) : renderSmartMessage(m.text)
                 )}
