@@ -4836,6 +4836,7 @@ export default function ChatRoom() {
   const [auditLogs, setAuditLogs] = useState([]);
   const [showAuditLogs, setShowAuditLogs] = useState(false);
   const [allowedIpsText, setAllowedIpsText] = useState("");
+  const [bannedWords, setBannedWords] = useState([]);
   const [messages, setMessages] = useState([]);
   const [message, setMessage] = useState("");
   const [typingUsers, setTypingUsers] = useState([]);
@@ -6418,7 +6419,10 @@ export default function ChatRoom() {
     });
 
     // ── Disappearing Messages & Pinned Messages Sync ──
-    socketRef.current.on("syncRoomMetadata", async ({ ephemeralDuration, pinnedMessages: rawPinned, allowedIps, auditLogs }) => {
+    socketRef.current.on("syncRoomMetadata", async ({ ephemeralDuration, pinnedMessages: rawPinned, allowedIps, auditLogs, bannedWords: initialBanned }) => {
+      if (initialBanned) {
+        setBannedWords(initialBanned);
+      }
       if (ephemeralDuration !== undefined) {
         setRoomEphemeralDuration(ephemeralDuration);
         setEphemeralMode(ephemeralDuration > 0);
@@ -6454,6 +6458,10 @@ export default function ChatRoom() {
 
     socketRef.current.on("auditLogUpdated", (logs) => {
       setAuditLogs(logs || []);
+    });
+
+    socketRef.current.on("roomContentFilterUpdated", ({ bannedWords: updatedBanned }) => {
+      setBannedWords(updatedBanned || []);
     });
 
     socketRef.current.on("pinnedMessagesUpdated", async ({ pinnedMessages: rawPinned }) => {
@@ -7170,18 +7178,22 @@ export default function ChatRoom() {
       textToSend = "```\n" + message + "\n```";
     }
 
-    // ── Client-side content moderation (runs pre-encryption) ──
-    // Since messages are E2EE, the server can never inspect plaintext.
-    // This filter runs locally before encryption to catch obvious violations.
-    if (!customData && textToSend.trim()) {
-      const moderationList = (localStorage.getItem("cheprabai:moderation-words") || "").split(",").map(w => w.trim().toLowerCase()).filter(Boolean);
-      if (moderationList.length > 0) {
-        const lowerText = textToSend.toLowerCase();
-        const flagged = moderationList.find(word => lowerText.includes(word));
-        if (flagged) {
+    // ── Owner-controlled Content Moderation Filter (runs pre-encryption) ──
+    if (!customData && textToSend.trim() && !ownerToken) {
+      if (bannedWords && bannedWords.length > 0) {
+        let filtered = textToSend;
+        bannedWords.forEach(word => {
+          if (!word) return;
+          const escaped = word.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+          const regex = new RegExp(escaped, 'gi');
+          filtered = filtered.replace(regex, '');
+        });
+        filtered = filtered.replace(/\s+/g, ' ').trim();
+        if (!filtered) {
           toast.warning("⚠️ Message blocked by content filter.");
           return;
         }
+        textToSend = filtered;
       }
     }
 
@@ -9396,29 +9408,42 @@ export default function ChatRoom() {
                         <Copy size={14} aria-hidden="true" /> Share Room Invite
                       </button>
 
-                      {/* ── Content Moderation Filter ── */}
-                      <div style={{ borderTop: "1px solid rgba(255,255,255,0.07)", paddingTop: 10, marginTop: 4 }}>
-                        <div style={{ fontSize: "0.68rem", fontWeight: 800, letterSpacing: ".12em", textTransform: "uppercase", color: "#7a7f95", marginBottom: 8 }}>Content Filter</div>
-                        <div style={{ fontSize: "0.72rem", color: "var(--chakra-colors-textSecondary)", marginBottom: 8, lineHeight: 1.4 }}>
-                          Add comma-separated words to block. Messages containing these words will be prevented from sending.
+                      {/* ── Content Moderation Filter (Controlled by the Owner) ── */}
+                      {ownerToken && (
+                        <div style={{ borderTop: "1px solid rgba(255,255,255,0.07)", paddingTop: 10, marginTop: 4 }}>
+                          <div style={{ fontSize: "0.68rem", fontWeight: 800, letterSpacing: ".12em", textTransform: "uppercase", color: "#7a7f95", marginBottom: 8 }}>Content Filter</div>
+                          <div style={{ fontSize: "0.72rem", color: "var(--chakra-colors-textSecondary)", marginBottom: 8, lineHeight: 1.4 }}>
+                            Add comma-separated words to filter. Banned words will be automatically stripped from members' messages.
+                          </div>
+                          <textarea
+                            defaultValue={bannedWords.join(", ")}
+                            placeholder="e.g. spam, bad, test"
+                            onBlur={(e) => {
+                              const words = e.target.value.split(",").map(w => w.trim().toLowerCase()).filter(Boolean);
+                              socketRef.current?.emit("updateRoomContentFilter", {
+                                roomId,
+                                token: ownerToken,
+                                bannedWords: words
+                              }, (res) => {
+                                if (res?.success) {
+                                  setBannedWords(res.bannedWords || []);
+                                  toast.success("Content filter updated!");
+                                } else {
+                                  toast.error(res?.error || "Failed to update content filter");
+                                }
+                              });
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                            style={{
+                              width: "100%", minHeight: 50, padding: "8px 10px", borderRadius: 8,
+                              background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
+                              color: "var(--chakra-colors-textPrimary)", fontSize: "0.75rem",
+                              resize: "vertical", outline: "none", boxSizing: "border-box",
+                              fontFamily: "inherit"
+                            }}
+                          />
                         </div>
-                        <textarea
-                          defaultValue={localStorage.getItem("cheprabai:moderation-words") || ""}
-                          placeholder="e.g. spam, badword1, badword2"
-                          onBlur={(e) => {
-                            localStorage.setItem("cheprabai:moderation-words", e.target.value);
-                            toast.success("Content filter updated");
-                          }}
-                          onClick={(e) => e.stopPropagation()}
-                          style={{
-                            width: "100%", minHeight: 50, padding: "8px 10px", borderRadius: 8,
-                            background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
-                            color: "var(--chakra-colors-textPrimary)", fontSize: "0.75rem",
-                            resize: "vertical", outline: "none", boxSizing: "border-box",
-                            fontFamily: "inherit"
-                          }}
-                        />
-                      </div>
+                      )}
                       {/* <Link
                         to="/admin"
                         target="_blank"
