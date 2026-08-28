@@ -141,24 +141,32 @@ const formatUploadLimit = () => {
    ══════════════════════════════════════════════════════════ */
 const EPHEMERAL_PRESETS = [
   { label: "Off", value: 0 },
+  { label: "5 Minutes", value: 300 },
   { label: "1 Hour", value: 3600 },
+  { label: "12 Hours", value: 43200 },
   { label: "24 Hours", value: 86400 },
   { label: "7 Days", value: 604800 },
-  { label: "30 Days", value: 2592000 }
+  { label: "30 Days", value: 2592000 },
+  { label: "90 Days", value: 7776000 }
 ];
 const CUSTOM_EPHEMERAL_UNITS = [
-  { label: "sec", value: 1 },
-  { label: "min", value: 60 },
-  { label: "hr", value: 3600 },
-  { label: "day", value: 86400 }
+  { label: "seconds", value: 1, key: "sec" },
+  { label: "minutes", value: 60, key: "min" },
+  { label: "hours", value: 3600, key: "hr" },
+  { label: "days", value: 86400, key: "day" },
+  { label: "weeks", value: 7 * 86400, key: "week" },
+  { label: "months", value: 30 * 86400, key: "month" }
 ];
-const EPHEMERAL_MAX_SECONDS = 90 * 86400;
+const EPHEMERAL_MAX_SECONDS = 365 * 86400;
 const formatNearestUnit = (totalSeconds) => {
   const s = Math.max(0, Math.floor(totalSeconds));
+  if (s === 0) return "Off";
   if (s < 60) return `${s}s`;
   if (s < 3600) return `${Math.floor(s / 60)}m`;
   if (s < 86400) return `${Math.floor(s / 3600)}h`;
-  return `${Math.floor(s / 86400)}d`;
+  if (s < 7 * 86400) return `${Math.floor(s / 86400)}d`;
+  if (s < 30 * 86400) return `${Math.floor(s / (7 * 86400))}w`;
+  return `${Math.floor(s / (30 * 86400))}mo`;
 };
 
 /* ══════════════════════════════════════════════════════════
@@ -5066,7 +5074,7 @@ export default function ChatRoom() {
   const applyCustomEphemeral = () => {
     const n = parseInt(customEphemeralValue, 10);
     if (!Number.isFinite(n) || n <= 0) { toast.error("Enter a positive number."); return; }
-    const unit = CUSTOM_EPHEMERAL_UNITS.find((u) => u.value === customEphemeralUnit) || CUSTOM_EPHEMERAL_UNITS[1];
+    const unit = CUSTOM_EPHEMERAL_UNITS.find((u) => u.key === customEphemeralUnit) || CUSTOM_EPHEMERAL_UNITS[1];
     const secs = Math.min(n * unit.value, EPHEMERAL_MAX_SECONDS);
     socketRef.current.emit("updateRoomEphemeral", { roomId, ephemeralDuration: secs });
     toast.info(`💨 Messages will vanish after ${formatNearestUnit(secs)}`);
@@ -5129,7 +5137,7 @@ export default function ChatRoom() {
             }}
           >
             {CUSTOM_EPHEMERAL_UNITS.map((u) => (
-              <option key={u.value} value={u.value}>{u.label}</option>
+              <option key={u.key} value={u.key}>{u.label}</option>
             ))}
           </select>
           <button
