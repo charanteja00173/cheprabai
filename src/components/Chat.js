@@ -522,7 +522,14 @@ const DEV_PICKER_GROUPS = [
       "Scheduled messages",
       "Voice message recording",
       "GIF picker + code blocks + link previews",
-      "Chat export as HTML"
+      "Chat export as HTML",
+      "QR Code Room Sharing (landing page & session)",
+      "Unread Message Badge + Jump to Bottom",
+      "Bookmarked / Starred Messages",
+      "Custom Notification Sounds",
+      "Mute notification sounds toggle",
+      "Rate Limiting (Spam Guard)",
+      "Client-side content moderation (word filter)"
     ]
   },
   {
@@ -530,7 +537,8 @@ const DEV_PICKER_GROUPS = [
       "Encrypted vault — any file type, encrypted on device",
       "Realtime large-file relay (>100MB, no storage cap)",
       "Universal viewer: PDF, docs, audio/video, PiP",
-      "Gallery ‹ › navigation between shared media"
+      "Gallery ‹ › navigation between shared media",
+      "Client-side image compression before upload"
     ]
   },
   {
@@ -552,13 +560,18 @@ const DEV_PICKER_GROUPS = [
       "Per-room security codes",
       "Stealth mode",
       "Custom room backgrounds (+ owner lock)",
-      "Online presence list"
+      "Online presence list",
+      "Anti-shoulder surfing (Stealth masking blur)",
+      "Panic emergency exit hotkey (Esc x3)",
+      "Offline App Caching (PWA service worker)",
+      "IP-Based Room Access Controls"
     ]
   },
   {
     group: "Admin", items: [
       "Admin dashboard — approve/reject rooms",
-      "In-room owner controls — kick, mute, destroy"
+      "In-room owner controls — kick, mute, destroy",
+      "Audit log timeline for room owners"
     ]
   }
 ];
@@ -569,21 +582,55 @@ const DEV_PICKER_GROUPS = [
 */
 const FEATURE_VERIFY = {
   "End-to-end encrypted chat": "ok",
+  "Vanishing messages (Off / 1h / 24h / 7d / 30d)": "ok",
+  "View-once photos & videos": "ok",
+  "Reply · Edit · Delete for everyone · Forward · Copy": "ok",
   "Emoji reactions": "ok",
   "Typing indicators + read receipts": "ok",
+  "@mentions with autocomplete": "ok",
   "Polls & live voting": "ok",
   "Message search & pinned messages": "ok",
+  "Scheduled messages": "ok",
+  "Voice message recording": "ok",
   "GIF picker + code blocks + link previews": "ok",
   "Chat export as HTML": "ok",
+  "QR Code Room Sharing (landing page & session)": "ok",
+  "Unread Message Badge + Jump to Bottom": "ok",
+  "Bookmarked / Starred Messages": "ok",
+  "Custom Notification Sounds": "ok",
+  "Mute notification sounds toggle": "ok",
+  "Rate Limiting (Spam Guard)": "ok",
+  "Client-side content moderation (word filter)": "ok",
+
   "Encrypted vault — any file type, encrypted on device": "ok",
   "Realtime large-file relay (>100MB, no storage cap)": "ok",
   "Universal viewer: PDF, docs, audio/video, PiP": "ok",
   "Gallery ‹ › navigation between shared media": "ok",
+  "Client-side image compression before upload": "ok",
+
+  "HD group video calls (grid / spotlight / theater)": "ok",
+  "Voice-only calls": "ok",
+  "Screen sharing": "ok",
   "Video beauty filters": "ok",
   "Voice changer": "ok",
+  "Call recording": "ok",
+  "Floating emoji reactions in-call": "ok",
+  "Watch parties — synced co-watch streams": "ok",
   "Collaborative whiteboard": "ok",
+
+  "No accounts, no phone numbers": "ok",
+  "Per-room security codes": "ok",
+  "Stealth mode": "ok",
+  "Custom room backgrounds (+ owner lock)": "ok",
   "Online presence list": "ok",
-  "In-room owner controls — kick, mute, destroy": "ok"
+  "Anti-shoulder surfing (Stealth masking blur)": "ok",
+  "Panic emergency exit hotkey (Esc x3)": "ok",
+  "Offline App Caching (PWA service worker)": "ok",
+  "IP-Based Room Access Controls": "ok",
+
+  "Admin dashboard — approve/reject rooms": "ok",
+  "In-room owner controls — kick, mute, destroy": "ok",
+  "Audit log timeline for room owners": "ok"
 };
 
 function FeatureDevPicker() {
@@ -634,7 +681,7 @@ function FeatureDevPicker() {
 
   return (
     <>
-      {/* <button
+      <button
         type="button"
         onClick={() => setOpen(true)}
         style={{
@@ -648,7 +695,7 @@ function FeatureDevPicker() {
         }}
       >
         🧩 PICK TOUR FEATURES
-      </button> */}
+      </button>
 
       {open && (
         <div
