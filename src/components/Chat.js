@@ -689,7 +689,7 @@ function FeatureDevPicker() {
 
   return (
     <>
-      <button
+      {/* <button
         type="button"
         onClick={() => setOpen(true)}
         style={{
@@ -703,7 +703,7 @@ function FeatureDevPicker() {
         }}
       >
         🧩 PICK TOUR FEATURES
-      </button>
+      </button> */}
 
       {open && (
         <div
@@ -5320,7 +5320,7 @@ export default function ChatRoom() {
     if (!roomId.trim()) return;
     const shareUrl = `${window.location.origin}/?room=${encodeURIComponent(roomId.trim())}`;
     const code = (securityCode || "").trim();
-    const shareText = code 
+    const shareText = code
       ? `Join my secure room "${roomId.trim()}" on Cheprabai:\nLink: ${shareUrl}\nSecurity Code: ${code}`
       : `Join my secure room "${roomId.trim()}" on Cheprabai:\nLink: ${shareUrl}`;
 
@@ -9212,7 +9212,7 @@ export default function ChatRoom() {
                       {ownerToken && (
                         <div style={{ borderTop: "1px solid rgba(255,255,255,0.07)", paddingTop: 10, marginTop: 4, display: "flex", flexDirection: "column", gap: 10 }}>
                           <div style={{ fontSize: "0.68rem", fontWeight: 800, letterSpacing: ".12em", textTransform: "uppercase", color: "#f59e0b", marginBottom: 2 }}>Owner Controls</div>
-                          
+
                           <div>
                             <div style={{ fontSize: "0.75rem", fontWeight: 700, marginBottom: 4 }}>IP Whitelist Restrictions</div>
                             <div style={{ fontSize: "0.65rem", color: "var(--chakra-colors-textSecondary)", marginBottom: 6, lineHeight: 1.35 }}>
@@ -11229,7 +11229,7 @@ export default function ChatRoom() {
               </div>
               <button type="button" onClick={() => setShowAuditLogs(false)} aria-label="Close logs" style={{ minWidth: 40, minHeight: 40, borderRadius: 12, border: "1px solid var(--chakra-colors-border)", background: "var(--chakra-colors-surfaceHover)", color: "inherit", cursor: "pointer", fontSize: "1.2rem" }}>×</button>
             </div>
-            
+
             <div style={{ flex: 1, overflowY: "auto", borderTop: "1px solid var(--chakra-colors-borderSubtle)", paddingRight: 4 }}>
               {auditLogs.length === 0 ? (
                 <div style={{ padding: "40px 0", textAlign: "center", color: "var(--chakra-colors-textSecondary)", fontSize: "0.88rem" }}>
