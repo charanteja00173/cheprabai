@@ -31,6 +31,7 @@ import {
 } from "react-icons/fa";
 import { HiGif } from "react-icons/hi2";
 import { FaVideo } from "react-icons/fa";
+import { QRCodeSVG } from "qrcode.react";
 import notificationSound from "../assets/iphone-sms.mp3";
 import image from "../logo192.png";
 import { AiOutlineClose } from "react-icons/ai";
@@ -41,13 +42,13 @@ import { createDecryptionHtmlTemplate } from "../utils/exportTemplate";
 import { BREAKPOINTS, useIsMobile } from "../hooks/useIsMobile";
 import { ArrowRight, BarChart3, Clapperboard, Copy, FileUp, FolderLock, Hash, KeyRound, LockKeyhole, MessagesSquare, MonitorUp, PenTool, ScreenShare, ShieldCheck, Timer, Upload, UserRound, Video } from "lucide-react";
 import {
-  generateKeyFromSecret,
-  encryptMessage,
-  decryptMessage,
   encryptBinary,
   decryptBinary,
   exportKey,
-  importKey
+  importKey,
+  workerGenerateKeyFromSecret as generateKeyFromSecret,
+  workerEncryptMessage as encryptMessage,
+  workerDecryptMessage as decryptMessage
 } from "../utils/crypto";
 import { copyRoomShareLink, parseRoomRouteParams } from "../utils/shareLink";
 import { safeCopyText, safeCopyImage } from "../utils/clipboard";
@@ -925,17 +926,17 @@ const ActionButton = styled.button`
   }
 
   @media (max-width: ${BREAKPOINTS.sm}px) {
-    font-size: 0.9rem;
-    min-width: 38px;
-    min-height: 38px;
-    border-radius: 10px;
+    font-size: 0.92rem;
+    min-width: 30px;
+    min-height: 30px;
+    border-radius: 8px;
   }
 
   @media (max-width: ${BREAKPOINTS.xs}px) {
     font-size: 0.85rem;
-    min-width: 36px;
-    min-height: 36px;
-    border-radius: 9px;
+    min-width: 28px;
+    min-height: 28px;
+    border-radius: 7px;
   }
 `;
 
@@ -4773,6 +4774,11 @@ export default function ChatRoom() {
   const [backgroundTarget, setBackgroundTarget] = useState(null);
   const [securityCode, setSecurityCode] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [showLandingQr, setShowLandingQr] = useState(false);
+  const [showDropdownQr, setShowDropdownQr] = useState(false);
+  const [auditLogs, setAuditLogs] = useState([]);
+  const [showAuditLogs, setShowAuditLogs] = useState(false);
+  const [allowedIpsText, setAllowedIpsText] = useState("");
   const [messages, setMessages] = useState([]);
   const [message, setMessage] = useState("");
   const [typingUsers, setTypingUsers] = useState([]);
@@ -4855,6 +4861,23 @@ export default function ChatRoom() {
     try { localStorage.setItem("cheprabai_swipeReply", next ? "1" : "0"); } catch { /* private mode */ }
     return next;
   });
+  const [muteSounds, setMuteSounds] = useState(() => {
+    try { return localStorage.getItem("cheprabai_muteSounds") === "1"; } catch { return false; }
+  });
+  const toggleMuteSounds = () => setMuteSounds(prev => {
+    const next = !prev;
+    try { localStorage.setItem("cheprabai_muteSounds", next ? "1" : "0"); } catch { /* private mode */ }
+    return next;
+  });
+  const [shoulderSurfingProtection, setShoulderSurfingProtection] = useState(() => {
+    try { return localStorage.getItem("cheprabai_shoulderSurfing") === "1"; } catch { return false; }
+  });
+  const toggleShoulderSurfing = () => setShoulderSurfingProtection(prev => {
+    const next = !prev;
+    try { localStorage.setItem("cheprabai_shoulderSurfing", next ? "1" : "0"); } catch { /* private mode */ }
+    return next;
+  });
+  const [isWindowBlurred, setIsWindowBlurred] = useState(false);
   const [reactionPickerFor, setReactionPickerFor] = useState(null);
   const [participantProfiles, setParticipantProfiles] = useState({});
   const [viewedByTarget, setViewedByTarget] = useState(null);
@@ -4881,6 +4904,22 @@ export default function ChatRoom() {
   const pendingFilesUrlsRef = useRef({});
   const leaveRoomNowRef = useRef(null);
   const [fullscreen, setFullscreen] = useState(null);
+
+  useEffect(() => {
+    const handleBlur = () => setIsWindowBlurred(true);
+    const handleFocus = () => setIsWindowBlurred(false);
+
+    window.addEventListener("blur", handleBlur);
+    window.addEventListener("focus", handleFocus);
+    if (typeof document !== "undefined" && !document.hasFocus()) {
+      setIsWindowBlurred(true);
+    }
+
+    return () => {
+      window.removeEventListener("blur", handleBlur);
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, []);
 
   // Gallery keyboard controls for the fullscreen media viewer
   useEffect(() => {
@@ -5213,13 +5252,45 @@ export default function ChatRoom() {
 
   const handleShareRoomLink = useCallback(async () => {
     if (!roomId.trim()) return;
-    try {
-      await copyRoomShareLink(roomId.trim());
-      toast.success("Room link copied!");
-    } catch {
-      toast.error("Could not copy link. Try again.");
+    const shareUrl = `${window.location.origin}/?room=${encodeURIComponent(roomId.trim())}`;
+    const code = (securityCode || "").trim();
+    const shareText = code 
+      ? `Join my secure room "${roomId.trim()}" on Cheprabai:\nLink: ${shareUrl}\nSecurity Code: ${code}`
+      : `Join my secure room "${roomId.trim()}" on Cheprabai:\nLink: ${shareUrl}`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: "Join my secure chat room on Cheprabai",
+          text: shareText,
+        });
+      } catch (err) {
+        if (err.name !== "AbortError") {
+          try {
+            if (navigator.clipboard?.writeText) {
+              await navigator.clipboard.writeText(shareText);
+            } else {
+              await copyRoomShareLink(roomId.trim());
+            }
+            toast.success("Invite info copied!");
+          } catch {
+            toast.error("Could not share link.");
+          }
+        }
+      }
+    } else {
+      try {
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(shareText);
+        } else {
+          await copyRoomShareLink(roomId.trim());
+        }
+        toast.success("Invite info copied!");
+      } catch {
+        toast.error("Could not copy link. Try again.");
+      }
     }
-  }, [roomId]);
+  }, [roomId, securityCode]);
   const isScrollingRef = useRef(false);
 
   // ── Drag & Drop ──
@@ -5888,6 +5959,24 @@ export default function ChatRoom() {
     navigate("/", { replace: true });
   };
   leaveRoomNowRef.current = leaveRoomNow;
+
+  // ── Panic exit hotkey: triple-tap Escape to instantly leave ──
+  const panicEscTimestamps = useRef([]);
+  useEffect(() => {
+    const onPanicKey = (e) => {
+      if (e.key !== "Escape") return;
+      const now = Date.now();
+      panicEscTimestamps.current = [...panicEscTimestamps.current.filter(t => now - t < 1500), now];
+      if (panicEscTimestamps.current.length >= 3 && leaveRoomNowRef.current) {
+        panicEscTimestamps.current = [];
+        toast.info("🚨 Emergency exit triggered");
+        leaveRoomNowRef.current();
+      }
+    };
+    window.addEventListener("keydown", onPanicKey);
+    return () => window.removeEventListener("keydown", onPanicKey);
+  }, []);
+
   const handleLeaveRoom = () => setConfirmation({ title: "Leave this room?", body: "You can rejoin later with the room credentials.", confirmLabel: "Leave room", onConfirm: leaveRoomNow });
 
   const handleKickFromRoom = (targetSocketId, targetName) => {
@@ -6057,8 +6146,9 @@ export default function ChatRoom() {
       setMessages((m) => [...m, formattedMsg]);
       if (formattedMsg.id && formattedMsg.userName !== un) socketRef.current.emit("messageViewed", { messageId: formattedMsg.id });
       if (msg.userName !== un) {
-        // Clone so rapid-fire messages never abort a pending audio load
-        audioRef.current.cloneNode(true).play().catch(() => { });
+        if (!muteSounds) {
+          audioRef.current.cloneNode(true).play().catch(() => { });
+        }
 
         // Update unread count if scrolled up
         const container = messagesContainerRef.current;
@@ -6186,10 +6276,16 @@ export default function ChatRoom() {
     });
 
     // ── Disappearing Messages & Pinned Messages Sync ──
-    socketRef.current.on("syncRoomMetadata", async ({ ephemeralDuration, pinnedMessages: rawPinned }) => {
+    socketRef.current.on("syncRoomMetadata", async ({ ephemeralDuration, pinnedMessages: rawPinned, allowedIps, auditLogs }) => {
       if (ephemeralDuration !== undefined) {
         setRoomEphemeralDuration(ephemeralDuration);
         setEphemeralMode(ephemeralDuration > 0);
+      }
+      if (allowedIps) {
+        setAllowedIpsText(allowedIps.join(", "));
+      }
+      if (auditLogs) {
+        setAuditLogs(auditLogs);
       }
       if (rawPinned) {
         const formatted = await Promise.all(rawPinned.map(async msg => {
@@ -6212,6 +6308,10 @@ export default function ChatRoom() {
         }));
         setPinnedMessages(formatted);
       }
+    });
+
+    socketRef.current.on("auditLogUpdated", (logs) => {
+      setAuditLogs(logs || []);
     });
 
     socketRef.current.on("pinnedMessagesUpdated", async ({ pinnedMessages: rawPinned }) => {
@@ -6592,7 +6692,66 @@ export default function ChatRoom() {
     return () => clearInterval(sweep);
   }, []);
 
-  const uploadFile = async (file, viewOnce = false, scheduleTime = null) => {
+  const compressImageIfNeeded = (file) => {
+    if (!file.type.startsWith("image/") || file.type === "image/gif") return Promise.resolve(file);
+    if (file.size <= 1.5 * 1024 * 1024) return Promise.resolve(file);
+
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          let width = img.width;
+          let height = img.height;
+          const MAX_DIM = 1920;
+          if (width > MAX_DIM || height > MAX_DIM) {
+            if (width > height) {
+              height = Math.round((height * MAX_DIM) / width);
+              width = MAX_DIM;
+            } else {
+              width = Math.round((width * MAX_DIM) / height);
+              height = MAX_DIM;
+            }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, width, height);
+          canvas.toBlob(
+            (blob) => {
+              if (blob && blob.size < file.size) {
+                const compressedFile = new File([blob], file.name, {
+                  type: "image/jpeg",
+                  lastModified: Date.now(),
+                });
+                resolve(compressedFile);
+              } else {
+                resolve(file);
+              }
+            },
+            "image/jpeg",
+            0.82
+          );
+        };
+        img.onerror = () => resolve(file);
+        img.src = e.target.result;
+      };
+      reader.onerror = () => resolve(file);
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const uploadFile = async (rawFile, viewOnce = false, scheduleTime = null) => {
+    let file = rawFile;
+    if (rawFile.type.startsWith("image/") && rawFile.type !== "image/gif") {
+      try {
+        file = await compressImageIfNeeded(rawFile);
+      } catch (err) {
+        // Fallback to original
+      }
+    }
+
     let tempId;
     let previewUrl = null;
     try {
@@ -6852,6 +7011,21 @@ export default function ChatRoom() {
     let textToSend = message;
     if (codeBlockMode && !message.includes("```")) {
       textToSend = "```\n" + message + "\n```";
+    }
+
+    // ── Client-side content moderation (runs pre-encryption) ──
+    // Since messages are E2EE, the server can never inspect plaintext.
+    // This filter runs locally before encryption to catch obvious violations.
+    if (!customData && textToSend.trim()) {
+      const moderationList = (localStorage.getItem("cheprabai:moderation-words") || "").split(",").map(w => w.trim().toLowerCase()).filter(Boolean);
+      if (moderationList.length > 0) {
+        const lowerText = textToSend.toLowerCase();
+        const flagged = moderationList.find(word => lowerText.includes(word));
+        if (flagged) {
+          toast.warning("⚠️ Message blocked by content filter.");
+          return;
+        }
+      }
     }
 
     let plainPayload = { ...(customData || { text: textToSend }), ...(replyTo && { replyTo }) };
@@ -8165,6 +8339,58 @@ export default function ChatRoom() {
 
               <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7, color: "var(--chakra-colors-textSecondary)", fontSize: ".75rem", lineHeight: 1.4, textAlign: "center", animation: "fade-in-up .55s ease-out both", animationDelay: "520ms" }}><LockKeyhole size={14} aria-hidden="true" /> End-to-end encrypted session</div>
 
+              {roomId.trim() && (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, marginTop: 14, animation: "fade-in-up .55s ease-out both", animationDelay: "560ms" }}>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
+                    <button
+                      type="button"
+                      onClick={() => setShowLandingQr(!showLandingQr)}
+                      style={{
+                        border: 0,
+                        background: showLandingQr ? "rgba(99,102,241,0.15)" : "rgba(255,255,255,0.04)",
+                        color: "var(--chakra-colors-textPrimary)",
+                        padding: "6px 14px",
+                        borderRadius: 18,
+                        fontSize: "0.75rem",
+                        fontWeight: 650,
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        transition: "all 0.2s"
+                      }}
+                    >
+                      <span>📷</span> {showLandingQr ? "Hide QR" : "Show QR"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleShareRoomLink}
+                      style={{
+                        border: 0,
+                        background: "rgba(255,255,255,0.04)",
+                        color: "var(--chakra-colors-textPrimary)",
+                        padding: "6px 14px",
+                        borderRadius: 18,
+                        fontSize: "0.75rem",
+                        fontWeight: 650,
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        transition: "all 0.2s"
+                      }}
+                    >
+                      <span>🔗</span> Share Link
+                    </button>
+                  </div>
+                  {showLandingQr && (
+                    <div style={{ background: "#ffffff", padding: 14, borderRadius: 12, display: "inline-block", boxShadow: "0 8px 24px rgba(0,0,0,0.15)", marginTop: 4 }}>
+                      <QRCodeSVG value={window.location.href} size={220} />
+                    </div>
+                  )}
+                </div>
+              )}
+
             </JoinContainer>
           </LandingGrid>
           <FeatureDevPicker />
@@ -8601,6 +8827,34 @@ export default function ChatRoom() {
           </p>
         </div>
       )}
+      {shoulderSurfingProtection && isWindowBlurred && joined && (
+        <div
+          onClick={() => setIsWindowBlurred(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 21999,
+            background: "rgba(8, 9, 13, 0.6)",
+            backdropFilter: "blur(20px)",
+            WebkitBackdropFilter: "blur(20px)",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            textAlign: "center",
+            cursor: "pointer",
+            padding: 20,
+            color: "#fff",
+            fontFamily: "inherit"
+          }}
+        >
+          <div style={{ fontSize: "2.8rem", marginBottom: "12px" }}>👁️‍🗨️</div>
+          <h3 style={{ fontSize: "1.25rem", fontWeight: 800, margin: "0 0 6px", letterSpacing: "-0.01em" }}>Stealth Mode Active</h3>
+          <p style={{ opacity: 0.6, maxWidth: "280px", fontSize: "0.8rem", lineHeight: 1.45, margin: 0 }}>
+            Shoulder-surfing protection is on. Click anywhere to reveal your chat.
+          </p>
+        </div>
+      )}
       <ChatContainer
         onDragEnter={handleDragEnter}
         onDragLeave={handleDragLeave}
@@ -8709,6 +8963,28 @@ export default function ChatRoom() {
                       <label onClick={(e) => e.stopPropagation()} style={{ display: "flex", minHeight: 44, alignItems: "center", justifyContent: "center", borderRadius: 10, cursor: "pointer", fontSize: ".8rem", fontWeight: 700, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.04)" }}>Change avatar<input type="file" accept="image/*" hidden onChange={(e) => openAvatarCrop(e.target.files?.[0])} /></label>
                       <label onClick={(e) => e.stopPropagation()} style={{ display: "flex", minHeight: 44, alignItems: "center", justifyContent: "center", borderRadius: 10, cursor: backgroundLocked && !ownerToken ? "not-allowed" : "pointer", opacity: backgroundLocked && !ownerToken ? .45 : 1, fontSize: ".8rem", fontWeight: 700, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.04)" }}>{backgroundLocked && !ownerToken ? "Background managed by owner" : "Change chat background"}<input type="file" disabled={backgroundLocked && !ownerToken} accept="image/*" hidden onChange={(e) => requestBackgroundChange(e.target.files?.[0])} /></label>
 
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setShowDropdownQr(!showDropdownQr); }}
+                        style={{
+                          display: "flex", minHeight: 44, alignItems: "center", justifyContent: "center",
+                          borderRadius: 10, cursor: "pointer", fontSize: ".8rem", fontWeight: 700,
+                          background: showDropdownQr ? "rgba(99,102,241,0.15)" : "rgba(255,255,255,.03)",
+                          border: `1px solid ${showDropdownQr ? "rgba(129,140,248,0.3)" : "rgba(255,255,255,.04)"}`,
+                          color: "var(--chakra-colors-textPrimary)", width: "100%", gap: 8, outline: "none"
+                        }}
+                      >
+                        📷 {showDropdownQr ? "Hide QR Code Invite" : "Show QR Code Invite"}
+                      </button>
+                      {showDropdownQr && (
+                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, marginTop: 4, background: "rgba(255,255,255,0.02)", padding: 12, borderRadius: 12, border: "1px solid rgba(255,255,255,0.04)", boxSizing: "border-box" }} onClick={(e) => e.stopPropagation()}>
+                          <div style={{ background: "#ffffff", padding: 14, borderRadius: 12 }}>
+                            <QRCodeSVG value={window.location.href} size={220} />
+                          </div>
+                          <div style={{ fontSize: "0.68rem", color: "var(--chakra-colors-textSecondary)", textAlign: "center" }}>Scan this code to join this room instantly</div>
+                        </div>
+                      )}
+
                       {/* ── Settings ── */}
                       <div style={{ borderTop: "1px solid rgba(255,255,255,0.07)", paddingTop: 10 }}>
                         <div style={{ fontSize: "0.68rem", fontWeight: 800, letterSpacing: ".12em", textTransform: "uppercase", color: "#7a7f95", marginBottom: 8 }}>Settings</div>
@@ -8748,7 +9024,144 @@ export default function ChatRoom() {
                             }} />
                           </span>
                         </div>
+
+                        <div
+                          role="switch"
+                          aria-checked={muteSounds}
+                          tabIndex={0}
+                          onClick={toggleMuteSounds}
+                          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleMuteSounds(); } }}
+                          style={{
+                            display: "flex", alignItems: "center", gap: 10,
+                            padding: "10px 12px", borderRadius: 12,
+                            background: muteSounds ? "rgba(99,102,241,0.10)" : "rgba(255,255,255,0.07)",
+                            border: `1px solid ${muteSounds ? "rgba(129,140,248,0.35)" : "rgba(255,255,255,0.07)"}`,
+                            cursor: "pointer", transition: "all 0.2s ease",
+                            userSelect: "none", WebkitUserSelect: "none",
+                            marginTop: 8
+                          }}
+                        >
+                          <span style={{ fontSize: "1rem", lineHeight: 1 }}>🔔</span>
+                          <span style={{ flex: 1, minWidth: 0 }}>
+                            <span style={{ display: "block", fontSize: "0.8rem", fontWeight: 700 }}>Mute sounds</span>
+                            <span style={{ display: "block", fontSize: "0.68rem", opacity: 0.55, marginTop: 2 }}>Mute incoming message sound alerts</span>
+                          </span>
+                          <span style={{
+                            width: 42, height: 24, borderRadius: 999, flexShrink: 0,
+                            position: "relative",
+                            background: muteSounds ? "linear-gradient(135deg, #6366f1, #8b5cf6)" : "rgba(255,255,255,0.14)",
+                            border: "1px solid rgba(255,255,255,0.08)",
+                            transition: "background 0.22s ease",
+                          }}>
+                            <span style={{
+                              position: "absolute", top: 2, left: muteSounds ? 20 : 2,
+                              width: 18, height: 18, borderRadius: "50%",
+                              background: "#fff",
+                              boxShadow: "0 2px 6px rgba(0,0,0,0.35)",
+                              transition: "left 0.22s cubic-bezier(0.16,1,0.3,1)",
+                            }} />
+                          </span>
+                        </div>
+
+                        <div
+                          role="switch"
+                          aria-checked={shoulderSurfingProtection}
+                          tabIndex={0}
+                          onClick={toggleShoulderSurfing}
+                          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleShoulderSurfing(); } }}
+                          style={{
+                            display: "flex", alignItems: "center", gap: 10,
+                            padding: "10px 12px", borderRadius: 12,
+                            background: shoulderSurfingProtection ? "rgba(99,102,241,0.10)" : "rgba(255,255,255,0.07)",
+                            border: `1px solid ${shoulderSurfingProtection ? "rgba(129,140,248,0.35)" : "rgba(255,255,255,0.07)"}`,
+                            cursor: "pointer", transition: "all 0.2s ease",
+                            userSelect: "none", WebkitUserSelect: "none",
+                            marginTop: 8
+                          }}
+                        >
+                          <span style={{ fontSize: "1rem", lineHeight: 1 }}>👁️‍🗨️</span>
+                          <span style={{ flex: 1, minWidth: 0 }}>
+                            <span style={{ display: "block", fontSize: "0.8rem", fontWeight: 700 }}>Shoulder-surfing blur</span>
+                            <span style={{ display: "block", fontSize: "0.68rem", opacity: 0.55, marginTop: 2 }}>Blur chat feed when browser window is inactive</span>
+                          </span>
+                          <span style={{
+                            width: 42, height: 24, borderRadius: 999, flexShrink: 0,
+                            position: "relative",
+                            background: shoulderSurfingProtection ? "linear-gradient(135deg, #6366f1, #8b5cf6)" : "rgba(255,255,255,0.14)",
+                            border: "1px solid rgba(255,255,255,0.08)",
+                            transition: "background 0.22s ease",
+                          }}>
+                            <span style={{
+                              position: "absolute", top: 2, left: shoulderSurfingProtection ? 20 : 2,
+                              width: 18, height: 18, borderRadius: "50%",
+                              background: "#fff",
+                              boxShadow: "0 2px 6px rgba(0,0,0,0.35)",
+                              transition: "left 0.22s cubic-bezier(0.16,1,0.3,1)",
+                            }} />
+                          </span>
+                        </div>
                       </div>
+
+                      {/* ── Owner Access Control ── */}
+                      {ownerToken && (
+                        <div style={{ borderTop: "1px solid rgba(255,255,255,0.07)", paddingTop: 10, marginTop: 4, display: "flex", flexDirection: "column", gap: 10 }}>
+                          <div style={{ fontSize: "0.68rem", fontWeight: 800, letterSpacing: ".12em", textTransform: "uppercase", color: "#f59e0b", marginBottom: 2 }}>Owner Controls</div>
+                          
+                          <div>
+                            <div style={{ fontSize: "0.75rem", fontWeight: 700, marginBottom: 4 }}>IP Whitelist Restrictions</div>
+                            <div style={{ fontSize: "0.65rem", color: "var(--chakra-colors-textSecondary)", marginBottom: 6, lineHeight: 1.35 }}>
+                              Enter comma-separated IPs/patterns (e.g. 192.168.1.*). Leave blank to allow any IP.
+                            </div>
+                            <input
+                              type="text"
+                              value={allowedIpsText}
+                              onChange={(e) => setAllowedIpsText(e.target.value)}
+                              onBlur={() => {
+                                const ips = allowedIpsText.split(",").map(ip => ip.trim()).filter(Boolean);
+                                socketRef.current?.emit("updateRoomIpRestrictions", { allowedIps: ips }, (res) => {
+                                  if (res?.success) toast.success("IP restrictions updated!");
+                                  else toast.error(res?.error || "Failed to update IP restrictions");
+                                });
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                              placeholder="e.g. 127.0.0.1, 192.168.1.*"
+                              style={{
+                                width: "100%", padding: "8px 10px", borderRadius: 8,
+                                background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
+                                color: "var(--chakra-colors-textPrimary)", fontSize: "0.75rem",
+                                outline: "none", boxSizing: "border-box"
+                              }}
+                            />
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              socketRef.current?.emit("getRoomAuditLogs", (res) => {
+                                if (res?.success) {
+                                  setAuditLogs(res.auditLogs);
+                                  setShowAuditLogs(true);
+                                } else {
+                                  toast.error(res?.error || "Failed to load audit logs");
+                                }
+                              });
+                            }}
+                            style={{
+                              width: "100%", padding: "10px 12px", borderRadius: 10,
+                              background: "rgba(245, 158, 11, 0.1)", border: "1px solid rgba(245, 158, 11, 0.35)",
+                              color: "#f59e0b", cursor: "pointer", fontSize: "0.8rem", fontWeight: 700,
+                              display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                              transition: "all 0.2s"
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.background = "rgba(245, 158, 11, 0.2)"}
+                            onMouseLeave={e => e.currentTarget.style.background = "rgba(245, 158, 11, 0.1)"}
+                          >
+                            📜 View Room Audit Logs ({auditLogs.length})
+                          </button>
+                        </div>
+                      )}
+
                       {(userAvatar || roomBackground) && <button type="button" onClick={() => setConfirmation({ title: "Reset your appearance?", body: ownerToken ? "Your profile photo and the owner-managed room background will be removed." : "Your profile photo and local chat background will be removed from this device.", confirmLabel: "Reset appearance", onConfirm: () => { localStorage.removeItem("cheprabai:user-avatar"); localStorage.removeItem(`cheprabai:room-background:${roomId}`); setUserAvatar(""); setRoomBackground(""); socketRef.current?.emit("updateProfile", { avatar: "" }); if (ownerToken) socketRef.current?.emit("setRoomBackground", { background: "", scope: "everyone" }); toast.success("Appearance reset."); } })} style={{ minHeight: 44, borderRadius: 10, border: "1px solid rgba(255,107,107,.35)", color: "#ff9aa2", background: "rgba(255,71,87,.08)", cursor: "pointer", fontSize: ".8rem", fontWeight: 700 }}>Reset appearance</button>}
                       <button
                         onClick={exportChat}
@@ -8773,8 +9186,32 @@ export default function ChatRoom() {
                           transition: "all 0.2s"
                         }}
                       >
-                        <Copy size={14} aria-hidden="true" /> Copy invite link
+                        <Copy size={14} aria-hidden="true" /> Share Room Invite
                       </button>
+
+                      {/* ── Content Moderation Filter ── */}
+                      <div style={{ borderTop: "1px solid rgba(255,255,255,0.07)", paddingTop: 10, marginTop: 4 }}>
+                        <div style={{ fontSize: "0.68rem", fontWeight: 800, letterSpacing: ".12em", textTransform: "uppercase", color: "#7a7f95", marginBottom: 8 }}>Content Filter</div>
+                        <div style={{ fontSize: "0.72rem", color: "var(--chakra-colors-textSecondary)", marginBottom: 8, lineHeight: 1.4 }}>
+                          Add comma-separated words to block. Messages containing these words will be prevented from sending.
+                        </div>
+                        <textarea
+                          defaultValue={localStorage.getItem("cheprabai:moderation-words") || ""}
+                          placeholder="e.g. spam, badword1, badword2"
+                          onBlur={(e) => {
+                            localStorage.setItem("cheprabai:moderation-words", e.target.value);
+                            toast.success("Content filter updated");
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                          style={{
+                            width: "100%", minHeight: 50, padding: "8px 10px", borderRadius: 8,
+                            background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
+                            color: "var(--chakra-colors-textPrimary)", fontSize: "0.75rem",
+                            resize: "vertical", outline: "none", boxSizing: "border-box",
+                            fontFamily: "inherit"
+                          }}
+                        />
+                      </div>
                       {/* <Link
                         to="/admin"
                         target="_blank"
@@ -8849,6 +9286,10 @@ export default function ChatRoom() {
                 <FaSearch />
               </ActionButton>
             )}
+
+            <ActionButton onClick={handleShareRoomLink} title="Copy Invite Link">
+              <FaShare />
+            </ActionButton>
 
             <ActionButton onClick={handleLeaveRoom} title="Leave Room" style={{ color: "var(--chakra-colors-brandPrimary)" }}>
               <FaSignOutAlt color="white" />
@@ -10671,6 +11112,37 @@ export default function ChatRoom() {
       )}
       {renderPollCreator()}
       {renderForwardDialog()}
+
+      {showAuditLogs && (
+        <div role="presentation" onClick={() => setShowAuditLogs(false)} style={{ position: "fixed", inset: 0, zIndex: 10050, display: "grid", placeItems: "center", padding: 16, background: "rgba(0,0,0,.62)", backdropFilter: "blur(8px)" }}>
+          <section role="dialog" aria-modal="true" aria-label="Room Activity Audit Logs" onClick={(event) => event.stopPropagation()} style={{ width: "min(100%, 480px)", maxHeight: "min(76vh, 600px)", display: "flex", flexDirection: "column", borderRadius: 20, border: "1px solid var(--chakra-colors-border)", background: "var(--chakra-colors-cardBg)", boxShadow: "var(--chakra-shadows-cardShadow)", padding: 20, color: "var(--chakra-colors-textPrimary)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 14 }}>
+              <div>
+                <div style={{ fontSize: ".72rem", color: "#f59e0b", textTransform: "uppercase", letterSpacing: ".08em", fontWeight: 800 }}>Owner Console</div>
+                <h2 style={{ margin: "4px 0 0", fontSize: "1.2rem", fontWeight: 800 }}>Room Activity Audit Logs</h2>
+              </div>
+              <button type="button" onClick={() => setShowAuditLogs(false)} aria-label="Close logs" style={{ minWidth: 40, minHeight: 40, borderRadius: 12, border: "1px solid var(--chakra-colors-border)", background: "var(--chakra-colors-surfaceHover)", color: "inherit", cursor: "pointer", fontSize: "1.2rem" }}>×</button>
+            </div>
+            
+            <div style={{ flex: 1, overflowY: "auto", borderTop: "1px solid var(--chakra-colors-borderSubtle)", paddingRight: 4 }}>
+              {auditLogs.length === 0 ? (
+                <div style={{ padding: "40px 0", textAlign: "center", color: "var(--chakra-colors-textSecondary)", fontSize: "0.88rem" }}>
+                  No activity logged yet.
+                </div>
+              ) : (
+                auditLogs.map((log, index) => (
+                  <div key={`${log.timestamp}-${index}`} style={{ display: "flex", flexDirection: "column", gap: 3, padding: "12px 0", borderBottom: "1px solid var(--chakra-colors-borderSubtle)" }}>
+                    <div style={{ fontSize: "0.82rem", fontWeight: 550, lineHeight: 1.4 }}>{log.message}</div>
+                    <div style={{ color: "var(--chakra-colors-textSecondary)", fontSize: "0.7rem" }}>
+                      {new Date(log.timestamp).toLocaleString()}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
+        </div>
+      )}
     </>
   );
 }

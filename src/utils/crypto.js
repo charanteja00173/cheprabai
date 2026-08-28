@@ -1,3 +1,5 @@
+import { workerDeriveKey, workerEncrypt, workerDecrypt } from "./cryptoWorker";
+
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
@@ -99,5 +101,20 @@ export async function decryptBinary(key, payload) {
     key,
     payload.data
   );
+}
+
+export async function workerGenerateKeyFromSecret(secret, roomId) {
+  const keyBase64 = await workerDeriveKey(secret, roomId);
+  return await importKey(keyBase64);
+}
+
+export async function workerEncryptMessage(key, message) {
+  const keyBase64 = await exportKey(key);
+  return await workerEncrypt(keyBase64, message);
+}
+
+export async function workerDecryptMessage(key, payload) {
+  const keyBase64 = await exportKey(key);
+  return await workerDecrypt(keyBase64, payload.iv, payload.data);
 }
 
