@@ -5348,7 +5348,7 @@ export default function ChatRoom() {
         });
       } catch (_) { /* push registration is best-effort */ }
     }
-  }, [joined, roomId, backendUrl]);
+  }, [joined, roomId, backendUrl, userName]);
 
   useEffect(() => {
     userAvatarRef.current = userAvatar;
