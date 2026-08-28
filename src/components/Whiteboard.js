@@ -151,6 +151,20 @@ const IconButton = styled.button`
     color: var(--chakra-colors-textPrimary);
     transform: translateY(-2px);
   }
+
+  @media (max-width: ${BREAKPOINTS.lg}px) {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    font-size: 0.95rem;
+  }
+
+  @media (max-width: ${BREAKPOINTS.xs}px) {
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
+    font-size: 0.9rem;
+  }
 `;
 
 export default function Whiteboard({ socket, roomId, onClose, isAdmin, embedded = false }) {

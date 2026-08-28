@@ -925,17 +925,17 @@ const ActionButton = styled.button`
   }
 
   @media (max-width: ${BREAKPOINTS.sm}px) {
-    font-size: 0.85rem;
-    min-width: 30px;
-    min-height: 30px;
-    border-radius: 8px;
+    font-size: 0.9rem;
+    min-width: 38px;
+    min-height: 38px;
+    border-radius: 10px;
   }
 
   @media (max-width: ${BREAKPOINTS.xs}px) {
-    font-size: 0.8rem;
-    min-width: 28px;
-    min-height: 28px;
-    border-radius: 7px;
+    font-size: 0.85rem;
+    min-width: 36px;
+    min-height: 36px;
+    border-radius: 9px;
   }
 `;
 
@@ -2404,21 +2404,21 @@ const IconButton = styled.button`
   }
 
   @media (max-width: ${BREAKPOINTS.md}px) {
-    width: 32px;
-    height: 32px;
-    font-size: 0.95rem;
+    width: 38px;
+    height: 38px;
+    font-size: 1rem;
   }
 
   @media (max-width: ${BREAKPOINTS.sm}px) {
-    width: 30px;
-    height: 30px;
-    font-size: 0.88rem;
+    width: 38px;
+    height: 38px;
+    font-size: 0.95rem;
   }
 
   @media (max-width: ${BREAKPOINTS.xs}px) {
-    width: 28px;
-    height: 28px;
-    font-size: 0.82rem;
+    width: 36px;
+    height: 36px;
+    font-size: 0.9rem;
   }
 `;
 
@@ -2693,7 +2693,7 @@ const EphemeralMenuCard = styled.div`
   @media (max-width: ${BREAKPOINTS.sm}px) {
     width: 220px;
     bottom: 50px;
-    right: -10px;
+    right: 10px;
   }
 `;
 

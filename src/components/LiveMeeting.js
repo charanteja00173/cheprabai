@@ -568,8 +568,8 @@ const TileUserInfo = styled.div`
   @media (max-width: ${BREAKPOINTS.lg}px) {
     bottom: 5px;
     left: 5px;
-    padding: 3px 7px;
-    font-size: 0.78rem;
+    padding: 2px 6px;
+    font-size: 0.7rem;
     border-radius: 8px;
     gap: 3px;
     max-width: calc(100% - 10px);
@@ -578,8 +578,8 @@ const TileUserInfo = styled.div`
   @media (max-width: ${BREAKPOINTS.sm}px) {
     bottom: 3px;
     left: 3px;
-    padding: 2px 6px;
-    font-size: 0.88rem;
+    padding: 2px 5px;
+    font-size: 0.65rem;
     border-radius: 6px;
   }
 `;
@@ -753,9 +753,9 @@ const DockButton = styled.button`
   }
 
   @media (max-width: ${BREAKPOINTS.xs}px) {
-    min-width: 34px;
-    height: 34px;
-    font-size: 0.9rem;
+    min-width: 38px;
+    height: 38px;
+    font-size: 0.95rem;
   }
 
   /* Phones in landscape — compact icon-only circles like portrait mode */
