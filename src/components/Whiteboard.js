@@ -182,10 +182,13 @@ export default function Whiteboard({ socket, roomId, onClose, isAdmin, embedded 
   const hashContent = useCallback((shapesMap) => {
     try {
       const ids = Object.keys(shapesMap).sort();
-      // Include shape count + sorted IDs + a few mutable props per shape for fast comparison
       return ids.map(id => {
         const s = shapesMap[id];
-        return `${id}:${s.point?.[0]|0},${s.point?.[1]|0}:${s.rotation|0}:${s.size?.[0]|0},${s.size?.[1]|0}`;
+        let h = `${id}:${s.point?.[0]|0},${s.point?.[1]|0}:${s.rotation|0}:${s.size?.[0]|0},${s.size?.[1]|0}:${s.text || ""}`;
+        if (s.points && Array.isArray(s.points)) {
+          h += `-[${s.points.map(p => `${p[0]|0},${p[1]|0}`).join(",")}]`;
+        }
+        return h;
       }).join("|");
     } catch { return ""; }
   }, []);
@@ -258,9 +261,10 @@ export default function Whiteboard({ socket, roomId, onClose, isAdmin, embedded 
       } catch (e) {
         // Silently ignore shape-application errors
       } finally {
-        // Synchronous reset — all onChange triggers from replacePageContent
-        // fire synchronously in the same JS tick, so this is safe.
-        isSyncing.current = false;
+        // Asynchronously reset isSyncing to cover all React and StateManager callbacks
+        setTimeout(() => {
+          isSyncing.current = false;
+        }, 100);
       }
     };
 

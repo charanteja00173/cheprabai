@@ -6924,8 +6924,12 @@ export default function ChatRoom() {
     entry.lastAt = Date.now();
     if (kind === "chunk") {
       if (entry.parts[msg.seq] == null) {
-        entry.parts[msg.seq] = msg.data;
-        entry.got++;
+        try {
+          entry.parts[msg.seq] = b64ToBytes(msg.data);
+          entry.got++;
+        } catch (e) {
+          console.error("Failed to decode chunk:", msg.seq, e);
+        }
       }
       if (entry.got % 3 === 0 || entry.got === entry.totalChunks) {
         const loaded = Math.min(entry.got * LIVE_SHARE_CHUNK_BYTES, entry.size);
@@ -6936,8 +6940,8 @@ export default function ChatRoom() {
     if (kind === "end") {
       map.delete(msg.id);
       try {
-        const segments = entry.parts.map(b64 => b64ToBytes(b64));
-        const url = URL.createObjectURL(new Blob(segments, { type: entry.mime || "application/octet-stream" }));
+        const cleanParts = entry.parts.map(p => p || new Uint8Array(0));
+        const url = URL.createObjectURL(new Blob(cleanParts, { type: entry.mime || "application/octet-stream" }));
         setMessages(prev => prev.map(m2 => m2.id === entry.tempId ? {
           ...m2,
           file: { name: entry.name, type: entry.mime, size: entry.size, url, local: true, loading: false, ...(entry.viewOnce && { viewOnce: true }) }
