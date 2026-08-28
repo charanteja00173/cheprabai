@@ -4054,14 +4054,14 @@ const getUploadTypeMeta = (type = "", name = "") => {
 // sharpens into full view as the upload progresses. Files show a compact row.
 // Friendly copy only: Getting ready… → Sending → Almost done…
 const UploadProgressCard = ({ file, isMobile }) => {
-  const phase = file.phase || "uploading"; // "encrypting" | "uploading" | "finalizing"
+  const phase = file.phase || "uploading"; // "encrypting" | "uploading" | "finalizing" | "sharing-live" | "receiving-live"
   const target = phase === "encrypting" ? 0 : Math.max(0, Math.min(100, file.progress ?? 0));
   const eased = useEasedValue(target);
   const shown = Math.round(eased);
   const meta = getUploadTypeMeta(file.type, file.name);
   const speed = file.speed || 0;
   const hasPreview = Boolean(file.previewUrl) && meta.kind !== "file";
-  const uploading = phase === "uploading";
+  const uploading = phase === "uploading" || phase === "sharing-live" || phase === "receiving-live";
   const indeterminate = phase === "encrypting" || phase === "finalizing";
   const amountText = file.total
     ? `${formatBytes(file.loaded || 0)} / ${formatBytes(file.total)}`
@@ -4070,7 +4070,9 @@ const UploadProgressCard = ({ file, isMobile }) => {
   const statusText =
     phase === "encrypting" ? "Getting ready…" :
       phase === "finalizing" ? "Finishing up…" :
-        "Sending";
+        phase === "sharing-live" ? "Sharing…" :
+          phase === "receiving-live" ? "Receiving…" :
+            "Sending";
 
   // Live ETA from measured transfer speed
   let etaText = "";
@@ -4204,7 +4206,7 @@ const UploadProgressCard = ({ file, isMobile }) => {
             }}>
               {file.name}
             </span>
-            {phase === "uploading" && speed > 0 && (
+            {uploading && speed > 0 && (
               <span style={{ fontSize: ".68rem", color: "rgba(255,255,255,0.5)", fontVariantNumeric: "tabular-nums", flexShrink: 0 }}>
                 {formatBytes(speed)}/s
               </span>
@@ -5357,6 +5359,80 @@ export default function ChatRoom() {
       }
     }
   }, [roomId, securityCode]);
+
+  const handleShareQr = async (url) => {
+    try {
+      const svg = document.querySelector(".qr-container-el svg");
+      if (!svg) {
+        navigator.clipboard.writeText(url);
+        toast.success("Room link copied to clipboard!");
+        return;
+      }
+      
+      const svgString = new XMLSerializer().serializeToString(svg);
+      const svgBlob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+      const SVGURL = URL.createObjectURL(svgBlob);
+      
+      const image = new Image();
+      image.onload = async () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = svg.clientWidth || 250;
+        canvas.height = svg.clientHeight || 250;
+        const context = canvas.getContext("2d");
+        
+        context.fillStyle = "#ffffff";
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        
+        context.drawImage(image, 0, 0);
+        URL.revokeObjectURL(SVGURL);
+        
+        canvas.toBlob(async (blob) => {
+          if (!blob) {
+            navigator.clipboard.writeText(url);
+            toast.success("Room link copied to clipboard!");
+            return;
+          }
+          
+          const file = new File([blob], "anonchat-qr.png", { type: "image/png" });
+          
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            try {
+              await navigator.share({
+                files: [file],
+                title: "Join AnonChat Room",
+                text: `Join my secure AnonChat room: ${url}`
+              });
+            } catch (shareErr) {
+              if (shareErr.name !== "AbortError") {
+                const a = document.createElement("a");
+                a.href = URL.createObjectURL(blob);
+                a.download = "anonchat-qr.png";
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(a.href);
+              }
+            }
+          } else {
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = "anonchat-qr.png";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(a.href);
+            navigator.clipboard.writeText(url);
+            toast.success("Room link copied & QR Code downloaded!");
+          }
+        }, "image/png");
+      };
+      image.src = SVGURL;
+    } catch (err) {
+      console.error("Error sharing QR code:", err);
+      navigator.clipboard.writeText(url);
+      toast.success("Room link copied to clipboard!");
+    }
+  };
   const isScrollingRef = useRef(false);
 
   // ── Drag & Drop ──
@@ -6820,15 +6896,19 @@ export default function ChatRoom() {
 
     let tempId;
     let previewUrl = null;
+    let shouldBypassCloudinary = false;
     try {
       if (file.size > MAX_UPLOAD_BYTES) {
         if (onlineUsers.length >= 2) {
-          toast.info(`"${file.name}" is over the ${formatUploadLimit()} upload limit — switching to realtime sharing.`);
           await shareFileLive(file, viewOnce);
+          return;
         } else {
-          toast.error(`"${file.name}" is over the ${formatUploadLimit()} upload limit. Tip: Realtime sharing fallback needs someone else in the room.`);
+          if (file.size > 1024 * 1024 * 1024) {
+            toast.error(`"${file.name}" exceeds the maximum 1 GB upload limit.`);
+            return;
+          }
+          shouldBypassCloudinary = true;
         }
-        return;
       }
       tempId = `uploading-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       const looksMedia = /^(image|video)\//.test(file.type) ||
@@ -6881,7 +6961,10 @@ export default function ChatRoom() {
         `${backendUrl}/api/upload`,
         formData,
         {
-          headers: { "Content-Type": "multipart/form-data" },
+          headers: { 
+            "Content-Type": "multipart/form-data",
+            ...(shouldBypassCloudinary && { "bypass-cloudinary": "true" })
+          },
           // Never let a dead connection spin forever: generous per-MB budget
           // with a 90s floor so slow mobile uploads still succeed.
           timeout: Math.max(90000, Math.round((fileToUpload.size / (1024 * 1024)) * 12000)),
@@ -8458,20 +8541,29 @@ export default function ChatRoom() {
                     </button>
                   </div>
                   {showLandingQr && (
-                    <div style={{
-                      background: "#ffffff",
-                      padding: 16,
-                      borderRadius: 16,
-                      boxShadow: "0 12px 36px rgba(0,0,0,0.25)",
-                      marginTop: 12,
-                      display: "flex",
-                      justifyContent: "center",
-                      alignItems: "center",
-                      width: "min(100%, 280px)",
-                      margin: "12px auto 0",
-                      boxSizing: "border-box"
-                    }}>
-                      <QRCodeSVG value={window.location.href} style={{ width: "100%", height: "auto", maxWidth: "250px" }} />
+                    <div 
+                      className="qr-container-el"
+                      onClick={() => handleShareQr(window.location.href)}
+                      style={{
+                        background: "#ffffff",
+                        padding: 16,
+                        borderRadius: 16,
+                        boxShadow: "0 12px 36px rgba(0,0,0,0.25)",
+                        marginTop: 12,
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        width: "min(100%, 280px)",
+                        margin: "12px auto 0",
+                        boxSizing: "border-box",
+                        cursor: "pointer",
+                        transition: "transform 0.2s"
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.02)"}
+                      onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
+                    >
+                      <QRCodeSVG value={window.location.href} style={{ width: "100%", height: "auto", maxWidth: "250px", display: "block" }} />
+                      <div style={{ fontSize: "0.7rem", color: "#6366f1", marginTop: 8, fontWeight: 700, letterSpacing: "0.02em" }}>✨ Tap to Share or Save</div>
                     </div>
                   )}
                 </div>
@@ -9075,17 +9167,26 @@ export default function ChatRoom() {
                           border: "1px solid rgba(255,255,255,0.04)",
                           boxSizing: "border-box"
                         }} onClick={(e) => e.stopPropagation()}>
-                          <div style={{
-                            background: "#ffffff",
-                            padding: 16,
-                            borderRadius: 16,
-                            display: "flex",
-                            justifyContent: "center",
-                            alignItems: "center",
-                            width: "min(100%, 280px)",
-                            boxSizing: "border-box"
-                          }}>
-                            <QRCodeSVG value={window.location.href} style={{ width: "100%", height: "auto", maxWidth: "250px" }} />
+                          <div 
+                            className="qr-container-el"
+                            onClick={() => handleShareQr(window.location.href)}
+                            style={{
+                              background: "#ffffff",
+                              padding: 16,
+                              borderRadius: 16,
+                              display: "flex",
+                              flexDirection: "column",
+                              alignItems: "center",
+                              width: "min(100%, 280px)",
+                              boxSizing: "border-box",
+                              cursor: "pointer",
+                              transition: "transform 0.2s"
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.02)"}
+                            onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
+                          >
+                            <QRCodeSVG value={window.location.href} style={{ width: "100%", height: "auto", maxWidth: "250px", display: "block" }} />
+                            <div style={{ fontSize: "0.7rem", color: "#6366f1", marginTop: 8, fontWeight: 700, letterSpacing: "0.02em" }}>✨ Tap to Share or Save</div>
                           </div>
                           <div style={{ fontSize: "0.75rem", color: "var(--chakra-colors-textSecondary)", textAlign: "center", fontWeight: 500 }}>Scan this code to join this room instantly</div>
                         </div>

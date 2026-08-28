@@ -227,6 +227,11 @@ export default function Whiteboard({ socket, roomId, onClose, isAdmin, embedded 
     []
   );
 
+  /* ── Request current whiteboard state on mount ── */
+  useEffect(() => {
+    socket.emit("request-whiteboard-state", { roomId });
+  }, [socket, roomId]);
+
   /* ── Single socket listener registered in useEffect (avoids duplicate) ── */
   useEffect(() => {
     const handleGlobalPointerUp = () => { isInteracting.current = false; };
@@ -259,22 +264,54 @@ export default function Whiteboard({ socket, roomId, onClose, isAdmin, embedded 
       }
     };
 
+    const handleRequestState = ({ requesterId }) => {
+      if (appRef.current) {
+        const shapes = appRef.current.shapes || [];
+        const bindings = (typeof appRef.current.getBindings === "function") ? appRef.current.getBindings() : (appRef.current.bindings || []);
+        const assets = appRef.current.assets || [];
+
+        const shapesMap = {};
+        const bindingsMap = {};
+        const assetsMap = {};
+        if (Array.isArray(shapes)) shapes.forEach(s => { shapesMap[s.id] = s; });
+        else Object.assign(shapesMap, shapes);
+        if (Array.isArray(bindings)) bindings.forEach(b => { bindingsMap[b.id] = b; });
+        else Object.assign(bindingsMap, bindings);
+        if (Array.isArray(assets)) assets.forEach(a => { assetsMap[a.id] = a; });
+        else Object.assign(assetsMap, assets);
+
+        socket.emit("send-whiteboard-state", {
+          to: requesterId,
+          elements: {
+            shapes: shapesMap,
+            bindings: bindingsMap,
+            assets: assetsMap
+          }
+        });
+      }
+    };
+
     socket.on("excalidrawUpdate", onRemoteUpdate);
+    socket.on("request-whiteboard-state", handleRequestState);
 
     return () => {
       window.removeEventListener("pointerup", handleGlobalPointerUp);
       socket.off("excalidrawUpdate", onRemoteUpdate);
+      socket.off("request-whiteboard-state", handleRequestState);
     };
-  }, [socket, hashContent]);
+  }, [socket, hashContent, roomId]);
 
   const lastEmitTime = useRef(0);
   const handleChange = useCallback(
     (app) => {
       if (isSyncing.current) return;
 
-      // Throttle to ~30fps (33ms) — balances realtime feel vs network load
       const now = Date.now();
-      if (now - lastEmitTime.current < 33) return;
+      // Throttle only when actively drawing to protect network;
+      // always allow the final stroke updates to pass through so drawings are complete.
+      if (isInteracting.current && (now - lastEmitTime.current < 33)) {
+        return;
+      }
       lastEmitTime.current = now;
 
       try {

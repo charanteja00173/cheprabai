@@ -3684,7 +3684,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
               const params = sender.getParameters();
               if (!params.encodings || params.encodings.length === 0) params.encodings = [{}];
               params.encodings[0].maxBitrate = Math.max(params.encodings[0].maxBitrate || 0, 2000000);
-              params.degradationPreference = "maintain-resolution";
+              params.degradationPreference = "balanced";
               sender.setParameters(params).catch(() => {});
             } catch (e) {}
           }
@@ -3783,6 +3783,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
         const mixed = createMixedStream(stream, localStreamRef.current, {
           mixAudio: true,
+          bypassCanvas: true,
           getVideoFilter: () => videoFilterRef.current,
           getVoiceFilter: () => voiceFilterRef.current
         });
@@ -3797,6 +3798,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         originalTracksRef.current = { video: origVideo, audio: origAudio };
 
         const mixedVideoTrack = mixed.stream.getVideoTracks()[0];
+        try { if (mixedVideoTrack) mixedVideoTrack.contentHint = "motion"; } catch (e) {}
         const mixedAudioTrack = mixed.stream.getAudioTracks()[0];
 
         Object.values(peers.current).forEach(call => {
@@ -3805,6 +3807,12 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
           pc.getSenders().forEach(sender => {
             if (sender.track?.kind === "video" && mixedVideoTrack) {
               sender.replaceTrack(mixedVideoTrack);
+              try {
+                const params = sender.getParameters();
+                if (!params.encodings || params.encodings.length === 0) params.encodings = [{}];
+                params.degradationPreference = "maintain-framerate";
+                sender.setParameters(params).catch(() => {});
+              } catch (e) {}
             }
             if (sender.track?.kind === "audio" && mixedAudioTrack) {
               sender.replaceTrack(mixedAudioTrack);
@@ -3910,6 +3918,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
     const mixed = createMixedStream(stream, localStreamRef.current, {
       mixAudio: true,
+      bypassCanvas: true,
       getVideoFilter: () => videoFilterRef.current,
       getVoiceFilter: () => voiceFilterRef.current
     });
@@ -3917,6 +3926,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     mixedStreamCleanupRef.current = mixed.cleanup;
 
     const mixedVideoTrack = mixed.stream.getVideoTracks()[0];
+    try { if (mixedVideoTrack) mixedVideoTrack.contentHint = "motion"; } catch (e) {}
     const mixedAudioTrack = mixed.stream.getAudioTracks()[0];
 
     Object.values(peers.current).forEach(call => {
@@ -3925,6 +3935,12 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       pc.getSenders().forEach(sender => {
         if (sender.track?.kind === "video" && mixedVideoTrack) {
           sender.replaceTrack(mixedVideoTrack);
+          try {
+            const params = sender.getParameters();
+            if (!params.encodings || params.encodings.length === 0) params.encodings = [{}];
+            params.degradationPreference = "maintain-framerate";
+            sender.setParameters(params).catch(() => {});
+          } catch (e) {}
         }
         if (sender.track?.kind === "audio" && mixedAudioTrack) {
           sender.replaceTrack(mixedAudioTrack);
