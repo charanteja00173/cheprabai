@@ -2382,6 +2382,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const fileVideoRef = useRef(null);
   const fileStreamRef = useRef(null);
   const screenStreamRef = useRef(null);
+  const mixedStreamRef = useRef(null);
   const mixedStreamCleanupRef = useRef(null);
   const originalTracksRef = useRef({ video: null, audio: null });
   const fileInputRef = useRef(null);
@@ -3203,6 +3204,19 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
           });
         });
 
+        socket.on("screenshare-started", ({ peerId, userName: sharerName }) => {
+          if (peerId && peerId !== peerRef.current?.id) {
+            setPinnedPeerId(peerId);
+            setTheaterMode(true);
+            toast.info(`🖥️ ${sharerName || "Someone"} started screen sharing.`);
+          }
+        });
+
+        socket.on("screenshare-stopped", ({ peerId }) => {
+          setPinnedPeerId(prev => prev === peerId ? null : prev);
+          toast.info("🖥️ Screen sharing ended.");
+        });
+
         // When a new user connects, register them and WAIT for their call (prevents double call)
         socket.on("user-connected-call", ({ peerId, name, isMuted: remoteMuted, isVideoOff: remoteVideoOff }) => {
           if (!peerId || peerId === peerRef.current?.id) return;
@@ -3318,6 +3332,8 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         socket.off("user-connected-call");
         socket.off("user-disconnected-call");
         socket.off("user-media-change");
+        socket.off("screenshare-started");
+        socket.off("screenshare-stopped");
         socket.off("kicked-from-call");
         socket.off("admin-kick-user");
         socket.off("admin-mute-user");
@@ -3429,6 +3445,18 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
   // Tracks that should be broadcast when NOT screen sharing (processed if FX active)
   const getSendTracks = () => {
+    if (screenStreamRef.current && mixedStreamRef.current) {
+      return {
+        video: mixedStreamRef.current.getVideoTracks()[0] || null,
+        audio: mixedStreamRef.current.getAudioTracks()[0] || null
+      };
+    }
+    if (isFileStreaming && fileStreamRef.current) {
+      return {
+        video: fileStreamRef.current.getVideoTracks()[0] || null,
+        audio: fileStreamRef.current.getAudioTracks()[0] || null
+      };
+    }
     const raw = localStreamRef.current;
     if (!raw) return { video: null, audio: null };
     return {
@@ -3568,6 +3596,10 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       try { mixedStreamCleanupRef.current(); } catch (e) {}
       mixedStreamCleanupRef.current = null;
     }
+    mixedStreamRef.current = null;
+    if (socket && typeof socket.emit === "function") {
+      socket.emit("screenshare-stopped", { peerId: peerRef.current?.id });
+    }
     if (screenStreamRef.current) {
       try { screenStreamRef.current.getTracks().forEach(t => t.stop()); } catch (e) {}
       screenStreamRef.current = null;
@@ -3623,8 +3655,12 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         getVideoFilter: () => videoFilterRef.current,
         getVoiceFilter: () => voiceFilterRef.current
       });
+      mixedStreamRef.current = mixed.stream;
       mixedStreamCleanupRef.current = mixed.cleanup;
       window.__cheprabaiScreenSharing = true;
+      if (socket && typeof socket.emit === "function") {
+        socket.emit("screenshare-started", { peerId: peerRef.current?.id });
+      }
 
       const origVideo = localStreamRef.current?.getVideoTracks()[0];
       const origAudio = localStreamRef.current?.getAudioTracks()[0];
@@ -3752,6 +3788,9 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         });
         fileStreamRef.current = mixed.stream;
         mixedStreamCleanupRef.current = mixed.cleanup;
+        if (socket && typeof socket.emit === "function") {
+          socket.emit("media-file-shared", { name: mediaName });
+        }
 
         const origVideo = localStreamRef.current?.getVideoTracks()[0];
         const origAudio = localStreamRef.current?.getAudioTracks()[0];
@@ -3804,6 +3843,9 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       try { mixedStreamCleanupRef.current(); } catch (e) {}
       mixedStreamCleanupRef.current = null;
     }
+    if (socket && typeof socket.emit === "function") {
+      socket.emit("media-file-stopped");
+    }
 
     if (fileVideoRef.current) {
       fileVideoRef.current.pause();
@@ -3848,6 +3890,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     setFileStreamDuration(0);
     setFileStreamProgress(0);
     toast.info("Media stream stopped.");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const recreateFileStream = () => {

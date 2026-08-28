@@ -129,7 +129,7 @@ function getGalleryItems() {
 /* Storage provider (Cloudinary) rejects single files above this size on the
    current plan — failing fast beats uploading for minutes and dying at 99%.
    Optimized: Matching the backend's 1 GB hard limit. */
-const MAX_UPLOAD_BYTES = 1024 * 1024 * 1024;
+const MAX_UPLOAD_BYTES = 25 * 1024 * 1024; // 25 MB matches Cloudinary free-tier limits, switching to WebRTC early
 const formatUploadLimit = () => {
   const mb = MAX_UPLOAD_BYTES / (1024 * 1024);
   return mb >= 1024 ? `${(mb / 1024).toFixed(0)} GB` : `${Math.round(mb)} MB`;
@@ -5206,14 +5206,25 @@ export default function ChatRoom() {
   const backendUrl = process.env.REACT_APP_SOCKET_ENDPOINT || "https://cheprabai-backend.onrender.com";
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
 
-  const getJoinPayload = useCallback(() => ({
-    roomId: roomId.trim(),
-    userName: userName.trim(),
-    securityCode,
-    avatar: userAvatarRef.current,
-    stealthToken: stealthTokenRef.current || undefined,
-    ownerToken: sessionStorage.getItem(`cheprabai:owner-token:${roomId.trim()}`) || undefined,
-  }), [roomId, userName, securityCode]);
+  const getJoinPayload = useCallback(() => {
+    const rId = roomId.trim();
+    let sessionToken = sessionStorage.getItem(`anonchat:session-token:${rId}`);
+    if (!sessionToken) {
+      sessionToken = (typeof crypto !== "undefined" && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : Math.random().toString(36).substring(2) + Date.now().toString(36);
+      sessionStorage.setItem(`anonchat:session-token:${rId}`, sessionToken);
+    }
+    return {
+      roomId: rId,
+      userName: userName.trim(),
+      securityCode,
+      avatar: userAvatarRef.current,
+      stealthToken: stealthTokenRef.current || undefined,
+      ownerToken: sessionStorage.getItem(`cheprabai:owner-token:${rId}`) || undefined,
+      sessionToken,
+    };
+  }, [roomId, userName, securityCode]);
 
   const handleJoinResult = useCallback((result) => {
     if (result?.error) {
@@ -6811,8 +6822,12 @@ export default function ChatRoom() {
     let previewUrl = null;
     try {
       if (file.size > MAX_UPLOAD_BYTES) {
-        toast.info(`"${file.name}" is over the ${formatUploadLimit()} upload limit — switching to realtime sharing.`);
-        await shareFileLive(file, viewOnce);
+        if (onlineUsers.length >= 2) {
+          toast.info(`"${file.name}" is over the ${formatUploadLimit()} upload limit — switching to realtime sharing.`);
+          await shareFileLive(file, viewOnce);
+        } else {
+          toast.error(`"${file.name}" is over the ${formatUploadLimit()} upload limit. Tip: Realtime sharing fallback needs someone else in the room.`);
+        }
         return;
       }
       tempId = `uploading-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -6969,11 +6984,15 @@ export default function ChatRoom() {
       const status = err.response?.status;
       const detail = err.response?.data?.error || err.message;
       const tooLarge = status === 413 || /too large|file size/i.test(String(detail));
-      if (tooLarge && file.size > MAX_UPLOAD_BYTES && !scheduleTime) {
+      if (tooLarge && !scheduleTime) {
         setMessages(m => m.filter(msg => msg.id !== tempId));
         if (previewUrl) URL.revokeObjectURL(previewUrl);
-        toast.info(`"${file.name}" beat the upload limit — falling back to realtime sharing.`);
-        await shareFileLive(file, viewOnce);
+        if (onlineUsers.length >= 2) {
+          toast.info(`"${file.name}" exceeds the server upload limit — falling back to realtime sharing.`);
+          await shareFileLive(file, viewOnce);
+        } else {
+          toast.error(`"${file.name}" exceeds the server upload limit. Tip: Realtime sharing fallback needs someone else in the room.`);
+        }
         return;
       }
       let errorMsg = "File upload failed!";
@@ -8439,8 +8458,20 @@ export default function ChatRoom() {
                     </button>
                   </div>
                   {showLandingQr && (
-                    <div style={{ background: "#ffffff", padding: 14, borderRadius: 12, display: "inline-block", boxShadow: "0 8px 24px rgba(0,0,0,0.15)", marginTop: 4 }}>
-                      <QRCodeSVG value={window.location.href} size={220} />
+                    <div style={{
+                      background: "#ffffff",
+                      padding: 16,
+                      borderRadius: 16,
+                      boxShadow: "0 12px 36px rgba(0,0,0,0.25)",
+                      marginTop: 12,
+                      display: "flex",
+                      justifyContent: "center",
+                      alignItems: "center",
+                      width: "min(100%, 280px)",
+                      margin: "12px auto 0",
+                      boxSizing: "border-box"
+                    }}>
+                      <QRCodeSVG value={window.location.href} style={{ width: "100%", height: "auto", maxWidth: "250px" }} />
                     </div>
                   )}
                 </div>
@@ -9032,11 +9063,31 @@ export default function ChatRoom() {
                         📷 {showDropdownQr ? "Hide QR Code Invite" : "Show QR Code Invite"}
                       </button>
                       {showDropdownQr && (
-                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, marginTop: 4, background: "rgba(255,255,255,0.02)", padding: 12, borderRadius: 12, border: "1px solid rgba(255,255,255,0.04)", boxSizing: "border-box" }} onClick={(e) => e.stopPropagation()}>
-                          <div style={{ background: "#ffffff", padding: 14, borderRadius: 12 }}>
-                            <QRCodeSVG value={window.location.href} size={220} />
+                        <div style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          gap: 10,
+                          marginTop: 8,
+                          background: "rgba(255,255,255,0.02)",
+                          padding: 16,
+                          borderRadius: 16,
+                          border: "1px solid rgba(255,255,255,0.04)",
+                          boxSizing: "border-box"
+                        }} onClick={(e) => e.stopPropagation()}>
+                          <div style={{
+                            background: "#ffffff",
+                            padding: 16,
+                            borderRadius: 16,
+                            display: "flex",
+                            justifyContent: "center",
+                            alignItems: "center",
+                            width: "min(100%, 280px)",
+                            boxSizing: "border-box"
+                          }}>
+                            <QRCodeSVG value={window.location.href} style={{ width: "100%", height: "auto", maxWidth: "250px" }} />
                           </div>
-                          <div style={{ fontSize: "0.68rem", color: "var(--chakra-colors-textSecondary)", textAlign: "center" }}>Scan this code to join this room instantly</div>
+                          <div style={{ fontSize: "0.75rem", color: "var(--chakra-colors-textSecondary)", textAlign: "center", fontWeight: 500 }}>Scan this code to join this room instantly</div>
                         </div>
                       )}
 
