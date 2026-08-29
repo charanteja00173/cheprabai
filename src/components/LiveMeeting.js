@@ -15,6 +15,7 @@ import {
 import * as PeerModule from "peerjs";
 import { toast } from "react-toastify";
 import { BREAKPOINTS } from "../hooks/useIsMobile";
+import { planIncludes } from "../lib/planSpecs";
 
 const Peer = PeerModule.Peer || PeerModule.default || PeerModule;
 
@@ -2235,7 +2236,8 @@ const CallDuration = React.memo(({ startTime }) => {
 /* ═══════════════════════════════ MAIN COMPONENT ═══════════════════════════════ */
 const WhiteboardLazy = lazy(() => import("./Whiteboard"));
 
-export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin, ownerToken, userAvatar, onOpenWhiteboard, whiteboardOpen = false, onToggleWhiteboard, features = {} }) {
+export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin, ownerToken, userAvatar, onOpenWhiteboard, whiteboardOpen = false, onToggleWhiteboard, features = {}, roomPlan }) {
+  const hasPlanFeature = (key) => features[key] !== false && (!roomPlan || planIncludes(roomPlan, key));
   // ── States ──
   const [localStream, setLocalStream] = useState(null);
 
@@ -4317,7 +4319,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
               <IconButton $active={isMuted} onClick={toggleMute} title={isMuted ? "Unmute" : "Mute"}>
                 {isMuted ? <FaMicrophoneSlash /> : <FaMicrophone />}
               </IconButton>
-              {features.videoCalls !== false && (
+              {hasPlanFeature("videoCalls") && (
               <IconButton $active={isVideoOff} onClick={toggleVideo} title={isVideoOff ? "Turn camera on" : "Turn camera off"}>
                 {isVideoOff ? <FaVideoSlash /> : <FaVideo />}
               </IconButton>
@@ -5254,25 +5256,28 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         <ControlsDock className="controls-bar">
           {/* ── Desktop: single row ── */}
           <span className="desktop-only-controls" style={{ display: "contents" }}>
+            {hasPlanFeature("voiceCalls") && (
             <DockButton $danger={isMuted} onClick={toggleMute} title={isMuted ? "Unmute Mic" : "Mute Mic"}>
               {isMuted ? <FaMicrophoneSlash /> : <FaMicrophone />}
               <span style={{ fontSize: "0.75rem" }}>{isMuted ? "Unmute" : "Mute"}</span>
             </DockButton>
+            )}
 
-            {features.videoCalls !== false && (
+            {hasPlanFeature("videoCalls") && (
             <DockButton $danger={isVideoOff} onClick={toggleVideo} title={isVideoOff ? "Start Video" : "Stop Video"}>
               {isVideoOff ? <FaVideoSlash /> : <FaVideo />}
               <span style={{ fontSize: "0.75rem" }}>{isVideoOff ? "Start Video" : "Stop Video"}</span>
             </DockButton>
             )}
 
-            {features.videoCalls !== false && (
+            {hasPlanFeature("videoCalls") && (
             <DockButton onClick={flipCamera} title="Flip Camera">
               <FaExchangeAlt />
             </DockButton>
             )}
 
             {/* Voice Changer */}
+            {hasPlanFeature("voiceCalls") && (
             <div style={{ position: "relative" }}>
               <DockButton $active={voiceFilter !== "none"} onClick={() => { setShowVoiceMenu(!showVoiceMenu); setShowVideoMenu(false); }} title="Voice Changer">
                 <FaMagic />
@@ -5297,8 +5302,9 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                 </div>
               )}
             </div>
+            )}
 
-            {features.videoCalls !== false && (<> {/* Video Filter */}
+            {hasPlanFeature("videoCalls") && (<> {/* Video Filter */}
             <div style={{ position: "relative" }}>
               <DockButton $active={videoFilter !== "none"} onClick={() => { setShowVideoMenu(!showVideoMenu); setShowVoiceMenu(false); }} title="Video Filter">
                 <FaPalette />
@@ -5323,7 +5329,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                 </div>
             </>)}
 
-            {features.screenSharing !== false && (
+            {hasPlanFeature("screenSharing") && (
             <DockButton onClick={startScreenShare} title="Share Screen">
               <FaDesktop />
               <span style={{ fontSize: "0.75rem" }}>Share</span>
@@ -5331,7 +5337,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
             )}
 
             {/* Admin Video & Audio / Link Streaming */}
-            {isRoomHost && (
+            {isRoomHost && hasPlanFeature("videoCalls") && (
               <>
                 <DockButton 
                   $active={isFileStreaming} 
@@ -5366,7 +5372,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
             <DockDivider />
 
             {/* Emoji Reactions */}
-            {features.reactions !== false && (
+            {hasPlanFeature("reactions") && (
             <EmojiTray>
               {["👏", "❤️", "😂", "🔥"].map(emoji => (
                 <DockButton key={emoji} onClick={() => sendReaction(emoji)} style={{ minWidth: 38, padding: "0 8px" }}>
@@ -5376,7 +5382,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
             </EmojiTray>
             )}
 
-            {features.handRaise !== false && (
+            {hasPlanFeature("handRaise") && (
             <DockButton onClick={() => sendReaction("✋")} title="Raise Hand">
               <FaHandPaper />
             </DockButton>
@@ -5390,7 +5396,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
             <DockDivider />
 
             {/* Recording (Host) */}
-            {isRoomHost && features.meetingRecording !== false && (
+            {isRoomHost && hasPlanFeature("meetingRecording") && (
               <DockButton $danger={isRecording} onClick={toggleRecording} title="Record Meeting">
                 <FaRecordVinyl />
                 <span style={{ fontSize: "0.75rem" }}>{isRecording ? "Recording..." : "Record"}</span>
@@ -5406,30 +5412,32 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
           {/* ── Mobile: two-row layout ── */}
           <MobilePrimaryRow>
+            {hasPlanFeature("voiceCalls") && (
             <DockButton $danger={isMuted} onClick={toggleMute} title={isMuted ? "Unmute Mic" : "Mute Mic"}>
               {isMuted ? <FaMicrophoneSlash /> : <FaMicrophone />}
             </DockButton>
-            {features.videoCalls !== false && (
+            )}
+            {hasPlanFeature("videoCalls") && (
             <DockButton $danger={isVideoOff} onClick={toggleVideo} title={isVideoOff ? "Start Video" : "Stop Video"}>
               {isVideoOff ? <FaVideoSlash /> : <FaVideo />}
             </DockButton>
             )}
-            {features.screenSharing !== false && (
+            {hasPlanFeature("screenSharing") && (
             <DockButton onClick={startScreenShare} title="Share Screen">
               <FaDesktop />
             </DockButton>
             )}
-            {isRoomHost && (
+            {isRoomHost && hasPlanFeature("videoCalls") && (
               <DockButton $active={isFileStreaming} onClick={() => isFileStreaming ? stopFileStream() : setShowStreamModal(true)} title={isFileStreaming ? "Stop Stream" : "Stream Media"}>
                 <FaPlayCircle />
               </DockButton>
             )}
-            {isRoomHost && features.meetingRecording !== false && (
+            {isRoomHost && hasPlanFeature("meetingRecording") && (
               <DockButton $danger={isRecording} onClick={toggleRecording} title="Record Meeting">
                 <FaRecordVinyl />
               </DockButton>
             )}
-            {features.handRaise !== false && (
+            {hasPlanFeature("handRaise") && (
             <DockButton onClick={() => sendReaction("✋")} title="Raise Hand">
               <FaHandPaper />
             </DockButton>
@@ -5445,11 +5453,12 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
           </MobilePrimaryRow>
 
           <MobileSecondaryRow>
-            {features.videoCalls !== false && (
+            {hasPlanFeature("videoCalls") && (
             <DockButton onClick={flipCamera} title="Flip Camera">
               <FaExchangeAlt />
             </DockButton>
             )}
+            {hasPlanFeature("voiceCalls") && (
             <div style={{ position: "relative" }}>
               <DockButton $active={voiceFilter !== "none"} onClick={() => { setShowVoiceMenu(!showVoiceMenu); setShowVideoMenu(false); }} title="Voice Changer">
                 <FaMagic />
@@ -5473,7 +5482,8 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                 </div>
               )}
             </div>
-            {features.videoCalls !== false && (<> {/* Video Filter (mobile) */}
+            )}
+            {hasPlanFeature("videoCalls") && (<> {/* Video Filter (mobile) */}
             <div style={{ position: "relative" }}>
               <DockButton $active={videoFilter !== "none"} onClick={() => { setShowVideoMenu(!showVideoMenu); setShowVoiceMenu(false); }} title="Video Filter">
                 <FaPalette />
@@ -5496,7 +5506,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
               )}
             </div>
             </>)}
-            {features.reactions !== false && (
+            {hasPlanFeature("reactions") && (
             ["👏", "❤️", "😂", "🔥"].map(emoji => (
               <DockButton key={emoji} onClick={() => sendReaction(emoji)} style={{ minWidth: 42 }}>
                 {emoji}

@@ -60,9 +60,13 @@ import {
   PLAN_META,
   PLAN_LIMIT_LABELS,
   planLimitValue,
-  FEATURE_GROUPS as PLAN_FEATURE_GROUPS,
+  FEATURE_GROUPS,
   planIncludes,
 } from "../lib/planSpecs";
+
+const USER_FEATURE_GROUPS = FEATURE_GROUPS
+  .map((g) => ({ ...g, features: g.features.filter((f) => f.key !== "stealthMode") }))
+  .filter((g) => g.features.length > 0);
 
 // Lazy-load heavy components with retry — survives flaky networks and
 // stale tabs after redeploys (the classic "Loading chunk N failed" error).
@@ -10840,7 +10844,7 @@ export default function ChatRoom() {
               </div>
 
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                {PLAN_FEATURE_GROUPS.map((group) => (
+                {USER_FEATURE_GROUPS.map((group) => (
                   <div key={group.label}>
                     <div style={{ fontSize: "0.7rem", fontWeight: 800, color: "var(--chakra-colors-textSecondary)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.6px" }}>
                       {group.label}
@@ -11913,6 +11917,7 @@ export default function ChatRoom() {
               whiteboardOpen={meetingBoardOpen}
               onToggleWhiteboard={(v) => setMeetingBoardOpen(Boolean(v))}
               features={features}
+              roomPlan={roomPlan}
             />
           </Suspense>
         </ChunkErrorBoundary>
