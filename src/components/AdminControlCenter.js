@@ -304,8 +304,8 @@ const NotificationList = styled.div`
 const NotificationItem = styled.div`
   padding: 12px 14px;
   border-radius: 10px;
-  border: 1px solid ${(p) => (p.$unread ? "rgba(255, 63, 94, 0.2)" : "var(--chakra-colors-border)")};
-  background: ${(p) => (p.$unread ? "rgba(255, 63, 94, 0.04)" : "var(--chakra-colors-badgeBg)")};
+  border: 1px solid ${(p) => (p.$unread ? "var(--chakra-colors-badgeBorder)" : "var(--chakra-colors-border)")};
+  background: ${(p) => (p.$unread ? "var(--chakra-colors-featuredBg)" : "var(--chakra-colors-badgeBg)")};
   display: flex;
   justify-content: space-between;
   align-items: center;

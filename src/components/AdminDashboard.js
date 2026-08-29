@@ -393,9 +393,9 @@ const UploadGridCard = styled.article`
   box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.25);
 
   &:hover {
-    border-color: rgba(255, 63, 94, 0.25);
+    border-color: color-mix(in srgb, var(--chakra-colors-brandText) 30%, transparent);
     transform: translateY(-3px);
-    box-shadow: 0 16px 36px -4px rgba(0, 0, 0, 0.35), 0 0 1px 1px rgba(255, 63, 94, 0.12);
+    box-shadow: 0 16px 36px -4px rgba(0, 0, 0, 0.35), 0 0 1px 1px color-mix(in srgb, var(--chakra-colors-brandText) 12%, transparent);
     background: linear-gradient(135deg, var(--chakra-colors-badgeBg) 0%, var(--chakra-colors-featuredBg) 100%);
   }
 `;
@@ -507,7 +507,7 @@ const getFileTypeDetails = (type) => {
   if (mime.startsWith("audio/")) {
     return { color: "rgba(253, 150, 68, 0.15)", icon: <FaFileAudio size={16} color="#fd9644" /> };
   }
-  return { color: "rgba(255, 71, 87, 0.15)", icon: <FaFileAlt size={16} color="#ff4757" /> };
+  return { color: "color-mix(in srgb, var(--chakra-colors-brandText) 15%, transparent)", icon: <FaFileAlt size={16} color="var(--chakra-colors-brandText)" /> };
 };
 
 const MobileCardRow = styled.div`
@@ -1044,9 +1044,9 @@ export default function AdminDashboard() {
             <div style={{ textAlign: "center" }}>
               <div style={{
                 display: "inline-flex",
-                background: "rgba(255, 63, 94, 0.10)",
-                border: "1px solid rgba(255, 63, 94, 0.30)",
-                boxShadow: "0 0 0 5px rgba(255,63,94,.04), 0 8px 20px rgba(0,0,0,.18)",
+                background: "var(--chakra-colors-badgeBg)",
+                border: "1px solid var(--chakra-colors-badgeBorder)",
+                boxShadow: "0 0 0 5px color-mix(in srgb, var(--chakra-colors-brandText) 6%, transparent), 0 8px 20px rgba(0,0,0,.18)",
                 padding: "12px",
                 borderRadius: "14px",
                 marginBottom: "16px"
@@ -1164,7 +1164,7 @@ export default function AdminDashboard() {
               padding: "10px 18px",
               borderRadius: 12,
               border: `1px solid ${mainSection === "live" ? "var(--chakra-colors-brandText)" : "var(--chakra-colors-border)"}`,
-              background: mainSection === "live" ? "rgba(255, 63, 94, 0.12)" : "var(--chakra-colors-badgeBg)",
+              background: mainSection === "live" ? "var(--chakra-colors-badgeBg)" : "var(--chakra-colors-featuredBg)",
               color: mainSection === "live" ? "var(--chakra-colors-brandText)" : "var(--chakra-colors-textSecondary)",
               fontWeight: 700,
               fontSize: "0.88rem",
@@ -1185,7 +1185,7 @@ export default function AdminDashboard() {
               padding: "10px 18px",
               borderRadius: 12,
               border: `1px solid ${mainSection === "uploads" ? "var(--chakra-colors-brandText)" : "var(--chakra-colors-border)"}`,
-              background: mainSection === "uploads" ? "rgba(255, 63, 94, 0.12)" : "var(--chakra-colors-badgeBg)",
+              background: mainSection === "uploads" ? "var(--chakra-colors-badgeBg)" : "var(--chakra-colors-featuredBg)",
               color: mainSection === "uploads" ? "var(--chakra-colors-brandText)" : "var(--chakra-colors-textSecondary)",
               fontWeight: 700,
               fontSize: "0.88rem",
