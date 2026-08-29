@@ -28,6 +28,23 @@ import {
 } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { BREAKPOINTS } from "../hooks/useIsMobile";
+import {
+  PLAN_META,
+  PLAN_IDS,
+  planLimitRows,
+  planIncludes,
+  FEATURE_GROUPS as PLAN_FEATURE_GROUPS,
+} from "../lib/planSpecs";
+
+const GROUP_ICONS = {
+  "Calls & Media": FaVideo,
+  Messaging: FaComments,
+  "Media & Files": FaImage,
+  Collaboration: FaPaintBrush,
+  Platform: FaCog,
+};
+
+const FEATURE_GROUPS = PLAN_FEATURE_GROUPS.map((g) => ({ ...g, icon: GROUP_ICONS[g.label] || FaCog }));
 
 /* ── STYLED COMPONENTS ── */
 
@@ -35,7 +52,7 @@ const TabBar = styled.div`
   display: flex;
   gap: 6px;
   margin-bottom: 20px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--chakra-colors-borderSubtle);
   padding-bottom: 10px;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
@@ -47,9 +64,9 @@ const TabButton = styled.button`
   min-height: 36px;
   padding: 6px 14px;
   border-radius: 8px;
-  border: 1px solid ${(p) => (p.$active ? "rgba(255, 63, 94, 0.3)" : "transparent")};
-  background: ${(p) => (p.$active ? "rgba(255, 63, 94, 0.1)" : "transparent")};
-  color: ${(p) => (p.$active ? "var(--chakra-colors-brandPrimary)" : "var(--chakra-colors-textSecondary)")};
+  border: 1px solid ${(p) => (p.$active ? "var(--chakra-colors-badgeBorder)" : "transparent")};
+  background: ${(p) => (p.$active ? "var(--chakra-colors-badgeBg)" : "transparent")};
+  color: ${(p) => (p.$active ? "var(--chakra-colors-brandText)" : "var(--chakra-colors-textSecondary)")};
   font-weight: 700;
   font-size: 0.8rem;
   cursor: pointer;
@@ -61,7 +78,7 @@ const TabButton = styled.button`
   transition: all 0.15s ease;
 
   &:hover {
-    background: rgba(255, 63, 94, 0.06);
+    background: var(--chakra-colors-featuredBg);
     color: var(--chakra-colors-textPrimary);
   }
 `;
@@ -70,8 +87,8 @@ const BadgeCount = styled.span`
   font-size: 0.65rem;
   padding: 1px 6px;
   border-radius: 99px;
-  background: ${(p) => (p.$active ? "var(--chakra-colors-brandPrimary)" : "rgba(255,255,255,0.08)")};
-  color: ${(p) => (p.$active ? "#fff" : "var(--chakra-colors-textSecondary)")};
+  background: ${(p) => (p.$active ? "var(--chakra-colors-brandText)" : "var(--chakra-colors-badgeBg)")};
+  color: ${(p) => (p.$active ? "var(--chakra-colors-onBrand)" : "var(--chakra-colors-textSecondary)")};
   font-weight: 800;
 `;
 
@@ -95,7 +112,7 @@ const RoomCard = styled.article`
   gap: 10px;
   transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease, box-shadow 0.22s ease;
   &:hover {
-    border-color: var(--chakra-colors-brandPrimary);
+    border-color: var(--chakra-colors-brandText);
     transform: translateY(-3px);
     box-shadow: 0 14px 40px rgba(0, 0, 0, 0.28);
   }
@@ -112,14 +129,14 @@ const RoomBadge = styled.div`
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--chakra-colors-badgeBg);
+  border: 1px solid var(--chakra-colors-badgeBorder);
   padding: 4px 10px;
   border-radius: 8px;
   font-size: 0.82rem;
   font-weight: 800;
-  color: #fff;
-  svg { color: var(--chakra-colors-brandPrimary); }
+  color: var(--chakra-colors-textPrimary);
+  svg { color: var(--chakra-colors-brandText); }
 `;
 
 const StatusIndicator = styled.div`
@@ -154,8 +171,8 @@ const MetricGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 8px;
-  background: rgba(255, 255, 255, 0.015);
-  border: 1px solid rgba(255, 255, 255, 0.03);
+  background: var(--chakra-colors-featuredBg);
+  border: 1px solid var(--chakra-colors-borderSubtle);
   border-radius: 10px;
   padding: 10px;
   @media (max-width: ${BREAKPOINTS.xs}px) { grid-template-columns: 1fr; }
@@ -176,7 +193,7 @@ const MetricItem = styled.div`
   span:last-child {
     font-size: 0.82rem;
     font-weight: 800;
-    color: #fff;
+    color: var(--chakra-colors-textPrimary);
   }
 `;
 
@@ -195,14 +212,14 @@ const StackAvatar = styled.div`
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--chakra-colors-brandPrimary), var(--chakra-colors-brandSecondary));
-  border: 2px solid #141724;
+  background: linear-gradient(135deg, var(--chakra-colors-brandText), var(--chakra-colors-brandTextSecondary));
+  border: 2px solid var(--chakra-colors-bg);
   margin-left: -5px;
   display: grid;
   place-items: center;
   font-size: 0.6rem;
   font-weight: 800;
-  color: #fff;
+  color: var(--chakra-colors-onBrand);
   cursor: pointer;
   transition: transform 0.15s ease;
   &:hover { transform: scale(1.15) translateY(-1px); z-index: 10; }
@@ -213,8 +230,8 @@ const ExtraAvatarCount = styled.div`
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.08);
-  border: 2px solid #141724;
+  background: var(--chakra-colors-badgeBg);
+  border: 2px solid var(--chakra-colors-bg);
   margin-left: -5px;
   display: grid;
   place-items: center;
@@ -232,7 +249,7 @@ const ParticipantTag = styled.div`
   font-size: 0.75rem;
   color: var(--chakra-colors-textSecondary);
   transition: background 0.15s;
-  &:hover { background: rgba(255, 255, 255, 0.04); }
+  &:hover { background: var(--chakra-colors-badgeBg); }
   .kick-btn {
     opacity: 0;
     transition: opacity 0.15s;
@@ -258,8 +275,8 @@ const ActionBtn = styled.button`
   min-height: 32px;
   padding: 5px 10px;
   border-radius: 8px;
-  border: 1px solid ${(p) => (p.$danger ? "rgba(255,71,87,0.2)" : "rgba(255,255,255,0.06)")};
-  background: ${(p) => (p.$danger ? "rgba(255,71,87,0.06)" : "rgba(255,255,255,0.02)")};
+  border: 1px solid ${(p) => (p.$danger ? "rgba(255,71,87,0.2)" : "var(--chakra-colors-border)")};
+  background: ${(p) => (p.$danger ? "rgba(255,71,87,0.06)" : "var(--chakra-colors-featuredBg)")};
   color: ${(p) => (p.$danger ? "#ff4757" : "var(--chakra-colors-textSecondary)")};
   font-size: 0.72rem;
   font-weight: 700;
@@ -269,7 +286,7 @@ const ActionBtn = styled.button`
   justify-content: center;
   gap: 5px;
   transition: all 0.15s ease;
-  &:hover { background: ${(p) => (p.$danger ? "#ff4757" : "rgba(255,255,255,0.06)")}; color: #fff; }
+  &:hover { background: ${(p) => (p.$danger ? "#ff4757" : "var(--chakra-colors-badgeBg)")}; color: ${(p) => (p.$danger ? "#fff" : "var(--chakra-colors-textPrimary)")}; }
 `;
 
 const RefreshBtn = styled(ActionBtn)`
@@ -287,8 +304,8 @@ const NotificationList = styled.div`
 const NotificationItem = styled.div`
   padding: 12px 14px;
   border-radius: 10px;
-  border: 1px solid ${(p) => (p.$unread ? "rgba(255, 63, 94, 0.2)" : "rgba(255, 255, 255, 0.05)")};
-  background: ${(p) => (p.$unread ? "rgba(255, 63, 94, 0.04)" : "rgba(255, 255, 255, 0.01)")};
+  border: 1px solid ${(p) => (p.$unread ? "rgba(255, 63, 94, 0.2)" : "var(--chakra-colors-border)")};
+  background: ${(p) => (p.$unread ? "rgba(255, 63, 94, 0.04)" : "var(--chakra-colors-badgeBg)")};
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -310,8 +327,8 @@ const SettingsWrapper = styled.div`
 `;
 
 const SectionCard = styled.div`
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--chakra-colors-surface);
+  border: 1px solid var(--chakra-colors-border);
   border-radius: 12px;
   padding: 14px 16px;
 `;
@@ -322,10 +339,10 @@ const SectionHeader = styled.div`
   gap: 8px;
   font-weight: 800;
   font-size: 0.88rem;
-  color: #fff;
+  color: var(--chakra-colors-textPrimary);
   cursor: ${p => p.$collapsible ? "pointer" : "default"};
   user-select: none;
-  &:hover { color: ${p => p.$collapsible ? "var(--chakra-colors-brandPrimary)" : "#fff"}; }
+  &:hover { color: ${p => p.$collapsible ? "var(--chakra-colors-brandText)" : "var(--chakra-colors-textPrimary)"}; }
 `;
 
 const SectionDesc = styled.p`
@@ -341,7 +358,7 @@ const ToggleRow = styled.div`
   justify-content: space-between;
   gap: 12px;
   padding: 8px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid var(--chakra-colors-borderSubtle);
   &:last-child { border-bottom: none; }
   @media (max-width: ${BREAKPOINTS.sm}px) { gap: 8px; }
 `;
@@ -364,7 +381,7 @@ const ToggleSwitch = styled.div`
   width: 40px;
   min-width: 40px;
   height: 22px;
-  background-color: ${(p) => (p.$checked ? "var(--chakra-colors-brandPrimary)" : "rgba(255, 255, 255, 0.12)")};
+  background-color: ${(p) => (p.$checked ? "var(--chakra-colors-brandText)" : "var(--chakra-colors-badgeBg)")};
   border-radius: 99px;
   transition: background-color 0.2s ease;
   cursor: pointer;
@@ -376,7 +393,7 @@ const ToggleSwitch = styled.div`
     left: ${(p) => (p.$checked ? "21px" : "3px")};
     width: 16px;
     height: 16px;
-    background-color: #fff;
+    background-color: ${(p) => (p.$checked ? "var(--chakra-colors-onBrand)" : "#fff")};
     border-radius: 50%;
     transition: left 0.2s cubic-bezier(0.16, 1, 0.3, 1);
     box-shadow: 0 1px 3px rgba(0,0,0,0.2);
@@ -393,8 +410,8 @@ const PlanCard = styled.button`
   flex: 1 1 130px;
   padding: 12px 14px;
   border-radius: 10px;
-  border: 2px solid ${(p) => (p.$selected ? p.$color : "rgba(255,255,255,0.08)")};
-  background: ${(p) => (p.$selected ? `${p.$color}15` : "rgba(255,255,255,0.02)")};
+  border: 2px solid ${(p) => (p.$selected ? p.$color : "var(--chakra-colors-border)")};
+  background: ${(p) => (p.$selected ? `${p.$color}15` : "var(--chakra-colors-badgeBg)")};
   cursor: pointer;
   text-align: left;
   transition: all 0.2s;
@@ -414,15 +431,39 @@ const PlanDesc = styled.div`
   line-height: 1.3;
 `;
 
+const PlanRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+`;
+
+const PlanPill = styled.button`
+  padding: 3px 10px;
+  border-radius: 99px;
+  border: 1px solid ${(p) => (p.$selected ? p.$color : "var(--chakra-colors-badgeBorder)")};
+  background: ${(p) => (p.$selected ? `${p.$color}26` : "var(--chakra-colors-badgeBg)")};
+  color: ${(p) => (p.$selected ? p.$color : "var(--chakra-colors-textSecondary)")};
+  font-size: 0.66rem;
+  font-weight: 800;
+  text-transform: capitalize;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  &:hover { border-color: ${(p) => p.$color}; color: ${(p) => p.$color}; }
+`;
+
+const ROOM_PLANS = PLAN_IDS.map((id) => ({ id, label: PLAN_META[id].label, color: PLAN_META[id].color }));
+
 const EmptyState = styled.p`
   color: var(--chakra-colors-textSecondary);
   text-align: center;
   padding: 40px 20px;
   margin: 0;
   font-size: 0.85rem;
-  border: 1px dashed rgba(255, 255, 255, 0.06);
+  border: 1px dashed var(--chakra-colors-border);
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.005);
+  background: var(--chakra-colors-badgeBg);
 `;
 
 /* ── MODAL ── */
@@ -445,7 +486,7 @@ const ModalContent = styled.div`
   padding: 22px;
   border-radius: 14px;
   background: var(--chakra-colors-surface);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--chakra-colors-border);
   box-shadow: 0 24px 38px 3px rgba(0, 0, 0, 0.5);
   animation: slideUpCC 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   @keyframes slideUpCC { from { transform: translateY(10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
@@ -469,14 +510,14 @@ const ModalInput = styled.input`
   width: 100%;
   padding: 10px 14px;
   border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--chakra-colors-badgeBorder);
+  background: var(--chakra-colors-badgeBg);
   color: var(--chakra-colors-textPrimary);
   outline: none;
   font-size: 0.88rem;
   margin-bottom: 18px;
   box-sizing: border-box;
-  &:focus { border-color: var(--chakra-colors-brandPrimary); }
+  &:focus { border-color: var(--chakra-colors-brandText); }
 `;
 
 const ModalActions = styled.div`
@@ -490,22 +531,22 @@ const ModalBtn = styled.button`
   min-height: 36px;
   padding: 7px 14px;
   border-radius: 8px;
-  border: ${(p) => (p.$primary ? "none" : "1px solid rgba(255, 255, 255, 0.08)")};
+  border: ${(p) => (p.$primary ? "none" : "1px solid var(--chakra-colors-badgeBorder)")};
   background: ${(p) =>
-    p.$primary ? (p.$danger ? "#ff4757" : "var(--chakra-colors-brandPrimary)") : "transparent"};
-  color: ${(p) => (p.$primary ? "#fff" : "var(--chakra-colors-textSecondary)")};
+    p.$primary ? (p.$danger ? "#ff4757" : "var(--chakra-colors-brandText)") : "transparent"};
+  color: ${(p) => (p.$primary ? "var(--chakra-colors-onBrand)" : "var(--chakra-colors-textSecondary)")};
   font-weight: 700;
   font-size: 0.78rem;
   cursor: pointer;
   transition: all 0.15s ease;
-  &:hover { background: ${(p) => p.$primary ? (p.$danger ? "#ff2f44" : "rgba(255, 63, 94, 0.9)") : "rgba(255,255,255,0.05)"}; color: #fff; }
+  &:hover { background: ${(p) => p.$primary ? (p.$danger ? "#ff2f44" : "var(--chakra-colors-brandHover)") : "var(--chakra-colors-badgeBg)"}; color: ${(p) => p.$primary ? "var(--chakra-colors-onBrand)" : "var(--chakra-colors-textPrimary)"}; }
 `;
 
 /* ── FORM ── */
 
 const SettingsForm = styled.form`
   padding-top: 14px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid var(--chakra-colors-borderSubtle);
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -528,13 +569,13 @@ const FormInput = styled.input`
   width: 100%;
   padding: 8px 12px;
   border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.02);
-  color: #fff;
+  border: 1px solid var(--chakra-colors-badgeBorder);
+  background: var(--chakra-colors-featuredBg);
+  color: var(--chakra-colors-textPrimary);
   outline: none;
   font-size: 0.82rem;
   box-sizing: border-box;
-  &:focus { border-color: var(--chakra-colors-brandPrimary); background: rgba(255, 255, 255, 0.04); }
+  &:focus { border-color: var(--chakra-colors-brandText); background: var(--chakra-colors-badgeBg); }
 `;
 
 const FormSubmitBtn = styled.button`
@@ -543,8 +584,8 @@ const FormSubmitBtn = styled.button`
   padding: 7px 16px;
   border-radius: 8px;
   border: none;
-  background: var(--chakra-colors-brandPrimary);
-  color: #fff;
+  background: var(--chakra-colors-brandText);
+  color: var(--chakra-colors-onBrand);
   font-size: 0.78rem;
   font-weight: 700;
   cursor: pointer;
@@ -557,64 +598,6 @@ function formatTime(ts) {
   if (!ts) return "\u2014";
   return new Date(ts).toLocaleString();
 }
-
-const FEATURE_GROUPS = [
-  {
-    label: "Calls & Media",
-    icon: FaVideo,
-    features: [
-      { key: "voiceCalls", label: "Voice Calls", desc: "Audio call functionality" },
-      { key: "videoCalls", label: "Video Calls", desc: "Video call functionality" },
-      { key: "screenSharing", label: "Screen Sharing", desc: "Share screen during calls" },
-      { key: "meetingRecording", label: "Meeting Recording", desc: "Record live calls" },
-      { key: "handRaise", label: "Hand Raise", desc: "Raise hand during calls" },
-      { key: "chatInCall", label: "Chat in Call", desc: "Text chat during calls" },
-    ],
-  },
-  {
-    label: "Messaging",
-    icon: FaComments,
-    features: [
-      { key: "reactions", label: "Reactions", desc: "React with emojis" },
-      { key: "messageEditing", label: "Message Editing", desc: "Edit sent messages" },
-      { key: "messageSearch", label: "Message Search", desc: "Search message history" },
-      { key: "messageForwarding", label: "Forwarding", desc: "Forward messages" },
-      { key: "pinnedMessages", label: "Pinned Messages", desc: "Pin important messages" },
-      { key: "ephemeralMessages", label: "Ephemeral Messages", desc: "Disappearing messages" },
-      { key: "typingIndicators", label: "Typing Indicators", desc: "Show typing status" },
-      { key: "scheduledMessages", label: "Scheduled Messages", desc: "Schedule for later" },
-    ],
-  },
-  {
-    label: "Media & Files",
-    icon: FaImage,
-    features: [
-      { key: "fileSharing", label: "File Sharing", desc: "Upload and share files" },
-      { key: "voiceRecordings", label: "Voice Recordings", desc: "Send voice notes" },
-      { key: "giphySearch", label: "GIPHY Search", desc: "Search and send GIFs" },
-      { key: "linkPreviews", label: "Link Previews", desc: "Preview shared links" },
-      { key: "bookmarks", label: "Bookmarks", desc: "Save messages" },
-    ],
-  },
-  {
-    label: "Collaboration",
-    icon: FaPaintBrush,
-    features: [
-      { key: "whiteboard", label: "Whiteboard", desc: "Shared drawing board" },
-      { key: "polls", label: "Polls", desc: "Create and vote on polls" },
-    ],
-  },
-  {
-    label: "Platform",
-    icon: FaCog,
-    features: [
-      { key: "profiles", label: "User Profiles", desc: "Display names and avatars" },
-      { key: "stealthMode", label: "Stealth Mode", desc: "Anonymous joining" },
-      { key: "themes", label: "Theme Switching", desc: "Change chat themes" },
-      { key: "keyboardShortcuts", label: "Keyboard Shortcuts", desc: "Shortcuts help panel" },
-    ],
-  },
-];
 
 /* ── COMPONENT ── */
 
@@ -760,6 +743,16 @@ export default function AdminControlCenter({ token, backendUrl }) {
     } catch { toast.error("Failed to stealth join."); }
   };
 
+  const handleChangeRoomPlan = async (roomId, plan) => {
+    try {
+      await axios.patch(`${backendUrl}/api/admin/rooms/${encodeURIComponent(roomId)}/plan`, { plan }, { headers: authHeaders() });
+      setRooms((prev) => prev.map((r) => (r.roomId === roomId ? { ...r, plan } : r)));
+      toast.success(`Room plan set to ${plan}.`);
+    } catch {
+      toast.error("Failed to change room plan.");
+    }
+  };
+
   const handleCloseRoom = (roomId) => {
     setModal({
       type: "confirm",
@@ -831,7 +824,7 @@ export default function AdminControlCenter({ token, backendUrl }) {
           <FaCog /> Settings
         </TabButton>
         <RefreshBtn onClick={refreshAll} disabled={loading} title="Refresh all">
-          <FaSync spin={loading} />
+          <FaSync spin={loading || undefined} />
         </RefreshBtn>
       </TabBar>
 
@@ -866,6 +859,23 @@ export default function AdminControlCenter({ token, backendUrl }) {
                     <span>{formatTime(room.createdAt)}</span>
                   </MetricItem>
                 </MetricGrid>
+
+                <PlanRow>
+                  <span style={{ fontSize: "0.62rem", textTransform: "uppercase", color: "var(--chakra-colors-textSecondary)", fontWeight: 600, letterSpacing: 0.5, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                    <FaCrown size={9} color="#f59e0b" /> Plan
+                  </span>
+                  {ROOM_PLANS.map((p) => (
+                    <PlanPill
+                      key={p.id}
+                      $selected={(room.plan || settings.plan) === p.id}
+                      $color={p.color}
+                      onClick={() => handleChangeRoomPlan(room.roomId, p.id)}
+                      title={`Apply ${p.label} plan to this room`}
+                    >
+                      {p.label}
+                    </PlanPill>
+                  ))}
+                </PlanRow>
 
                 {room.participants?.length > 0 && (
                   <ParticipantContainer>
@@ -996,25 +1006,74 @@ export default function AdminControlCenter({ token, backendUrl }) {
             </SectionHeader>
             <SectionDesc>Choose the plan tier for feature limits and participant caps.</SectionDesc>
             <PlanGrid style={{ marginTop: 10 }}>
-              {[
-                { id: "free", label: "Free", desc: "4 participants, 3 rooms, 30min calls", color: "#94a3b8" },
-                { id: "pro", label: "Pro", desc: "25 participants, unlimited rooms & calls", color: "#818cf8" },
-                { id: "enterprise", label: "Enterprise", desc: "Unlimited everything, priority support", color: "#f59e0b" },
-              ].map((p) => (
-                <PlanCard
-                  key={p.id}
-                  $selected={settings.plan === p.id}
-                  $color={p.color}
-                  onClick={() => {
-                    setSettings((prev) => ({ ...prev, plan: p.id }));
-                    axios.patch(`${backendUrl}/api/admin/settings`, { plan: p.id }, { headers: authHeaders() }).catch(() => {});
-                  }}
-                >
-                  <PlanLabel $selected={settings.plan === p.id} $color={p.color}>{p.label}</PlanLabel>
-                  <PlanDesc>{p.desc}</PlanDesc>
-                </PlanCard>
-              ))}
+              {PLAN_IDS.map((id) => {
+                const meta = PLAN_META[id];
+                const selected = settings.plan === id;
+                return (
+                  <PlanCard
+                    key={id}
+                    $selected={selected}
+                    $color={meta.color}
+                    onClick={() => {
+                      setSettings((prev) => ({ ...prev, plan: id }));
+                      axios.patch(`${backendUrl}/api/admin/settings`, { plan: id }, { headers: authHeaders() }).catch(() => {});
+                    }}
+                  >
+                    <PlanLabel $selected={selected} $color={meta.color}>{meta.label}</PlanLabel>
+                    <PlanDesc>{meta.desc}</PlanDesc>
+                  </PlanCard>
+                );
+              })}
             </PlanGrid>
+
+            {settings.plan && (
+              <div style={{ marginTop: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                  <span style={{ fontSize: "0.72rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "1.2px", color: "var(--chakra-colors-textSecondary)" }}>
+                    What's included
+                  </span>
+                  <span style={{ flex: 1, height: 1, background: "var(--chakra-colors-borderSubtle)" }} />
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
+                  {planLimitRows(settings.plan, settings.planLimits?.[settings.plan]).map((row) => (
+                    <span key={row.key} style={{ fontSize: "0.68rem", fontWeight: 700, padding: "3px 9px", borderRadius: 99, background: "var(--chakra-colors-badgeBg)", color: "var(--chakra-colors-textPrimary)", border: "1px solid var(--chakra-colors-badgeBorder)" }}>
+                      {row.label}: <span style={{ color: PLAN_META[settings.plan].color }}>{row.value}</span>
+                    </span>
+                  ))}
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 240, overflowY: "auto", paddingRight: 4 }}>
+                  {FEATURE_GROUPS.map((group) => (
+                    <div key={group.label}>
+                      <div style={{ fontSize: "0.68rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.6px", color: "var(--chakra-colors-textSecondary)", marginBottom: 5 }}>
+                        {group.label}
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 5 }}>
+                        {group.features.map((feat) => {
+                          const included = planIncludes(settings.plan, feat.key);
+                          return (
+                            <span
+                              key={feat.key}
+                              title={`${feat.label} — ${feat.desc}`}
+                              style={{ display: "flex", alignItems: "center", gap: 7, padding: "5px 8px", borderRadius: 8, background: "var(--chakra-colors-badgeBg)", fontSize: "0.72rem", color: "var(--chakra-colors-textPrimary)", opacity: included ? 1 : 0.62 }}
+                            >
+                              {included ? (
+                                <FaCheck size={10} color={PLAN_META[settings.plan].color} style={{ flexShrink: 0 }} />
+                              ) : (
+                                <FaTimes size={10} color="var(--chakra-colors-textMuted)" style={{ flexShrink: 0 }} />
+                              )}
+                              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{feat.label}</span>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ marginTop: 10, fontSize: "0.68rem", color: "var(--chakra-colors-textSecondary)" }}>
+                  Feature toggles above still apply globally on top of plan entitlements.
+                </div>
+              </div>
+            )}
           </SectionCard>
 
           {/* Feature Flags — Grouped */}

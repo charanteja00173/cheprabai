@@ -93,7 +93,7 @@ const Brand = styled.h1`
   display: flex;
   align-items: center;
   gap: 10px;
-  background: linear-gradient(135deg, var(--chakra-colors-brandPrimary), var(--chakra-colors-brandSecondary));
+  background: linear-gradient(135deg, var(--chakra-colors-brandText), var(--chakra-colors-brandTextSecondary));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 `;
@@ -146,14 +146,14 @@ const StatCard = styled.div`
     position: absolute;
     inset: 0 0 auto 0;
     height: 1px;
-    background: linear-gradient(90deg, transparent, var(--chakra-colors-brandPrimary), transparent);
+    background: linear-gradient(90deg, transparent, var(--chakra-colors-brandText), transparent);
     opacity: 0;
     transition: opacity 0.25s ease;
   }
 
   &:hover {
     transform: translateY(-3px);
-    border-color: var(--chakra-colors-brandPrimary);
+    border-color: var(--chakra-colors-brandText);
 
     &::before { opacity: 1; }
   }
@@ -169,9 +169,9 @@ const StatIcon = styled.div`
   width: 48px;
   height: 48px;
   border-radius: 12px;
-  background: rgba(255, 63, 94, 0.08);
-  border: 1px solid rgba(255, 63, 94, 0.15);
-  color: var(--chakra-colors-brandPrimary);
+  background: var(--chakra-colors-badgeBg);
+  border: 1px solid var(--chakra-colors-badgeBorder);
+  color: var(--chakra-colors-brandText);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -261,9 +261,9 @@ const FilterSelect = styled.select`
   }
 
   &:focus {
-    border-color: var(--chakra-colors-brandPrimary);
+    border-color: var(--chakra-colors-brandText);
     background: var(--chakra-colors-surface);
-    box-shadow: 0 0 0 1px var(--chakra-colors-brandPrimary), 0 0 15px var(--chakra-colors-brandGlow);
+    box-shadow: 0 0 0 1px var(--chakra-colors-brandText), 0 0 15px var(--chakra-colors-brandGlow);
   }
 `;
 
@@ -291,9 +291,9 @@ const SearchInput = styled.input`
   transition: all 0.25s ease;
 
   &:focus {
-    border-color: var(--chakra-colors-brandPrimary);
+    border-color: var(--chakra-colors-brandText);
     background: var(--chakra-colors-surface);
-    box-shadow: 0 0 0 1px var(--chakra-colors-brandPrimary), 0 0 15px var(--chakra-colors-brandGlow);
+    box-shadow: 0 0 0 1px var(--chakra-colors-brandText), 0 0 15px var(--chakra-colors-brandGlow);
   }
 `;
 
@@ -379,8 +379,8 @@ const UploadGrid = styled.div`
 `;
 
 const UploadGridCard = styled.article`
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.015) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: linear-gradient(135deg, var(--chakra-colors-badgeBg) 0%, var(--chakra-colors-featuredBg) 100%);
+  border: 1px solid var(--chakra-colors-border);
   border-radius: 18px;
   padding: 20px;
   display: flex;
@@ -396,7 +396,7 @@ const UploadGridCard = styled.article`
     border-color: rgba(255, 63, 94, 0.25);
     transform: translateY(-3px);
     box-shadow: 0 16px 36px -4px rgba(0, 0, 0, 0.35), 0 0 1px 1px rgba(255, 63, 94, 0.12);
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 100%);
+    background: linear-gradient(135deg, var(--chakra-colors-badgeBg) 0%, var(--chakra-colors-featuredBg) 100%);
   }
 `;
 
@@ -411,10 +411,10 @@ const FileTypeIconWrapper = styled.div`
   width: 40px;
   height: 40px;
   border-radius: 10px;
-  background: ${(p) => p.$color || "rgba(255,255,255,0.06)"};
+  background: ${(p) => p.$color || "var(--chakra-colors-badgeBg)"};
   display: grid;
   place-items: center;
-  color: #fff;
+  color: var(--chakra-colors-textPrimary);
   flex-shrink: 0;
 `;
 
@@ -422,7 +422,7 @@ const FileNameText = styled.h4`
   margin: 0;
   font-size: 0.88rem;
   font-weight: 750;
-  color: #fff;
+  color: var(--chakra-colors-textPrimary);
   line-height: 1.35;
   text-overflow: ellipsis;
   overflow: hidden;
@@ -434,8 +434,8 @@ const FileMetaGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 10px;
-  background: rgba(255, 255, 255, 0.015);
-  border: 1px solid rgba(255, 255, 255, 0.03);
+  background: var(--chakra-colors-featuredBg);
+  border: 1px solid var(--chakra-colors-borderSubtle);
   border-radius: 12px;
   padding: 12px;
   font-size: 0.74rem;
@@ -459,7 +459,7 @@ const FileMetaItem = styled.div`
 
   strong {
     font-weight: 750;
-    color: #fff;
+    color: var(--chakra-colors-textPrimary);
     text-overflow: ellipsis;
     overflow: hidden;
     white-space: nowrap;
@@ -472,7 +472,7 @@ const FileCardActions = styled.div`
   justify-content: flex-end;
   gap: 8px;
   margin-top: auto;
-  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  border-top: 1px solid var(--chakra-colors-borderSubtle);
   padding-top: 12px;
 `;
 
@@ -480,8 +480,8 @@ const RoundActionBtn = styled.button`
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  border: 1px solid ${(p) => (p.$danger ? "rgba(255,71,87,0.25)" : "rgba(255,255,255,0.06)")};
-  background: ${(p) => (p.$danger ? "rgba(255,71,87,0.06)" : "rgba(255,255,255,0.02)")};
+  border: 1px solid ${(p) => (p.$danger ? "rgba(255,71,87,0.25)" : "var(--chakra-colors-border)")};
+  background: ${(p) => (p.$danger ? "rgba(255,71,87,0.06)" : "var(--chakra-colors-featuredBg)")};
   color: ${(p) => (p.$danger ? "#ff4757" : "var(--chakra-colors-textSecondary)")};
   display: grid;
   place-items: center;
@@ -489,9 +489,9 @@ const RoundActionBtn = styled.button`
   transition: all 0.2s ease;
 
   &:hover {
-    background: ${(p) => (p.$danger ? "#ff4757" : "rgba(255,255,255,0.08)")};
-    color: #fff;
-    border-color: ${(p) => (p.$danger ? "#ff4757" : "rgba(255,255,255,0.15)")};
+    background: ${(p) => (p.$danger ? "#ff4757" : "var(--chakra-colors-badgeBg)")};
+    color: ${(p) => (p.$danger ? "#fff" : "var(--chakra-colors-textPrimary)")};
+    border-color: ${(p) => (p.$danger ? "#ff4757" : "var(--chakra-colors-badgeBorder)")};
     transform: scale(1.05);
   }
 `;
@@ -549,14 +549,14 @@ const ActionButton = styled.button`
 
   &:hover {
     background: ${props => props.$danger ? "#ff4757" : "var(--chakra-colors-surfaceHover)"};
-    color: #fff;
+    color: ${props => props.$danger ? "#fff" : "var(--chakra-colors-textPrimary)"};
     transform: translateY(-1px);
   }
 `;
 
 const Badge = styled.span`
   background: ${props => props.$brand ? "var(--chakra-colors-badgeBg)" : "var(--chakra-colors-surfaceHover)"};
-  color: ${props => props.$brand ? "var(--chakra-colors-brandPrimary)" : "var(--chakra-colors-textSecondary)"};
+  color: ${props => props.$brand ? "var(--chakra-colors-brandText)" : "var(--chakra-colors-textSecondary)"};
   border: 1px solid ${props => props.$brand ? "var(--chakra-colors-badgeBorder)" : "var(--chakra-colors-border)"};
   padding: 4px 10px;
   border-radius: 20px;
@@ -579,7 +579,7 @@ const FileLink = styled.a`
   white-space: nowrap;
 
   &:hover {
-    color: var(--chakra-colors-brandPrimary);
+    color: var(--chakra-colors-brandText);
   }
 `;
 
@@ -696,9 +696,9 @@ const LoginInput = styled.input`
   transition: all 0.25s ease;
 
   &:focus {
-    border-color: var(--chakra-colors-brandPrimary);
+    border-color: var(--chakra-colors-brandText);
     background: var(--chakra-colors-surface);
-    box-shadow: 0 0 0 1px var(--chakra-colors-brandPrimary), 0 0 15px var(--chakra-colors-brandGlow);
+    box-shadow: 0 0 0 1px var(--chakra-colors-brandText), 0 0 15px var(--chakra-colors-brandGlow);
   }
 `;
 
@@ -729,8 +729,8 @@ const LoginButton = styled.button`
   padding: 14px;
   border-radius: 14px;
   border: none;
-  background: linear-gradient(135deg, var(--chakra-colors-brandPrimary), var(--chakra-colors-brandSecondary));
-  color: #fff;
+  background: linear-gradient(135deg, var(--chakra-colors-brandText), var(--chakra-colors-brandTextSecondary));
+  color: var(--chakra-colors-onBrand);
   font-size: 1.05rem;
   font-weight: 700;
   cursor: pointer;
@@ -881,7 +881,7 @@ export default function AdminDashboard() {
     if ((item.type || "").startsWith("video/")) {
       return <video src={`${item.url}#t=0.1`} muted preload="metadata" style={{ width: 44, height: 44, borderRadius: 9, objectFit: "cover", display: "block", background: "#151821" }} />;
     }
-    return <div style={{ width: 44, height: 44, display: "grid", placeItems: "center", borderRadius: 9, background: "rgba(255,255,255,.06)", color: "var(--chakra-colors-brandPrimary)", fontSize: ".7rem", fontWeight: 800 }}>FILE</div>;
+    return <div style={{ width: 44, height: 44, display: "grid", placeItems: "center", borderRadius: 9, background: "var(--chakra-colors-badgeBg)", color: "var(--chakra-colors-brandText)", fontSize: ".7rem", fontWeight: 800 }}>FILE</div>;
   };
 
   const handleLogin = async (e) => {
@@ -1051,7 +1051,7 @@ export default function AdminDashboard() {
                 borderRadius: "14px",
                 marginBottom: "16px"
               }}>
-                <FaShieldAlt size={24} color="var(--chakra-colors-brandPrimary)" />
+                <FaShieldAlt size={24} color="var(--chakra-colors-brandText)" />
               </div>
               <h2 style={{ margin: 0, fontSize: "clamp(1.35rem, 3.5vw, 1.6rem)", fontWeight: 800, letterSpacing: "-.04em", color: "var(--chakra-colors-textPrimary)" }}>Admin Panel</h2>
               <p style={{ color: "var(--chakra-colors-textSecondary)", fontSize: "0.9rem", margin: "6px auto 0", maxWidth: 280, lineHeight: 1.45 }}>Enter your security key to access the control panel.</p>
@@ -1083,7 +1083,7 @@ export default function AdminDashboard() {
     <AdminWrapper>
       <ToastContainer position="top-center" autoClose={2600} limit={3} theme="dark" newestOnTop closeOnClick pauseOnHover={false} icon={false} />
       {decryptTarget && <div role="dialog" aria-modal="true" aria-label="Secure file download" style={{ position: "fixed", inset: 0, zIndex: 20000, display: "grid", placeItems: "center", padding: 20, background: "rgba(0,0,0,.62)" }}>
-        <div style={{ width: "min(420px, 100%)", padding: 24, borderRadius: 20, background: "#10192e", border: "1px solid rgba(255,255,255,.12)", boxShadow: "0 24px 70px rgba(0,0,0,.55)" }}>
+        <div style={{ width: "min(420px, 100%)", padding: 24, borderRadius: 20, background: "var(--chakra-colors-surface)", border: "1px solid var(--chakra-colors-border)", boxShadow: "0 24px 70px rgba(0,0,0,.55)" }}>
           <h2 style={{ margin: 0, fontSize: "1.1rem" }}>Secure download</h2>
           <p style={{ color: "var(--chakra-colors-textSecondary)", fontSize: ".86rem", lineHeight: 1.5 }}>Enter the room security code to decrypt <strong>{decryptTarget.name}</strong> locally. The code is never sent to the server.</p>
           {decryptTarget.encrypted && <LoginInput value={roomCode} onChange={(e) => setRoomCode(e.target.value)} placeholder="Room security code" autoFocus />}
@@ -1113,8 +1113,8 @@ export default function AdminDashboard() {
           padding: "20px", boxSizing: "border-box"
         }} onClick={() => setShowChangePassword(false)}>
           <div onClick={e => e.stopPropagation()} style={{
-            background: "var(--chakra-colors-surface, #1a1a2e)",
-            border: "1px solid rgba(255,255,255,0.06)",
+            background: "var(--chakra-colors-surface)",
+            border: "1px solid var(--chakra-colors-border)",
             borderRadius: "24px", padding: "32px", width: "100%", maxWidth: "420px",
             display: "flex", flexDirection: "column", gap: "20px",
             boxShadow: "0 20px 50px rgba(0,0,0,0.5)"
@@ -1163,9 +1163,9 @@ export default function AdminDashboard() {
               minHeight: 44,
               padding: "10px 18px",
               borderRadius: 12,
-              border: `1px solid ${mainSection === "live" ? "var(--chakra-colors-brandPrimary)" : "rgba(255,255,255,0.08)"}`,
-              background: mainSection === "live" ? "rgba(255, 63, 94, 0.12)" : "rgba(255,255,255,0.02)",
-              color: mainSection === "live" ? "var(--chakra-colors-brandPrimary)" : "var(--chakra-colors-textSecondary)",
+              border: `1px solid ${mainSection === "live" ? "var(--chakra-colors-brandText)" : "var(--chakra-colors-border)"}`,
+              background: mainSection === "live" ? "rgba(255, 63, 94, 0.12)" : "var(--chakra-colors-badgeBg)",
+              color: mainSection === "live" ? "var(--chakra-colors-brandText)" : "var(--chakra-colors-textSecondary)",
               fontWeight: 700,
               fontSize: "0.88rem",
               cursor: "pointer",
@@ -1184,9 +1184,9 @@ export default function AdminDashboard() {
               minHeight: 44,
               padding: "10px 18px",
               borderRadius: 12,
-              border: `1px solid ${mainSection === "uploads" ? "var(--chakra-colors-brandPrimary)" : "rgba(255,255,255,0.08)"}`,
-              background: mainSection === "uploads" ? "rgba(255, 63, 94, 0.12)" : "rgba(255,255,255,0.02)",
-              color: mainSection === "uploads" ? "var(--chakra-colors-brandPrimary)" : "var(--chakra-colors-textSecondary)",
+              border: `1px solid ${mainSection === "uploads" ? "var(--chakra-colors-brandText)" : "var(--chakra-colors-border)"}`,
+              background: mainSection === "uploads" ? "rgba(255, 63, 94, 0.12)" : "var(--chakra-colors-badgeBg)",
+              color: mainSection === "uploads" ? "var(--chakra-colors-brandText)" : "var(--chakra-colors-textSecondary)",
               fontWeight: 700,
               fontSize: "0.88rem",
               cursor: "pointer",
@@ -1235,9 +1235,9 @@ export default function AdminDashboard() {
         </StatsGrid>
 
         <FilterSection>
-          <div style={{ display: "flex", gap: 8, padding: 4, borderRadius: 12, background: "rgba(255,255,255,.035)", border: "1px solid rgba(255,255,255,.08)" }}>
+          <div style={{ display: "flex", gap: 8, padding: 4, borderRadius: 12, background: "var(--chakra-colors-badgeBg)", border: "1px solid var(--chakra-colors-border)" }}>
             {[['all', 'All'], ['realtime', 'Realtime'], ['cloudinary', 'Cloudinary']].map(([value, label]) => (
-              <button key={value} type="button" onClick={() => setSourceFilter(value)} aria-pressed={sourceFilter === value} style={{ border: 0, borderRadius: 8, cursor: 'pointer', padding: '8px 11px', fontSize: '.78rem', fontWeight: 700, color: sourceFilter === value ? '#fff' : 'var(--chakra-colors-textSecondary)', background: sourceFilter === value ? 'var(--chakra-colors-brandPrimary)' : 'transparent' }}>{label}</button>
+              <button key={value} type="button" onClick={() => setSourceFilter(value)} aria-pressed={sourceFilter === value} style={{ border: 0, borderRadius: 8, cursor: 'pointer', padding: '8px 11px', fontSize: '.78rem', fontWeight: 700, color: sourceFilter === value ? 'var(--chakra-colors-onBrand)' : 'var(--chakra-colors-textSecondary)', background: sourceFilter === value ? 'var(--chakra-colors-brandText)' : 'transparent' }}>{label}</button>
             ))}
           </div>
           <SearchInputWrapper>
@@ -1281,9 +1281,9 @@ export default function AdminDashboard() {
           </FilterSelect>
 
           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <input type="date" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); setDateRange("all"); }} title="From date" style={{ background: "rgba(255,255,255,.05)", border: "1px solid rgba(255,255,255,.1)", borderRadius: 8, padding: "6px 8px", color: "#fff", fontSize: ".75rem", outline: "none", width: 130, cursor: "pointer", colorScheme: "dark" }} />
+            <input type="date" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); setDateRange("all"); }} title="From date" style={{ background: "var(--chakra-colors-badgeBg)", border: "1px solid var(--chakra-colors-border)", borderRadius: 8, padding: "6px 8px", color: "var(--chakra-colors-textPrimary)", fontSize: ".75rem", outline: "none", width: 130, cursor: "pointer", colorScheme: "auto" }} />
             <span style={{ fontSize: ".7rem", opacity: 0.4 }}>–</span>
-            <input type="date" value={dateTo} onChange={(e) => { setDateTo(e.target.value); setDateRange("all"); }} title="To date" style={{ background: "rgba(255,255,255,.05)", border: "1px solid rgba(255,255,255,.1)", borderRadius: 8, padding: "6px 8px", color: "#fff", fontSize: ".75rem", outline: "none", width: 130, cursor: "pointer", colorScheme: "dark" }} />
+            <input type="date" value={dateTo} onChange={(e) => { setDateTo(e.target.value); setDateRange("all"); }} title="To date" style={{ background: "var(--chakra-colors-badgeBg)", border: "1px solid var(--chakra-colors-border)", borderRadius: 8, padding: "6px 8px", color: "var(--chakra-colors-textPrimary)", fontSize: ".75rem", outline: "none", width: 130, cursor: "pointer", colorScheme: "auto" }} />
           </div>
 
           <FilterSelect value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} title="Filter by file type">
@@ -1302,11 +1302,11 @@ export default function AdminDashboard() {
           </FilterSelect>
 
           <ActionButton onClick={() => fetchUploads(token)} disabled={loading} aria-busy={loading} title="Refresh dashboard data">
-            {loading ? <span style={{ width: 14, height: 14, borderRadius: "50%", border: "2px solid rgba(255,255,255,.25)", borderTopColor: "var(--chakra-colors-brandPrimary)", animation: "spin .7s linear infinite" }} /> : "Refresh"}
+            {loading ? <span style={{ width: 14, height: 14, borderRadius: "50%", border: "2px solid var(--chakra-colors-borderSubtle)", borderTopColor: "var(--chakra-colors-brandText)", animation: "spin .7s linear infinite" }} /> : "Refresh"}
           </ActionButton>
-          <div style={{ display: "flex", gap: 4, padding: 4, background: "rgba(255,255,255,.035)", border: "1px solid rgba(255,255,255,.08)", borderRadius: 12 }} aria-label="Dashboard layout">
-            <ActionButton type="button" onClick={() => setViewMode("list")} aria-pressed={viewMode === "list"} title="List layout" style={{ padding: "8px 10px", color: viewMode === "list" ? "var(--chakra-colors-brandPrimary)" : undefined }}><FaList /></ActionButton>
-            <ActionButton type="button" onClick={() => setViewMode("grid")} aria-pressed={viewMode === "grid"} title="Grid layout" style={{ padding: "8px 10px", color: viewMode === "grid" ? "var(--chakra-colors-brandPrimary)" : undefined }}><FaThLarge /></ActionButton>
+          <div style={{ display: "flex", gap: 4, padding: 4, background: "var(--chakra-colors-badgeBg)", border: "1px solid var(--chakra-colors-border)", borderRadius: 12 }} aria-label="Dashboard layout">
+            <ActionButton type="button" onClick={() => setViewMode("list")} aria-pressed={viewMode === "list"} title="List layout" style={{ padding: "8px 10px", color: viewMode === "list" ? "var(--chakra-colors-brandText)" : undefined }}><FaList /></ActionButton>
+            <ActionButton type="button" onClick={() => setViewMode("grid")} aria-pressed={viewMode === "grid"} title="Grid layout" style={{ padding: "8px 10px", color: viewMode === "grid" ? "var(--chakra-colors-brandText)" : undefined }}><FaThLarge /></ActionButton>
           </div>
         </FilterSection>
 
@@ -1317,7 +1317,7 @@ export default function AdminDashboard() {
             Loading dashboard data...
           </div>
         ) : filteredUploads.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "80px", color: "var(--chakra-colors-textSecondary)", background: "rgba(255,255,255,0.01)", borderRadius: "18px", border: "1px solid rgba(255,255,255,0.04)" }}>
+          <div style={{ textAlign: "center", padding: "80px", color: "var(--chakra-colors-textSecondary)", background: "var(--chakra-colors-badgeBg)", borderRadius: "18px", border: "1px solid var(--chakra-colors-borderSubtle)" }}>
             No uploads found.
           </div>
         ) : (
@@ -1340,7 +1340,7 @@ export default function AdminDashboard() {
                       <td><button type="button" onClick={() => handlePreviewClick(item)} title="Preview file" style={{ border: 0, padding: 0, background: "transparent", cursor: "pointer" }}>{renderPreview(item)}</button></td>
                       <td>
                         <FileLink href={item.url} onClick={(e) => { e.preventDefault(); handleDownloadClick(item); }}>
-                          <FaDownload style={{ flexShrink: 0, color: "var(--chakra-colors-brandPrimary)" }} />
+                          <FaDownload style={{ flexShrink: 0, color: "var(--chakra-colors-brandText)" }} />
                           {item.name}
                         </FileLink>
                         <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
@@ -1516,9 +1516,9 @@ export default function AdminDashboard() {
         )}
       </ContentContainer>
       {previewItem && <div role="dialog" aria-modal="true" aria-label="File preview" onClick={closePreview} style={{ position: "fixed", inset: 0, zIndex: 12000, background: "rgba(0,0,0,.76)", backdropFilter: "blur(8px)", padding: 20, display: "grid", placeItems: "center" }}>
-          <div onClick={(event) => event.stopPropagation()} style={{ width: "min(760px, 100%)", maxHeight: "90dvh", overflow: "auto", borderRadius: 20, padding: 16, background: "#151720", border: "1px solid rgba(255,255,255,.14)", boxShadow: "0 28px 80px rgba(0,0,0,.55)" }}>
+          <div onClick={(event) => event.stopPropagation()} style={{ width: "min(760px, 100%)", maxHeight: "90dvh", overflow: "auto", borderRadius: 20, padding: 16, background: "var(--chakra-colors-surface)", border: "1px solid var(--chakra-colors-border)", boxShadow: "0 28px 80px rgba(0,0,0,.55)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}><strong style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{previewItem.name}</strong><ActionButton onClick={closePreview}>Close</ActionButton></div>
-          {(previewItem.type || "").startsWith("image/") ? <img src={previewItem.url} alt={previewItem.name} style={{ display: "block", width: "100%", maxHeight: "68dvh", objectFit: "contain", borderRadius: 12, background: "#090a0e" }} /> : (previewItem.type || "").startsWith("video/") ? <video src={previewItem.url} controls autoPlay playsInline style={{ display: "block", width: "100%", maxHeight: "68dvh", borderRadius: 12, background: "#090a0e" }} /> : <a href={previewItem.url} target="_blank" rel="noreferrer" style={{ display: "block", padding: 30, textAlign: "center", color: "var(--chakra-colors-brandPrimary)" }}>Open this file in a new tab</a>}
+          {(previewItem.type || "").startsWith("image/") ? <img src={previewItem.url} alt={previewItem.name} style={{ display: "block", width: "100%", maxHeight: "68dvh", objectFit: "contain", borderRadius: 12, background: "#090a0e" }} /> : (previewItem.type || "").startsWith("video/") ? <video src={previewItem.url} controls autoPlay playsInline style={{ display: "block", width: "100%", maxHeight: "68dvh", borderRadius: 12, background: "#090a0e" }} /> : <a href={previewItem.url} target="_blank" rel="noreferrer" style={{ display: "block", padding: 30, textAlign: "center", color: "var(--chakra-colors-brandText)" }}>Open this file in a new tab</a>}
         </div>
       </div>}
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>

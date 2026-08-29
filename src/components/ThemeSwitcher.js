@@ -28,7 +28,7 @@ const SettingsButton = styled.button`
   &:hover {
     opacity: 1;
     background: var(--chakra-colors-surfaceHover);
-    border-color: var(--chakra-colors-brandPrimary);
+    border-color: var(--chakra-colors-brandText);
     /* signature gear rotation kept */
     transform: rotate(45deg) scale(1.05);
     box-shadow: 0 0 12px var(--chakra-colors-brandGlow);
@@ -138,7 +138,7 @@ const CloseButton = styled.button`
   &:hover {
     color: var(--chakra-colors-textPrimary);
     background: var(--chakra-colors-surfaceHover);
-    border-color: var(--chakra-colors-brandPrimary);
+    border-color: var(--chakra-colors-brandText);
     transform: scale(1.05);
   }
 `;
@@ -186,7 +186,7 @@ const ThemeOption = styled.button`
   &:hover {
     background: var(--chakra-colors-surfaceHover);
     transform: translateY(-2px);
-    border-color: ${(p) => (p.$active ? "var(--chakra-colors-brandPrimary)" : "var(--chakra-colors-brandSecondary)")};
+    border-color: ${(p) => (p.$active ? "var(--chakra-colors-brandText)" : "var(--chakra-colors-brandSecondary)")};
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
   }
 `;
@@ -211,7 +211,7 @@ const FontOption = styled.button`
   padding: 12px 14px;
   min-height: 48px;
   border-radius: 14px;
-  border: 1px solid ${(p) => (p.$active ? "var(--chakra-colors-brandPrimary)" : "var(--chakra-colors-border)")};
+  border: 1px solid ${(p) => (p.$active ? "var(--chakra-colors-brandText)" : "var(--chakra-colors-border)")};
   background: ${(p) => (p.$active ? "var(--chakra-colors-badgeBg)" : "var(--chakra-colors-bg)")};
   color: var(--chakra-colors-textPrimary);
   cursor: pointer;
@@ -228,7 +228,7 @@ const FontOption = styled.button`
   &:hover {
     background: var(--chakra-colors-surfaceHover);
     transform: translateY(-2px);
-    border-color: ${(p) => (p.$active ? "var(--chakra-colors-brandPrimary)" : "var(--chakra-colors-brandSecondary)")};
+    border-color: ${(p) => (p.$active ? "var(--chakra-colors-brandText)" : "var(--chakra-colors-brandSecondary)")};
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   }
 `;

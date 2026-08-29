@@ -2587,9 +2587,19 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
             params.encodings[0].maxBitrate = targetBitrate;
             params.encodings[0].scaleResolutionDownBy = scaleFactor;
             params.encodings[0].maxFramerate = maxFps;
-            // Camera & streamed media: keep motion smooth under congestion
-            // (drop resolution, never devolve into a slideshow).
-            params.degradationPreference = "maintain-framerate";
+            if (screenStreamRef.current) {
+              // Screen share: protect text sharpness. Under congestion drop
+              // framerate, never resolution, and keep a legible bitrate floor
+              // so the share never degrades into a blurry slideshow.
+              params.degradationPreference = "maintain-resolution";
+              params.encodings[0].scaleResolutionDownBy = 1;
+              params.encodings[0].maxBitrate = Math.max(targetBitrate, 1000000);
+              params.encodings[0].maxFramerate = Math.min(maxFps, 30);
+            } else {
+              // Camera & streamed media: keep motion smooth under congestion
+              // (drop resolution, never devolve into a slideshow).
+              params.degradationPreference = "maintain-framerate";
+            }
             sender.setParameters(params).catch(() => {});
           } else if (sender.track?.kind === "audio") {
             const params = sender.getParameters();
@@ -3655,8 +3665,14 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
   const startScreenShare = async () => {
     try {
-      const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
-      try { screenStream.getVideoTracks()[0].contentHint = "motion"; } catch (e) {}
+      const screenStream = await navigator.mediaDevices.getDisplayMedia({
+        video: {
+          width: { ideal: 1920, max: 1920 },
+          height: { ideal: 1080, max: 1080 },
+          frameRate: { ideal: 30, max: 30 }
+        },
+        audio: true
+      });
       screenStreamRef.current = screenStream;
 
       // Hint the encoder for text/detail sharpness at low bitrates
@@ -3698,12 +3714,15 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         pc.getSenders().forEach(sender => {
           if (sender.track?.kind === "video" && mixedVideoTrack) {
             sender.replaceTrack(mixedVideoTrack);
-            // Screen content: protect resolution (readable text) over framerate
+            // Screen content: protect resolution (readable text) over framerate,
+            // cap the encoder so it never lags behind the display capture.
             try {
               const params = sender.getParameters();
               if (!params.encodings || params.encodings.length === 0) params.encodings = [{}];
-              params.encodings[0].maxBitrate = Math.max(params.encodings[0].maxBitrate || 0, 2000000);
-              params.degradationPreference = "balanced";
+              params.encodings[0].maxBitrate = bandwidthModeRef.current === "saver" ? 1200000 : 2500000;
+              params.encodings[0].maxFramerate = 30;
+              params.encodings[0].scaleResolutionDownBy = 1;
+              params.degradationPreference = "maintain-resolution";
               sender.setParameters(params).catch(() => {});
             } catch (e) {}
           }

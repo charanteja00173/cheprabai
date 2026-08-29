@@ -28,7 +28,10 @@ import {
   FaShare,
   FaBookmark,
   FaRegBookmark,
-  FaCopy
+  FaCopy,
+  FaCrown,
+  FaCheck,
+  FaTimes
 } from "react-icons/fa";
 import { HiGif } from "react-icons/hi2";
 import { FaVideo } from "react-icons/fa";
@@ -53,6 +56,14 @@ import {
 } from "../utils/crypto";
 import { copyRoomShareLink, parseRoomRouteParams } from "../utils/shareLink";
 import { safeCopyText, safeCopyImage } from "../utils/clipboard";
+import {
+  PLAN_META,
+  PLAN_LIMIT_LABELS,
+  planLimitValue,
+  FEATURE_GROUPS as PLAN_FEATURE_GROUPS,
+  planIncludes,
+} from "../lib/planSpecs";
+
 // Lazy-load heavy components with retry — survives flaky networks and
 // stale tabs after redeploys (the classic "Loading chunk N failed" error).
 // Retries the import a few times; if the chunk is still missing it means the
@@ -2030,6 +2041,22 @@ const PreviewOverlay = styled.div`
   z-index: 10001;
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   animation: ${fadeIn} 0.3s ease-out;
+`;
+
+const PlanModalOverlay = styled(PreviewOverlay)`
+  z-index: 10002;
+`;
+
+const PlanModalCard = styled.div`
+  width: min(440px, calc(100vw - 32px));
+  background: var(--chakra-colors-surface);
+  border: 1px solid var(--chakra-colors-border);
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: var(--chakra-shadows-cardShadowHover);
+  animation: ${popIn} 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  max-height: 90dvh;
+  overflow-y: auto;
 `;
 
 const PreviewModal = styled.div`
@@ -5089,6 +5116,11 @@ export default function ChatRoom() {
   const [meetingBoardOpen, setMeetingBoardOpen] = useState(false);
   const [showMeeting, setShowMeeting] = useState(false);
   const closeMeeting = useCallback(() => { setMeetingBoardOpen(false); setShowMeeting(false); }, []);
+  const [roomPlan, setRoomPlan] = useState(null);
+  const [roomPlanLimits, setRoomPlanLimits] = useState({});
+  const planAutoOpenedRef = useRef(false);
+  const [planOverride, setPlanOverride] = useState(null);
+  const [showPlanModal, setShowPlanModal] = useState(false);
   const [incomingCall, setIncomingCall] = useState(null);
   const ringtoneRef = useRef(null);
   const [showRoomInfo, setShowRoomInfo] = useState(false);
@@ -5689,6 +5721,41 @@ export default function ChatRoom() {
       .catch(() => { });
     return () => { cancelled = true; };
   }, [backendUrl]);
+
+  // Room subscription plan: fetched on join (retried until the backend has
+  // registered the room), refreshed live via roomPlanUpdated socket events
+  useEffect(() => {
+    const trimmed = roomId.trim();
+    if (!joined || !trimmed) return;
+    let cancelled = false;
+    let timer = null;
+    let attempts = 0;
+    const attempt = () => {
+      if (cancelled) return;
+      attempts += 1;
+      fetch(`${backendUrl}/api/platform/rooms/${encodeURIComponent(trimmed)}/plan`)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (cancelled) return;
+          if (data && data.plan) {
+            setRoomPlan(data.plan);
+            setRoomPlanLimits(data.limits || {});
+            setPlanOverride(data.planOverride || null);
+            if (data.plan === "free" && !planAutoOpenedRef.current) {
+              planAutoOpenedRef.current = true;
+              setShowPlanModal(true);
+            }
+            return;
+          }
+          if (attempts < 8) timer = setTimeout(attempt, 1200);
+        })
+        .catch(() => {
+          if (!cancelled && attempts < 8) timer = setTimeout(attempt, 1200);
+        });
+    };
+    attempt();
+    return () => { cancelled = true; if (timer) clearTimeout(timer); };
+  }, [joined, roomId, backendUrl]);
 
   const isInitialCheckRef = useRef(true);
 
@@ -6453,6 +6520,11 @@ export default function ChatRoom() {
     });
     socketRef.current.on("roomProfiles", (profiles = {}) => {
       setParticipantProfiles(profiles);
+    });
+    socketRef.current.on("roomPlanUpdated", ({ plan, planOverride: override, limits }) => {
+      setRoomPlan(plan);
+      setRoomPlanLimits(limits || {});
+      setPlanOverride(override || null);
     });
 
     // ── Screen Capture & Screenshot Protection ──
@@ -9889,6 +9961,14 @@ export default function ChatRoom() {
               </ActionButton>
             )}
 
+            <ActionButton
+              onClick={() => setShowPlanModal(true)}
+              title={`Room Subscription Plan${roomPlan ? ` — ${roomPlan}` : ""}`}
+              style={{ color: roomPlan === "pro" ? "#818cf8" : roomPlan === "enterprise" ? "#f59e0b" : undefined }}
+            >
+              <FaCrown />
+            </ActionButton>
+
             <ActionButton onClick={handleShareRoomLink} title="Copy Invite Link">
               <FaShare />
             </ActionButton>
@@ -10681,6 +10761,94 @@ export default function ChatRoom() {
               </PreviewActions>
             </PreviewModal>
           </PreviewOverlay>
+        )}
+
+        {showPlanModal && (
+          <PlanModalOverlay onClick={() => setShowPlanModal(false)}>
+            <PlanModalCard onClick={(e) => e.stopPropagation()}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 14 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <FaCrown size={22} color={(PLAN_META[roomPlan]?.color) || "#f59e0b"} />
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: "1.05rem", color: "var(--chakra-colors-textPrimary)" }}>Room Subscription Plan</div>
+                    <div style={{ fontSize: "0.78rem", color: "var(--chakra-colors-textSecondary)" }}>Room #{roomId}</div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowPlanModal(false)}
+                  title="Close"
+                  style={{ background: "rgba(255,107,107,0.12)", border: "1px solid rgba(255,107,107,0.22)", color: "var(--chakra-colors-textPrimary)", width: 36, height: 36, borderRadius: 10, cursor: "pointer", display: "grid", placeItems: "center", flexShrink: 0 }}
+                >
+                  <AiOutlineClose />
+                </button>
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 16px", borderRadius: 14, border: `1px solid ${(PLAN_META[roomPlan]?.color || "#f59e0b")}55`, background: `${PLAN_META[roomPlan]?.color || "#f59e0b"}14`, marginBottom: 16 }}>
+                <span style={{ fontWeight: 800, textTransform: "capitalize", color: PLAN_META[roomPlan]?.color || "#f59e0b", fontSize: "1.15rem" }}>{roomPlan || "—"}</span>
+                {planOverride && (
+                  <span style={{ fontSize: "0.66rem", color: "var(--chakra-colors-textSecondary)", background: "rgba(255,255,255,0.06)", padding: "2px 8px", borderRadius: 99, fontWeight: 700 }}>custom for this room</span>
+                )}
+                <span style={{ marginLeft: "auto", fontSize: "0.72rem", color: "var(--chakra-colors-textSecondary)" }}>
+                  {PLAN_META[roomPlan]?.desc || ""}
+                </span>
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {Object.entries(roomPlanLimits || {}).length > 0 ? (
+                  Object.entries(roomPlanLimits).map(([key, value]) => (
+                    <div key={key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", background: "var(--chakra-colors-badgeBg)", borderRadius: 10, fontSize: "0.8rem" }}>
+                      <span style={{ color: "var(--chakra-colors-textSecondary)" }}>{PLAN_LIMIT_LABELS[key] || key}</span>
+                      <span style={{ fontWeight: 800, color: "var(--chakra-colors-textPrimary)" }}>{planLimitValue(value)}</span>
+                    </div>
+                  ))
+                ) : (
+                  <div style={{ padding: "12px 12px", background: "var(--chakra-colors-badgeBg)", borderRadius: 10, fontSize: "0.8rem", color: "var(--chakra-colors-textSecondary)" }}>
+                    Plan limits are managed by the platform admin.
+                  </div>
+                )}
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "18px 0 10px" }}>
+                <span style={{ fontSize: "0.72rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "1.4px", color: "var(--chakra-colors-textSecondary)" }}>Included features</span>
+                <span style={{ flex: 1, height: 1, background: "var(--chakra-colors-border)" }} />
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {PLAN_FEATURE_GROUPS.map((group) => (
+                  <div key={group.label}>
+                    <div style={{ fontSize: "0.7rem", fontWeight: 800, color: "var(--chakra-colors-textSecondary)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.6px" }}>
+                      {group.label}
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 5 }}>
+                      {group.features.map((feat) => {
+                        const included = planIncludes(roomPlan, feat.key);
+                        const accent = (PLAN_META[roomPlan]?.color) || "#f59e0b";
+                        return (
+                          <div
+                            key={feat.key}
+                            title={`${feat.label} — ${feat.desc}`}
+                            style={{ display: "flex", alignItems: "center", gap: 7, padding: "6px 8px", borderRadius: 9, background: "var(--chakra-colors-badgeBg)", fontSize: "0.74rem", color: "var(--chakra-colors-textPrimary)", opacity: included ? 1 : 0.62 }}
+                          >
+                            {included ? (
+                              <FaCheck size={11} color={accent} style={{ flexShrink: 0 }} />
+                            ) : (
+                              <FaTimes size={11} color="var(--chakra-colors-textMuted)" style={{ flexShrink: 0 }} />
+                            )}
+                            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{feat.label}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ fontSize: "0.78rem", color: "var(--chakra-colors-textSecondary)", lineHeight: 1.55, paddingTop: 14, marginTop: 16, borderTop: "1px solid var(--chakra-colors-border)" }}>
+                This room's plan is set by the platform admin. Need a bigger plan? Ask the admin to change it from the admin panel.
+              </div>
+            </PlanModalCard>
+          </PlanModalOverlay>
         )}
 
         {isStealthMode ? (

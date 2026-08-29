@@ -640,6 +640,33 @@ export function createAppTheme(themeKey = "default", fontKey = "inter") {
     return `rgba(${hexToRgb(activeTheme.colors.primary)}, ${opacity})`;
   };
 
+  const relLum = (r, g, b) => {
+    const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+    return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+  };
+  const contrast = (la, lb) => {
+    const a = la + 0.05;
+    const b = lb + 0.05;
+    return Math.max(a, b) / Math.min(a, b);
+  };
+
+  // Readable brand accent: in light mode keep the theme identity as-is; in dark
+  // mode lift the primary toward white until it clears WCAG contrast ~4:1 against
+  // the dark surface (near-black primaries such as Pitch Black/Obsidian are
+  // otherwise invisible when used as text/fill).
+  const getBrandText = (m, hex) => {
+    const [r, g, b] = hexToRgbArr(hex);
+    if (m === "light") return `rgb(${r}, ${g}, ${b})`;
+    const targetLum = relLum(...hexToRgbArr(activeTheme.colors.darkSurface));
+    for (let amt = 0; amt <= 1; amt += 0.05) {
+      const nr = Math.round(r + (255 - r) * amt);
+      const ng = Math.round(g + (255 - g) * amt);
+      const nb = Math.round(b + (255 - b) * amt);
+      if (contrast(relLum(nr, ng, nb), targetLum) >= 4 || amt >= 1) return `rgb(${nr}, ${ng}, ${nb})`;
+    }
+    return "rgb(255, 255, 255)";
+  };
+
   return {
     "--chakra-colors-bg": getBg(mode),
     "--chakra-colors-surface": getSurface(mode),
@@ -655,6 +682,9 @@ export function createAppTheme(themeKey = "default", fontKey = "inter") {
     "--chakra-colors-brandAccent": activeTheme.colors.accent,
     "--chakra-colors-brandHover": activeTheme.colors.hover,
     "--chakra-colors-brandGlow": activeTheme.colors.glow,
+    "--chakra-colors-brandText": getBrandText(mode, activeTheme.colors.primary),
+    "--chakra-colors-brandTextSecondary": getBrandText(mode, activeTheme.colors.secondary),
+    "--chakra-colors-onBrand": isLightOnly ? "#FFFFFF" : "#0B0F19",
     "--chakra-colors-glassBg": getGlassBg(mode),
     "--chakra-colors-badgeBg": getBadgeBg(mode),
     "--chakra-colors-badgeBorder": getBadgeBorder(mode),
