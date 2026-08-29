@@ -104,9 +104,9 @@ const HeaderActions = styled.div`
 `;
 
 const IconButton = styled.button`
-  background: ${(props) => (props.$danger ? "rgba(255, 71, 87, 0.1)" : "var(--chakra-colors-badgeBg)")};
-  color: ${(props) => (props.$danger ? "#ff4757" : "var(--chakra-colors-textPrimary)")};
-  border: 1px solid ${(props) => (props.$danger ? "rgba(255, 71, 87, 0.25)" : "var(--chakra-colors-border)")};
+  background: ${(props) => (props.$danger ? "var(--chakra-colors-dangerBg)" : "var(--chakra-colors-badgeBg)")};
+  color: ${(props) => (props.$danger ? "var(--chakra-colors-danger)" : "var(--chakra-colors-textPrimary)")};
+  border: 1px solid ${(props) => (props.$danger ? "var(--chakra-colors-dangerBorder)" : "var(--chakra-colors-border)")};
   width: clamp(36px, 4vw, 44px);
   height: clamp(36px, 4vw, 44px);
   border-radius: clamp(8px, 1.5vw, 12px);
@@ -147,8 +147,8 @@ const IconButton = styled.button`
   }
 
   &:hover {
-    background: ${(props) => (props.$danger ? "#ff4757" : "var(--chakra-colors-surfaceHover)")};
-    color: var(--chakra-colors-textPrimary);
+    background: ${(props) => (props.$danger ? "var(--chakra-colors-dangerHover)" : "var(--chakra-colors-surfaceHover)")};
+    color: ${(props) => (props.$danger ? "var(--chakra-colors-onDanger)" : "var(--chakra-colors-textPrimary)")};
     transform: translateY(-2px);
   }
 

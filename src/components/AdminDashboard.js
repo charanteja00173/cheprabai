@@ -480,18 +480,18 @@ const RoundActionBtn = styled.button`
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  border: 1px solid ${(p) => (p.$danger ? "rgba(255,71,87,0.25)" : "var(--chakra-colors-border)")};
-  background: ${(p) => (p.$danger ? "rgba(255,71,87,0.06)" : "var(--chakra-colors-featuredBg)")};
-  color: ${(p) => (p.$danger ? "#ff4757" : "var(--chakra-colors-textSecondary)")};
+  border: 1px solid ${(p) => (p.$danger ? "var(--chakra-colors-dangerBorder)" : "var(--chakra-colors-border)")};
+  background: ${(p) => (p.$danger ? "var(--chakra-colors-dangerSoft)" : "var(--chakra-colors-featuredBg)")};
+  color: ${(p) => (p.$danger ? "var(--chakra-colors-danger)" : "var(--chakra-colors-textSecondary)")};
   display: grid;
   place-items: center;
   cursor: pointer;
   transition: all 0.2s ease;
 
   &:hover {
-    background: ${(p) => (p.$danger ? "#ff4757" : "var(--chakra-colors-badgeBg)")};
-    color: ${(p) => (p.$danger ? "#fff" : "var(--chakra-colors-textPrimary)")};
-    border-color: ${(p) => (p.$danger ? "#ff4757" : "var(--chakra-colors-badgeBorder)")};
+    background: ${(p) => (p.$danger ? "var(--chakra-colors-dangerHover)" : "var(--chakra-colors-badgeBg)")};
+    color: ${(p) => (p.$danger ? "var(--chakra-colors-onDanger)" : "var(--chakra-colors-textPrimary)")};
+    border-color: ${(p) => (p.$danger ? "var(--chakra-colors-danger)" : "var(--chakra-colors-badgeBorder)")};
     transform: scale(1.05);
   }
 `;
@@ -534,9 +534,9 @@ const MobileCardRow = styled.div`
 `;
 
 const ActionButton = styled.button`
-  background: ${props => props.$danger ? "rgba(255, 71, 87, 0.1)" : "var(--chakra-colors-badgeBg)"};
-  color: ${props => props.$danger ? "#ff4757" : "var(--chakra-colors-textPrimary)"};
-  border: 1px solid ${props => props.$danger ? "rgba(255, 71, 87, 0.2)" : "var(--chakra-colors-badgeBorder)"};
+  background: ${props => props.$danger ? "var(--chakra-colors-dangerBg)" : "var(--chakra-colors-badgeBg)"};
+  color: ${props => props.$danger ? "var(--chakra-colors-danger)" : "var(--chakra-colors-textPrimary)"};
+  border: 1px solid ${props => props.$danger ? "var(--chakra-colors-dangerBorder)" : "var(--chakra-colors-badgeBorder)"};
   padding: 8px 12px;
   border-radius: 8px;
   cursor: pointer;
@@ -548,8 +548,8 @@ const ActionButton = styled.button`
   transition: all 0.2s ease;
 
   &:hover {
-    background: ${props => props.$danger ? "#ff4757" : "var(--chakra-colors-surfaceHover)"};
-    color: ${props => props.$danger ? "#fff" : "var(--chakra-colors-textPrimary)"};
+    background: ${props => props.$danger ? "var(--chakra-colors-dangerHover)" : "var(--chakra-colors-surfaceHover)"};
+    color: ${props => props.$danger ? "var(--chakra-colors-onDanger)" : "var(--chakra-colors-textPrimary)"};
     transform: translateY(-1px);
   }
 `;

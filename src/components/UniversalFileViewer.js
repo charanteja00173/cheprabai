@@ -126,12 +126,12 @@ const ActionButton = styled.button`
   font-size: 0.75rem;
   font-weight: 700;
   transition: all 0.16s ease;
-  background: ${(p) => (p.$danger ? "#ef4444" : "rgba(255,255,255,0.055)")};
-  border: 1px solid ${(p) => (p.$danger ? "#ef4444" : "rgba(255,255,255,0.07)")};
-  color: #fff;
+  background: ${(p) => (p.$danger ? "var(--chakra-colors-danger)" : "rgba(255,255,255,0.055)")};
+  border: 1px solid ${(p) => (p.$danger ? "var(--chakra-colors-danger)" : "rgba(255,255,255,0.07)")};
+  color: ${(p) => (p.$danger ? "var(--chakra-colors-onDanger)" : "#fff")};
 
   &:hover {
-    background: ${(p) => (p.$danger ? "#dc2626" : "rgba(255,255,255,0.13)")};
+    background: ${(p) => (p.$danger ? "var(--chakra-colors-dangerHover)" : "rgba(255,255,255,0.13)")};
     transform: translateY(-1px);
   }
   &:active { transform: scale(0.95); }

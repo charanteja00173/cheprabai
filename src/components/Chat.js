@@ -1195,9 +1195,9 @@ const BubbleActionButton = styled.button`
   font-size: 0.85rem;
 
   &:hover {
-    background: ${(p) => p.$danger ? "rgba(255, 71, 87, 0.15)" : p.$active ? "rgba(255, 165, 0, 0.18)" : "var(--chakra-colors-surfaceHover)"};
-    color: ${(p) => p.$danger ? "#ff6b6b" : p.$active ? "#ffa500" : "var(--chakra-colors-brandPrimary)"};
-    border-color: ${(p) => p.$danger ? "rgba(255, 107, 107, 0.3)" : p.$active ? "rgba(255, 165, 0, 0.35)" : "var(--chakra-colors-brandPrimary)"};
+    background: ${(p) => p.$danger ? "var(--chakra-colors-dangerBg)" : p.$active ? "rgba(255, 165, 0, 0.18)" : "var(--chakra-colors-surfaceHover)"};
+    color: ${(p) => p.$danger ? "var(--chakra-colors-danger)" : p.$active ? "#ffa500" : "var(--chakra-colors-brandPrimary)"};
+    border-color: ${(p) => p.$danger ? "var(--chakra-colors-dangerBorder)" : p.$active ? "rgba(255, 165, 0, 0.35)" : "var(--chakra-colors-brandPrimary)"};
     transform: translateY(-1.5px) scale(1.05);
   }
 
@@ -4471,7 +4471,7 @@ function ViewOnceText({ text, messageId, onRevealComplete }) {
   );
 }
 
-function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile, setViewer, reactions, messageId, onToggleReaction }) {
+function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile, setViewer, reactions, messageId, onToggleReaction, reactionsEnabled = true }) {
   const fileType = getFileType(file);
   const [decryptedUrl, setDecryptedUrl] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -4495,7 +4495,7 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile, setViewer,
   const lastDecryptedSourceUrlRef = useRef(null);
   const bypassProxyRef = useRef(false);
 
-  const hasReactions = Object.keys(reactions || {}).length > 0;
+  const hasReactions = reactionsEnabled && Object.keys(reactions || {}).length > 0;
   const InlineReactions = hasReactions ? (
     <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center", flexShrink: 0 }}>
       {Object.entries(reactions).map(([emoji, users]) => (
@@ -7449,6 +7449,10 @@ export default function ChatRoom() {
   };
 
   const toggleReaction = (messageId, emoji) => {
+    if (features.reactions === false) {
+      toast.error("Reactions are currently disabled by the admin.");
+      return;
+    }
     const localId = socketRef.current?.id || "local";
     setMessages((items) => items.map((item) => {
       if (item.id !== messageId) return item;
@@ -7467,6 +7471,7 @@ export default function ChatRoom() {
 
   const lastTypingEmitRef = useRef(0);
   const handleTyping = (value) => {
+    if (features.typingIndicators === false) return;
     const now = Date.now();
     if (now - lastTypingEmitRef.current < 500) return; // throttle to 500ms
     lastTypingEmitRef.current = now;
@@ -7496,6 +7501,7 @@ export default function ChatRoom() {
 
   const stopTyping = () => {
     clearTimeout(typingTimeout.current);
+    if (features.typingIndicators === false) return;
     socketRef.current?.emit("typing", { isTyping: false, roomId });
   };
 
@@ -7615,6 +7621,10 @@ export default function ChatRoom() {
     e.stopPropagation();
     setIsDragOver(false);
     dragCounterRef.current = 0;
+    if (features.fileSharing === false) {
+      toast.error("File sharing is currently disabled by the admin.");
+      return;
+    }
     const files = Array.from(e.dataTransfer?.files || []);
     if (files.length > 0) {
       setPendingFiles((prev) => [...prev, ...files]);
@@ -7959,6 +7969,7 @@ export default function ChatRoom() {
   }, [showDiagnostics]);
 
   const requestAvatarChange = (value) => {
+    if (features.profiles === false) return;
     if (!value) return;
     setConfirmation({
       title: "Update your profile photo?",
@@ -8777,6 +8788,7 @@ export default function ChatRoom() {
                 <FieldIcon><UserRound size={18} /></FieldIcon>
               </JoinField>
 
+              {features.profiles !== false && (
               <JoinField style={{ animation: "fade-in-up .55s ease-out both", animationDelay: "280ms" }}>
                 <JoinLabel>Profile photo <span style={{ opacity: .65, fontWeight: 500 }}>(optional)</span></JoinLabel>
                 <AvatarPicker>
@@ -8786,6 +8798,7 @@ export default function ChatRoom() {
                   <input type="file" accept="image/*" hidden onChange={(e) => openAvatarCrop(e.target.files?.[0])} />
                 </AvatarPicker>
               </JoinField>
+              )}
 
               <JoinField style={{ animation: "fade-in-up .55s ease-out both", animationDelay: "360ms" }}>
                 <JoinLabel htmlFor="security-code">Security code</JoinLabel>
@@ -9029,6 +9042,14 @@ export default function ChatRoom() {
       }
 
       // Generic link card with rich preview
+      if (features.linkPreviews === false) {
+        return (
+          <span key={i}>
+            <a href={part} target="_blank" rel="noopener noreferrer" style={{ color: "var(--chakra-colors-brandPrimary)", wordBreak: "break-all" }}>{part}</a>
+            {renderLinkActions(part)}
+          </span>
+        );
+      }
       return <LinkPreviewCard key={i} url={part} renderLinkActions={renderLinkActions} />;
     });
   };
@@ -9558,8 +9579,8 @@ export default function ChatRoom() {
                                   onClick={() => handleKickFromRoom(u.id, u.name)}
                                   style={{
                                     border: 0,
-                                    background: "rgba(239, 68, 68, 0.1)",
-                                    color: "#ef4444",
+                                    background: "var(--chakra-colors-dangerBg)",
+                                    color: "var(--chakra-colors-danger)",
                                     padding: "2px 8px",
                                     borderRadius: 6,
                                     fontSize: "0.65rem",
@@ -9579,7 +9600,9 @@ export default function ChatRoom() {
                       </div>
                     </div>
                     <div style={{ borderTop: "1px solid rgba(255,255,255,0.07)", paddingTop: 10, marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+                      {features.profiles !== false && (
                       <label onClick={(e) => e.stopPropagation()} style={{ display: "flex", minHeight: 44, alignItems: "center", justifyContent: "center", borderRadius: 10, cursor: "pointer", fontSize: ".8rem", fontWeight: 700, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.04)" }}>Change avatar<input type="file" accept="image/*" hidden onChange={(e) => openAvatarCrop(e.target.files?.[0])} /></label>
+                      )}
                       <label onClick={(e) => e.stopPropagation()} style={{ display: "flex", minHeight: 44, alignItems: "center", justifyContent: "center", borderRadius: 10, cursor: backgroundLocked && !ownerToken ? "not-allowed" : "pointer", opacity: backgroundLocked && !ownerToken ? .45 : 1, fontSize: ".8rem", fontWeight: 700, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.04)" }}>{backgroundLocked && !ownerToken ? "Background managed by owner" : "Change chat background"}<input type="file" disabled={backgroundLocked && !ownerToken} accept="image/*" hidden onChange={(e) => requestBackgroundChange(e.target.files?.[0])} /></label>
 
                       <button
@@ -10250,7 +10273,7 @@ export default function ChatRoom() {
                         <UploadProgressCard file={m.file} isMobile={isMobile} />
                       </div>
                     ) : (
-                      <E2EEFileAttachment file={m.file} roomKey={roomKey} setFullscreen={setFullscreen} isMobile={isMobile} setViewer={setViewer} reactions={m.reactions} messageId={m.id} onToggleReaction={toggleReaction} />
+                      <E2EEFileAttachment file={m.file} roomKey={roomKey} setFullscreen={setFullscreen} isMobile={isMobile} setViewer={setViewer} reactions={m.reactions} messageId={m.id} onToggleReaction={toggleReaction} reactionsEnabled={features.reactions !== false} />
                     )}
                   </div>
                 )}
@@ -10358,7 +10381,7 @@ export default function ChatRoom() {
                           </BubbleActionButton>
                         )}
 
-                        {(m.text || m.file || m.gif) && !m.poll && (
+                        {(m.text || m.file || m.gif) && !m.poll && features.messageForwarding !== false && (
                           <BubbleActionButton
                             type="button"
                             onClick={() => {
@@ -10408,6 +10431,7 @@ export default function ChatRoom() {
                           </BubbleActionButton>
                         )}
 
+                        {features.reactions !== false && (
                         <BubbleActionButton
                           type="button"
                           className={`reaction-btn-${m.id}`}
@@ -10419,6 +10443,7 @@ export default function ChatRoom() {
                         >
                           😊
                         </BubbleActionButton>
+                        )}
                       </div>
 
                       {reactionPickerFor === m.id && (
@@ -10513,7 +10538,7 @@ export default function ChatRoom() {
               </MessageBubble>
             );
           })}
-          {typingUsers.length > 0 && (
+          {features.typingIndicators !== false && typingUsers.length > 0 && (
             <TypingIndicator>
               {typingUsers.length === 1
                 ? `${typingUsers[0]} is typing…`
@@ -11202,6 +11227,7 @@ export default function ChatRoom() {
                       </IconButton>
                     )}
 
+                    {features.ephemeralMessages !== false && (
                     <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
                       <EphemeralToggle
                         $active={roomEphemeralDuration > 0}
@@ -11223,6 +11249,7 @@ export default function ChatRoom() {
                         </>
                       )}
                     </div>
+                  )}
                   </>
                 )}
               </InputPill>
@@ -11885,6 +11912,7 @@ export default function ChatRoom() {
               onClose={closeMeeting}
               whiteboardOpen={meetingBoardOpen}
               onToggleWhiteboard={(v) => setMeetingBoardOpen(Boolean(v))}
+              features={features}
             />
           </Suspense>
         </ChunkErrorBoundary>

@@ -667,6 +667,15 @@ export function createAppTheme(themeKey = "default", fontKey = "inter") {
     return "rgb(255, 255, 255)";
   };
 
+  // Danger/destructive accent: a red that stays readable on every surface. In
+  // light mode keep the canonical red; in dark mode lift it toward white until
+  // it clears WCAG contrast ~4:1 against the theme's dark surface.
+  const dangerHex = "#ef4444";
+  const dangerHoverHex = mode === "light" ? "#b91c1c" : "#f87171";
+  const danger = getBrandText(mode, dangerHex);
+  const dangerHover = getBrandText(mode, dangerHoverHex);
+  const dangerRgb = hexToRgb(dangerHex);
+
   return {
     "--chakra-colors-bg": getBg(mode),
     "--chakra-colors-surface": getSurface(mode),
@@ -689,6 +698,12 @@ export function createAppTheme(themeKey = "default", fontKey = "inter") {
     "--chakra-colors-badgeBg": getBadgeBg(mode),
     "--chakra-colors-badgeBorder": getBadgeBorder(mode),
     "--chakra-colors-featuredBg": getFeaturedBg(mode),
+    "--chakra-colors-danger": danger,
+    "--chakra-colors-dangerHover": dangerHover,
+    "--chakra-colors-dangerBg": `rgba(${dangerRgb}, 0.12)`,
+    "--chakra-colors-dangerSoft": `rgba(${dangerRgb}, 0.06)`,
+    "--chakra-colors-dangerBorder": `rgba(${dangerRgb}, 0.28)`,
+    "--chakra-colors-onDanger": "#FFFFFF",
     "--chakra-shadows-cardShadow": isLightOnly ? "0 4px 24px rgba(0, 0, 0, 0.04)" : "0 4px 24px rgba(0, 0, 0, 0.4)",
     "--chakra-shadows-cardShadowHover": isLightOnly ? `0 12px 40px rgba(${hexToRgb(activeTheme.colors.primary)}, 0.12)` : "0 12px 40px rgba(0, 0, 0, 0.6)",
     "--chakra-shadows-glowShadow": `0 0 40px rgba(${hexToRgb(activeTheme.colors.primary)}, 0.15)`,

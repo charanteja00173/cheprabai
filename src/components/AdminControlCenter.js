@@ -275,9 +275,9 @@ const ActionBtn = styled.button`
   min-height: 32px;
   padding: 5px 10px;
   border-radius: 8px;
-  border: 1px solid ${(p) => (p.$danger ? "rgba(255,71,87,0.2)" : "var(--chakra-colors-border)")};
-  background: ${(p) => (p.$danger ? "rgba(255,71,87,0.06)" : "var(--chakra-colors-featuredBg)")};
-  color: ${(p) => (p.$danger ? "#ff4757" : "var(--chakra-colors-textSecondary)")};
+  border: 1px solid ${(p) => (p.$danger ? "var(--chakra-colors-dangerBorder)" : "var(--chakra-colors-border)")};
+  background: ${(p) => (p.$danger ? "var(--chakra-colors-dangerSoft)" : "var(--chakra-colors-featuredBg)")};
+  color: ${(p) => (p.$danger ? "var(--chakra-colors-danger)" : "var(--chakra-colors-textSecondary)")};
   font-size: 0.72rem;
   font-weight: 700;
   cursor: pointer;
@@ -286,7 +286,7 @@ const ActionBtn = styled.button`
   justify-content: center;
   gap: 5px;
   transition: all 0.15s ease;
-  &:hover { background: ${(p) => (p.$danger ? "#ff4757" : "var(--chakra-colors-badgeBg)")}; color: ${(p) => (p.$danger ? "#fff" : "var(--chakra-colors-textPrimary)")}; }
+  &:hover { background: ${(p) => (p.$danger ? "var(--chakra-colors-dangerHover)" : "var(--chakra-colors-badgeBg)")}; color: ${(p) => (p.$danger ? "var(--chakra-colors-onDanger)" : "var(--chakra-colors-textPrimary)")}; }
 `;
 
 const RefreshBtn = styled(ActionBtn)`
@@ -533,13 +533,13 @@ const ModalBtn = styled.button`
   border-radius: 8px;
   border: ${(p) => (p.$primary ? "none" : "1px solid var(--chakra-colors-badgeBorder)")};
   background: ${(p) =>
-    p.$primary ? (p.$danger ? "#ff4757" : "var(--chakra-colors-brandText)") : "transparent"};
+    p.$primary ? (p.$danger ? "var(--chakra-colors-danger)" : "var(--chakra-colors-brandText)") : "transparent"};
   color: ${(p) => (p.$primary ? "var(--chakra-colors-onBrand)" : "var(--chakra-colors-textSecondary)")};
   font-weight: 700;
   font-size: 0.78rem;
   cursor: pointer;
   transition: all 0.15s ease;
-  &:hover { background: ${(p) => p.$primary ? (p.$danger ? "#ff2f44" : "var(--chakra-colors-brandHover)") : "var(--chakra-colors-badgeBg)"}; color: ${(p) => p.$primary ? "var(--chakra-colors-onBrand)" : "var(--chakra-colors-textPrimary)"}; }
+  &:hover { background: ${(p) => p.$primary ? (p.$danger ? "var(--chakra-colors-dangerHover)" : "var(--chakra-colors-brandHover)") : "var(--chakra-colors-badgeBg)"}; color: ${(p) => p.$primary ? "var(--chakra-colors-onBrand)" : "var(--chakra-colors-textPrimary)"}; }
 `;
 
 /* ── FORM ── */
@@ -908,9 +908,11 @@ export default function AdminControlCenter({ token, backendUrl }) {
                 )}
 
                 <CardActions>
+                  {settings.features?.stealthMode !== false && (
                   <ActionBtn onClick={() => handleStealthJoin(room.roomId)} title="Join as stealth observer">
                     <FaEyeSlash size={11} /> Stealth
                   </ActionBtn>
+                  )}
                   <ActionBtn $danger onClick={() => handleCloseRoom(room.roomId)} title="Close this room">
                     <FaTrash size={11} /> Close
                   </ActionBtn>

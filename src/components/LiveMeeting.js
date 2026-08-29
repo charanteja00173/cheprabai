@@ -516,7 +516,7 @@ const TileActionButton = styled.button`
   border-radius: 8px;
   border: none;
   background: ${props => {
-    if (props.$danger) return "rgba(239, 68, 68, 0.85)";
+    if (props.$danger) return "var(--chakra-colors-danger)";
     if (props.$active) return "rgba(245, 158, 11, 0.9)";
     return "rgba(0, 0, 0, 0.6)";
   }};
@@ -533,7 +533,7 @@ const TileActionButton = styled.button`
   &:hover {
     transform: scale(1.1);
     background: ${props => {
-      if (props.$danger) return "#ef4444";
+      if (props.$danger) return "var(--chakra-colors-dangerHover)";
       if (props.$active) return "#f59e0b";
       return "rgba(0, 0, 0, 0.85)";
     }};
@@ -701,19 +701,19 @@ const DockButton = styled.button`
   padding: 0 12px;
   border-radius: 12px;
   border: 1px solid ${props => {
-    if (props.$danger) return "rgba(255, 71, 87, 0.45)";
+    if (props.$danger) return "var(--chakra-colors-dangerBorder)";
     if (props.$warning) return "rgba(245, 158, 11, 0.35)";
     if (props.$active) return "rgba(79, 70, 229, 0.45)";
     return "rgba(255,255,255,0.07)";
   }};
   background: ${props => {
-    if (props.$danger) return "#ff4757";
+    if (props.$danger) return "var(--chakra-colors-danger)";
     if (props.$warning) return "rgba(245, 158, 11, 0.15)";
     if (props.$active) return "rgba(79, 70, 229, 0.2)";
     return "rgba(255,255,255,0.08)";
   }};
   color: ${props => {
-    if (props.$danger) return "#fff";
+    if (props.$danger) return "var(--chakra-colors-onDanger)";
     if (props.$warning) return "#fbbf24";
     if (props.$active) return "#a5b4fc";
     return "rgba(255, 255, 255, 0.85)";
@@ -730,7 +730,7 @@ const DockButton = styled.button`
   position: relative;
 
   &:hover {
-    background: ${props => props.$danger ? "#ff3344" : "rgba(255,255,255,0.07)"};
+    background: ${props => props.$danger ? "var(--chakra-colors-dangerHover)" : "rgba(255,255,255,0.07)"};
     transform: translateY(-1px);
   }
   &:active { transform: scale(0.96); }
@@ -1187,8 +1187,8 @@ const TheaterCloseBtn = styled.button`
   transition: all 0.18s ease;
 
   &:hover {
-    background: #ef4444;
-    border-color: #ef4444;
+    background: var(--chakra-colors-danger);
+    border-color: var(--chakra-colors-danger);
     transform: rotate(90deg);
   }
 
@@ -1437,7 +1437,7 @@ const FocusCard = styled.div`
       justify-content: center;
       font-size: 0.62rem;
       transition: all 0.15s;
-      &:hover { background: #ef4444; color: #fff; }
+      &:hover { background: var(--chakra-colors-danger); color: var(--chakra-colors-onDanger); }
     }
   }
 
@@ -1738,10 +1738,10 @@ const FileStreamControlsCard = styled.div`
     }
 
     &.stop-btn {
-      background: rgba(239, 68, 68, 0.15);
-      color: #ef4444;
-      border-color: rgba(239, 68, 68, 0.3);
-      &:hover { background: #ef4444; color: #fff; }
+      background: var(--chakra-colors-dangerBg);
+      color: var(--chakra-colors-danger);
+      border-color: var(--chakra-colors-dangerBorder);
+      &:hover { background: var(--chakra-colors-danger); color: var(--chakra-colors-onDanger); }
     }
 
     &.speed-btn {
@@ -2235,7 +2235,7 @@ const CallDuration = React.memo(({ startTime }) => {
 /* ═══════════════════════════════ MAIN COMPONENT ═══════════════════════════════ */
 const WhiteboardLazy = lazy(() => import("./Whiteboard"));
 
-export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin, ownerToken, userAvatar, onOpenWhiteboard, whiteboardOpen = false, onToggleWhiteboard }) {
+export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin, ownerToken, userAvatar, onOpenWhiteboard, whiteboardOpen = false, onToggleWhiteboard, features = {} }) {
   // ── States ──
   const [localStream, setLocalStream] = useState(null);
 
@@ -3338,6 +3338,12 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
           setTimeout(() => setReactions(prev => prev.filter(r => r.id !== id)), 2800);
         });
 
+        // Plan limit: the room's allowed call duration has been exhausted.
+        socket.on("call-duration-limit", ({ minutes }) => {
+          toast.error(`Call limit reached — this plan allows ${minutes} minute${minutes === 1 ? "" : "s"} per call.`);
+          handleLeaveCall();
+        });
+
         // Co-watch link streaming: host pushes a URL, everyone renders it locally
         socket.on("link-watch", ({ action, url, name }) => {
           if (action === "stop") {
@@ -3367,6 +3373,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         socket.off("admin-kick-user");
         socket.off("admin-mute-user");
         socket.off("reaction");
+        socket.off("call-duration-limit");
       }
       // Stop all audio analysers (rAF loops)
       Object.keys(analyserCleanupsRef.current).forEach(id => {
@@ -3745,6 +3752,15 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   };
 
   const sendReaction = (emoji) => {
+    if (emoji === "✋") {
+      if (features.handRaise === false) {
+        toast.error("Raise hand is currently disabled by the admin.");
+        return;
+      }
+    } else if (features.reactions === false) {
+      toast.error("Reactions are currently disabled by the admin.");
+      return;
+    }
     if (socket) socket.emit("reaction", { emoji, roomId });
     const id = Date.now() + Math.random();
     setReactions(prev => [...prev, { id, emoji, x: Math.random() * 80 + 10 }]);
@@ -4301,9 +4317,11 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
               <IconButton $active={isMuted} onClick={toggleMute} title={isMuted ? "Unmute" : "Mute"}>
                 {isMuted ? <FaMicrophoneSlash /> : <FaMicrophone />}
               </IconButton>
+              {features.videoCalls !== false && (
               <IconButton $active={isVideoOff} onClick={toggleVideo} title={isVideoOff ? "Turn camera on" : "Turn camera off"}>
                 {isVideoOff ? <FaVideoSlash /> : <FaVideo />}
               </IconButton>
+              )}
               <IconButton onClick={() => setIsMinimized(false)} title="Back to full call">
                 <FaExpand />
               </IconButton>
@@ -5241,14 +5259,18 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
               <span style={{ fontSize: "0.75rem" }}>{isMuted ? "Unmute" : "Mute"}</span>
             </DockButton>
 
+            {features.videoCalls !== false && (
             <DockButton $danger={isVideoOff} onClick={toggleVideo} title={isVideoOff ? "Start Video" : "Stop Video"}>
               {isVideoOff ? <FaVideoSlash /> : <FaVideo />}
               <span style={{ fontSize: "0.75rem" }}>{isVideoOff ? "Start Video" : "Stop Video"}</span>
             </DockButton>
+            )}
 
+            {features.videoCalls !== false && (
             <DockButton onClick={flipCamera} title="Flip Camera">
               <FaExchangeAlt />
             </DockButton>
+            )}
 
             {/* Voice Changer */}
             <div style={{ position: "relative" }}>
@@ -5276,7 +5298,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
               )}
             </div>
 
-            {/* Video Filter */}
+            {features.videoCalls !== false && (<> {/* Video Filter */}
             <div style={{ position: "relative" }}>
               <DockButton $active={videoFilter !== "none"} onClick={() => { setShowVideoMenu(!showVideoMenu); setShowVoiceMenu(false); }} title="Video Filter">
                 <FaPalette />
@@ -5295,15 +5317,18 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                     <button key={opt.id} onClick={() => { setVideoFilter(opt.id); setShowVideoMenu(false); toast.info(`Filter: ${opt.label}`, { autoClose: 1500 }); }} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 10, border: "none", background: videoFilter === opt.id ? "rgba(99,102,241,0.18)" : "transparent", color: videoFilter === opt.id ? "#a5b4fc" : "rgba(255,255,255,0.85)", fontSize: "0.78rem", fontWeight: 600, textAlign: "left", cursor: "pointer" }}>
                       <div><span>{opt.label}</span><br /><span style={{ fontSize: "0.65rem", opacity: 0.6 }}>{opt.desc}</span></div>
                     </button>
-                  ))}
+))}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+            </>)}
 
+            {features.screenSharing !== false && (
             <DockButton onClick={startScreenShare} title="Share Screen">
               <FaDesktop />
               <span style={{ fontSize: "0.75rem" }}>Share</span>
             </DockButton>
+            )}
 
             {/* Admin Video & Audio / Link Streaming */}
             {isRoomHost && (
@@ -5341,6 +5366,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
             <DockDivider />
 
             {/* Emoji Reactions */}
+            {features.reactions !== false && (
             <EmojiTray>
               {["👏", "❤️", "😂", "🔥"].map(emoji => (
                 <DockButton key={emoji} onClick={() => sendReaction(emoji)} style={{ minWidth: 38, padding: "0 8px" }}>
@@ -5348,10 +5374,13 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                 </DockButton>
               ))}
             </EmojiTray>
+            )}
 
+            {features.handRaise !== false && (
             <DockButton onClick={() => sendReaction("✋")} title="Raise Hand">
               <FaHandPaper />
             </DockButton>
+            )}
 
             <DockButton onClick={() => { setShowDiagnosticsModal(true); runConnectionTest(); }} title="Test Connection">
               <FaWifi />
@@ -5361,7 +5390,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
             <DockDivider />
 
             {/* Recording (Host) */}
-            {isRoomHost && (
+            {isRoomHost && features.meetingRecording !== false && (
               <DockButton $danger={isRecording} onClick={toggleRecording} title="Record Meeting">
                 <FaRecordVinyl />
                 <span style={{ fontSize: "0.75rem" }}>{isRecording ? "Recording..." : "Record"}</span>
@@ -5380,25 +5409,31 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
             <DockButton $danger={isMuted} onClick={toggleMute} title={isMuted ? "Unmute Mic" : "Mute Mic"}>
               {isMuted ? <FaMicrophoneSlash /> : <FaMicrophone />}
             </DockButton>
+            {features.videoCalls !== false && (
             <DockButton $danger={isVideoOff} onClick={toggleVideo} title={isVideoOff ? "Start Video" : "Stop Video"}>
               {isVideoOff ? <FaVideoSlash /> : <FaVideo />}
             </DockButton>
+            )}
+            {features.screenSharing !== false && (
             <DockButton onClick={startScreenShare} title="Share Screen">
               <FaDesktop />
             </DockButton>
+            )}
             {isRoomHost && (
               <DockButton $active={isFileStreaming} onClick={() => isFileStreaming ? stopFileStream() : setShowStreamModal(true)} title={isFileStreaming ? "Stop Stream" : "Stream Media"}>
                 <FaPlayCircle />
               </DockButton>
             )}
-            {isRoomHost && (
+            {isRoomHost && features.meetingRecording !== false && (
               <DockButton $danger={isRecording} onClick={toggleRecording} title="Record Meeting">
                 <FaRecordVinyl />
               </DockButton>
             )}
+            {features.handRaise !== false && (
             <DockButton onClick={() => sendReaction("✋")} title="Raise Hand">
               <FaHandPaper />
             </DockButton>
+            )}
 
             <DockButton onClick={() => { setShowDiagnosticsModal(true); runConnectionTest(); }} title="Test Connection">
               <FaWifi />
@@ -5410,9 +5445,11 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
           </MobilePrimaryRow>
 
           <MobileSecondaryRow>
+            {features.videoCalls !== false && (
             <DockButton onClick={flipCamera} title="Flip Camera">
               <FaExchangeAlt />
             </DockButton>
+            )}
             <div style={{ position: "relative" }}>
               <DockButton $active={voiceFilter !== "none"} onClick={() => { setShowVoiceMenu(!showVoiceMenu); setShowVideoMenu(false); }} title="Voice Changer">
                 <FaMagic />
@@ -5436,6 +5473,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                 </div>
               )}
             </div>
+            {features.videoCalls !== false && (<> {/* Video Filter (mobile) */}
             <div style={{ position: "relative" }}>
               <DockButton $active={videoFilter !== "none"} onClick={() => { setShowVideoMenu(!showVideoMenu); setShowVoiceMenu(false); }} title="Video Filter">
                 <FaPalette />
@@ -5457,11 +5495,14 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                 </div>
               )}
             </div>
-            {["👏", "❤️", "😂", "🔥"].map(emoji => (
+            </>)}
+            {features.reactions !== false && (
+            ["👏", "❤️", "😂", "🔥"].map(emoji => (
               <DockButton key={emoji} onClick={() => sendReaction(emoji)} style={{ minWidth: 42 }}>
                 {emoji}
               </DockButton>
-            ))}
+            ))
+            )}
             {isRoomHost && (
               <input 
                 type="file" 
@@ -5595,7 +5636,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                   <a href={coWatch.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: ".72rem", color: "#818cf8", textDecoration: "none", fontWeight: 700 }}>Open original ↗</a>
                 )}
                 {isRoomHost ? (
-                  <button type="button" onClick={stopCoWatch} style={{ marginLeft: "auto", background: "rgba(239,68,68,.15)", border: "1px solid rgba(239,68,68,.35)", color: "#f87171", fontWeight: 700, fontSize: ".74rem", padding: "6px 14px", borderRadius: 999, cursor: "pointer" }}>
+                  <button type="button" onClick={stopCoWatch} style={{ marginLeft: "auto", background: "var(--chakra-colors-dangerBg)", border: "1px solid var(--chakra-colors-dangerBorder)", color: "var(--chakra-colors-danger)", fontWeight: 700, fontSize: ".74rem", padding: "6px 14px", borderRadius: 999, cursor: "pointer" }}>
                     Stop for everyone
                   </button>
                 ) : (
