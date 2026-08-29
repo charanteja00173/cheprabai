@@ -6880,11 +6880,6 @@ export default function ChatRoom() {
       });
       await emitChunkMsg({ __livefile: "end", id: fileId }).then((id) => sentIds.push(id));
 
-      // Scrub the relay chunks from history — the transfer happened, not the record.
-      sentIds.forEach((mid, i) => setTimeout(() => {
-        socketRef.current.emit("deleteOwnMessage", { messageId: mid, roomId }, () => { });
-      }, i * 40));
-
       const localUrl = previewUrl || URL.createObjectURL(file);
       setMessages(m => m.map(msg => msg.id === tempId ? {
         ...msg,

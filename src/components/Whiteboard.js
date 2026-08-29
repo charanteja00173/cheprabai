@@ -170,7 +170,6 @@ const IconButton = styled.button`
 export default function Whiteboard({ socket, roomId, onClose, isAdmin, embedded = false }) {
   const appRef = useRef(null);
   const isSyncing = useRef(false);
-  const isInteracting = useRef(false);
   const [isFullScreen, setIsFullScreen] = React.useState(false);
   const isMobile = useIsMobile();
   const [showExportMenu, setShowExportMenu] = React.useState(false);
@@ -178,19 +177,35 @@ export default function Whiteboard({ socket, roomId, onClose, isAdmin, embedded 
   /* ── Content-hash dedup: prevents the infinite echo loop ── */
   const lastEmittedHash = useRef("");
 
-  /** Lightweight hash of a shapes record for dedup comparison. */
+  /** Lightweight, fast, and bulletproof hash of a shapes record for dedup comparison. */
   const hashContent = useCallback((shapesMap) => {
+    if (!shapesMap) return "";
     try {
       const ids = Object.keys(shapesMap).sort();
-      return ids.map(id => {
+      let parts = [];
+      for (const id of ids) {
         const s = shapesMap[id];
-        let h = `${id}:${s.point?.[0]|0},${s.point?.[1]|0}:${s.rotation|0}:${s.size?.[0]|0},${s.size?.[1]|0}:${s.text || ""}`;
-        if (s.points && Array.isArray(s.points)) {
-          h += `-[${s.points.map(p => `${p[0]|0},${p[1]|0}`).join(",")}]`;
+        if (!s) continue;
+        const x = s.point ? Math.round(s.point[0]) : 0;
+        const y = s.point ? Math.round(s.point[1]) : 0;
+        const r = s.rotation ? Math.round(s.rotation) : 0;
+        const w = s.size ? Math.round(s.size[0]) : 0;
+        const h = s.size ? Math.round(s.size[1]) : 0;
+        const text = s.text || "";
+        let shapeHash = `${id}:${x},${y}:${r}:${w},${h}:${text}`;
+        
+        if (s.points && Array.isArray(s.points) && s.points.length > 0) {
+          const first = s.points[0];
+          const last = s.points[s.points.length - 1];
+          shapeHash += `-[${s.points.length}:${first ? Math.round(first[0]) : 0},${first ? Math.round(first[1]) : 0}:${last ? Math.round(last[0]) : 0},${last ? Math.round(last[1]) : 0}]`;
         }
-        return h;
-      }).join("|");
-    } catch { return ""; }
+        parts.push(shapeHash);
+      }
+      return parts.join("|");
+    } catch (e) {
+      console.error("hashContent error:", e);
+      return "";
+    }
   }, []);
 
   const handleExport = useCallback(async (format) => {
@@ -217,31 +232,27 @@ export default function Whiteboard({ socket, roomId, onClose, isAdmin, embedded 
     const emptyState = { shapes: {}, bindings: {}, assets: {} };
     isSyncing.current = true;
     appRef.current.replacePageContent(emptyState.shapes, emptyState.bindings, emptyState.assets);
-    isSyncing.current = false;
     lastEmittedHash.current = "";
     socket.emit("excalidrawUpdate", { roomId, elements: emptyState });
+    setTimeout(() => {
+      isSyncing.current = false;
+    }, 100);
   }, [socket, roomId]);
 
-  /* ── Single mount handler — stores the app ref (NO socket listener here) ── */
+  /* ── Single mount handler — stores the app ref and requests state safely ── */
   const handleMount = useCallback(
     (app) => {
       appRef.current = app;
+      socket.emit("request-whiteboard-state", { roomId });
     },
-    []
+    [socket, roomId]
   );
-
-  /* ── Request current whiteboard state on mount ── */
-  useEffect(() => {
-    socket.emit("request-whiteboard-state", { roomId });
-  }, [socket, roomId]);
 
   /* ── Single socket listener registered in useEffect (avoids duplicate) ── */
   useEffect(() => {
-    const handleGlobalPointerUp = () => { isInteracting.current = false; };
-    window.addEventListener("pointerup", handleGlobalPointerUp);
-
     const onRemoteUpdate = (elements) => {
-      if (!appRef.current || isInteracting.current) return;
+      // If user is actively drawing/editing (appRef.current.session is active), ignore remote updates to avoid cancellations
+      if (!appRef.current || appRef.current.session) return;
 
       try {
         if (elements && elements.shapes) {
@@ -299,7 +310,6 @@ export default function Whiteboard({ socket, roomId, onClose, isAdmin, embedded 
     socket.on("request-whiteboard-state", handleRequestState);
 
     return () => {
-      window.removeEventListener("pointerup", handleGlobalPointerUp);
       socket.off("excalidrawUpdate", onRemoteUpdate);
       socket.off("request-whiteboard-state", handleRequestState);
     };
@@ -311,9 +321,10 @@ export default function Whiteboard({ socket, roomId, onClose, isAdmin, embedded 
       if (isSyncing.current) return;
 
       const now = Date.now();
+      const hasActiveSession = !!app.session;
       // Throttle only when actively drawing to protect network;
       // always allow the final stroke updates to pass through so drawings are complete.
-      if (isInteracting.current && (now - lastEmitTime.current < 33)) {
+      if (hasActiveSession && (now - lastEmitTime.current < 33)) {
         return;
       }
       lastEmitTime.current = now;
@@ -540,9 +551,6 @@ export default function Whiteboard({ socket, roomId, onClose, isAdmin, embedded 
         <CanvasWrapper
           $isFullScreen={isFullScreen}
           $isMobile={isMobile}
-          onPointerDown={() => { isInteracting.current = true; }}
-          onPointerUp={() => { isInteracting.current = false; }}
-          onPointerLeave={() => { isInteracting.current = false; }}
         >
           <Tldraw
             onMount={handleMount}
