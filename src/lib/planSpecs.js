@@ -29,7 +29,6 @@ export const FEATURE_GROUPS = [
       { key: "screenSharing", label: "Screen Sharing", desc: "Share screen during calls" },
       { key: "meetingRecording", label: "Meeting Recording", desc: "Record live calls" },
       { key: "handRaise", label: "Hand Raise", desc: "Raise hand during calls" },
-      { key: "chatInCall", label: "Chat in Call", desc: "Text chat during calls" },
     ],
   },
   {
@@ -79,7 +78,6 @@ const FREE_FEATURES = [
   "voiceCalls",
   "videoCalls",
   "screenSharing",
-  "chatInCall",
   "reactions",
   "messageEditing",
   "messageForwarding",

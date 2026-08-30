@@ -609,6 +609,7 @@ export default function AdminControlCenter({ token, backendUrl }) {
   const [settings, setSettings] = useState({ requireRoomApproval: false });
   const [whatsappPhone, setWhatsappPhone] = useState("");
   const [callmebotKey, setCallmebotKey] = useState("");
+  const [giphyKey, setGiphyKey] = useState("");
   const [loading, setLoading] = useState(false);
   const [modal, setModal] = useState(null);
   const [promptInput, setPromptInput] = useState("");
@@ -652,8 +653,9 @@ export default function AdminControlCenter({ token, backendUrl }) {
       const res = await axios.get(`${backendUrl}/api/admin/settings`, { headers: authHeaders() });
       const s = res.data.settings || {};
       setSettings(s);
-      setWhatsappPhone(s.whatsappPhone || "");
-      setCallmebotKey(s.callmebotKey || "");
+      setWhatsappPhone(s.adminWhatsAppPhone || "");
+      setCallmebotKey(s.callmebotApiKey || "");
+      setGiphyKey(s.giphyApiKey || "");
     } catch {}
   }, [backendUrl, authHeaders]);
 
@@ -702,7 +704,7 @@ export default function AdminControlCenter({ token, backendUrl }) {
   const handleSaveWhatsAppSettings = async (e) => {
     e.preventDefault();
     try {
-      await axios.patch(`${backendUrl}/api/admin/settings`, { whatsappPhone, callmebotKey }, { headers: authHeaders() });
+      await axios.patch(`${backendUrl}/api/admin/settings`, { adminWhatsAppPhone: whatsappPhone, callmebotApiKey: callmebotKey, giphyApiKey: giphyKey }, { headers: authHeaders() });
       toast.success("WhatsApp settings saved.");
     } catch {
       toast.error("Failed to save WhatsApp settings.");
@@ -1142,6 +1144,11 @@ export default function AdminControlCenter({ token, backendUrl }) {
               <FormGroup>
                 <FormLabel>CallMeBot API Key</FormLabel>
                 <FormInput type="password" placeholder="e.g. 123456" value={callmebotKey} onChange={(e) => setCallmebotKey(e.target.value)} />
+              </FormGroup>
+              <FormGroup>
+                <FormLabel>GIPHY API Key</FormLabel>
+                <FormInput type="password" placeholder="Paste your GIPHY API key" value={giphyKey} onChange={(e) => setGiphyKey(e.target.value)} />
+                <SectionDesc>Get a free key at <strong>developers.giphy.com</strong> to enable GIF search.</SectionDesc>
               </FormGroup>
               <FormSubmitBtn type="submit">Save Configuration</FormSubmitBtn>
             </SettingsForm>

@@ -4903,6 +4903,11 @@ export default function ChatRoom() {
   const showMeetingRef = useRef(false);
   const getJoinPayloadRef = useRef(null);
   const handleJoinResultRef = useRef(null);
+  const attemptJoinRef = useRef(null);
+  // One-shot guard so a reopened screen auto-connects exactly once (a manual
+  // form submit later is always allowed and refreshes the stored session).
+  const autoJoinTriedRef = useRef(false);
+  const tryRestoreRef = useRef(null);
 
   const [joined, setJoined] = useState(false);
   const [roomKey, setRoomKey] = useState(null);
@@ -5292,7 +5297,7 @@ export default function ChatRoom() {
       voiceRecordings: true, bookmarks: true, ephemeralMessages: true,
       messageSearch: true, messageForwarding: true, pinnedMessages: true,
       typingIndicators: true, stealthMode: true, meetingRecording: true,
-      handRaise: true, chatInCall: true, themes: true, keyboardShortcuts: true,
+      handRaise: true, themes: true, keyboardShortcuts: true,
     };
     return defaults;
   });
@@ -5343,6 +5348,13 @@ export default function ChatRoom() {
       return;
     }
     if (result?.success) {
+      try {
+        sessionStorage.setItem(`anonchat:join:${roomId.trim()}`, JSON.stringify({
+          userName: userName.trim(),
+          securityCode: securityCode.trim(),
+          joinedAt: Date.now()
+        }));
+      } catch { /* storage may be unavailable (private mode) — skip persistence */ }
       setIsStealthMode(Boolean(result.isStealth));
       setOnlineUsers((users) => users.length ? users : [{ id: socketRef.current?.id || "local", name: userName }]);
       if (!result.isStealth && roomId.trim()) {
@@ -5354,6 +5366,36 @@ export default function ChatRoom() {
 
   useEffect(() => { getJoinPayloadRef.current = getJoinPayload; }, [getJoinPayload]);
   useEffect(() => { handleJoinResultRef.current = handleJoinResult; }, [handleJoinResult]);
+
+  // Auto-reconnect after the user reopens the app at /room/:id: restore the
+  // stored join credentials and rejoin silently, instead of stranding them on
+  // a dead socket or an empty join form. The form is still shown if no session
+  // exists. Guarded to run at most once per page load.
+  useEffect(() => {
+    const tryRestore = () => {
+      if (autoJoinTriedRef.current) return;
+      if (stealthTokenRef.current) return;
+      const rid = roomIdRef.current && roomIdRef.current.trim();
+      if (!rid) return;
+      let sess;
+      try {
+        const raw = sessionStorage.getItem(`anonchat:join:${rid}`);
+        sess = raw ? JSON.parse(raw) : null;
+      } catch { return; }
+      if (!sess || !sess.userName || !sess.securityCode) return;
+      autoJoinTriedRef.current = true;
+      setUserName(sess.userName);
+      setSecurityCode(sess.securityCode);
+      const fireWhenConnected = () => {
+        if (socketRef.current?.connected) attemptJoinRef.current?.();
+        else setTimeout(fireWhenConnected, 500);
+      };
+      typeof window !== "undefined" && setTimeout(fireWhenConnected, 200);
+    };
+    tryRestoreRef.current = tryRestore;
+    const t = typeof window !== "undefined" ? setTimeout(tryRestore, 1000) : null;
+    return () => { if (t) clearTimeout(t); };
+  }, []);
 
   const attemptJoin = useCallback(async () => {
     const code = securityCode.trim();
@@ -5387,6 +5429,8 @@ export default function ChatRoom() {
       toast.error("Failed to initialize secure session keys");
     }
   }, [roomId, userName, securityCode]);
+
+  useEffect(() => { attemptJoinRef.current = attemptJoin; }, [attemptJoin]);
 
   const submitRoomRequest = useCallback(() => {
     const trimmedRoom = roomId.trim();
@@ -6209,6 +6253,10 @@ export default function ChatRoom() {
       socketRef.current.emit("leaveRoom", { roomId, userName });
     }
 
+    // Forgetting the stored session means a later reopen of this room goes back
+    // to the join form instead of silently rejoining after an intentional exit.
+    try { sessionStorage.removeItem(`anonchat:join:${roomId.trim()}`); } catch { /* noop */ }
+
     // Reset local state completely
     setJoined(false);
     setAuthenticated(false);
@@ -6556,11 +6604,31 @@ export default function ChatRoom() {
       setIsConnected(true);
       if (joined && rid && un) {
         socketRef.current.emit("joinRoom", gjp(), hjr);
+      } else {
+        // Fresh page (or a reconnect that lost its in-room state): if we have a
+        // stored session for this room, silently rejoin instead of stranding
+        // the user on a dead connection.
+        tryRestoreRef.current?.();
       }
     });
 
     socketRef.current.on("disconnect", () => {
       setIsConnected(false);
+    });
+
+    // Server force-disconnected us (e.g. the same identity rejoined from another
+    // tab with the same session token). Reset to the join form and never fight
+    // back with auto-rejoin, or the two tabs would ping-pong each other out.
+    socketRef.current.on("force-disconnect", () => {
+      autoJoinTriedRef.current = true;
+      setJoined(false);
+      setAuthenticated(false);
+      setRoomKey(null);
+      setIsConnected(false);
+      setShowWhiteboard(false);
+      setShowMeeting(false);
+      try { sessionStorage.removeItem(`anonchat:join:${roomIdRef.current?.trim()}`); } catch { /* noop */ }
+      toast.info("You were signed out of this room from another tab/connection.");
     });
 
     socketRef.current.on("fileUrlUpdated", ({ localUrl, newUrl }) => {
