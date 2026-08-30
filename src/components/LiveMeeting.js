@@ -158,6 +158,13 @@ const HeaderLeft = styled.div`
   gap: 10px;
   flex: 1;
   min-width: 0;
+
+  @media (max-width: ${BREAKPOINTS.lg}px) {
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    &::-webkit-scrollbar { display: none; }
+  }
 `;
 
 const HeaderRight = styled.div`
@@ -222,6 +229,7 @@ const StatusPill = styled.div`
   font-size: 0.72rem;
   font-weight: 700;
   cursor: pointer;
+  flex-shrink: 0;
   transition: all 0.2s ease;
   background: ${props => {
     if (props.$mode === "good") return "rgba(16, 185, 129, 0.12)";

@@ -922,6 +922,8 @@ const Header = styled.div`
   @media (max-width: ${BREAKPOINTS.sm}px) {
     padding: 6px 10px;
     min-height: 46px;
+    flex-wrap: wrap;
+    row-gap: 2px;
   }
 
   @media (max-width: ${BREAKPOINTS.xs}px) {
@@ -959,7 +961,11 @@ const RoomActions = styled.div`
   gap: clamp(8px, 2vw, 14px);
   flex-wrap: nowrap;
   flex-shrink: 0;
-  /* Safety valve on tiny screens: swipeable instead of overflowing the header */
+  min-width: 0;
+  max-width: 100%;
+  /* Safety valve on tiny screens: swipeable instead of overflowing the header.
+     The box is capped to the free header width so buttons/LIVE can never
+     spill over or collide with the room number/title. */
   overflow-x: auto;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
@@ -968,6 +974,9 @@ const RoomActions = styled.div`
   @media (max-width: ${BREAKPOINTS.sm}px) {
     gap: 6px;
     padding-bottom: 2px;
+    margin-left: 0;
+    width: 100%;
+    justify-content: flex-start;
   }
 
   @media (max-width: ${BREAKPOINTS.xs}px) {
@@ -5878,13 +5887,33 @@ export default function ChatRoom() {
   onResolvedRef.current = onResolved;
 
   useEffect(() => {
-    const handleOnline = () => setIsConnected(true);
+    // Mobile-first reconnect kick. Browsers freeze backgrounded tabs, which
+    // silently kills WebSockets. Rejoining right away isn't enough — the
+    // client sits in its reconnection backoff (or never noticed the drop), so
+    // the user is stuck on "Connecting…" until something pokes it. When the
+    // tab comes back or the network returns, force a fresh connection now so
+    // presence + messages resume immediately.
+    const kickReconnect = () => {
+      const s = socketRef.current;
+      if (!s) return;
+      if (s.connected) {
+        setIsConnected(true);
+        return;
+      }
+      s.connect();
+    };
+    const handleOnline = () => kickReconnect();
     const handleOffline = () => setIsConnected(false);
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") kickReconnect();
+    };
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
+    document.addEventListener("visibilitychange", handleVisibility);
     return () => {
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
+      document.removeEventListener("visibilitychange", handleVisibility);
     };
   }, []);
 
