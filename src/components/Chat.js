@@ -5362,7 +5362,7 @@ export default function ChatRoom() {
       }
       setAuthenticated(true);
     }
-  }, [roomId, userName, navigate]);
+  }, [roomId, userName, securityCode, navigate]);
 
   useEffect(() => { getJoinPayloadRef.current = getJoinPayload; }, [getJoinPayload]);
   useEffect(() => { handleJoinResultRef.current = handleJoinResult; }, [handleJoinResult]);
@@ -5422,6 +5422,13 @@ export default function ChatRoom() {
 
     try {
       const key = await generateKeyFromSecret(code + trimmedRoom, trimmedRoom);
+      try {
+        sessionStorage.setItem(`anonchat:join:${trimmedRoom}`, JSON.stringify({
+          userName: trimmedName,
+          securityCode: code,
+          joinedAt: Date.now()
+        }));
+      } catch { /* storage may be unavailable (private mode) — skip persistence */ }
       setRoomId(trimmedRoom);
       setRoomKey(key);
       setJoined(true);
