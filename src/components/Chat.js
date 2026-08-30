@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, Suspense, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { io } from "socket.io-client";
+import { backendUrl } from "../socket";
 import {
   // Link, 
   useNavigate, useParams, useSearchParams
@@ -3271,7 +3272,6 @@ function ReplyAttachmentPreview({ reply, roomKey }) {
       try {
         let source = file.url;
         if (file.iv && !file.url.startsWith(window.location.origin) && !file.url.includes("/uploads/")) {
-          const backendUrl = process.env.REACT_APP_SOCKET_ENDPOINT || "https://cheprabai-backend.onrender.com";
           source = `${backendUrl}/api/proxy-file?url=${encodeURIComponent(file.url)}`;
         }
         const response = await fetch(source);
@@ -3596,7 +3596,6 @@ function LinkPreviewCard({ url, renderLinkActions }) {
     let cancelled = false;
     const fetchPreview = async () => {
       try {
-        const backendUrl = process.env.REACT_APP_SOCKET_ENDPOINT || "https://cheprabai-backend.onrender.com";
         const res = await fetch(`${backendUrl}/api/link-preview?url=${encodeURIComponent(url)}`);
         if (!res.ok) throw new Error("Preview fetch failed");
         const data = await res.json();
@@ -4604,7 +4603,6 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile, setViewer,
         let fetchUrl = file.url;
         const needsProxy = !bypassProxy && !file.url.startsWith(window.location.origin) && !file.url.includes("/uploads/");
         if (needsProxy) {
-          const backendUrl = process.env.REACT_APP_SOCKET_ENDPOINT || "https://cheprabai-backend.onrender.com";
           fetchUrl = `${backendUrl}/api/proxy-file?url=${encodeURIComponent(file.url)}`;
         }
 
@@ -5308,7 +5306,6 @@ export default function ChatRoom() {
   const [authenticated, setAuthenticated] = useState(false);
   const stealthTokenRef = useRef("");
 
-  const backendUrl = process.env.REACT_APP_SOCKET_ENDPOINT || "https://cheprabai-backend.onrender.com";
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
 
   const getJoinPayload = useCallback(() => {
@@ -5710,7 +5707,7 @@ export default function ChatRoom() {
         });
       } catch (_) { /* push registration is best-effort */ }
     }
-  }, [joined, roomId, backendUrl, userName]);
+  }, [joined, roomId, userName]);
 
   useEffect(() => {
     userAvatarRef.current = userAvatar;
@@ -5775,7 +5772,7 @@ export default function ChatRoom() {
       })
       .catch(() => { });
     return () => { cancelled = true; };
-  }, [backendUrl]);
+  }, []);
 
   // Room subscription plan: fetched on join (retried until the backend has
   // registered the room), refreshed live via roomPlanUpdated socket events
@@ -5810,7 +5807,7 @@ export default function ChatRoom() {
     };
     attempt();
     return () => { cancelled = true; if (timer) clearTimeout(timer); };
-  }, [joined, roomId, backendUrl]);
+  }, [joined, roomId]);
 
   const isInitialCheckRef = useRef(true);
 
@@ -5837,7 +5834,7 @@ export default function ChatRoom() {
     }
     const delayDebounce = setTimeout(checkExistence, 300);
     return () => clearTimeout(delayDebounce);
-  }, [roomId, backendUrl]);
+  }, [roomId]);
 
   const getButtonText = () => {
     if (roomRequestPending) return "Request Pending...";
@@ -5971,7 +5968,6 @@ export default function ChatRoom() {
     const controller = new AbortController();
     gifRequestRef.current = controller;
 
-    const backendUrl = process.env.REACT_APP_SOCKET_ENDPOINT || "https://cheprabai-backend.onrender.com";
     const params = new URLSearchParams({ q: query.trim().slice(0, 100), limit: String(limit), offset: String(offset) });
 
     try {
@@ -6337,7 +6333,7 @@ export default function ChatRoom() {
   /* ================= SOCKET ================= */
 
   useEffect(() => {
-    const socket = io(process.env.REACT_APP_SOCKET_ENDPOINT || "https://cheprabai-backend.onrender.com", {
+    const socket = io(backendUrl, {
       transports: ["websocket", "polling"],
       upgrade: true,
       rememberUpgrade: true,
@@ -7228,7 +7224,6 @@ export default function ChatRoom() {
         updateTempFile({ phase: "uploading" });
       }
 
-      const backendUrl = process.env.REACT_APP_SOCKET_ENDPOINT || "https://cheprabai-backend.onrender.com";
 
       const formData = new FormData();
       formData.append("file", fileToUpload);

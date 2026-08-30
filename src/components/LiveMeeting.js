@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense } from "react";
 import styled, { keyframes, StyleSheetManager, css } from "styled-components";
+import { backendUrl } from "../socket";
 import { 
   FaMicrophone, FaMicrophoneSlash, FaVideo, FaVideoSlash, 
   FaPhoneSlash, FaSync, FaDesktop, FaRecordVinyl, 
@@ -3772,7 +3773,6 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   // ─── Video/Audio & Link Media Streaming Capabilities ───
   const startMediaStream = async ({ file, url, name }) => {
     try {
-      const backendUrl = process.env.REACT_APP_SOCKET_ENDPOINT || "https://cheprabai-backend.onrender.com";
       let mediaSrc = "";
       let mediaName = name || "Media Stream";
 

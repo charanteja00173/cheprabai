@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import axios from "axios";
 import styled from "styled-components";
+import { backendUrl } from "../socket";
 import {
   FaTrash,
   FaSearch,
@@ -770,8 +771,6 @@ export default function AdminDashboard() {
   const [roomCode, setRoomCode] = useState("");
   const [mainSection, setMainSection] = useState("live");
 
-  const backendUrl = process.env.REACT_APP_SOCKET_ENDPOINT || "https://cheprabai-backend.onrender.com";
-
   const closePreview = () => {
     if (previewItem && previewItem.url && previewItem.url.startsWith("blob:")) {
       URL.revokeObjectURL(previewItem.url);
@@ -863,7 +862,7 @@ export default function AdminDashboard() {
     } finally {
       setLoading(false);
     }
-  }, [backendUrl]);
+  }, []);
 
   useEffect(() => {
     if (token) {

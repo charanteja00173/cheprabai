@@ -680,6 +680,9 @@ export default function AdminControlCenter({ token, backendUrl }) {
     });
     socketRef.current = s;
 
+    s.on("connect", () => {
+      s.emit("adminSubscribe", { token });
+    });
     s.on("adminNotification", () => fetchNotifications());
     s.on("adminRoomUpdated", () => fetchRooms());
     s.on("adminRoomRequestUpdated", () => fetchRequests());
