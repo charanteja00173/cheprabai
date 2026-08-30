@@ -793,7 +793,7 @@ export default function AdminDashboard() {
         if (!passwordToUse || !passwordToUse.trim()) {
           throw new Error("Enter the room security code to decrypt this file.");
         }
-        const key = await generateKeyFromSecret(`${passwordToUse.trim()}${target.roomId}`);
+        const key = await generateKeyFromSecret(`${passwordToUse.trim()}${target.roomId}`, target.roomId);
         const iv = new Uint8Array(atob(target.iv).split("").map((char) => char.charCodeAt(0)));
         bytes = await decryptBinary(key, { iv, data: bytes });
       }
