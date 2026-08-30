@@ -922,8 +922,6 @@ const Header = styled.div`
   @media (max-width: ${BREAKPOINTS.sm}px) {
     padding: 6px 10px;
     min-height: 46px;
-    flex-wrap: wrap;
-    row-gap: 2px;
   }
 
   @media (max-width: ${BREAKPOINTS.xs}px) {
@@ -960,12 +958,12 @@ const RoomActions = styled.div`
   align-items: center;
   gap: clamp(8px, 2vw, 14px);
   flex-wrap: nowrap;
-  flex-shrink: 0;
+  flex-shrink: 1;
   min-width: 0;
   max-width: 100%;
-  /* Safety valve on tiny screens: swipeable instead of overflowing the header.
-     The box is capped to the free header width so buttons/LIVE can never
-     spill over or collide with the room number/title. */
+  /* Safety valve on tiny screens: the actions box squeezes to the free header
+     width and scrolls its content horizontally, so buttons/LIVE stay on the
+     same line as the room number without spilling or colliding. */
   overflow-x: auto;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
@@ -974,9 +972,6 @@ const RoomActions = styled.div`
   @media (max-width: ${BREAKPOINTS.sm}px) {
     gap: 6px;
     padding-bottom: 2px;
-    margin-left: 0;
-    width: 100%;
-    justify-content: flex-start;
   }
 
   @media (max-width: ${BREAKPOINTS.xs}px) {
@@ -3262,6 +3257,10 @@ const RoomInfoTrigger = styled.button`
   color: inherit;
   text-align: left;
   cursor: pointer;
+
+  @media (max-width: ${BREAKPOINTS.sm}px) {
+    flex-shrink: 0;
+  }
 
   // &:hover, &:focus-visible {
   //   background: rgba(255,255,255,0.06);
