@@ -145,8 +145,9 @@ function getGalleryItems() {
 
 /* Storage provider (Cloudinary) rejects single files above this size on the
    current plan — failing fast beats uploading for minutes and dying at 99%.
-   Optimized: Matching the backend's 1 GB hard limit. */
-const MAX_UPLOAD_BYTES = 25 * 1024 * 1024; // 25 MB matches Cloudinary free-tier limits, switching to WebRTC early
+   Matching the backend's 1 GB hard limit. Files >20 MB bypass Cloudinary and
+   are served locally while a background sync uploads to Cloudinary. */
+const MAX_UPLOAD_BYTES = 1024 * 1024 * 1024; // 1 GB
 const formatUploadLimit = () => {
   const mb = MAX_UPLOAD_BYTES / (1024 * 1024);
   return mb >= 1024 ? `${(mb / 1024).toFixed(0)} GB` : `${Math.round(mb)} MB`;
