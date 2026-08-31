@@ -2404,6 +2404,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const remoteVideoElsRef = useRef({}); // { [peerId]: HTMLVideoElement } — for reactive volume
   const autoDowngradedRef = useRef(false); // true if ABR auto-downgraded (allows auto-recovery)
   const goodStreakRef = useRef(0); // consecutive "good" polls for recovery hysteresis
+  const fairStreakRef = useRef(0); // consecutive "fair" polls before stepping down a tier
   const isRoomHost = useMemo(() => Boolean(isAdmin || ownerToken), [isAdmin, ownerToken]);
 
   // Keep isVideoOffRef in sync with state
@@ -2562,9 +2563,9 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   // ─── WebRTC Bitrate / ABR Controller (Dynamic Low Bandwidth Optimizer) ───
   const applyBandwidthMode = useCallback((mode, opts = {}) => {
     setBandwidthMode(mode);
-    const targetBitrate = mode === "audio-only" ? 24000 : mode === "saver" ? 120000 : mode === "hd" ? 1800000 : 600000;
-    const scaleFactor = mode === "saver" ? 2.5 : mode === "hd" ? 1.0 : 1.5;
-    const maxFps = mode === "saver" ? 15 : mode === "hd" ? 30 : 24;
+    const targetBitrate = mode === "audio-only" ? 24000 : mode === "saver" ? 120000 : mode === "low" ? 280000 : mode === "hd" ? 1800000 : 600000;
+    const scaleFactor = mode === "saver" ? 2.5 : mode === "low" ? 2.0 : mode === "hd" ? 1.0 : 1.5;
+    const maxFps = mode === "saver" ? 15 : mode === "low" ? 18 : mode === "hd" ? 30 : 24;
 
     // Adjust local video track if audio-only
     if (localStreamRef.current) {
@@ -2575,6 +2576,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         const captureProfile = {
           "audio-only": null,
           saver: { width: { ideal: 640 }, height: { ideal: 360 }, frameRate: { ideal: 15, max: 15 } },
+          low: { width: { ideal: 960 }, height: { ideal: 540 }, frameRate: { ideal: 18, max: 20 } },
           auto: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 24, max: 30 } },
           hd: { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30, max: 30 } }
         }[mode];
@@ -2692,20 +2694,33 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         if (bandwidthModeRef.current === "auto") {
           if (status === "poor") {
             goodStreakRef.current = 0;
+            fairStreakRef.current = 0;
             autoDowngradedRef.current = true;
             applyBandwidthMode("saver", { silent: false });
             toast.warning("Network unstable: Auto-switched to Data Saver mode to protect voice quality.");
+          } else if (status === "fair") {
+            // Soft stepping: coast at a reduced bitrate for a couple of polls
+            // before committing to the full quality collapse, so momentary
+            // blips (buffering, a page loading) don't tear the video.
+            goodStreakRef.current = 0;
+            fairStreakRef.current += 1;
+            if (fairStreakRef.current >= 2) {
+              fairStreakRef.current = 0;
+              autoDowngradedRef.current = true;
+              applyBandwidthMode("low", { silent: true });
+            }
           } else if (status === "good") {
-            // …and recover back up after the network stays healthy (hysteresis, no flapping)
+            fairStreakRef.current = 0;
             goodStreakRef.current += 1;
             if (autoDowngradedRef.current && goodStreakRef.current >= 3) {
+              // Hysteresis: recover back to full quality only after the
+              // network stays healthy for a while (no flapping). Recovering
+              // from the low tier goes straight back to full quality.
               autoDowngradedRef.current = false;
               goodStreakRef.current = 0;
               applyBandwidthMode("auto", { silent: true });
               toast.success("Network recovered — video quality restored.");
             }
-          } else {
-            goodStreakRef.current = 0;
           }
         }
       } catch (e) {}
@@ -2888,18 +2903,34 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     const pc = call.peerConnection;
     if (pc) {
       const handleState = () => {
-        if (pc.connectionState === "failed") {
-          console.warn(`[WebRTC] Connection to ${remotePeerId} failed — attempting ICE restart`);
-          toast.warning("Reconnecting to a participant…", { toastId: `ice-${remotePeerId}` });
-          try {
-            if (typeof pc.restartIce === "function") pc.restartIce();
-            else if (pc.signalingState !== "closed") {
-              pc.createOffer({ iceRestart: true })
-                .then(offer => pc.setLocalDescription(offer))
-                .catch(() => {});
+        if (pc.connectionState === "failed" || pc.connectionState === "disconnected") {
+          // Self-heal on flaky mobile links: a peer that stays in
+          // `disconnected` for a few seconds (radio handoff, backgrounding)
+          // without recovering is restarted with a fresh ICE gathering
+          // instead of letting the call freeze and wait for `failed`.
+          const reconnectViaIce = () => {
+            if (pc.connectionState !== "connected" && pc.connectionState !== "closed") {
+              console.warn(`[WebRTC] Connection to ${remotePeerId} ${pc.connectionState} — attempting ICE restart`);
+              toast.warning("Reconnecting to a participant…", { toastId: `ice-${remotePeerId}` });
+              try {
+                if (typeof pc.restartIce === "function") pc.restartIce();
+                else if (pc.signalingState !== "closed") {
+                  pc.createOffer({ iceRestart: true })
+                    .then(offer => pc.setLocalDescription(offer))
+                    .catch(() => {});
+                }
+              } catch (e) {}
             }
-          } catch (e) {}
+          };
+          if (pc.connectionState === "disconnected" && !pc._iceReconnecting) {
+            pc._iceReconnecting = true;
+            pc._iceRetryT = setTimeout(reconnectViaIce, 6000);
+          } else if (pc.connectionState === "failed" || pc.connectionState === "disconnected") {
+            reconnectViaIce();
+          }
         } else if (pc.connectionState === "connected") {
+          clearTimeout(pc._iceRetryT);
+          pc._iceReconnecting = false;
           toast.dismiss(`ice-${remotePeerId}`);
         }
       };
