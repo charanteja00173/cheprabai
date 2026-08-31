@@ -7203,13 +7203,23 @@ export default function ChatRoom() {
     let previewUrl = null;
     let shouldBypassCloudinary = false;
     try {
-      if (file.size > MAX_UPLOAD_BYTES) {
+      // Effective upload cap = the room's plan maxFileSize (per-room override
+      // wins; -1/unset means the 1 GB multer hard ceiling). Enforced client-side
+      // for a fast error, and again server-side by /api/upload per room.
+      const planMaxMB = roomPlanLimits?.maxFileSize;
+      const planMaxBytes = planMaxMB == null || planMaxMB === -1 ? MAX_UPLOAD_BYTES : Math.min(planMaxMB * 1024 * 1024, MAX_UPLOAD_BYTES);
+      if (file.size > planMaxBytes) {
         if (onlineUsers.length >= 2) {
           await shareFileLive(file, viewOnce);
           return;
         } else {
-          if (file.size > 1024 * 1024 * 1024) {
-            toast.error(`"${file.name}" exceeds the maximum 1 GB upload limit.`);
+          if (planMaxMB == null || planMaxMB === -1) {
+            if (file.size > 1024 * 1024 * 1024) {
+              toast.error(`"${file.name}" exceeds the maximum 1 GB upload limit.`);
+              return;
+            }
+          } else {
+            toast.error(`"${file.name}" exceeds this room's ${planMaxMB >= 1024 ? `${(planMaxMB / 1024).toFixed(0)} GB` : `${Math.round(planMaxMB)} MB`} upload limit. Contact the room admin to upgrade the plan.`);
             return;
           }
           shouldBypassCloudinary = true;
@@ -7256,6 +7266,9 @@ export default function ChatRoom() {
 
       const formData = new FormData();
       formData.append("file", fileToUpload);
+      if (roomIdRef.current && roomIdRef.current.trim()) {
+        formData.append("roomId", roomIdRef.current.trim());
+      }
 
       // Real-time progress tracking: smooth % + live transfer speed
       let lastTickTime = performance.now();

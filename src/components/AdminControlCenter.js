@@ -25,6 +25,7 @@ import {
   FaChevronDown,
   FaChevronRight,
   FaCrown,
+  FaFileUpload,
 } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { BREAKPOINTS } from "../hooks/useIsMobile";
@@ -45,6 +46,12 @@ const GROUP_ICONS = {
 };
 
 const FEATURE_GROUPS = PLAN_FEATURE_GROUPS.map((g) => ({ ...g, icon: GROUP_ICONS[g.label] || FaCog }));
+
+const formatFileLimit = (mb) => {
+  if (mb == null || mb === -1) return "Unlimited";
+  if (mb >= 1024) return `${(mb / 1024).toFixed(0)} GB`;
+  return `${Math.round(mb)} MB`;
+};
 
 /* ── STYLED COMPONENTS ── */
 
@@ -880,6 +887,10 @@ export default function AdminControlCenter({ token, backendUrl }) {
                       {p.label}
                     </PlanPill>
                   ))}
+                  <span style={{ marginLeft: "auto", fontSize: "0.62rem", color: "var(--chakra-colors-textSecondary)", whiteSpace: "nowrap" }}>
+                    <FaFileUpload size={9} style={{ marginRight: 3 }} />
+                    Max: {formatFileLimit(settings.planLimits?.[room.plan || settings.plan]?.maxFileSize)}
+                  </span>
                 </PlanRow>
 
                 {room.participants?.length > 0 && (
