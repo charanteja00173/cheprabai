@@ -6381,6 +6381,44 @@ export default function ChatRoom() {
     return () => socket.disconnect();
   }, []);
 
+  // ── Force re-connect when the app is resumed from the background ──
+  // On mobile, when the screen is off / the OS suspends the page, JS is paused
+  // and socket.io's reconnection timer stalls. Returning to the app then leaves
+  // the socket dead until some unrelated event fires, so the user sees the room
+  // UI but live features (whiteboard sync, messages, presence) stay frozen.
+  // Listen for the page becoming visible/focused/online and force an immediate
+  // reconnect, which re-runs the "connect" handler below and re-joins the room.
+  useEffect(() => {
+    const forceReconnect = () => {
+      const s = socketRef.current;
+      // Only auto-reconnect while we're actually inside a room, so a deliberate
+      // leave or a force-disconnect (kicked from another tab) is never undone.
+      if (!s || !roomKeyRef.current) return;
+      if (s.connected) return; // already live, nothing to do
+      // s.disconnected is true whenever we're not connected (including during a
+      // reconnect backoff); s.connect() then forces an immediate attempt.
+      if (s.disconnected) {
+        try { s.connect(); } catch (e) { /* ignore */ }
+      }
+    };
+
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") forceReconnect();
+    };
+    const onFocus = () => forceReconnect();
+    const onOnline = () => forceReconnect();
+
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("online", onOnline);
+
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("online", onOnline);
+    };
+  }, []);
+
   // ── Ephemeral message auto-delete timer (runs every 2s, only updates if needed) ──
   useEffect(() => {
     const interval = setInterval(() => {
