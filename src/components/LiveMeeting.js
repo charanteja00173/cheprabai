@@ -2601,13 +2601,15 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
             params.encodings[0].scaleResolutionDownBy = scaleFactor;
             params.encodings[0].maxFramerate = maxFps;
             if (screenStreamRef.current) {
-              // Screen share: protect text sharpness. Under congestion drop
-              // framerate, never resolution, and keep a legible bitrate floor
-              // so the share never degrades into a blurry slideshow.
+              // Screen share: protect text sharpness. Drop framerate rather
+              // than resolution, and use tier-aware bitrate so the share
+              // adapts to the available link instead of lagging.
               params.degradationPreference = "maintain-resolution";
               params.encodings[0].scaleResolutionDownBy = 1;
-              params.encodings[0].maxBitrate = Math.max(targetBitrate, 1000000);
-              params.encodings[0].maxFramerate = Math.min(maxFps, 30);
+              const ssBitrate = { "audio-only": 0, saver: 400000, low: 800000, auto: 1200000, hd: 2500000 }[mode] || 1200000;
+              const ssFps   = { "audio-only": 0, saver: 10,      low: 15,       auto: 24,      hd: 30       }[mode] || 24;
+              params.encodings[0].maxBitrate = ssBitrate;
+              params.encodings[0].maxFramerate = ssFps;
             } else {
               // Camera & streamed media: keep motion smooth under congestion
               // (drop resolution, never devolve into a slideshow).
@@ -2617,8 +2619,9 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
           } else if (sender.track?.kind === "audio") {
             const params = sender.getParameters();
             if (!params.encodings || params.encodings.length === 0) params.encodings = [{}];
-            params.encodings[0].maxBitrate = mode === "saver" ? 24000 : 48000;
+            params.encodings[0].maxBitrate = { "audio-only": 24000, saver: 24000, low: 32000, auto: 48000, hd: 64000 }[mode] || 48000;
             try { params.encodings[0].networkPriority = "high"; } catch (e) {}
+            try { params.encodings[0].priority = "high"; } catch (e) {}
             sender.setParameters(params).catch(() => {});
           }
         });
@@ -3768,8 +3771,10 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
             try {
               const params = sender.getParameters();
               if (!params.encodings || params.encodings.length === 0) params.encodings = [{}];
-              params.encodings[0].maxBitrate = bandwidthModeRef.current === "saver" ? 1200000 : 2500000;
-              params.encodings[0].maxFramerate = 30;
+              const ssBitrate = { "audio-only": 0, saver: 400000, low: 800000, auto: 1200000, hd: 2500000 }[bandwidthModeRef.current] || 1200000;
+              const ssFps   = { "audio-only": 0, saver: 10,      low: 15,       auto: 24,      hd: 30       }[bandwidthModeRef.current] || 24;
+              params.encodings[0].maxBitrate = ssBitrate;
+              params.encodings[0].maxFramerate = ssFps;
               params.encodings[0].scaleResolutionDownBy = 1;
               params.degradationPreference = "maintain-resolution";
               sender.setParameters(params).catch(() => {});
