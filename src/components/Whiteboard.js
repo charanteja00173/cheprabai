@@ -240,12 +240,24 @@ export default function Whiteboard({ socket, roomId, onClose, isAdmin, embedded 
   }, [socket, roomId]);
 
   /* ── Single mount handler — stores the app ref and requests state safely ── */
+  const requestState = useCallback(
+    () => {
+      // Only ask for a sync once the board is actually mounted, so a reconnect
+      // (or initial connect) can never race ahead of the canvas and leave the
+      // user staring at an empty board.
+      if (appRef.current && socket.connected) {
+        socket.emit("request-whiteboard-state", { roomId });
+      }
+    },
+    [socket, roomId]
+  );
+
   const handleMount = useCallback(
     (app) => {
       appRef.current = app;
       socket.emit("request-whiteboard-state", { roomId });
     },
-    [socket, roomId]
+    [socket, roomId, requestState]
   );
 
   /* ── Single socket listener registered in useEffect (avoids duplicate) ── */
@@ -306,14 +318,21 @@ export default function Whiteboard({ socket, roomId, onClose, isAdmin, embedded 
       }
     };
 
+    // Re-sync after every (re)connect — a socket drop/hiccup would otherwise
+    // leave this client stuck on a stale or empty board even after Socket.IO
+    // reconnects, which is exactly the "strokes vanish after a blip" behavior.
+    const onReconnect = () => requestState();
+
     socket.on("excalidrawUpdate", onRemoteUpdate);
     socket.on("request-whiteboard-state", handleRequestState);
+    socket.on("connect", onReconnect);
 
     return () => {
       socket.off("excalidrawUpdate", onRemoteUpdate);
       socket.off("request-whiteboard-state", handleRequestState);
+      socket.off("connect", onReconnect);
     };
-  }, [socket, hashContent, roomId]);
+  }, [socket, hashContent, roomId, requestState]);
 
   const lastEmitTime = useRef(0);
   const handleChange = useCallback(
