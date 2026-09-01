@@ -4909,6 +4909,7 @@ export default function ChatRoom() {
   const audioRef = useRef(new Audio(notificationSound));
   const userColorsRef = useRef({});
   const roomKeyRef = useRef(null);
+  const reconnectRef = useRef({ droppedInRoom: false });
   const userNameRef = useRef("");
   const roomIdRef = useRef("");
   const securityCodeRef = useRef("");
@@ -6481,7 +6482,24 @@ export default function ChatRoom() {
         if (item.__livefile) return null;
         return item;
       })).then(r => r.filter(Boolean)));
-      setMessages(formatted);
+      // History reloads (initial join OR a post-reconnect rejoin) must never
+      // wipe an in-flight transfer: keep local placeholder bubbles that don't
+      // exist server-side yet (uploading/liveshare sender temp, live rx temp).
+      // Merge + dedupe by id so a reconnect re-sending history can't duplicate
+      // messages either.
+      setMessages(prev => {
+        const historicIds = new Set(formatted.map(f => f.id).filter(Boolean));
+        const keepLocal = prev.filter(m => !historicIds.has(m.id) &&
+          /^(uploading|liveshare|rx)-/.test(m.id) &&
+          m.file && (m.file.loading || m.file.progress !== undefined));
+        const seen = new Set();
+        return [...keepLocal, ...formatted].filter(m => {
+          if (!m.id) return true;
+          if (seen.has(m.id)) return false;
+          seen.add(m.id);
+          return true;
+        });
+      });
       formatted.filter((item) => item.id && item.userName !== un).forEach((item) => socketRef.current.emit("messageViewed", { messageId: item.id }));
     });
 
@@ -6512,7 +6530,11 @@ export default function ChatRoom() {
         if (item.__livefile) return null;
         return item;
       })).then(r => r.filter(Boolean)));
-      setMessages(prev => [...formatted, ...prev]);
+      setMessages(prev => {
+        const have = new Set(prev.map(m => m.id).filter(Boolean));
+        const fresh = formatted.filter(f => !f.id || !have.has(f.id));
+        return [...fresh, ...prev];
+      });
       setHasMoreMessages(hasMore);
       setLoadingMore(false);
     });
@@ -6541,7 +6563,7 @@ export default function ChatRoom() {
         try { handleIncomingLiveFile(formattedMsg); } catch (e) { console.error("livefile rx:", e); }
         return;
       }
-      setMessages((m) => [...m, formattedMsg]);
+      setMessages((m) => m.some((x) => formattedMsg.id && x.id === formattedMsg.id) ? m : [...m, formattedMsg]);
       if (formattedMsg.id && formattedMsg.userName !== un) socketRef.current.emit("messageViewed", { messageId: formattedMsg.id });
       if (msg.userName !== un) {
         if (!muteSounds) {
@@ -6677,7 +6699,13 @@ export default function ChatRoom() {
 
     socketRef.current.on("connect", () => {
       setIsConnected(true);
-      if (joined && rid && un) {
+      if ((joined && rid && un) || reconnectRef.current.droppedInRoom) {
+        // Only re-issue joinRoom on connect if we were already inside the room
+        // and got dropped mid-session (or the reconnect lost in-room state).
+        // On a fresh join the joined-effect emits joinRoom itself, so we don't
+        // re-emit here — that double-emit is what re-triggered a full history
+        // reload and the "double loading" flicker.
+        reconnectRef.current.droppedInRoom = false;
         socketRef.current.emit("joinRoom", gjp(), hjr);
       } else {
         // Fresh page (or a reconnect that lost its in-room state): if we have a
@@ -6689,6 +6717,7 @@ export default function ChatRoom() {
 
     socketRef.current.on("disconnect", () => {
       setIsConnected(false);
+      if (roomKeyRef.current) reconnectRef.current.droppedInRoom = true;
     });
 
     // Server force-disconnected us (e.g. the same identity rejoined from another
@@ -6980,6 +7009,10 @@ export default function ChatRoom() {
      channel peer-to-peer-in-room; never touches storage. Only people who
      are online right now receive it — by design. ── */
   const liveFileTxRef = useRef(false);
+  // Files I just uploaded: keyed by the encrypt IV so my own echoed message can
+  // render instantly from the local blob URL instead of re-downloading/decrypting
+  // (which showed the upload hit 100% then go back to a second loading phase).
+  const localFileObjectsRef = useRef(new Map());
   const shareFileLive = async (file, viewOnce = false) => {
     if (liveFileTxRef.current) {
       toast.error("A realtime transfer is already in progress.");
@@ -7423,9 +7456,15 @@ export default function ChatRoom() {
           });
         });
       } else {
+        // Register the local blob so my own echoed file message renders
+        // instantly from the preview instead of re-downloading/decrypting.
+        if (ivString && previewUrl) {
+          localFileObjectsRef.current.set(ivString, { url: previewUrl, name: file.name, type: file.type });
+        }
         await handleSend({ file: fileData }, keyB64);
       }
       setMessages(m => m.filter(msg => msg.id !== tempId));
+      if (ivString) localFileObjectsRef.current.delete(ivString);
       if (previewUrl) URL.revokeObjectURL(previewUrl);
     } catch (err) {
       console.error(err);
