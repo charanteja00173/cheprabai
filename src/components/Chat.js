@@ -191,8 +191,13 @@ const formatNearestUnit = (totalSeconds) => {
    REALTIME FILE RELAY helpers — large files skip storage and
    travel chunk-by-chunk through the room's message channel.
    ══════════════════════════════════════════════════════════ */
-const LIVE_SHARE_CHUNK_BYTES = 256 * 1024;
-const LIVE_SHARE_MAX_BYTES = 100 * 1024 * 1024 * 1024; // 100 GB
+ const LIVE_SHARE_CHUNK_BYTES = 256 * 1024;
+ const LIVE_SHARE_MAX_BYTES = 100 * 1024 * 1024 * 1024; // 100 GB
+ // Realtime relay pushes every chunk over the room socket, so absurdly large
+ // files can flood and knock peers offline. Cap the practical relay size well
+ // below the hard ceiling: bigger files must take the direct-upload path
+ // (Cloudinary durable /uploads) instead of choking the socket.
+ const LIVE_SHARE_PRACTICAL_MAX_BYTES = 200 * 1024 * 1024; // 200 MB
 /* eslint-disable-next-line no-unused-vars */
 const bytesToB64 = (bytes) => {
   let s = "";
@@ -6980,6 +6985,10 @@ export default function ChatRoom() {
       toast.error("A realtime transfer is already in progress.");
       return;
     }
+    if (file.size > LIVE_SHARE_PRACTICAL_MAX_BYTES) {
+      toast.error(`"${file.name}" is too large for realtime sharing (max ${Math.round(LIVE_SHARE_PRACTICAL_MAX_BYTES / (1024 * 1024))} MB). Use a direct upload instead — big realtime relays can drop other participants.`);
+      return;
+    }
     if (file.size > LIVE_SHARE_MAX_BYTES) {
       toast.error(`"${file.name}" is too large even for realtime sharing (max ${Math.round(LIVE_SHARE_MAX_BYTES / (1024 * 1024 * 1024))} GB).`);
       return;
@@ -7041,7 +7050,9 @@ export default function ChatRoom() {
         reader.readAsDataURL(blob);
       });
 
-      const MAX_CONCURRENT_CHUNKS = 8;
+      // Throttled so a transfer can never fire a burst that overwhelms the
+      // recipient's socket/browser — high concurrency is what knocked peers off.
+      const MAX_CONCURRENT_CHUNKS = 3;
       let inFlight = 0;
       let nextSeq = 0;
       let sendError = null;
@@ -7441,11 +7452,14 @@ export default function ChatRoom() {
       } else if (detail) {
         errorMsg = String(detail);
       }
-      // Big files should never dead-end: any upload failure at size gets a
-      // realtime-relay second chance when someone is online to receive it.
+      // Big files should never dead-end: an upload failure at size gets a
+      // realtime-relay second chance — but only while the relay can carry it
+      // safely. Beyond the practical cap the socket relay risks flooding peers,
+      // so large files error cleanly (relying on the durable Cloudinary path).
       const bigFile = file.size >= 25 * 1024 * 1024;
       const peersOnline = onlineUsers.length >= 2;
-      if (bigFile && peersOnline && !scheduleTime && file.size <= LIVE_SHARE_MAX_BYTES) {
+      const relayable = file.size <= LIVE_SHARE_PRACTICAL_MAX_BYTES;
+      if (bigFile && peersOnline && !scheduleTime && relayable) {
         setMessages(m => m.filter(msg => msg.id !== tempId));
         if (previewUrl) URL.revokeObjectURL(previewUrl);
         toast.info(`Direct upload failed for "${file.name}" — switching to realtime sharing.`, { autoClose: 5000 });
