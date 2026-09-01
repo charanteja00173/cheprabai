@@ -7258,20 +7258,19 @@ export default function ChatRoom() {
       const planMaxMB = roomPlanLimits?.maxFileSize;
       const planMaxBytes = planMaxMB == null || planMaxMB === -1 ? MAX_UPLOAD_BYTES : Math.min(planMaxMB * 1024 * 1024, MAX_UPLOAD_BYTES);
       if (file.size > planMaxBytes) {
-        if (onlineUsers.length >= 2) {
-          await shareFileLive(file, viewOnce);
-          return;
-        } else {
-          if (planMaxMB == null || planMaxMB === -1) {
-            if (file.size > 1024 * 1024 * 1024) {
-              toast.error(`"${file.name}" exceeds the maximum 1 GB upload limit.`);
-              return;
-            }
-          } else {
-            toast.error(`"${file.name}" exceeds this room's ${planMaxMB >= 1024 ? `${(planMaxMB / 1024).toFixed(0)} GB` : `${Math.round(planMaxMB)} MB`} upload limit. Contact the room admin to upgrade the plan.`);
+        // A plan's file-size cap is ABSOLUTE — it must never be bypassed by the
+        // realtime socket relay (that only exists as a fallback for a file that
+        // is within-plan but the server can't store). Otherwise a free (5 MB)
+        // plan could blast a 146 MB file over the socket and knock peers off.
+        if (planMaxMB == null || planMaxMB === -1) {
+          if (file.size > 1024 * 1024 * 1024) {
+            toast.error(`"${file.name}" exceeds the maximum 1 GB upload limit.`);
             return;
           }
           shouldBypassCloudinary = true;
+        } else {
+          toast.error(`"${file.name}" exceeds this room's ${planMaxMB >= 1024 ? `${(planMaxMB / 1024).toFixed(0)} GB` : `${Math.round(planMaxMB)} MB`} upload limit. Contact the room admin to upgrade the plan.`);
+          return;
         }
       }
       tempId = `uploading-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -7432,7 +7431,17 @@ export default function ChatRoom() {
       console.error(err);
       const status = err.response?.status;
       const detail = err.response?.data?.error || err.message;
+      const planLimitRejected = err.response?.data?.planLimit === true;
       const tooLarge = status === 413 || /too large|file size/i.test(String(detail));
+      if (planLimitRejected && !scheduleTime) {
+        // A plan's explicit file-size cap is absolute — surface the upgrade
+        // message instead of relaying the file over the socket (which would
+        // bypass the plan and risk disconnecting peers).
+        setMessages(m => m.filter(msg => msg.id !== tempId));
+        if (previewUrl) URL.revokeObjectURL(previewUrl);
+        toast.error(detail || "File exceeds this room's plan upload limit.");
+        return;
+      }
       if (tooLarge && !scheduleTime) {
         setMessages(m => m.filter(msg => msg.id !== tempId));
         if (previewUrl) URL.revokeObjectURL(previewUrl);
