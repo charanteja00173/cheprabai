@@ -6563,6 +6563,23 @@ export default function ChatRoom() {
         try { handleIncomingLiveFile(formattedMsg); } catch (e) { console.error("livefile rx:", e); }
         return;
       }
+      // My own just-uploaded E2EE file: render instantly from the local blob URL
+      // (keyed by IV) instead of re-downloading + decrypting the whole file — that
+      // was the second "Loading / 100%" the sender saw after the upload finished.
+      if (msg.userName === un && formattedMsg.file?.iv) {
+        const localObj = localFileObjectsRef.current.get(formattedMsg.file.iv);
+        if (localObj) {
+          formattedMsg.file = {
+            ...formattedMsg.file,
+            url: localObj.url,
+            name: localObj.name,
+            type: localObj.type,
+            local: true,
+            iv: undefined,
+            keyB64: undefined
+          };
+        }
+      }
       setMessages((m) => m.some((x) => formattedMsg.id && x.id === formattedMsg.id) ? m : [...m, formattedMsg]);
       if (formattedMsg.id && formattedMsg.userName !== un) socketRef.current.emit("messageViewed", { messageId: formattedMsg.id });
       if (msg.userName !== un) {
