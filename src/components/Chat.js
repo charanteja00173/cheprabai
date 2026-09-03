@@ -6959,7 +6959,16 @@ export default function ChatRoom() {
       const updateTempFile = (patch) => setMessages(msgs => msgs.map(msg => msg.id === tempId ? { ...msg, file: { ...msg.file, ...patch } } : msg));
 
       const isEphemeral = ephemeralMode || roomEphemeralDuration > 0;
-      const emitChunkMsg = async (payload) => new Promise((resolve, reject) => {
+      // Per-chunk send with a hard ack timeout. If the recipient drops mid-flight
+      // (or a sendMessage ack never returns), a chunk can otherwise hang forever
+      // and leave liveFileTxRef stuck, blocking every future transfer with
+      // "A realtime transfer is already in progress." Timeouting turns that hang
+      // into a rejection so the finally block resets the lock.
+      const CHUNK_ACK_TIMEOUT_MS = 15000;
+      const emitChunkMsg = (payload) => new Promise((resolve, reject) => {
+        let settled = false;
+        const done = (fn, val) => { if (!settled) { settled = true; fn(val); } };
+        const timer = setTimeout(() => done(reject, new Error("Realtime recipient stopped responding — the other participant may have left.")), CHUNK_ACK_TIMEOUT_MS);
         (async () => {
           let body = payload;
           if (roomKey) {
@@ -6974,8 +6983,9 @@ export default function ChatRoom() {
             ephemeral: isEphemeral,
             ephemeralDuration: roomEphemeralDuration > 0 ? roomEphemeralDuration : DEFAULT_EPHEMERAL_DURATION
           }, (res) => {
-            if (res?.error || !res?.id) reject(new Error(res?.error || "Realtime send failed"));
-            else resolve(res.id);
+            clearTimeout(timer);
+            if (res?.error || !res?.id) done(reject, new Error(res?.error || "Realtime send failed"));
+            else done(resolve, res.id);
           });
         })();
       });
