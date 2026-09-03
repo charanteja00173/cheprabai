@@ -4052,6 +4052,28 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         // Keep the stage alive — user may want to replay.
         setIsFileStreamPaused(true);
         try { video.pause(); } catch (e) {}
+
+        // The media reached its end: the captureStream track stops feeding, but
+        // the senders still hold it via replaceTrack, so participants would sit
+        // on a frozen/black "stopped" stream. Swiftly swap the live camera back
+        // in so they return to a normal feed instead of an abrupt freeze.
+        const origVideo = originalTracksRef.current?.video;
+        const origAudio = originalTracksRef.current?.audio;
+        if (origVideo || origAudio) {
+          Object.values(peers.current).forEach(call => {
+            const pc = call.peerConnection;
+            if (!pc) return;
+            pc.getSenders().forEach(sender => {
+              if (sender.track?.kind === "video" && (fxVideoRef.current?.track || origVideo)) {
+                sender.replaceTrack(fxVideoRef.current?.track || origVideo);
+              }
+              if (sender.track?.kind === "audio" && (fxAudioRef.current?.track || origAudio)) {
+                sender.replaceTrack(fxAudioRef.current?.track || origAudio);
+              }
+            });
+          });
+        }
+
         toast.info("Stream finished — press play to replay.", { autoClose: 3500 });
       };
     } catch (err) {
@@ -4061,6 +4083,30 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   };
 
   const stopFileStream = useCallback(() => {
+    // Order matters: swap the senders back to the live camera/audio tracks BEFORE
+    // stopping the mixed media stream, so participants never see a blanked/ended
+    // track while the swap is in flight (stopping first was causing the abrupt
+    // freeze/black-out on every shared-medium stop/seek/pause).
+    const origVideo = originalTracksRef.current?.video;
+    const origAudio = originalTracksRef.current?.audio;
+
+    if (origVideo || origAudio) {
+      Object.values(peers.current).forEach(call => {
+        const pc = call.peerConnection;
+        if (!pc) return;
+        pc.getSenders().forEach(sender => {
+          const sendVideo = fxVideoRef.current?.track || origVideo;
+          const sendAudio = fxAudioRef.current?.track || origAudio;
+          if (sender.track?.kind === "video" && sendVideo) {
+            sender.replaceTrack(sendVideo);
+          }
+          if (sender.track?.kind === "audio" && sendAudio) {
+            sender.replaceTrack(sendAudio);
+          }
+        });
+      });
+    }
+
     if (mixedStreamCleanupRef.current) {
       try { mixedStreamCleanupRef.current(); } catch (e) {}
       mixedStreamCleanupRef.current = null;
@@ -4082,26 +4128,6 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     if (fileStreamRef.current) {
       fileStreamRef.current.getTracks().forEach(t => t.stop());
       fileStreamRef.current = null;
-    }
-
-    const origVideo = originalTracksRef.current?.video;
-    const origAudio = originalTracksRef.current?.audio;
-
-    if (origVideo || origAudio) {
-      Object.values(peers.current).forEach(call => {
-        const pc = call.peerConnection;
-        if (!pc) return;
-        pc.getSenders().forEach(sender => {
-          const sendVideo = fxVideoRef.current?.track || origVideo;
-          const sendAudio = fxAudioRef.current?.track || origAudio;
-          if (sender.track?.kind === "video" && sendVideo) {
-            sender.replaceTrack(sendVideo);
-          }
-          if (sender.track?.kind === "audio" && sendAudio) {
-            sender.replaceTrack(sendAudio);
-          }
-        });
-      });
     }
 
     originalTracksRef.current = { video: null, audio: null };
@@ -4174,7 +4200,12 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
   const toggleFileStreamPlay = () => {
     if (fileVideoRef.current) {
-      checkAndRecreateFileStreamIfNeeded();
+      // Recreate the capture stream ONLY when about to (re)start playback from a
+      // stale/ended track. A plain pause must NOT rebuild the stream — doing so
+      // abruptly blanks the participants' feed every time the sender pauses.
+      if (fileVideoRef.current.paused) {
+        checkAndRecreateFileStreamIfNeeded();
+      }
       if (fileVideoRef.current.paused) {
         const v = fileVideoRef.current;
         // Replay from start when the media finished
