@@ -6989,29 +6989,62 @@ export default function ChatRoom() {
       // is a full HTTP request). Give them a realistic window so the ack isn't
       // treated as a dropped peer.
       const CHUNK_ACK_TIMEOUT_MS = 30000;
+      // Robust chunk send: transient drops (a reconnect, a slow polling frame,
+      // a Vercel function recycle) must NOT kill the whole transfer. If an ack
+      // times out or errors, retry a few times with backoff so the transfer
+      // self-heals once the socket reconnects. Duplicate chunks are harmless —
+      // the receiver skips any part index it already holds — so retries are
+      // idempotent. Only after exhausting attempts do we give up.
+      const CHUNK_MAX_RETRIES = 3;
+      const CHUNK_RETRY_DELAYS = [2000, 4000, 8000];
       const emitChunkMsg = (payload) => new Promise((resolve, reject) => {
-        let settled = false;
-        const done = (fn, val) => { if (!settled) { settled = true; fn(val); } };
-        const timer = setTimeout(() => done(reject, new Error("Realtime recipient stopped responding — the other participant may have left.")), CHUNK_ACK_TIMEOUT_MS);
-        (async () => {
-          let body = payload;
-          if (roomKey) {
-            try {
-              const enc = await encryptMessage(roomKey, JSON.stringify(payload));
-              body = { encryptedPayload: enc };
-            } catch { body = payload; }
-          }
-          socketRef.current.emit("sendMessage", {
-            payload: body, userName, roomId, ts: Date.now(),
-            liveRelay: true,
-            ephemeral: isEphemeral,
-            ephemeralDuration: roomEphemeralDuration > 0 ? roomEphemeralDuration : DEFAULT_EPHEMERAL_DURATION
-          }, (res) => {
-            clearTimeout(timer);
-            if (res?.error || !res?.id) done(reject, new Error(res?.error || "Realtime send failed"));
-            else done(resolve, res.id);
-          });
-        })();
+        const attempt = (tryCount) => {
+          let settled = false;
+          const done = (fn, val) => { if (!settled) { settled = true; fn(val); } };
+          const timer = setTimeout(() => {
+            // Timed out — if we still have retries left, back off and retry.
+            // socket.io reconnects in the background, so this usually succeeds
+            // right after the link comes back.
+            if (tryCount < CHUNK_MAX_RETRIES) {
+              const delay = CHUNK_RETRY_DELAYS[tryCount - 1] ?? 8000;
+              setTimeout(() => attempt(tryCount + 1), delay);
+            } else {
+              done(reject, new Error("Realtime recipient stopped responding — the other participant may have left."));
+            }
+          }, CHUNK_ACK_TIMEOUT_MS);
+          (async () => {
+            let body = payload;
+            if (roomKey) {
+              try {
+                const enc = await encryptMessage(roomKey, JSON.stringify(payload));
+                body = { encryptedPayload: enc };
+              } catch { body = payload; }
+            }
+            const s = socketRef.current;
+            if (!s || !s.connected) {
+              // Socket is down right now (reconnecting). Retry after backoff.
+              clearTimeout(timer);
+              if (tryCount < CHUNK_MAX_RETRIES) {
+                const delay = CHUNK_RETRY_DELAYS[tryCount - 1] ?? 8000;
+                setTimeout(() => attempt(tryCount + 1), delay);
+              } else {
+                done(reject, new Error("Connection dropped while sharing — the other participant may have left."));
+              }
+              return;
+            }
+            s.emit("sendMessage", {
+              payload: body, userName, roomId, ts: Date.now(),
+              liveRelay: true,
+              ephemeral: isEphemeral,
+              ephemeralDuration: roomEphemeralDuration > 0 ? roomEphemeralDuration : DEFAULT_EPHEMERAL_DURATION
+            }, (res) => {
+              clearTimeout(timer);
+              if (res?.error || !res?.id) done(reject, new Error(res?.error || "Realtime send failed"));
+              else done(resolve, res.id);
+            });
+          })();
+        };
+        attempt(1);
       });
 
       const sentIds = [];
@@ -7179,7 +7212,7 @@ export default function ChatRoom() {
       const map = liveFileRxRef.current;
       const now = Date.now();
       [...map.values()].forEach((entry) => {
-        if (now - entry.lastAt > 90000) {
+        if (now - entry.lastAt > 180000) {
           map.delete(entry.key);
           setMessages(prev => prev.filter(m2 => m2.id !== entry.tempId));
         }
