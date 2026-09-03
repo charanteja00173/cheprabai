@@ -39,7 +39,7 @@ const ICE_SERVERS = [
 ];
 
 const P2P_CHUNK_BYTES = 1024 * 1024; // 1 MB binary chunks
-const P2P_CONNECT_TIMEOUT_MS = 15000;
+const P2P_CONNECT_TIMEOUT_MS = 25000;
 
 // Registry of socket.id -> { pc, channel }
 const connections = new Map();
@@ -163,11 +163,19 @@ function handleInbound(peerId, dc, ev, onMeta, onDone, onProgress) {
       ctx.parts[seq] = payload;
       ctx.got++;
     }
-    if (typeof ctx.append === "function") {
-      ctx.append({ seq, data: payload, got: ctx.got, totalChunks: ctx.totalChunks, size: ctx.size });
-    }
-    if (typeof onProgress === "function") {
-      onProgress({ fid: ctx.fid, loaded: ctx.got * P2P_CHUNK_BYTES, total: ctx.size, progress: Math.floor((Math.min(ctx.got * P2P_CHUNK_BYTES, ctx.size) * 100) / ctx.size) });
+    // Throttle UI progress updates so a large file (thousands of 1 MB chunks)
+    // doesn't flood React with a re-render per chunk — that stalls the receiver's
+    // event loop and can break the transfer. Keep the last chunk unthrottled so
+    // the UI always lands on 100%.
+    const now = typeof Date !== "undefined" ? Date.now() : 0;
+    if (!ctx._lastReport || now - ctx._lastReport >= 200 || ctx.got === ctx.totalChunks) {
+      ctx._lastReport = now;
+      if (typeof ctx.append === "function") {
+        ctx.append({ seq, data: payload, got: ctx.got, totalChunks: ctx.totalChunks, size: ctx.size });
+      }
+      if (typeof onProgress === "function") {
+        onProgress({ fid: ctx.fid, loaded: ctx.got * P2P_CHUNK_BYTES, total: ctx.size, progress: Math.floor((Math.min(ctx.got * P2P_CHUNK_BYTES, ctx.size) * 100) / ctx.size) });
+      }
     }
   }
 }
@@ -226,8 +234,31 @@ export function sendFileP2P({ socket, peerId, file, viewOnce, fromName, onProgre
           totalChunks, viewOnce: Boolean(viewOnce), fromName: fromName || ""
         }));
 
+        // Flow control so a LARGE file can't overrun the DataChannel's send
+        // buffer and abort mid-transfer (a full buffer throws on send()). We
+        // pause once the outbound queue climbs past HIGH MB and resume on the
+        // "bufferedamountlow" event once it drains to LOW. Browsers that don't
+        // expose buffered amount silently fall back to time-pacing below.
+        const supportsFlow = typeof channel.bufferedAmount === "number" && typeof channel.addEventListener === "function";
+        const HIGH = 12 * 1024 * 1024; // pause at 12 MB queued
+        const LOW = 3 * 1024 * 1024;   // resume at 3 MB remaining
+        let paused = false;
+        let resumeResolve = null;
+        const onLow = () => { if (paused) { paused = false; if (resumeResolve) { const r = resumeResolve; resumeResolve = null; r(); } } };
+        if (supportsFlow) {
+          try { channel.bufferedAmountLowThreshold = LOW; } catch {}
+          try { channel.addEventListener("bufferedamountlow", onLow); } catch {}
+        }
+        // eslint-disable-next-line no-loop-func
+        const waitIfPaused = async () => { while (paused) { await Promise.race([new Promise((r) => { resumeResolve = r; }), new Promise((r) => setTimeout(r, 500))]); } };
+
         let loadedBytes = 0;
         for (let seq = 0; seq < totalChunks; seq++) {
+          if (supportsFlow && !paused && channel.bufferedAmount > HIGH) {
+            paused = true;
+            resumeResolve = null;
+          }
+          await waitIfPaused();
           const start = seq * P2P_CHUNK_BYTES;
           const end = Math.min(start + P2P_CHUNK_BYTES, file.size);
           const slice = file.slice(start, end);
@@ -236,20 +267,34 @@ export function sendFileP2P({ socket, peerId, file, viewOnce, fromName, onProgre
           new DataView(frame.buffer).setUint32(0, seq, false);
           frame.set(new Uint8Array(buf), 4);
           if (channel.readyState !== "open") throw new Error("P2P channel closed mid-transfer");
-          channel.send(frame.buffer);
+          // send with a small bounded retry: a transient buffer-full can throw;
+          // wait for room and retry instead of tearing the whole transfer down.
+          for (let attempt = 0; ; attempt++) {
+            try {
+              channel.send(frame.buffer);
+              break;
+            } catch (e) {
+              if (channel.readyState !== "open" || attempt >= 5) throw e;
+              await new Promise((r) => setTimeout(r, Math.min(50 * (attempt + 1), 400)));
+            }
+          }
           loadedBytes += buf.byteLength;
           if (typeof onProgress === "function") {
             onProgress({ fid, loaded: loadedBytes, total: file.size, progress: Math.floor((loadedBytes * 100) / file.size) });
           }
-          if (seq % 8 === 0) await new Promise((r) => setTimeout(r, 0));
+          const every = totalChunks >= 4096 ? 64 : totalChunks >= 512 ? 16 : 4;
+          if (seq % every === 0) await new Promise((r) => setTimeout(r, 0));
         }
 
         channel.send(JSON.stringify({ livefileEnd: true, fid }));
 
-        // Wait for the DONE ack (receiver assembled). Fall back/resolve optimistically
-        // after a wait so a slow ack doesn't hang the whole flow — the receiver has
-        // already received everything by the time END is sent.
-        const ackTimer = setTimeout(() => finish(), 20000);
+        // Wait for the DONE ack (receiver assembled). The receiver has already
+        // received every byte by the time END is sent, so this is purely a
+        // success-confirmation wait — but building a large Blob takes time,
+        // so scale the allowance with file size. On timeout we resolve anyway
+        // (the bytes arrived); only a hard channel close mid-wait is a lie.
+        const ackWait = Math.min(60000, 15000 + Math.round(file.size / (8 * 1024 * 1024)) * 5000);
+        const ackTimer = setTimeout(() => finish(), ackWait);
         channel.addEventListener("message", function onAck(ev) {
           if (typeof ev.data === "string") {
             try {
