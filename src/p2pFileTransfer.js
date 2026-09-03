@@ -75,7 +75,7 @@ export function registerP2PReceiver({ socket, onMeta, onDone, onProgress }) {
     connections.set(from, { pc, channel: null });
 
     pc.onicecandidate = (e) => {
-      if (e.candidate) socket.emit("webrtc-ice", { to: from, candidate: e.candidate });
+      if (e.candidate) socket.emit("webrtc-ice", { to: from, from: socket.id, candidate: e.candidate });
     };
     pc.ondatachannel = (event) => {
       const dc = event.channel;
@@ -89,7 +89,7 @@ export function registerP2PReceiver({ socket, onMeta, onDone, onProgress }) {
     pc.setRemoteDescription(new RTCSessionDescription({ type: "offer", sdp: offer }))
       .then(() => pc.createAnswer())
       .then((answer) => pc.setLocalDescription(answer))
-      .then(() => socket.emit("webrtc-answer", { to: from, answer: pc.localDescription }))
+      .then(() => socket.emit("webrtc-answer", { to: from, from: socket.id, answer: pc.localDescription }))
       .catch(() => connections.delete(from));
   };
 
@@ -202,7 +202,7 @@ export function sendFileP2P({ socket, peerId, file, viewOnce, fromName, onProgre
     connections.set(peerId, { pc, channel });
 
     pc.onicecandidate = (e) => {
-      if (e.candidate) socket.emit("webrtc-ice", { to: peerId, candidate: e.candidate });
+      if (e.candidate) socket.emit("webrtc-ice", { to: peerId, from: socket.id, candidate: e.candidate });
     };
 
     function senderAnswer({ from, answer }) {
@@ -281,7 +281,7 @@ export function sendFileP2P({ socket, peerId, file, viewOnce, fromName, onProgre
     pc.createOffer()
       .then((offer) => pc.setLocalDescription(offer))
       .then(() => {
-        socket.emit("webrtc-offer", { to: peerId, offer: pc.localDescription });
+        socket.emit("webrtc-offer", { to: peerId, from: socket.id, offer: pc.localDescription });
         connectTimer = setTimeout(() => fail(new Error("P2P connection timed out")), P2P_CONNECT_TIMEOUT_MS);
       })
       .catch(fail);
