@@ -192,7 +192,7 @@ const formatNearestUnit = (totalSeconds) => {
    REALTIME FILE RELAY helpers — large files skip storage and
    travel chunk-by-chunk through the room's message channel.
    ══════════════════════════════════════════════════════════ */
-  const LIVE_SHARE_CHUNK_BYTES = 2 * 1024 * 1024; // 2 MB (base64 ~2.7 MB on wire, well under backend 100 MB buffer)
+  const LIVE_SHARE_CHUNK_BYTES = 4 * 1024 * 1024; // 4 MB (base64 ~5.3 MB on wire, well under backend 30 MB maxPayload / 100 MB buffer)
  const LIVE_SHARE_MAX_BYTES = 100 * 1024 * 1024 * 1024; // 100 GB
   // Realtime relay pushes every chunk over the room socket, so gigantic files
   // are slow and need both users connected for the whole transfer. We let any
@@ -7060,7 +7060,7 @@ export default function ChatRoom() {
 
       // Throttled so a transfer can never fire a burst that overwhelms the
       // recipient's socket/browser — high concurrency is what knocked peers off.
-      const MAX_CONCURRENT_CHUNKS = 5;
+      const MAX_CONCURRENT_CHUNKS = 8;
       let inFlight = 0;
       let nextSeq = 0;
       let sendError = null;
