@@ -6917,13 +6917,17 @@ export default function ChatRoom() {
      channel peer-to-peer-in-room; never touches storage. Only people who
      are online right now receive it — by design. ── */
   const liveFileTxRef = useRef(false);
+  const liveTxQueueRef = useRef([]);
   // Files I just uploaded: keyed by the encrypt IV so my own echoed message can
   // render instantly from the local blob URL instead of re-downloading/decrypting
   // (which showed the upload hit 100% then go back to a second loading phase).
   const localFileObjectsRef = useRef(new Map());
   const shareFileLive = async (file, viewOnce = false) => {
     if (liveFileTxRef.current) {
-      toast.error("A realtime transfer is already in progress.");
+      // A realtime transfer is already running. Queue this one so it starts
+      // automatically once the current transfer finishes — don't just reject it.
+      liveTxQueueRef.current.push({ file, viewOnce });
+      toast.info(`"${file.name}" queued — it will share once the current realtime transfer finishes.`);
       return;
     }
     if (file.size > LIVE_SHARE_PRACTICAL_MAX_BYTES) {
@@ -7068,6 +7072,11 @@ export default function ChatRoom() {
       setMessages(m => m.filter(msg => msg.id !== tempId));
     } finally {
       liveFileTxRef.current = false;
+      const next = liveTxQueueRef.current.shift();
+      if (next) {
+        // Start the next queued transfer automatically.
+        shareFileLive(next.file, next.viewOnce);
+      }
     }
   };
 
