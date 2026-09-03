@@ -6984,7 +6984,11 @@ export default function ChatRoom() {
       // and leave liveFileTxRef stuck, blocking every future transfer with
       // "A realtime transfer is already in progress." Timeouting turns that hang
       // into a rejection so the finally block resets the lock.
-      const CHUNK_ACK_TIMEOUT_MS = 15000;
+      // Large 2MB chunks (→ ~2.7MB base64) make per-chunk round-trips slower,
+      // especially when a connection falls back to socket.io polling (each chunk
+      // is a full HTTP request). Give them a realistic window so the ack isn't
+      // treated as a dropped peer.
+      const CHUNK_ACK_TIMEOUT_MS = 30000;
       const emitChunkMsg = (payload) => new Promise((resolve, reject) => {
         let settled = false;
         const done = (fn, val) => { if (!settled) { settled = true; fn(val); } };
