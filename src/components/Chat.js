@@ -192,7 +192,7 @@ const formatNearestUnit = (totalSeconds) => {
    REALTIME FILE RELAY helpers — large files skip storage and
    travel chunk-by-chunk through the room's message channel.
    ══════════════════════════════════════════════════════════ */
- const LIVE_SHARE_CHUNK_BYTES = 256 * 1024;
+  const LIVE_SHARE_CHUNK_BYTES = 2 * 1024 * 1024; // 2 MB (base64 ~2.7 MB on wire, well under backend 100 MB buffer)
  const LIVE_SHARE_MAX_BYTES = 100 * 1024 * 1024 * 1024; // 100 GB
   // Realtime relay pushes every chunk over the room socket, so gigantic files
   // are slow and need both users connected for the whole transfer. We let any
@@ -6929,6 +6929,10 @@ export default function ChatRoom() {
      are online right now receive it — by design. ── */
   const liveFileTxRef = useRef(false);
   const liveTxQueueRef = useRef([]);
+  // Mirror of the realtime transfer queue, kept in state so the UI can render
+  // the pending files while a transfer is active (liveTxQueueRef is mutated
+  // imperatively, so we sync a snapshot into state for re-renders).
+  const [liveQueue, setLiveQueue] = useState([]);
   // Files I just uploaded: keyed by the encrypt IV so my own echoed message can
   // render instantly from the local blob URL instead of re-downloading/decrypting
   // (which showed the upload hit 100% then go back to a second loading phase).
@@ -6938,6 +6942,7 @@ export default function ChatRoom() {
       // A realtime transfer is already running. Queue this one so it starts
       // automatically once the current transfer finishes — don't just reject it.
       liveTxQueueRef.current.push({ file, viewOnce });
+      setLiveQueue(liveTxQueueRef.current.map((it) => it.file.name));
       toast.info(`"${file.name}" queued — it will share once the current realtime transfer finishes.`);
       return;
     }
@@ -7018,7 +7023,7 @@ export default function ChatRoom() {
 
       // Throttled so a transfer can never fire a burst that overwhelms the
       // recipient's socket/browser — high concurrency is what knocked peers off.
-      const MAX_CONCURRENT_CHUNKS = 3;
+      const MAX_CONCURRENT_CHUNKS = 5;
       let inFlight = 0;
       let nextSeq = 0;
       let sendError = null;
@@ -7099,6 +7104,7 @@ export default function ChatRoom() {
     } finally {
       liveFileTxRef.current = false;
       const next = liveTxQueueRef.current.shift();
+      setLiveQueue(liveTxQueueRef.current.map((it) => it.file.name));
       if (next) {
         // Start the next queued transfer automatically.
         shareFileLive(next.file, next.viewOnce);
@@ -11554,6 +11560,33 @@ export default function ChatRoom() {
                 <FaPaperPlane />
               </SendButton>
             </div>
+            {liveQueue.length > 0 && (
+              <div style={{
+                marginTop: 8,
+                padding: "8px 12px",
+                borderRadius: 10,
+                background: "rgba(251,191,36,0.10)",
+                border: "1px solid rgba(251,191,36,0.28)",
+                fontSize: "0.82rem",
+                color: "var(--chakra-colors-textPrimary)",
+                display: "flex",
+                flexDirection: "column",
+                gap: 4,
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 700, color: "var(--chakra-colors-brandPrimary)" }}>
+                  <span style={{ animation: "pulse 1.6s infinite" }}>⏳</span>
+                  <span>Realtime queue</span>
+                  <span style={{ marginLeft: "auto", opacity: 0.75 }}>{liveQueue.length} waiting</span>
+                </div>
+                {liveQueue.map((name, i) => (
+                  <div key={`${name}-${i}`} style={{ display: "flex", alignItems: "center", gap: 6, opacity: 0.9 }}>
+                    <span>📎</span>
+                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</span>
+                    <span style={{ marginLeft: "auto", fontStyle: "italic", opacity: 0.6, fontSize: "0.72rem" }}>starts when current finishes</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </MessageInputContainer>
         )}
 
