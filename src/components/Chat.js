@@ -4776,6 +4776,17 @@ function GifCardComponent({ gif, onSelect }) {
 
 /* ================= COMPONENT ================= */
 
+// ── Local chat-history cache helpers (module scope) ─────────────────────────
+const readHistoryCache = (rid) => {
+  try { return JSON.parse(localStorage.getItem(`cheprabai:room-cache:${rid}`) || "[]"); } catch { return []; }
+};
+const writeHistoryCache = (rid, list) => {
+  try {
+    const capped = (list || []).slice(-200);
+    localStorage.setItem(`cheprabai:room-cache:${rid}`, JSON.stringify(capped));
+  } catch { /* storage unavailable (private mode) — skip */ }
+};
+
 export default function ChatRoom() {
   const { roomId: routeRoomId } = useParams();
   const [searchParams] = useSearchParams();
@@ -4825,6 +4836,25 @@ export default function ChatRoom() {
   const [diagnosticsError, setDiagnosticsError] = useState("");
   const diagnosticsIntervalRef = useRef(null);
   const [messages, setMessages] = useState([]);
+  // ── Local chat-history cache ──────────────────────────────────────────────
+  // Real chat history lives on the backend, but on Vercel serverless the room's
+  // in-memory queue can be lost between a quick leave & rejoin (instance swap /
+  // cold start). To make a user's view survive that, we keep a lightweight local
+  // copy of the stable (non-ephemeral) messages per room and restore it on rejoin
+  // whenever the server returns empty history. Helpers live at module scope.
+  const historyCacheRoomRef = useRef("");
+  useEffect(() => {
+    if (!joined || !roomKey) return;
+    const rid = roomId.trim();
+    historyCacheRoomRef.current = rid;
+    const stable = messages.filter((m) => {
+      if (!m || m.ephemeral) return false;
+      if (m.id && /^(uploading|liveshare|rx)-/.test(m.id)) return false;
+      if (m.payload?.__livefile || m.__livefile) return false;
+      return true;
+    });
+    writeHistoryCache(rid, stable);
+  }, [messages, joined, roomKey, roomId]);
   const [message, setMessage] = useState("");
   const [typingUsers, setTypingUsers] = useState([]);
   const typingFirstSeenRef = useRef(new Map()); // name -> ts first seen (hard-expiry guard)
@@ -6380,12 +6410,20 @@ export default function ChatRoom() {
       // Merge + dedupe by id so a reconnect re-sending history can't duplicate
       // messages either.
       setMessages(prev => {
+        // If the server returned no history (e.g. its room queue was wiped by a
+        // serverless cold start/instance swap between a quick leave & rejoin),
+        // fall back to this browser's last-known chat for the room so the view
+        // isn't lost. Filled in only as a gap-fill, never overriding server data.
+        const rid = roomId.trim();
+        const cached = formatted.length === 0 && historyCacheRoomRef.current === rid
+          ? readHistoryCache(rid)
+          : [];
         const historicIds = new Set(formatted.map(f => f.id).filter(Boolean));
         const keepLocal = prev.filter(m => !historicIds.has(m.id) &&
           /^(uploading|liveshare|rx)-/.test(m.id) &&
           m.file && (m.file.loading || m.file.progress !== undefined));
         const seen = new Set();
-        return [...keepLocal, ...formatted].filter(m => {
+        return [...keepLocal, ...cached, ...formatted].filter(m => {
           if (!m.id) return true;
           if (seen.has(m.id)) return false;
           seen.add(m.id);
