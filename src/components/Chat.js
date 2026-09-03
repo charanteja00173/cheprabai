@@ -5404,78 +5404,80 @@ export default function ChatRoom() {
     }
   }, [roomId, securityCode]);
 
-  const handleShareQr = async (url) => {
-    try {
-      const svg = document.querySelector(".qr-container-el svg");
-      if (!svg) {
-        navigator.clipboard.writeText(url);
-        toast.success("Room link copied to clipboard!");
-        return;
-      }
-      
-      const svgString = new XMLSerializer().serializeToString(svg);
-      const svgBlob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
-      const SVGURL = URL.createObjectURL(svgBlob);
-      
-      const image = new Image();
-      image.onload = async () => {
+  const downloadBlob = (blob, name) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleShareQr = async (url, rootEl) => {
+    // Capture the QR as an image. We ALWAYS resolve to the QR image (download or
+    // native file-share) — never fall back to copying the room text, which is
+    // what made tapping the QR look like it "copied the room details" instead of
+    // sharing the QR itself.
+    const svg = (rootEl && rootEl.querySelector("svg")) || document.querySelector(".qr-container-el svg");
+    if (!svg) {
+      toast.error("Could not find the QR code to share.");
+      return;
+    }
+
+    const svgString = new XMLSerializer().serializeToString(svg);
+    // Inject a white background + explicit dimensions into the SVG so the PNG is
+    // never blank and renders at a crisp, shareable size regardless of layout.
+    const vb = (svg.getAttribute("viewBox") || "0 0 250 250").split(" ").map(Number);
+    const width = Math.max(256, Math.round(vb[2]) || 250);
+    const height = Math.max(256, Math.round(vb[3]) || 250);
+    const decorated =
+      svgString.startsWith("<svg")
+        ? svgString.replace(/^<svg([^>]*)/, `<svg$1 width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg" style="background:#ffffff"`)
+        : svgString;
+
+    const svgBlob = new Blob([decorated], { type: "image/svg+xml;charset=utf-8" });
+    const SVGURL = URL.createObjectURL(svgBlob);
+
+    const image = new Image();
+    image.onload = () => {
+      try {
         const canvas = document.createElement("canvas");
-        canvas.width = svg.clientWidth || 250;
-        canvas.height = svg.clientHeight || 250;
+        canvas.width = width;
+        canvas.height = height;
         const context = canvas.getContext("2d");
-        
         context.fillStyle = "#ffffff";
         context.fillRect(0, 0, canvas.width, canvas.height);
-        
-        context.drawImage(image, 0, 0);
+        context.drawImage(image, 0, 0, width, height);
         URL.revokeObjectURL(SVGURL);
-        
-        canvas.toBlob(async (blob) => {
+        canvas.toBlob((blob) => {
           if (!blob) {
-            navigator.clipboard.writeText(url);
-            toast.success("Room link copied to clipboard!");
+            toast.error("Could not generate the QR image.");
             return;
           }
-          
           const file = new File([blob], "anonchat-qr.png", { type: "image/png" });
-          
           if (navigator.canShare && navigator.canShare({ files: [file] })) {
-            try {
-              await navigator.share({
-                files: [file],
-                title: "Join AnonChat Room",
-                text: `Join my secure AnonChat room: ${url}`
+            navigator.share({ files: [file], title: "Join AnonChat Room", text: `Join my secure AnonChat room: ${url}` })
+              .catch((shareErr) => {
+                if (shareErr && shareErr.name !== "AbortError") downloadBlob(blob);
               });
-            } catch (shareErr) {
-              if (shareErr.name !== "AbortError") {
-                const a = document.createElement("a");
-                a.href = URL.createObjectURL(blob);
-                a.download = "anonchat-qr.png";
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(a.href);
-              }
-            }
           } else {
-            const a = document.createElement("a");
-            a.href = URL.createObjectURL(blob);
-            a.download = "anonchat-qr.png";
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(a.href);
-            navigator.clipboard.writeText(url);
-            toast.success("Room link copied & QR Code downloaded!");
+            downloadBlob(blob);
+            toast.success("QR code downloaded!");
           }
         }, "image/png");
-      };
-      image.src = SVGURL;
-    } catch (err) {
-      console.error("Error sharing QR code:", err);
-      navigator.clipboard.writeText(url);
-      toast.success("Room link copied to clipboard!");
-    }
+      } catch (err) {
+        console.error("Error rasterizing QR code:", err);
+        toast.error("Could not generate the QR image.");
+      }
+    };
+    image.onerror = () => {
+      console.error("QR SVG failed to load for rasterization");
+      URL.revokeObjectURL(SVGURL);
+      toast.error("Could not generate the QR image.");
+    };
+    image.src = SVGURL;
   };
   const isScrollingRef = useRef(false);
 
@@ -7206,6 +7208,23 @@ export default function ChatRoom() {
           return;
         }
       }
+      // Route by size UP-FRONT — no more guessing between two mechanisms.
+      // Large files (within the plan + relay caps, with a live recipient) go
+      // straight to realtime sharing; smaller files use the normal upload.
+      const RELAY_FLOOR = 25 * 1024 * 1024; // 25 MB
+      const planAllowsSize = planMaxMB == null || planMaxMB === -1 || file.size <= planMaxMB * 1024 * 1024;
+      const hasLiveRecipient = onlineUsers.length >= 2;
+      if (
+        !scheduleTime &&
+        planAllowsSize &&
+        hasLiveRecipient &&
+        file.size >= RELAY_FLOOR &&
+        file.size <= LIVE_SHARE_PRACTICAL_MAX_BYTES
+      ) {
+        await shareFileLive(file, viewOnce);
+        return;
+      }
+
       tempId = `uploading-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       const looksMedia = /^(image|video)\//.test(file.type) ||
         /\.(png|jpe?g|gif|webp|avif|bmp|svg|mp4|mov|webm|mkv|m4v)$/i.test(file.name || "");
@@ -9030,7 +9049,7 @@ export default function ChatRoom() {
                   {showLandingQr && (
                     <div 
                       className="qr-container-el"
-                      onClick={() => handleShareQr(window.location.href)}
+                      onClick={(e) => handleShareQr(window.location.href, e.currentTarget)}
                       style={{
                         background: "#ffffff",
                         padding: 16,
@@ -9775,7 +9794,7 @@ export default function ChatRoom() {
                         }} onClick={(e) => e.stopPropagation()}>
                           <div 
                             className="qr-container-el"
-                            onClick={() => handleShareQr(window.location.href)}
+                            onClick={(e) => handleShareQr(window.location.href, e.currentTarget)}
                             style={{
                               background: "#ffffff",
                               padding: 16,
