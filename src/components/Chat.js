@@ -194,11 +194,11 @@ const formatNearestUnit = (totalSeconds) => {
    ══════════════════════════════════════════════════════════ */
  const LIVE_SHARE_CHUNK_BYTES = 256 * 1024;
  const LIVE_SHARE_MAX_BYTES = 100 * 1024 * 1024 * 1024; // 100 GB
- // Realtime relay pushes every chunk over the room socket, so absurdly large
- // files can flood and knock peers offline. Cap the practical relay size well
- // below the hard ceiling: bigger files must take the direct-upload path
- // (Cloudinary durable /uploads) instead of choking the socket.
-  const LIVE_SHARE_PRACTICAL_MAX_BYTES = 200 * 1024 * 1024; // 200 MB
+  // Realtime relay pushes every chunk over the room socket, so gigantic files
+  // are slow and need both users connected for the whole transfer. We let any
+  // size up to the hard 100 GB ceiling through — the effective real limit is
+  // the app's 1 GB multer hard cap enforced in uploadFile.
+  const LIVE_SHARE_PRACTICAL_MAX_BYTES = 100 * 1024 * 1024 * 1024; // 100 GB (any size up to the hard ceiling)
 
   // The backend is deployed on Vercel serverless, which hard-caps the request
   // body at ~4.5 MB (413) regardless of what Express/multer allows. So any file
@@ -6927,7 +6927,7 @@ export default function ChatRoom() {
       return;
     }
     if (file.size > LIVE_SHARE_PRACTICAL_MAX_BYTES) {
-      toast.error(`"${file.name}" is too large for realtime sharing (max ${Math.round(LIVE_SHARE_PRACTICAL_MAX_BYTES / (1024 * 1024))} MB). Use a direct upload instead — big realtime relays can drop other participants.`);
+      toast.error(`"${file.name}" is too large for realtime sharing (max ${LIVE_SHARE_PRACTICAL_MAX_BYTES >= 1024 * 1024 * 1024 ? `${Math.round(LIVE_SHARE_PRACTICAL_MAX_BYTES / (1024 * 1024 * 1024))} GB` : `${Math.round(LIVE_SHARE_PRACTICAL_MAX_BYTES / (1024 * 1024))} MB`}). Use a direct upload instead — big realtime relays can drop other participants.`);
       return;
     }
     if (file.size > LIVE_SHARE_MAX_BYTES) {
