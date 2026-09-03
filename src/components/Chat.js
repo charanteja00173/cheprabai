@@ -4626,7 +4626,7 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile, setViewer,
             {!mediaLoaded && <MediaSkeleton isMobile={isMobile} />}
             <img
               alt={file.name}
-              src={decryptedUrl}
+              src={decryptedUrl || file.url}
               decoding="async"
               onLoad={() => setMediaLoaded(true)}
               onError={() => setMediaLoaded(true)}
@@ -4637,7 +4637,7 @@ function E2EEFileAttachment({ file, roomKey, setFullscreen, isMobile, setViewer,
           <div style={{ position: "relative", borderRadius: 16, overflow: "hidden" }}>
             {!mediaLoaded && <MediaSkeleton isMobile={isMobile} />}
             <video
-              src={decryptedUrl}
+              src={decryptedUrl || file.url}
               controls
               playsInline
               preload="auto"
