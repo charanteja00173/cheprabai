@@ -4782,6 +4782,7 @@ export default function ChatRoom() {
   const navigate = useNavigate();
   const socketRef = useRef(null);
   const liveFileRxRef = useRef(new Map());
+  const livefileAckRef = useRef(new Map()); // fileId -> resolve() for completion handshake
   const onResolvedRef = useRef(null);
   const userColorsRef = useRef({});
   const roomKeyRef = useRef(null);
@@ -6605,6 +6606,16 @@ export default function ChatRoom() {
     window.addEventListener("focus", handleFocus);
     window.addEventListener("keydown", handleKeyDown);
 
+    // Completion ack for a realtime file relay: resolves the sender's pending
+    // handshake (see livefileAckRef) once the receiver has assembled the file.
+    socketRef.current.on("livefile-received", ({ fileId }) => {
+      const resolve = livefileAckRef.current.get(fileId);
+      if (resolve) {
+        livefileAckRef.current.delete(fileId);
+        resolve();
+      }
+    });
+
     socketRef.current.on("connect", () => {
       setIsConnected(true);
       if ((joined && rid && un) || reconnectRef.current.droppedInRoom) {
@@ -6995,7 +7006,7 @@ export default function ChatRoom() {
       });
 
       const sentIds = [];
-      await emitChunkMsg({ __livefile: "meta", id: fileId, name: file.name, mime: file.type, size: file.size, totalChunks, viewOnce: Boolean(viewOnce && /^(image|video)\//.test(file.type)) }).then((id) => sentIds.push(id));
+      await emitChunkMsg({ __livefile: "meta", id: fileId, fid: fileId, name: file.name, mime: file.type, size: file.size, totalChunks, viewOnce: Boolean(viewOnce && /^(image|video)\//.test(file.type)) }).then((id) => sentIds.push(id));
 
       const startedAt = performance.now();
       const blobToBase64 = (blob) => new Promise((resolve, reject) => {
@@ -7034,7 +7045,7 @@ export default function ChatRoom() {
               try {
                 const sliceBlob = file.slice(seq * LIVE_SHARE_CHUNK_BYTES, (seq + 1) * LIVE_SHARE_CHUNK_BYTES);
                 const b64Data = await blobToBase64(sliceBlob);
-                const id2 = await emitChunkMsg({ __livefile: "chunk", id: fileId, seq, data: b64Data });
+                const id2 = await emitChunkMsg({ __livefile: "chunk", id: fileId, fid: fileId, seq, data: b64Data });
                 sentIds.push(id2);
                 
                 inFlight--;
@@ -7058,7 +7069,22 @@ export default function ChatRoom() {
 
         sendNext();
       });
-      await emitChunkMsg({ __livefile: "end", id: fileId }).then((id) => sentIds.push(id));
+      await emitChunkMsg({ __livefile: "end", id: fileId, fid: fileId }).then((id) => sentIds.push(id));
+
+      // Completion handshake: don't claim success until the receiver tells us it
+      // actually assembled the full file. Otherwise we'd show "uploaded" while
+      // the recipient is stuck at 95% (or disconnected). If no ack arrives in
+      // time, we treat the transfer as interrupted instead of falsely done.
+      const RECEIVED_ACK_TIMEOUT_MS = 20000;
+      await new Promise((resolve, reject) => {
+        let settled = false;
+        const finish = (fn) => { if (!settled) { settled = true; fn(); } };
+        const timer = setTimeout(() => {
+          livefileAckRef.current.delete(fileId);
+          finish(() => reject(new Error(`Realtime share of "${file.name}" may not have reached the recipient — they may have disconnected before it finished.`)));
+        }, RECEIVED_ACK_TIMEOUT_MS);
+        livefileAckRef.current.set(fileId, () => { clearTimeout(timer); livefileAckRef.current.delete(fileId); finish(resolve); });
+      });
 
       const localUrl = previewUrl || URL.createObjectURL(file);
       setMessages(m => m.map(msg => msg.id === tempId ? {
@@ -7085,9 +7111,10 @@ export default function ChatRoom() {
     const kind = msg.__livefile;
     const map = liveFileRxRef.current;
     if (kind === "meta") {
-      const tempId = `rx-${msg.id}`;
-      map.set(msg.id, {
-        key: msg.id,
+      const fid = msg.fid || msg.id; // stable sender transfer id (server overrides `id`)
+      const tempId = `rx-${fid}`;
+      map.set(fid, {
+        key: fid,
         parts: new Array(msg.totalChunks).fill(null), got: 0,
         name: msg.name, mime: msg.mime, size: msg.size, totalChunks: msg.totalChunks,
         viewOnce: msg.viewOnce, from: msg.userName, tempId, lastAt: Date.now()
@@ -7099,7 +7126,7 @@ export default function ChatRoom() {
       }]);
       return;
     }
-    const entry = map.get(msg.id);
+    const entry = map.get(msg.fid || msg.id);
     if (!entry) return;
     entry.lastAt = Date.now();
     if (kind === "chunk") {
@@ -7118,7 +7145,8 @@ export default function ChatRoom() {
       return;
     }
     if (kind === "end") {
-      map.delete(msg.id);
+      const fid = msg.fid || msg.id;
+      map.delete(fid);
       try {
         const cleanParts = entry.parts.map(p => p || new Uint8Array(0));
         const url = URL.createObjectURL(new Blob(cleanParts, { type: entry.mime || "application/octet-stream" }));
@@ -7126,6 +7154,8 @@ export default function ChatRoom() {
           ...m2,
           file: { name: entry.name, type: entry.mime, size: entry.size, url, local: true, loading: false, ...(entry.viewOnce && { viewOnce: true }) }
         } : m2));
+        // Tell the sender the full file was received so it reports real success.
+        socketRef.current.emit("livefile-received", { fileId: fid });
       } catch (e) {
         console.error("Live file assemble failed:", e);
         setMessages(prev => prev.filter(m2 => m2.id !== entry.tempId));
