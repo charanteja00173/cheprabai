@@ -43,6 +43,7 @@ import { AiOutlineClose } from "react-icons/ai";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import ThemeSwitcher from "./ThemeSwitcher";
+import { sendFileP2P, registerP2PReceiver, P2P_CHUNK_BYTES } from "../p2pFileTransfer";
 import { createDecryptionHtmlTemplate } from "../utils/exportTemplate";
 import { BREAKPOINTS, useIsMobile } from "../hooks/useIsMobile";
 import { AtSign, BarChart3, CalendarClock, Clapperboard, Download, Eye, EyeOff, FileUp, FolderLock, Globe, Hash, Image, KeyRound, LockKeyhole, MessagesSquare, Mic, MonitorUp, Palette, PenTool, Phone, QrCode, ScreenShare, Search, ShieldCheck, Sparkles, Timer, Upload, UserRound, Users, Video, WifiOff, Zap, ArrowRight, Check, Copy } from "lucide-react";
@@ -7016,6 +7017,34 @@ export default function ChatRoom() {
       }]);
       const updateTempFile = (patch) => setMessages(msgs => msgs.map(msg => msg.id === tempId ? { ...msg, file: { ...msg.file, ...patch } } : msg));
 
+      // ---- Prefer P2P WebRTC first (zero server involvement, fastest) ------
+      // If a real peer socket is online, open a direct DataChannel and stream
+      // the file browser-to-browser. On any failure (no peer, NAT needs TURN,
+      // timeout, closed channel) we fall back to the chunked socket relay below.
+      try {
+        const meId = socketRef.current?.id;
+        const peer = (onlineUsers || []).find(u => u.id && u.id !== meId && u.id !== "local");
+        if (peer?.id) {
+          await sendFileP2P({
+            socket: socketRef.current,
+            peerId: peer.id,
+            file,
+            viewOnce: viewOnce && /^(image|video)\//.test(file.type),
+            fromName: userName,
+            onProgress: ({ progress, loaded, total }) => updateTempFile({ progress, loaded, total })
+          });
+          const localUrl = previewUrl || URL.createObjectURL(file);
+          setMessages(m => m.map(msg => msg.id === tempId ? {
+            ...msg,
+            file: { name: file.name, type: file.type, size: file.size, url: localUrl, local: true, loading: false, ...(viewOnce && /^(image|video)\//.test(file.type) && { viewOnce: true }) }
+          } : msg));
+          toast.success(`Shared "${file.name}" P2P`);
+          return; // finally resets the lock and runs the next queued transfer
+        }
+      } catch (p2pErr) {
+        console.warn("P2P send failed, falling back to relay:", p2pErr && p2pErr.message);
+      }
+
       const isEphemeral = ephemeralMode || roomEphemeralDuration > 0;
       // Per-chunk send with a hard ack timeout. If the recipient drops mid-flight
       // (or a sendMessage ack never returns), a chunk can otherwise hang forever
@@ -7258,6 +7287,48 @@ export default function ChatRoom() {
     }, 30000);
     return () => clearInterval(sweep);
   }, []);
+
+  // ---- P2P WebRTC DataChannel file receive -------------------------------
+  // Registers one inbound handler per socket connect. When a peer opens a
+  // DataChannel, meta/chunks/end are assembled in the module (pure P2P, no
+  // server involved) and we just mirror it into the same placeholder message +
+  // progress UI used by the socket relay, then finalize on DONE.
+  useEffect(() => {
+    const s = socketRef.current;
+    if (!s) return undefined;
+    const cleanup = registerP2PReceiver({
+      socket: s,
+      onMeta: ({ fid, meta, tempId }) => {
+        setMessages(m => [...m, {
+          id: tempId, userName: meta.fromName || "",
+          file: { name: meta.name, type: meta.mime, size: meta.size, loading: true, phase: "receiving-live", progress: 0, loaded: 0, total: meta.size },
+          ts: Date.now()
+        }]);
+        return ({ data, got, totalChunks, size }) => {
+          const loaded = Math.min(got * P2P_CHUNK_BYTES, size);
+          setMessages(prev => prev.map(m2 => m2.id === tempId ? { ...m2, file: { ...m2.file, progress: Math.floor((loaded * 100) / size), loaded } } : m2));
+        };
+      },
+      onProgress: ({ fid, progress, loaded, total }) => {
+        const tempId = `p2p-${fid}`;
+        setMessages(prev => prev.map(m2 => m2.id === tempId ? { ...m2, file: { ...m2.file, progress, loaded } } : m2));
+      },
+      onDone: ({ url, name, mime, size, viewOnce, error, fid }) => {
+        const tempId = `p2p-${fid}`;
+        if (error) {
+          toast.error(`P2P file failed to assemble: ${error}`);
+          setMessages(prev => prev.filter(m2 => m2.id !== tempId));
+          return;
+        }
+        setMessages(prev => prev.map(m2 => m2.id === tempId ? {
+          ...m2,
+          file: { name, type: mime, size, url, local: true, loading: false, ...(viewOnce && { viewOnce: true }) }
+        } : m2));
+      }
+    });
+    return cleanup;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [socketRef.current]);
 
   const compressImageIfNeeded = (file) => {
     if (!file.type.startsWith("image/") || file.type === "image/gif") return Promise.resolve(file);
