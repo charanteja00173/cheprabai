@@ -198,7 +198,13 @@ const formatNearestUnit = (totalSeconds) => {
  // files can flood and knock peers offline. Cap the practical relay size well
  // below the hard ceiling: bigger files must take the direct-upload path
  // (Cloudinary durable /uploads) instead of choking the socket.
- const LIVE_SHARE_PRACTICAL_MAX_BYTES = 200 * 1024 * 1024; // 200 MB
+  const LIVE_SHARE_PRACTICAL_MAX_BYTES = 200 * 1024 * 1024; // 200 MB
+
+  // The backend is deployed on Vercel serverless, which hard-caps the request
+  // body at ~4.5 MB (413) regardless of what Express/multer allows. So any file
+  // at or above this floor MUST go through the realtime socket relay (no such
+  // body limit) instead of the HTTP /api/upload endpoint.
+  const REALTIME_FLOOR_BYTES = 4 * 1024 * 1024; // 4 MB — Vercel serverless body cap
 /* eslint-disable-next-line no-unused-vars */
 const bytesToB64 = (bytes) => {
   let s = "";
@@ -7209,19 +7215,20 @@ export default function ChatRoom() {
         }
       }
       // Route by size UP-FRONT — no more guessing between two mechanisms.
-      // Large files (within the plan + relay caps, with a live recipient) go
-      // straight to realtime sharing; smaller files use the normal upload.
-      const RELAY_FLOOR = 25 * 1024 * 1024; // 25 MB
+      // The backend is on Vercel serverless (~4 MB body cap), so anything at or
+      // above REALTIME_FLOOR_BYTES can never go through the HTTP /api/upload
+      // (it would 413). Those files go straight to realtime sharing instead.
       const planAllowsSize = planMaxMB == null || planMaxMB === -1 || file.size <= planMaxMB * 1024 * 1024;
       const hasLiveRecipient = onlineUsers.length >= 2;
-      if (
-        !scheduleTime &&
-        planAllowsSize &&
-        hasLiveRecipient &&
-        file.size >= RELAY_FLOOR &&
-        file.size <= LIVE_SHARE_PRACTICAL_MAX_BYTES
-      ) {
-        await shareFileLive(file, viewOnce);
+      const overHttpFloor = file.size >= REALTIME_FLOOR_BYTES && file.size <= LIVE_SHARE_PRACTICAL_MAX_BYTES;
+      if (!scheduleTime && planAllowsSize && overHttpFloor) {
+        if (hasLiveRecipient) {
+          await shareFileLive(file, viewOnce);
+          return;
+        }
+        // No recipient online — the socket relay can't carry it, and Vercel
+        // would 413 on the HTTP path. Fail fast instead of a doomed upload.
+        toast.error(`"${file.name}" (${(file.size / 1024 / 1024).toFixed(1)} MB) is too large for this server to store directly. Ask someone to join the room, then send it again to share in realtime.`);
         return;
       }
 
@@ -7423,7 +7430,7 @@ export default function ChatRoom() {
       // realtime-relay second chance — but only while the relay can carry it
       // safely. Beyond the practical cap the socket relay risks flooding peers,
       // so large files error cleanly (relying on the durable Cloudinary path).
-      const bigFile = file.size >= 25 * 1024 * 1024;
+      const bigFile = file.size >= REALTIME_FLOOR_BYTES;
       const peersOnline = onlineUsers.length >= 2;
       const relayable = file.size <= LIVE_SHARE_PRACTICAL_MAX_BYTES;
       if (bigFile && peersOnline && !scheduleTime && relayable) {
