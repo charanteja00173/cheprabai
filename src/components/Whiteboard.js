@@ -2,7 +2,7 @@ import React, { useCallback, useRef, useEffect } from "react";
 import { Excalidraw, exportToBlob, exportToSvg, restoreElements, hashElementsVersion } from "@excalidraw/excalidraw";
 import "@excalidraw/excalidraw/index.css";
 import styled from "styled-components";
-import { FaTimes, FaExpand, FaCompress, FaTrash, FaPaintBrush, FaDownload } from "react-icons/fa";
+import { FaTimes, FaExpand, FaCompress, FaTrash, FaPaintBrush, FaDownload, FaMinus } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { BREAKPOINTS, useIsMobile } from "../hooks/useIsMobile";
 
@@ -238,6 +238,7 @@ export default function Whiteboard({ socket, roomId, onClose, isAdmin, embedded 
   const filesRef = useRef({});
   const [isFullScreen, setIsFullScreen] = React.useState(false);
   const [showExportMenu, setShowExportMenu] = React.useState(false);
+  const [minimized, setMinimized] = React.useState(false);
   const isMobile = useIsMobile();
 
   /* ── Debounce + dedupe local edits, then broadcast the whole scene ── */
@@ -446,11 +447,68 @@ export default function Whiteboard({ socket, roomId, onClose, isAdmin, embedded 
           </IconButton>
         )
       )}
+      <IconButton onClick={() => setMinimized(true)} title="Minimize Whiteboard">
+        <FaMinus />
+      </IconButton>
       <IconButton $danger onClick={onClose} title="Close Whiteboard">
         <FaTimes />
       </IconButton>
     </div>
   );
+
+  // Minimized: collapse the heavy canvas into a light floating chip so it stops
+  // eating CPU (Excalidraw stays unmounted) while the collaboration keeps alive.
+  // Restoring remounts the board and re-syncs state via the existing handlers.
+  if (minimized) {
+    return (
+      <div
+        style={{
+          position: "fixed",
+          bottom: 24,
+          right: 24,
+          zIndex: 10001,
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          padding: "10px 14px",
+          borderRadius: 12,
+          background: "rgba(18,20,30,0.95)",
+          boxShadow: "0 14px 34px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.09)",
+          color: "#eee",
+          cursor: "pointer",
+          fontFamily: "inherit",
+          maxWidth: 260,
+        }}
+        onClick={(e) => { e.stopPropagation(); setMinimized(false); }}
+        title="Restore Whiteboard"
+      >
+        <FaPaintBrush style={{ color: "#34d399", flexShrink: 0 }} />
+        <span
+          style={{
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            fontSize: 13,
+            fontWeight: 600,
+            marginLeft: 8,
+            flex: 1,
+            minWidth: 0,
+          }}
+        >
+          Whiteboard
+        </span>
+        <IconButton
+          onClick={(e) => { e.stopPropagation(); setMinimized(false); }}
+          title="Restore Whiteboard"
+        >
+          <FaExpand />
+        </IconButton>
+        <IconButton $danger onClick={(e) => { e.stopPropagation(); onClose(); }} title="Close Whiteboard">
+          <FaTimes />
+        </IconButton>
+      </div>
+    );
+  }
 
   return (
     <Overlay $embedded={embedded} $isFullScreen={isFullScreen} $isMobile={isMobile} onClick={embedded ? undefined : onClose}>
