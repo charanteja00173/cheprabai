@@ -1,10 +1,12 @@
 import React, { useCallback, useRef, useEffect } from "react";
-import { Tldraw } from "@tldraw/tldraw";
+import { Excalidraw, exportToBlob, exportToSvg, restoreElements, hashElementsVersion } from "@excalidraw/excalidraw";
+import "@excalidraw/excalidraw/index.css";
 import styled from "styled-components";
 import { FaTimes, FaExpand, FaCompress, FaTrash, FaPaintBrush, FaDownload } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { BREAKPOINTS, useIsMobile } from "../hooks/useIsMobile";
 
+/* Overlay: fixed full-screen modal unless embedded inside another surface. */
 const Overlay = styled.div`
   position: ${(props) => (props.$embedded ? "absolute" : "fixed")};
   inset: 0;
@@ -24,6 +26,7 @@ const Overlay = styled.div`
   }
 `;
 
+/* Container: centers the board and sizes it responsively. */
 const WhiteboardContainer = styled.div`
   position: relative;
   width: ${(props) => (props.$embedded || (props.$isFullScreen && props.$isMobile)) ? "100%" : "90%"};
@@ -50,6 +53,7 @@ const WhiteboardContainer = styled.div`
   }
 `;
 
+/* Canvas wrapper hosts the Excalidraw canvas. */
 const CanvasWrapper = styled.div`
   width: 100%;
   min-height: 0;
@@ -61,13 +65,13 @@ const CanvasWrapper = styled.div`
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   flex: 1;
   box-sizing: border-box;
-  
-  /* Override TLDraw variables to pull UI away from the extreme edges so it isn't clipped by rounded corners */
-  --tl-padding: 8px;
+
+  .excalidraw {
+    --color-primary: var(--chakra-colors-brand, #6366f1);
+  }
 
   @media (max-width: ${BREAKPOINTS.lg}px) {
     border-radius: 12px;
-    --tl-padding: 4px;
   }
 `;
 
@@ -167,161 +171,160 @@ const IconButton = styled.button`
   }
 `;
 
+/* Small inline export menu shared by the header and the fullscreen dock. */
+function ExportMenu({ onPick }) {
+  const optionStyle = {
+    padding: "10px 16px",
+    background: "none",
+    border: "none",
+    color: "#fff",
+    fontSize: "0.85rem",
+    fontWeight: 600,
+    cursor: "pointer",
+    textAlign: "left",
+    transition: "background 0.2s",
+    whiteSpace: "nowrap",
+  };
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        top: "100%",
+        marginTop: 8,
+        background: "rgba(20, 20, 20, 0.95)",
+        border: "1px solid rgba(255, 255, 255, 0.15)",
+        borderRadius: 12,
+        boxShadow: "0 8px 30px rgba(0,0,0,0.6)",
+        zIndex: 20000,
+        overflow: "hidden",
+        display: "flex",
+        flexDirection: "column",
+        backdropFilter: "blur(10px)",
+      }}
+    >
+      {["png", "svg"].map((fmt) => (
+        <button
+          key={fmt}
+          onClick={() => onPick(fmt)}
+          style={{ ...optionStyle, borderTop: fmt === "svg" ? "1px solid rgba(255,255,255,0.08)" : "none" }}
+          onMouseEnter={(e) => { e.target.style.background = "rgba(255,255,255,0.08)"; }}
+          onMouseLeave={(e) => { e.target.style.background = "none"; }}
+        >
+          Export as {fmt.toUpperCase()}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/* Trigger a browser download from a blob/string. */
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+
 export default function Whiteboard({ socket, roomId, onClose, isAdmin, embedded = false }) {
-  const appRef = useRef(null);
+  const apiRef = useRef(null);
   const isSyncing = useRef(false);
+  const lastBroadcastHash = useRef("");
+  const broadcastTimer = useRef(null);
+  const filesRef = useRef({});
   const [isFullScreen, setIsFullScreen] = React.useState(false);
-  const isMobile = useIsMobile();
   const [showExportMenu, setShowExportMenu] = React.useState(false);
+  const isMobile = useIsMobile();
 
-  /* ── Content-hash dedup: prevents the infinite echo loop ── */
-  const lastEmittedHash = useRef("");
-
-  /** Lightweight, fast, and bulletproof hash of a shapes record for dedup comparison. */
-  const hashContent = useCallback((shapesMap) => {
-    if (!shapesMap) return "";
-    try {
-      const ids = Object.keys(shapesMap).sort();
-      let parts = [];
-      for (const id of ids) {
-        const s = shapesMap[id];
-        if (!s) continue;
-        const x = s.point ? Math.round(s.point[0]) : 0;
-        const y = s.point ? Math.round(s.point[1]) : 0;
-        const r = s.rotation ? Math.round(s.rotation) : 0;
-        const w = s.size ? Math.round(s.size[0]) : 0;
-        const h = s.size ? Math.round(s.size[1]) : 0;
-        const text = s.text || "";
-        let shapeHash = `${id}:${x},${y}:${r}:${w},${h}:${text}`;
-        
-        if (s.points && Array.isArray(s.points) && s.points.length > 0) {
-          const first = s.points[0];
-          const last = s.points[s.points.length - 1];
-          shapeHash += `-[${s.points.length}:${first ? Math.round(first[0]) : 0},${first ? Math.round(first[1]) : 0}:${last ? Math.round(last[0]) : 0},${last ? Math.round(last[1]) : 0}]`;
-        }
-        parts.push(shapeHash);
-      }
-      return parts.join("|");
-    } catch (e) {
-      console.error("hashContent error:", e);
-      return "";
-    }
-  }, []);
-
-  const handleExport = useCallback(async (format) => {
-    if (!appRef.current) return;
-    try {
-      const shapeIds = appRef.current.shapes.map(s => s.id);
-      if (shapeIds.length === 0) {
-        toast.info("Whiteboard is empty.");
-        return;
-      }
-      await appRef.current.exportImage(format, {
-        ids: shapeIds,
-        scale: 2
-      });
-      toast.success(`Exported as ${format.toUpperCase()}`);
-    } catch (e) {
-      toast.error("Failed to export image.");
-    }
-    setShowExportMenu(false);
-  }, []);
-
-  const handleClearBoard = useCallback(() => {
-    if (!appRef.current) return;
-    const emptyState = { shapes: {}, bindings: {}, assets: {} };
-    isSyncing.current = true;
-    appRef.current.replacePageContent(emptyState.shapes, emptyState.bindings, emptyState.assets);
-    lastEmittedHash.current = "";
-    socket.emit("excalidrawUpdate", { roomId, elements: emptyState });
-    setTimeout(() => {
-      isSyncing.current = false;
-    }, 100);
-  }, [socket, roomId]);
-
-  /* ── Single mount handler — stores the app ref and requests state safely ── */
-  const requestState = useCallback(
-    () => {
-      // Only ask for a sync once the board is actually mounted, so a reconnect
-      // (or initial connect) can never race ahead of the canvas and leave the
-      // user staring at an empty board.
-      if (appRef.current && socket.connected) {
-        socket.emit("request-whiteboard-state", { roomId });
-      }
+  /* ── Debounce + dedupe local edits, then broadcast the whole scene ── */
+  const scheduleBroadcast = useCallback(
+    (elements, appState, files) => {
+      const hash = hashElementsVersion(elements);
+      if (hash === lastBroadcastHash.current) return;
+      if (broadcastTimer.current) clearTimeout(broadcastTimer.current);
+      broadcastTimer.current = setTimeout(() => {
+        lastBroadcastHash.current = hash;
+        filesRef.current = files || filesRef.current;
+        socket.emit("excalidrawUpdate", {
+          roomId,
+          elements: restoreElements(elements, null),
+          appState,
+          files: filesRef.current || {},
+        });
+      }, 250);
     },
     [socket, roomId]
   );
 
-  const handleMount = useCallback(
-    (app) => {
-      appRef.current = app;
-      socket.emit("request-whiteboard-state", { roomId });
+  const handleChange = useCallback(
+    (elements, appState, files) => {
+      if (isSyncing.current) return;
+      scheduleBroadcast(elements, appState, files);
     },
-    [socket, roomId, requestState]
+    [scheduleBroadcast]
   );
 
-  /* ── Single socket listener registered in useEffect (avoids duplicate) ── */
+  /* ── Capture the imperative API on mount and request current state ── */
+  const handleApiReady = useCallback(
+    (api) => {
+      apiRef.current = api;
+      socket.emit("request-whiteboard-state", { roomId });
+    },
+    [socket, roomId]
+  );
+
+  /* ── Socket listeners: apply remote changes, answer state requests ── */
   useEffect(() => {
-    const onRemoteUpdate = (elements) => {
-      // If user is actively drawing/editing (appRef.current.session is active), ignore remote updates to avoid cancellations
-      if (!appRef.current || appRef.current.session) return;
-
+    const onRemoteUpdate = (payload) => {
+      const api = apiRef.current;
+      if (!api) return;
+      // The backend relays `excalidrawUpdate` as either the whole payload
+      // object ({ elements, appState, files }) or just the elements array.
+      const elements = Array.isArray(payload) ? payload : payload?.elements;
+      if (!elements) return;
+      const hash = hashElementsVersion(elements);
+      if (hash === lastBroadcastHash.current) return;
+      const files = (payload && payload.files) ? payload.files : filesRef.current;
+      isSyncing.current = true;
       try {
-        if (elements && elements.shapes) {
-          // Content-hash dedup: skip if we already have this exact state
-          const hash = hashContent(elements.shapes);
-          if (hash && hash === lastEmittedHash.current) return;
-
-          isSyncing.current = true;
-          lastEmittedHash.current = hash;
-
-          appRef.current.replacePageContent(
-            elements.shapes,
-            elements.bindings || {},
-            elements.assets || {}
-          );
-        }
-      } catch (e) {
-        // Silently ignore shape-application errors
+        api.updateScene({
+          elements: restoreElements(elements, null),
+          appState: (payload && payload.appState) || {},
+          files,
+          commitToHistory: false,
+        });
+      } catch {
+        // Ignore mid-interaction race; the next event re-syncs.
       } finally {
-        // Asynchronously reset isSyncing to cover all React and StateManager callbacks
-        setTimeout(() => {
-          isSyncing.current = false;
-        }, 100);
+        setTimeout(() => { isSyncing.current = false; }, 150);
       }
     };
 
     const handleRequestState = ({ requesterId }) => {
-      if (appRef.current) {
-        const shapes = appRef.current.shapes || [];
-        const bindings = (typeof appRef.current.getBindings === "function") ? appRef.current.getBindings() : (appRef.current.bindings || []);
-        const assets = appRef.current.assets || [];
-
-        const shapesMap = {};
-        const bindingsMap = {};
-        const assetsMap = {};
-        if (Array.isArray(shapes)) shapes.forEach(s => { shapesMap[s.id] = s; });
-        else Object.assign(shapesMap, shapes);
-        if (Array.isArray(bindings)) bindings.forEach(b => { bindingsMap[b.id] = b; });
-        else Object.assign(bindingsMap, bindings);
-        if (Array.isArray(assets)) assets.forEach(a => { assetsMap[a.id] = a; });
-        else Object.assign(assetsMap, assets);
-
+      const api = apiRef.current;
+      if (!api) return;
+      try {
+        const elements = api.getSceneElements();
         socket.emit("send-whiteboard-state", {
           to: requesterId,
-          elements: {
-            shapes: shapesMap,
-            bindings: bindingsMap,
-            assets: assetsMap
-          }
+          elements: restoreElements(elements, null),
+          appState: {},
+          files: filesRef.current || {},
         });
+      } catch {
+        // Ignore.
       }
     };
 
-    // Re-sync after every (re)connect — a socket drop/hiccup would otherwise
-    // leave this client stuck on a stale or empty board even after Socket.IO
-    // reconnects, which is exactly the "strokes vanish after a blip" behavior.
-    const onReconnect = () => requestState();
+    const onReconnect = () => {
+      if (apiRef.current && socket.connected) {
+        socket.emit("request-whiteboard-state", { roomId });
+      }
+    };
 
     socket.on("excalidrawUpdate", onRemoteUpdate);
     socket.on("request-whiteboard-state", handleRequestState);
@@ -331,60 +334,122 @@ export default function Whiteboard({ socket, roomId, onClose, isAdmin, embedded 
       socket.off("excalidrawUpdate", onRemoteUpdate);
       socket.off("request-whiteboard-state", handleRequestState);
       socket.off("connect", onReconnect);
+      if (broadcastTimer.current) clearTimeout(broadcastTimer.current);
     };
-  }, [socket, hashContent, roomId, requestState]);
+  }, [socket, roomId]);
 
-  const lastEmitTime = useRef(0);
-  const handleChange = useCallback(
-    (app) => {
-      if (isSyncing.current) return;
+  /* ── Clear the board for everyone ── */
+  const handleClearBoard = useCallback(() => {
+    const api = apiRef.current;
+    if (!api) return;
+    isSyncing.current = true;
+    lastBroadcastHash.current = "";
+    api.updateScene({ elements: [], commitToHistory: false });
+    filesRef.current = {};
+    socket.emit("excalidrawUpdate", {
+      roomId,
+      elements: [],
+      appState: {},
+      files: {},
+    });
+    setTimeout(() => { isSyncing.current = false; }, 150);
+  }, [socket, roomId]);
 
-      const now = Date.now();
-      const hasActiveSession = !!app.session;
-      // Throttle only when actively drawing to protect network;
-      // always allow the final stroke updates to pass through so drawings are complete.
-      if (hasActiveSession && (now - lastEmitTime.current < 33)) {
-        return;
-      }
-      lastEmitTime.current = now;
-
+  /* ── Export the visible board to PNG/SVG ── */
+  const handleExport = useCallback(
+    async (format) => {
+      const api = apiRef.current;
+      setShowExportMenu(false);
+      if (!api) return;
       try {
-        const shapesMap = {};
-        const bindingsMap = {};
-        const assetsMap = {};
-
-        // TldrawApp v1: app.shapes → TDShape[], app.getBindings() → TDBinding[], app.assets → TDAsset[]
-        const shapes = app.shapes || [];
-        const bindings = (typeof app.getBindings === "function") ? app.getBindings() : (app.bindings || []);
-        const assets = app.assets || [];
-
-        if (Array.isArray(shapes)) shapes.forEach(s => { shapesMap[s.id] = s; });
-        else Object.assign(shapesMap, shapes);
-
-        if (Array.isArray(bindings)) bindings.forEach(b => { bindingsMap[b.id] = b; });
-        else Object.assign(bindingsMap, bindings);
-
-        if (Array.isArray(assets)) assets.forEach(a => { assetsMap[a.id] = a; });
-        else Object.assign(assetsMap, assets);
-
-        // Content-hash dedup: skip emit if shapes haven't actually changed
-        const hash = hashContent(shapesMap);
-        if (hash === lastEmittedHash.current) return;
-        lastEmittedHash.current = hash;
-
-        socket.emit("excalidrawUpdate", {
-          roomId,
-          elements: JSON.parse(JSON.stringify({
-            shapes: shapesMap,
-            bindings: bindingsMap,
-            assets: assetsMap
-          }))
-        });
-      } catch (e) {
-        // Silently ignore serialization errors
+        const elements = restoreElements(api.getSceneElements(), null);
+        if (elements.length === 0) {
+          toast.info("Whiteboard is empty.");
+          return;
+        }
+        if (format === "svg") {
+          const svg = await exportToSvg({
+            elements,
+            files: filesRef.current || null,
+            appState: { exportBackground: true },
+            exportPadding: 16,
+          });
+          const svgStr = new XMLSerializer().serializeToString(svg);
+          downloadBlob(new Blob([svgStr], { type: "image/svg+xml" }), `whiteboard-${Date.now()}.svg`);
+        } else {
+          const blob = await exportToBlob({
+            elements,
+            files: filesRef.current || null,
+            mimeType: "image/png",
+            appState: { exportBackground: true, exportWithDarkMode: false, exportScale: 2 },
+            exportPadding: 16,
+          });
+          downloadBlob(blob, `whiteboard-${Date.now()}.png`);
+        }
+        toast.success(`Exported as ${format.toUpperCase()}`);
+      } catch {
+        toast.error("Failed to export image.");
       }
     },
-    [socket, roomId, hashContent]
+    []
+  );
+
+  const renderHeaderButtons = (floating) => (
+    <div
+      style={
+        floating
+          ? {
+              position: "absolute",
+              top: 16,
+              left: "50%",
+              transform: "translateX(-50%)",
+              zIndex: 10000,
+              display: "flex",
+              gap: "10px",
+              background: "rgba(20, 20, 20, 0.8)",
+              padding: "8px 12px",
+              borderRadius: "12px",
+              border: "1px solid rgba(255, 255, 255, 0.1)",
+              backdropFilter: "blur(10px)",
+              boxShadow: "0 10px 25px rgba(0,0,0,0.5)",
+            }
+          : { position: "relative", display: "flex", alignItems: "center", gap: "12px" }
+      }
+    >
+      {isAdmin && (
+        <IconButton onClick={handleClearBoard} title="Clear Board for Everyone">
+          <FaTrash />
+        </IconButton>
+      )}
+      <IconButton onClick={() => setShowExportMenu((prev) => !prev)} title="Export Board">
+        <FaDownload />
+      </IconButton>
+      {showExportMenu && (
+        <div
+          style={
+            floating
+              ? { left: "50%", transform: "translateX(-50%)" }
+              : { right: 0 }
+          }
+        >
+          <ExportMenu onPick={handleExport} />
+        </div>
+      )}
+      {floating ? (
+        <IconButton onClick={() => setIsFullScreen(false)} title="Exit Fullscreen">
+          <FaCompress />
+        </IconButton>
+      ) : (
+        isMobile && (
+          <IconButton onClick={() => setIsFullScreen(true)} title="Expand to Fullscreen">
+            <FaExpand />
+          </IconButton>
+        )
+      )}
+      <IconButton $danger onClick={onClose} title="Close Whiteboard">
+        <FaTimes />
+      </IconButton>
+    </div>
   );
 
   return (
@@ -392,191 +457,27 @@ export default function Whiteboard({ socket, roomId, onClose, isAdmin, embedded 
       <WhiteboardContainer $embedded={embedded} $isFullScreen={isFullScreen} $isMobile={isMobile} onClick={(e) => e.stopPropagation()}>
         {!isFullScreen && (
           <ModalHeader>
-            <HeaderTitle><FaPaintBrush style={{ flexShrink: 0 }} /> <span className="hide-mobile">Collaborative</span> Whiteboard</HeaderTitle>
-            <HeaderActions>
-              {isAdmin && (
-                <IconButton onClick={handleClearBoard} title="Clear Board for Everyone">
-                  <FaTrash />
-                </IconButton>
-              )}
-              <div style={{ position: "relative" }}>
-                <IconButton onClick={() => setShowExportMenu(prev => !prev)} title="Export Board">
-                  <FaDownload />
-                </IconButton>
-                {showExportMenu && (
-                  <div style={{
-                    position: "absolute",
-                    top: "100%",
-                    right: 0,
-                    marginTop: 8,
-                    background: "rgba(20, 20, 20, 0.95)",
-                    border: "1px solid rgba(255, 255, 255, 0.15)",
-                    borderRadius: 12,
-                    boxShadow: "0 8px 30px rgba(0,0,0,0.6)",
-                    zIndex: 20000,
-                    overflow: "hidden",
-                    display: "flex",
-                    flexDirection: "column",
-                    backdropFilter: "blur(10px)"
-                  }}>
-                    <button
-                      onClick={() => handleExport("png")}
-                      style={{
-                        padding: "10px 16px",
-                        background: "none",
-                        border: "none",
-                        color: "#fff",
-                        fontSize: "0.85rem",
-                        fontWeight: 600,
-                        cursor: "pointer",
-                        textAlign: "left",
-                        transition: "background 0.2s",
-                        whiteSpace: "nowrap"
-                      }}
-                      onMouseEnter={e => e.target.style.background = "rgba(255,255,255,0.08)"}
-                      onMouseLeave={e => e.target.style.background = "none"}
-                    >
-                      Export as PNG
-                    </button>
-                    <button
-                      onClick={() => handleExport("svg")}
-                      style={{
-                        padding: "10px 16px",
-                        background: "none",
-                        border: "none",
-                        color: "#fff",
-                        fontSize: "0.85rem",
-                        fontWeight: 600,
-                        cursor: "pointer",
-                        textAlign: "left",
-                        transition: "background 0.2s",
-                        whiteSpace: "nowrap",
-                        borderTop: "1px solid rgba(255,255,255,0.08)"
-                      }}
-                      onMouseEnter={e => e.target.style.background = "rgba(255,255,255,0.08)"}
-                      onMouseLeave={e => e.target.style.background = "none"}
-                    >
-                      Export as SVG
-                    </button>
-                  </div>
-                )}
-              </div>
-              {isMobile && (
-                <IconButton onClick={() => setIsFullScreen(true)} title="Expand to Fullscreen">
-                  <FaExpand />
-                </IconButton>
-              )}
-              <IconButton $danger onClick={onClose} title="Close Whiteboard">
-                <FaTimes />
-              </IconButton>
-            </HeaderActions>
+            <HeaderTitle>
+              <FaPaintBrush style={{ flexShrink: 0 }} /> <span className="hide-mobile">Collaborative</span> Whiteboard
+            </HeaderTitle>
+            <HeaderActions>{renderHeaderButtons(false)}</HeaderActions>
           </ModalHeader>
         )}
 
-        {/* If in fullscreen, float the controls directly over the canvas in a centered dock */}
-        {isFullScreen && (
-          <div style={{
-            position: "absolute",
-            top: 16,
-            left: "50%",
-            transform: "translateX(-50%)",
-            zIndex: 10000,
-            display: "flex",
-            gap: "10px",
-            background: "rgba(20, 20, 20, 0.8)",
-            padding: "8px 12px",
-            borderRadius: "12px",
-            border: "1px solid rgba(255, 255, 255, 0.1)",
-            backdropFilter: "blur(10px)",
-            boxShadow: "0 10px 25px rgba(0,0,0,0.5)"
-          }}>
-            {isAdmin && (
-              <IconButton onClick={handleClearBoard} title="Clear Board for Everyone">
-                <FaTrash />
-              </IconButton>
-            )}
-            <div style={{ position: "relative" }}>
-              <IconButton onClick={() => setShowExportMenu(prev => !prev)} title="Export Board">
-                <FaDownload />
-              </IconButton>
-              {showExportMenu && (
-                <div style={{
-                  position: "absolute",
-                  top: "100%",
-                  left: "50%",
-                  transform: "translateX(-50%)",
-                  marginTop: 8,
-                  background: "rgba(20, 20, 20, 0.95)",
-                  border: "1px solid rgba(255, 255, 255, 0.15)",
-                  borderRadius: 12,
-                  boxShadow: "0 8px 30px rgba(0,0,0,0.6)",
-                  zIndex: 20000,
-                  overflow: "hidden",
-                  display: "flex",
-                  flexDirection: "column",
-                  backdropFilter: "blur(10px)"
-                }}>
-                  <button
-                    onClick={() => handleExport("png")}
-                    style={{
-                      padding: "10px 16px",
-                      background: "none",
-                      border: "none",
-                      color: "#fff",
-                      fontSize: "0.85rem",
-                      fontWeight: 600,
-                      cursor: "pointer",
-                      textAlign: "left",
-                      transition: "background 0.2s",
-                      whiteSpace: "nowrap"
-                    }}
-                    onMouseEnter={e => e.target.style.background = "rgba(255,255,255,0.08)"}
-                    onMouseLeave={e => e.target.style.background = "none"}
-                  >
-                    Export as PNG
-                  </button>
-                  <button
-                    onClick={() => handleExport("svg")}
-                    style={{
-                      padding: "10px 16px",
-                      background: "none",
-                      border: "none",
-                      color: "#fff",
-                      fontSize: "0.85rem",
-                      fontWeight: 600,
-                      cursor: "pointer",
-                      textAlign: "left",
-                      transition: "background 0.2s",
-                      whiteSpace: "nowrap",
-                      borderTop: "1px solid rgba(255,255,255,0.08)"
-                    }}
-                    onMouseEnter={e => e.target.style.background = "rgba(255,255,255,0.08)"}
-                    onMouseLeave={e => e.target.style.background = "none"}
-                  >
-                    Export as SVG
-                  </button>
-                </div>
-              )}
-            </div>
-            <IconButton onClick={() => setIsFullScreen(false)} title="Exit Fullscreen">
-              <FaCompress />
-            </IconButton>
-            <IconButton $danger onClick={onClose} title="Close Whiteboard">
-              <FaTimes />
-            </IconButton>
-          </div>
-        )}
+        {isFullScreen && renderHeaderButtons(true)}
 
-        <CanvasWrapper
-          $isFullScreen={isFullScreen}
-          $isMobile={isMobile}
-        >
-          <Tldraw
-            onMount={handleMount}
+        <CanvasWrapper $isFullScreen={isFullScreen} $isMobile={isMobile}>
+          <Excalidraw
+            excalidrawAPI={handleApiReady}
             onChange={handleChange}
-            darkMode={true}
-            showMenu={false}
-            showPages={false}
+            theme="dark"
+            initialData={{ elements: [], appState: { viewBackgroundColor: "#15171c" } }}
+            UIOptions={{
+              canvasActions: {
+                loadScene: false,
+                toggleTheme: false,
+              },
+            }}
           />
         </CanvasWrapper>
       </WhiteboardContainer>

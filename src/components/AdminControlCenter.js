@@ -626,6 +626,7 @@ export default function AdminControlCenter({ token, backendUrl }) {
     return map;
   });
   const socketRef = useRef(null);
+  const refreshAllRef = useRef(null);
 
   const authHeaders = useCallback(
     () => ({ Authorization: `Bearer ${token}` }),
@@ -672,6 +673,8 @@ export default function AdminControlCenter({ token, backendUrl }) {
     setLoading(false);
   }, [fetchRooms, fetchRequests, fetchNotifications, fetchSettings]);
 
+  useEffect(() => { refreshAllRef.current = refreshAll; }, [refreshAll]);
+
   useEffect(() => { refreshAll(); }, [refreshAll]);
 
   /* ── SOCKET ── */
@@ -687,8 +690,29 @@ export default function AdminControlCenter({ token, backendUrl }) {
     });
     socketRef.current = s;
 
+    let firstConnectDone = false;
     s.on("connect", () => {
-      s.emit("adminSubscribe", { token });
+      s.emit("adminSubscribe", { token }, (snapshot) => {
+        // Use the server's full subscribe snapshot instead of discarding it:
+        // whoever is connected right now is the source of truth, so rooms can't
+        // be missed due to a push racing the initial mount or a reconnection.
+        if (snapshot?.success) {
+          if (Array.isArray(snapshot.rooms)) setRooms(snapshot.rooms);
+          if (snapshot.settings) {
+            setSettings(snapshot.settings);
+            setWhatsappPhone(snapshot.settings.adminWhatsAppPhone || "");
+            setCallmebotKey(snapshot.settings.callmebotApiKey || "");
+            setGiphyKey(snapshot.settings.giphyApiKey || "");
+          }
+          if (Array.isArray(snapshot.notifications)) setNotifications(snapshot.notifications);
+          if (Array.isArray(snapshot.requests)) setRequests(snapshot.requests);
+        }
+      });
+      // On the first connect the mount-time refreshAll() already ran, so don't
+      // double-fetch. On a later reconnection, a room created while we were
+      // disconnected had its push missed entirely — reconcile the REST list now.
+      if (firstConnectDone) refreshAllRef.current?.();
+      firstConnectDone = true;
     });
     s.on("adminNotification", () => fetchNotifications());
     s.on("adminRoomUpdated", () => fetchRooms());

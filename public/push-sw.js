@@ -120,8 +120,18 @@ self.addEventListener("notificationclick", (event) => {
   const target = roomId ? `/?room=${encodeURIComponent(roomId)}` : "/";
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+      // Prefer a client already showing the target room
       for (const client of clientList) {
-        if ("focus" in client) return client.focus();
+        if (client.url && client.url.includes(`/room=${encodeURIComponent(roomId)}`)) {
+          return client.focus();
+        }
+      }
+      // Fall back: reuse any existing client and navigate it
+      if (clientList.length > 0) {
+        const client = clientList[0];
+        if ("navigate" in client) {
+          return client.navigate(target).then(() => client.focus());
+        }
       }
       return self.clients.openWindow(target);
     })

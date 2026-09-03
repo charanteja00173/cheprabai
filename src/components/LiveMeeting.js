@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import styled, { keyframes, StyleSheetManager, css } from "styled-components";
 import { backendUrl } from "../socket";
 import { 
@@ -10,7 +10,7 @@ import {
   FaTrash, FaVolumeUp, FaVolumeMute, FaVolumeDown, FaChartLine, FaCrown,
   FaLeaf, FaBolt, FaHeadphones, FaGem, FaExclamationTriangle,
   FaPlay, FaPause, FaPlayCircle,
-  FaRedo, FaUndo, FaStop, FaThumbtack, FaPaintBrush,
+  FaRedo, FaUndo, FaStop, FaThumbtack,
   FaMagic, FaPalette, FaPlus, FaMinus
 } from "react-icons/fa";
 import * as PeerModule from "peerjs";
@@ -1809,27 +1809,38 @@ const createMixedStream = (mainStream, cameraStream, options = {}) => {
   let mixerCleanup = () => {};
   
   if (cameraVideoTrack && mainVideoTrack && !bypassCanvas) {
+    // Size the output canvas to the source so the composited stream keeps the
+    // original sharpness (no forced 720p downscale) — capped at 1080p to avoid
+    // melting the CPU/encoder on the streaming machine.
+    let outW = 1280;
+    let outH = 720;
+    try {
+      const s = mainVideoTrack.getSettings?.() || {};
+      if (s.width && s.height) {
+        const scale = Math.min(1920 / s.width, 1080 / s.height, 1);
+        outW = Math.max(640, Math.round(s.width * scale));
+        outH = Math.max(360, Math.round(s.height * scale));
+      }
+    } catch (e) {}
     const canvas = document.createElement("canvas");
-    canvas.width = 1280;
-    canvas.height = 720;
+    canvas.width = outW;
+    canvas.height = outH;
     const ctx = canvas.getContext("2d", { alpha: false, desynchronized: true });
-    
+
     const mainVideo = document.createElement("video");
     mainVideo.srcObject = new MediaStream([mainVideoTrack]);
     mainVideo.muted = true;
     mainVideo.playsInline = true;
     mainVideo.play().catch(() => {});
-    
+
     const cameraVideo = document.createElement("video");
     cameraVideo.srcObject = new MediaStream([cameraVideoTrack]);
     cameraVideo.muted = true;
     cameraVideo.playsInline = true;
     cameraVideo.play().catch(() => {});
-    
+
     let active = true;
 
-    // Aspect-preserving "contain" draw — never stretches source video.
-    // Letterboxes inside the target rect so portrait/4:3 content stays elegant.
     const drawContained = (video, dx, dy, dw, dh) => {
       const vw = video.videoWidth;
       const vh = video.videoHeight;
@@ -1879,7 +1890,7 @@ const createMixedStream = (mainStream, cameraStream, options = {}) => {
         ctx.fillStyle = "#000";
         ctx.fillRect(x, y, pipW, pipH);
 
-        // 🔮 Apply dynamic camera video filters
+        // 🔮 Apply dynamic camera Video filters & Voice Changers
         const activeFilter = getVideoFilter();
         if (activeFilter && activeFilter !== "none") {
           if (activeFilter === "grayscale") ctx.filter = "grayscale(100%)";
@@ -2243,14 +2254,12 @@ const CallDuration = React.memo(({ startTime }) => {
 });
 
 /* ═══════════════════════════════ MAIN COMPONENT ═══════════════════════════════ */
-const WhiteboardLazy = lazy(() => import("./Whiteboard"));
-
-export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin, ownerToken, userAvatar, onOpenWhiteboard, whiteboardOpen = false, onToggleWhiteboard, features = {}, roomPlan }) {
+export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin, ownerToken, userAvatar, features = {}, roomPlan }) {
   const hasPlanFeature = (key) => features[key] !== false && (!roomPlan || planIncludes(roomPlan, key));
   // ── States ──
   const [localStream, setLocalStream] = useState(null);
 
-  // 🎙️ Voice & Video Filters (All-In-One Studio)
+  // 🎙️ Voice & Video filters & Voice Changers (All-In-One Studio)
   const [voiceFilter, setVoiceFilter] = useState("none");
   const [videoFilter, setVideoFilter] = useState("none");
   const voiceFilterRef = useRef("none");
@@ -2354,6 +2363,41 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     setCoWatch(null);
     if (socket && typeof socket.emit === "function") socket.emit("link-watch", { roomId, action: "stop" });
   }, [roomId, socket]);
+  // 🎥 Watch together — synced co-watch. The room owner shares a DIRECT media
+  // URL; every peer plays it in their own <video> element and follows the
+  // owner's play/pause/seek timeline (position drift-corrected ~1s).
+  const [watchTogether, setWatchTogether] = useState(null); // { url, name, playing, position }
+  const watchVideoRef = useRef(null);
+  const watchAnchorRef = useRef(null); // { remoteTs, position, playing }
+  const watchFlyRef = useRef(null);
+
+  const startWatchTogether = useCallback((url, name) => {
+    let pretty = name;
+    if (!pretty) {
+      try { pretty = new URL(url).pathname.split("/").pop().replace(/\?.*$/, "") || "Watch together"; } catch (e) { pretty = "Watch together"; }
+    }
+    setWatchTogether({ url, name: pretty, playing: false, position: 0 });
+    watchAnchorRef.current = { remoteTs: Date.now(), position: 0, playing: false };
+    if (socket && typeof socket.emit === "function") socket.emit("syncMedia", { action: "start", url, name: pretty, position: 0, ts: Date.now() });
+    toast.success("Watch party started — playback is synced for everyone");
+  }, [socket]);
+
+  const stopWatchTogether = useCallback(() => {
+    setWatchTogether(null);
+    watchAnchorRef.current = null;
+    if (watchFlyRef.current) { clearInterval(watchFlyRef.current); watchFlyRef.current = null; }
+    if (socket && typeof socket.emit === "function") socket.emit("syncMedia", { action: "stop", ts: Date.now() });
+  }, [socket]);
+
+  const broadcastWatchTogether = useCallback((patch) => {
+    if (socket && typeof socket.emit === "function") socket.emit("syncMedia", { ...patch, ts: Date.now() });
+  }, [socket]);
+
+  // Stream-modal derived flags (shared by the two action buttons)
+  const streamRaw = streamUrlInput.trim();
+  const streamIsDirect = /\.(mp4|webm|ogv|ogg|m4v|mov|m3u8)(\?|#|$)/i.test(streamRaw);
+  const streamIsSynced = /\.(mp4|webm|ogv|ogg|m4v|mov)(\?|#|$)/i.test(streamRaw);
+
   const [minimizedPeers, setMinimizedPeers] = useState(new Set());
   const [highlightedPeers, setHighlightedPeers] = useState(new Set());
   // 🎬 Theater mode: fullscreen stage + right rail of participant cards + bottom-right focus card
@@ -2407,6 +2451,33 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const fairStreakRef = useRef(0); // consecutive "fair" polls before stepping down a tier
   const isRoomHost = useMemo(() => Boolean(isAdmin || ownerToken), [isAdmin, ownerToken]);
 
+  // Non-host peers follow the host's timeline; the owner's own <video> is the
+  // source of truth and is never auto-commanded.
+  useEffect(() => {
+    if (!watchTogether || isRoomHost) return undefined;
+    const v = watchVideoRef.current;
+    if (!v) return undefined;
+    const drive = () => {
+      const a = watchAnchorRef.current;
+      if (watchTogether.playing) {
+        if (v.paused) v.play().catch(() => {});
+        if (a && a.playing) {
+          const target = a.position + (Date.now() - a.remoteTs) / 1000;
+          if (Math.abs(v.currentTime - target) > 0.5) v.currentTime = target;
+        }
+      } else {
+        if (!v.paused) v.pause();
+        const pos = watchTogether.position;
+        if (pos != null && Math.abs(v.currentTime - pos) > 0.5) v.currentTime = pos;
+      }
+    };
+    drive();
+    watchFlyRef.current = setInterval(drive, 1000);
+    return () => {
+      if (watchFlyRef.current) { clearInterval(watchFlyRef.current); watchFlyRef.current = null; }
+    };
+  }, [watchTogether, isRoomHost]);
+
   // Keep isVideoOffRef in sync with state
   useEffect(() => { isVideoOffRef.current = isVideoOff; }, [isVideoOff]);
 
@@ -2430,6 +2501,8 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       if (el) {
         // HTMLMediaElement.volume is clamped to [0, 1]
         el.volume = Math.max(0, Math.min(1, (info.volume ?? 100) / 100));
+        // Never mute incoming audio — self-preview videos are the only ones muted
+        if (el.muted) el.muted = false;
         if (el.srcObject !== info.stream && info.stream) {
           el.srcObject = info.stream;
           // Explicit play: autoplay policies can silently skip attribute-driven playback
@@ -2563,9 +2636,9 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   // ─── WebRTC Bitrate / ABR Controller (Dynamic Low Bandwidth Optimizer) ───
   const applyBandwidthMode = useCallback((mode, opts = {}) => {
     setBandwidthMode(mode);
-    const targetBitrate = mode === "audio-only" ? 24000 : mode === "saver" ? 120000 : mode === "low" ? 280000 : mode === "hd" ? 1800000 : 600000;
-    const scaleFactor = mode === "saver" ? 2.5 : mode === "low" ? 2.0 : mode === "hd" ? 1.0 : 1.5;
-    const maxFps = mode === "saver" ? 15 : mode === "low" ? 18 : mode === "hd" ? 30 : 24;
+    const targetBitrate = mode === "audio-only" ? 24000 : mode === "saver" ? 150000 : mode === "low" ? 650000 : mode === "hd" ? 2500000 : 1500000;
+    const scaleFactor = mode === "saver" ? 2.5 : mode === "low" ? 1.5 : mode === "hd" ? 1.0 : 1.25;
+    const maxFps = mode === "saver" ? 15 : mode === "low" ? 22 : mode === "hd" ? 30 : 30;
 
     // Adjust local video track if audio-only
     if (localStreamRef.current) {
@@ -3359,7 +3432,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
         socket.on("admin-kick-user", ({ peerId, name, adminName }) => {
           if (peerId === peerRef.current?.id || name === userName) {
-            toast.error(`🚫 You have been removed from the call by ${adminName || 'an admin'}.`);
+            toast.error(`🚫 You have been removed from the call by ${adminName || 'the room host'}.`);
             handleLeaveCall();
           }
         });
@@ -3398,6 +3471,36 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
             toast.info(`📺 Host is streaming: ${name || url}`);
           }
         });
+
+        // Watch together: synced playback of a direct media URL. The room owner
+        // is the source of truth; peers follow play/pause/seek via this relay.
+        socket.on("syncMedia", (data) => {
+          const act = data?.action;
+          if (!act) return;
+          if (act === "start") {
+            if (!data.url) return;
+            setWatchTogether({ url: data.url, name: data.name || "Watch together", playing: false, position: data.position || 0 });
+            watchAnchorRef.current = { remoteTs: data.ts || Date.now(), position: data.position || 0, playing: false };
+            toast.info(`📺 Watch party: ${data.name || "media"}`);
+          } else if (act === "stop") {
+            setWatchTogether(null);
+            watchAnchorRef.current = null;
+            if (watchFlyRef.current) { clearInterval(watchFlyRef.current); watchFlyRef.current = null; }
+          } else if (act === "play") {
+            watchAnchorRef.current = { remoteTs: data.ts || Date.now(), position: data.position || 0, playing: true };
+            setWatchTogether(prev => prev ? { ...prev, playing: true } : prev);
+          } else if (act === "pause") {
+            watchAnchorRef.current = { remoteTs: data.ts || Date.now(), position: data.position ?? 0, playing: false };
+            setWatchTogether(prev => prev ? { ...prev, playing: false, position: data.position ?? prev.position } : prev);
+          } else if (act === "seek") {
+            const prevAnchor = watchAnchorRef.current;
+            watchAnchorRef.current = { remoteTs: data.ts || Date.now(), position: data.position || 0, playing: prevAnchor ? prevAnchor.playing : false };
+            setWatchTogether(prevState => prevState ? { ...prevState, position: data.position || 0 } : prevState);
+          }
+        });
+
+        // Resume an active watch party if we joined mid-playback.
+        if (socket && typeof socket.emit === "function") socket.emit("getMediaState", roomId);
       }
     };
 
@@ -3419,7 +3522,13 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         socket.off("admin-mute-user");
         socket.off("reaction");
         socket.off("call-duration-limit");
+        socket.off("link-watch");
+        socket.off("syncMedia");
       }
+      // Leave the watch party behind when the call ends
+      setWatchTogether(null);
+      watchAnchorRef.current = null;
+      if (watchFlyRef.current) { clearInterval(watchFlyRef.current); watchFlyRef.current = null; }
       // Stop all audio analysers (rAF loops)
       Object.keys(analyserCleanupsRef.current).forEach(id => {
         try { analyserCleanupsRef.current[id](); } catch (e) {}
@@ -3578,6 +3687,9 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       }
       if (voiceFilter !== "none" && raw?.getAudioTracks()?.[0]) {
         fxAudioRef.current = createVoiceProcessor(raw.getAudioTracks()[0], () => voiceFilterRef.current);
+        // A rebuilt FX pipeline mints a fresh track that starts ENABLED — carry
+        // the user's current mute state over so changing filters never unmutes.
+        if (fxAudioRef.current?.track) fxAudioRef.current.track.enabled = !isMuted;
       }
     } catch (e) {
       console.warn("FX pipeline failed:", e);
@@ -3597,12 +3709,14 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
   const toggleMute = () => {
     if (localStreamRef.current) {
-      const aTrack = localStreamRef.current.getAudioTracks()[0];
-      if (aTrack) {
-        aTrack.enabled = !aTrack.enabled;
-        setIsMuted(!aTrack.enabled);
+      const target = (voiceFilter !== "none" && fxAudioRef.current?.track)
+        ? fxAudioRef.current.track
+        : localStreamRef.current.getAudioTracks()[0];
+      if (target) {
+        target.enabled = !target.enabled;
+        setIsMuted(!target.enabled);
         if (socket) {
-          socket.emit("media-state-change", { peerId: myPeerId, isMuted: !aTrack.enabled, isVideoOff });
+          socket.emit("media-state-change", { peerId: myPeerId, isMuted: !target.enabled, isVideoOff });
         }
       }
     }
@@ -3738,7 +3852,6 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
       const mixed = createMixedStream(screenStream, localStreamRef.current, {
         mixAudio: true,
-        bypassCanvas: true,
         getVideoFilter: () => videoFilterRef.current,
         getVoiceFilter: () => voiceFilterRef.current
       });
@@ -3760,19 +3873,21 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         mixedAudioTrack.enabled = true;
       }
 
+      // Single-stream composite model: swap the sharer's video track to the
+      // composited stream (screen/file + camera PiP). Because this swaps the
+      // track on the SAME, already-negotiated sender, watchers receive it via
+      // the normal stream path, so everyone in the room sees the shared content.
       Object.values(peers.current).forEach(call => {
         const pc = call.peerConnection;
         if (!pc) return;
         pc.getSenders().forEach(sender => {
           if (sender.track?.kind === "video" && mixedVideoTrack) {
             sender.replaceTrack(mixedVideoTrack);
-            // Screen content: protect resolution (readable text) over framerate,
-            // cap the encoder so it never lags behind the display capture.
             try {
               const params = sender.getParameters();
               if (!params.encodings || params.encodings.length === 0) params.encodings = [{}];
-              const ssBitrate = { "audio-only": 0, saver: 400000, low: 800000, auto: 1200000, hd: 2500000 }[bandwidthModeRef.current] || 1200000;
-              const ssFps   = { "audio-only": 0, saver: 10,      low: 15,       auto: 24,      hd: 30       }[bandwidthModeRef.current] || 24;
+              const ssBitrate = { "audio-only": 0, saver: 500000, low: 1100000, auto: 2000000, hd: 4000000 }[bandwidthModeRef.current] || 2000000;
+              const ssFps   = { "audio-only": 0, saver: 12,      low: 20,       auto: 24,      hd: 30       }[bandwidthModeRef.current] || 24;
               params.encodings[0].maxBitrate = ssBitrate;
               params.encodings[0].maxFramerate = ssFps;
               params.encodings[0].scaleResolutionDownBy = 1;
@@ -3801,11 +3916,11 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const sendReaction = (emoji) => {
     if (emoji === "✋") {
       if (features.handRaise === false) {
-        toast.error("Raise hand is currently disabled by the admin.");
+        toast.error("Raise hand is currently disabled by the room owner.");
         return;
       }
     } else if (features.reactions === false) {
-      toast.error("Reactions are currently disabled by the admin.");
+      toast.error("Reactions are currently disabled by the room owner.");
       return;
     }
     if (socket) socket.emit("reaction", { emoji, roomId });
@@ -3881,13 +3996,12 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
           return;
         }
 
-        const mixed = createMixedStream(stream, localStreamRef.current, {
-          mixAudio: true,
-          bypassCanvas: true,
-          getVideoFilter: () => videoFilterRef.current,
-          getVoiceFilter: () => voiceFilterRef.current
-        });
-        fileStreamRef.current = mixed.stream;
+      const mixed = createMixedStream(stream, localStreamRef.current, {
+        mixAudio: true,
+        getVideoFilter: () => videoFilterRef.current,
+        getVoiceFilter: () => voiceFilterRef.current
+      });
+      fileStreamRef.current = mixed.stream;
         mixedStreamCleanupRef.current = mixed.cleanup;
         if (socket && typeof socket.emit === "function") {
           socket.emit("media-file-shared", { name: mediaName });
@@ -4018,7 +4132,6 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
     const mixed = createMixedStream(stream, localStreamRef.current, {
       mixAudio: true,
-      bypassCanvas: true,
       getVideoFilter: () => videoFilterRef.current,
       getVoiceFilter: () => voiceFilterRef.current
     });
@@ -4471,17 +4584,6 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
               <FaChartLine />
             </IconButton>
 
-            {/* Collaborative Whiteboard — opens inside the call */}
-            {(onOpenWhiteboard || onToggleWhiteboard) && (
-              <IconButton
-                $active={whiteboardOpen}
-                onClick={() => (onToggleWhiteboard ? onToggleWhiteboard(!whiteboardOpen) : onOpenWhiteboard())}
-                title="Collaborative Whiteboard (opens inside the call)"
-              >
-                <FaPaintBrush color={whiteboardOpen ? "#fbbf24" : "#38bdf8"} />
-              </IconButton>
-            )}
-
             {/* Participants Toggle */}
             <IconButton 
               $active={showParticipants} 
@@ -4783,7 +4885,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                       )}
                       <TileUserInfo>
                         <span>{userName} (You)</span>
-                        {isRoomHost && <FaCrown color="#fbbf24" size={11} title="Room Owner / Admin" />}
+                        {isRoomHost && <FaCrown color="#fbbf24" size={11} title="Room Owner" />}
                         {isMuted && <FaMicrophoneSlash color="#ff4757" size={11} />}
                         {speakingPeers.local && (
                           <EqualizerWaves>
@@ -4957,7 +5059,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
                   <TileUserInfo>
                     <span>{userName} (You)</span>
-                    {isRoomHost && <FaCrown color="#fbbf24" size={11} title="Room Owner / Admin" />}
+                    {isRoomHost && <FaCrown color="#fbbf24" size={11} title="Room Owner" />}
                     {isMuted && <FaMicrophoneSlash color="#ff4757" size={11} />}
                     {speakingPeers.local && (
                       <EqualizerWaves>
@@ -5165,7 +5267,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontWeight: 700, fontSize: "0.82rem", display: "flex", alignItems: "center", gap: 6 }}>
                         <span>{userName} (You)</span>
-                        {isRoomHost && <FaCrown color="#fbbf24" size={10} title="Room Owner / Admin" />}
+                        {isRoomHost && <FaCrown color="#fbbf24" size={10} title="Room Owner" />}
                       </div>
                       <span style={{ fontSize: "0.68rem", opacity: 0.6 }}>Local Participant</span>
                     </div>
@@ -5619,44 +5721,59 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                 <p style={{ fontSize: "0.72rem", opacity: 0.6, margin: "0 0 10px" }}>
                   Paste a direct video/audio URL, YouTube, Instagram or stream link.
                 </p>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <input
-                    type="url"
-                    placeholder="https://example.com/video.mp4 or link..."
-                    value={streamUrlInput}
-                    onChange={e => setStreamUrlInput(e.target.value)}
-                    style={{
-                      flex: 1,
-                      background: "rgba(0,0,0,0.4)",
-                      border: "1px solid rgba(255,255,255,0.08)",
-                      borderRadius: 10,
-                      padding: "0 12px",
-                      color: "#fff",
-                      fontSize: "0.8rem",
-                      outline: "none"
-                    }}
-                  />
-                  <DockButton
-                    style={{ height: 38, borderRadius: 10, padding: "0 14px", background: "linear-gradient(135deg, #6366f1, #818cf8)", color: "#fff", border: "none" }}
-                    onClick={() => {
-                      const raw = streamUrlInput.trim();
-                      if (!raw) {
-                        toast.warn("Please enter a valid media link.");
-                        return;
-                      }
-                      const isDirectMedia = /\.(mp4|webm|ogv|ogg|m4v|mov|m3u8)(\?|#|$)/i.test(raw);
-                      if (isDirectMedia) {
-                        startMediaStream({ url: raw });
-                      } else {
-                        // Page links (YouTube watch pages, articles…) can't be
-                        // pixel-captured cross-origin — co-watch them instead.
-                        startCoWatch(raw);
-                      }
-                      setStreamUrlInput("");
-                    }}
-                  >
-                    Start Stream
-                  </DockButton>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <input
+                      type="url"
+                      placeholder="https://example.com/video.mp4 or link..."
+                      value={streamUrlInput}
+                      onChange={e => setStreamUrlInput(e.target.value)}
+                      style={{
+                        flex: 1,
+                        background: "rgba(0,0,0,0.4)",
+                        border: "1px solid rgba(255,255,255,0.08)",
+                        borderRadius: 10,
+                        padding: "0 12px",
+                        color: "#fff",
+                        fontSize: "0.8rem",
+                        outline: "none"
+                      }}
+                    />
+                    <DockButton
+                      style={{ height: 38, borderRadius: 10, padding: "0 14px", background: "linear-gradient(135deg, #6366f1, #818cf8)", color: "#fff", border: "none" }}
+                      onClick={() => {
+                        if (!streamRaw) {
+                          toast.warn("Please enter a valid media link.");
+                          return;
+                        }
+                        if (streamIsDirect) {
+                          startMediaStream({ url: streamRaw });
+                        } else {
+                          // Page links (YouTube watch pages, articles…) can't be
+                          // pixel-captured cross-origin — co-watch them instead.
+                          startCoWatch(streamRaw);
+                        }
+                        setStreamUrlInput("");
+                      }}
+                    >
+                      Start Stream
+                    </DockButton>
+                  </div>
+                  {streamIsSynced && (
+                    <DockButton
+                      style={{ height: 38, borderRadius: 10, padding: "0 12px", background: "rgba(52,211,153,0.12)", color: "#34d399", border: "1px solid rgba(52,211,153,0.3)" }}
+                      onClick={() => {
+                        if (!streamRaw) return;
+                        startWatchTogether(streamRaw);
+                        setStreamUrlInput("");
+                      }}
+                    >
+                      🎬 Watch together (synced) — everyone sees the same frame
+                    </DockButton>
+                  )}
+                  <p style={{ fontSize: "0.68rem", opacity: 0.55, margin: "2px 0 0" }}>
+                    "Start Stream" broadcasts your screen/pixels to everyone. "Watch together" plays the same direct MP4/WebM/MP3 URL on each device with synced play/pause/seek.
+                  </p>
                 </div>
               </div>
             </ModalContent>
@@ -5704,6 +5821,77 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                 allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; fullscreen; web-share"
                 referrerPolicy="no-referrer"
                 sandbox="allow-scripts allow-same-origin allow-presentation allow-forms allow-popups"
+              />
+            </div>
+          </ModalBackdrop>
+        )}
+
+        {/* ═══ WATCH TOGETHER — SYNCED PLAYBACK OVERLAY ═══ */}
+        {watchTogether && (
+          <ModalBackdrop onClick={() => { if (isRoomHost) stopWatchTogether(); }} style={{ zIndex: 60 }}>
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                position: "relative",
+                width: "min(1100px, 96vw)",
+                height: "min(84vh, 720px)",
+                display: "flex",
+                flexDirection: "column",
+                borderRadius: 18,
+                overflow: "hidden",
+                background: "#000",
+                border: "1px solid rgba(255,255,255,.12)",
+                boxShadow: "0 30px 90px rgba(0,0,0,.6)"
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", borderBottom: "1px solid rgba(255,255,255,.08)", background: "rgba(10,12,20,.92)" }}>
+                <FaPlayCircle style={{ color: "#818cf8" }} />
+                <strong style={{ fontSize: ".85rem", color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{watchTogether.name}</strong>
+                {isRoomHost ? (
+                  <span style={{ marginLeft: "auto", fontSize: ".7rem", color: "rgba(255,255,255,.5)", fontWeight: 600 }}>Hosting — your play/pause/seek drives everyone</span>
+                ) : (
+                  <span style={{ marginLeft: "auto", fontSize: ".7rem", color: "rgba(255,255,255,.5)", fontWeight: 600 }}>Synced with host · press Esc to view meeting</span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => { if (isRoomHost) stopWatchTogether(); }}
+                  title={isRoomHost ? "End for everyone" : "Close watch party"}
+                  style={{
+                    background: isRoomHost ? "var(--chakra-colors-dangerBg)" : "rgba(255,255,255,0.1)",
+                    border: "1px solid rgba(255,255,255,0.15)",
+                    color: isRoomHost ? "var(--chakra-colors-danger)" : "#fff",
+                    fontWeight: 700,
+                    fontSize: ".74rem",
+                    padding: "6px 14px",
+                    borderRadius: 999,
+                    cursor: "pointer"
+                  }}
+                >
+                  {isRoomHost ? "End for everyone" : "Close"}
+                </button>
+              </div>
+              <video
+                ref={watchVideoRef}
+                src={watchTogether.url}
+                autoPlay
+                playsInline
+                controls={isRoomHost}
+                onPlay={(e) => {
+                  if (isRoomHost) {
+                    setWatchTogether(p => p && { ...p, playing: true });
+                    broadcastWatchTogether({ action: "play", position: e.currentTarget.currentTime });
+                  }
+                }}
+                onPause={(e) => {
+                  if (isRoomHost) {
+                    setWatchTogether(p => p && { ...p, playing: false, position: e.currentTarget.currentTime });
+                    broadcastWatchTogether({ action: "pause", position: e.currentTarget.currentTime });
+                  }
+                }}
+                onSeeked={(e) => {
+                  if (isRoomHost) broadcastWatchTogether({ action: "seek", position: e.currentTarget.currentTime });
+                }}
+                style={{ flex: 1, minHeight: 0, width: "100%", background: "#000", objectFit: "contain" }}
               />
             </div>
           </ModalBackdrop>
@@ -5818,30 +6006,6 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
               </div>
             </ModalContent>
           </ModalBackdrop>
-        )}
-
-        {/* ── Embedded collaborative whiteboard (opens INSIDE the call) ── */}
-        {whiteboardOpen && (
-          <div style={{ position: "absolute", inset: 0, zIndex: 2600, background: "rgba(6,8,14,.92)", backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)" }}>
-            <Suspense fallback={<div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", color: "#94a3b8", fontSize: ".8rem", fontWeight: 700 }}>Loading whiteboard…</div>}>
-              <WhiteboardLazy
-                socket={socket}
-                roomId={roomId}
-                isAdmin={!!ownerToken || isAdmin}
-                embedded
-                onClose={() => onToggleWhiteboard?.(false)}
-              />
-            </Suspense>
-            <button
-              type="button"
-              onClick={() => onToggleWhiteboard?.(false)}
-              aria-label="Close whiteboard"
-              title="Back to call"
-              style={{ position: "absolute", top: "calc(12px + env(safe-area-inset-top))", right: 14, zIndex: 2610, display: "inline-flex", alignItems: "center", gap: 7, padding: "8px 14px", borderRadius: 999, border: "1px solid rgba(255,255,255,.16)", background: "rgba(10,12,20,.85)", color: "#e2e8f0", fontSize: ".72rem", fontWeight: 800, cursor: "pointer", backdropFilter: "blur(8px)", boxShadow: "0 6px 18px rgba(0,0,0,.4)" }}
-            >
-              <FaTimes size={12} /> Back to call
-            </button>
-          </div>
         )}
 
         {/* ── WebRTC Connection Diagnostics Modal ── */}

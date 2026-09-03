@@ -45,7 +45,7 @@ import "react-toastify/dist/ReactToastify.css";
 import ThemeSwitcher from "./ThemeSwitcher";
 import { createDecryptionHtmlTemplate } from "../utils/exportTemplate";
 import { BREAKPOINTS, useIsMobile } from "../hooks/useIsMobile";
-import { ArrowRight, BarChart3, Clapperboard, Copy, FileUp, FolderLock, Hash, KeyRound, LockKeyhole, MessagesSquare, MonitorUp, PenTool, ScreenShare, ShieldCheck, Timer, Upload, UserRound, Video } from "lucide-react";
+import { AtSign, BarChart3, CalendarClock, Clapperboard, Download, Eye, EyeOff, FileUp, FolderLock, Globe, Hash, Image, KeyRound, LockKeyhole, MessagesSquare, Mic, MonitorUp, Palette, PenTool, Phone, QrCode, ScreenShare, Search, ShieldCheck, Sparkles, Timer, Upload, UserRound, Users, Video, WifiOff, Zap, ArrowRight, Check, Copy } from "lucide-react";
 import {
   encryptBinary,
   decryptBinary,
@@ -57,6 +57,7 @@ import {
 } from "../utils/crypto";
 import { copyRoomShareLink, parseRoomRouteParams } from "../utils/shareLink";
 import { safeCopyText, safeCopyImage } from "../utils/clipboard";
+import { SOUND_CHOICES, getSoundChoice, setSoundChoice as persistSoundChoice, playNotificationSound } from "../utils/notificationSounds";
 import {
   PLAN_META,
   PLAN_LIMIT_LABELS,
@@ -214,6 +215,10 @@ const b64ToBytes = (b64) => {
   return out;
 };
 
+
+/* ── Full feature catalog — every capability inside AnonChat, grouped ── */
+
+
 /* ══════════════════════════════════════════════════════════
    FEATURE EXPLORER — join-screen interactive product tour.
    Auto-cycling animated demos of everything the app can do.
@@ -227,8 +232,23 @@ const TOUR_FEATURES = [
   { id: "share", icon: ScreenShare, label: "Screen sharing", tint: "#fbbf24", blurb: "Present your screen or a single tab to everyone in the room." },
   { id: "watch", icon: Clapperboard, label: "Watch parties", tint: "#a78bfa", blurb: "Stream videos together with synced playback and chat." },
   { id: "board", icon: PenTool, label: "Live whiteboard", tint: "#34d399", blurb: "Sketch ideas together in real time on an infinite canvas." },
-  { id: "vault", icon: FolderLock, label: "Encrypted vault", tint: "#60a5fa", blurb: "Send any file type — encrypted client-side, viewable in-app." },
-  { id: "poll", icon: BarChart3, label: "Polls & reactions", tint: "#f472b6", blurb: "Run instant polls and react with live emoji bursts." }
+  { id: "vault", icon: FolderLock, label: "Encrypted files", tint: "#60a5fa", blurb: "Send any file type — encrypted client-side, viewable in-app." },
+  { id: "poll", icon: BarChart3, label: "Polls & reactions", tint: "#f472b6", blurb: "Run instant polls and react with live emoji bursts." },
+  { id: "mention", icon: AtSign, label: "@mentions", tint: "#8b5cf6", blurb: "Type @ to autocomplete any member's name right in your message." },
+  { id: "schedule", icon: CalendarClock, label: "Scheduled messages", tint: "#0ea5e9", blurb: "Queue a message to send at exactly the right moment, even overnight." },
+  { id: "export", icon: Download, label: "Chat export", tint: "#10b981", blurb: "Save the whole room as a clean HTML file to keep forever." },
+  { id: "viewonce", icon: Eye, label: "View-once media", tint: "#f59e0b", blurb: "Photos and videos that reveal once, then vanish for good." },
+  { id: "push", icon: Globe, label: "Push alerts", tint: "#06b6d4", blurb: "Get notified instantly even when the tab is closed." },
+  { id: "voicenote", icon: Mic, label: "Voice notes", tint: "#f43f5e", blurb: "Record and send a voice message with a single tap." },
+  { id: "search", icon: Search, label: "Chat search", tint: "#6366f1", blurb: "Find any message or file in the room in an instant." },
+  { id: "voicecall", icon: Phone, label: "Voice-only calls", tint: "#22c55e", blurb: "Clear, private audio-only calls when you don't need the video." },
+  { id: "bg", icon: Palette, label: "Video filters", tint: "#a855f7", blurb: "Blur, grayscale, sepia and filters on your video — live in any call." },
+  { id: "qr", icon: QrCode, label: "QR room invite", tint: "#ef4444", blurb: "Scan to join — sharing your room is now one tap away." },
+  { id: "presence", icon: Users, label: "Online presence", tint: "#14b8a6", blurb: "See who's here and who's typing, all in real time." },
+  { id: "stealth", icon: EyeOff, label: "Stealth blur", tint: "#64748b", blurb: "Blur your chat instantly when someone peeks over your shoulder." },
+  { id: "offline", icon: WifiOff, label: "Resilient connections", tint: "#0d9488", blurb: "App shell loads instantly and auto-reconnects if your connection drops." },
+  { id: "fast", icon: Zap, label: "Lightning relay", tint: "#eab308", blurb: "Realtime relay streams huge files without grinding to a halt." },
+  { id: "theme", icon: Sparkles, label: "Chat themes", tint: "#d946ef", blurb: "Recolor the room your way with a tap — even mid-chat." }
 ];
 
 function TourSceneChat() {
@@ -303,10 +323,12 @@ function TourSceneBoard() {
   return (
     <div className="fe-scene fe-boardwrap">
       <div className="fe-tools"><i /><i /><i /></div>
-      <svg viewBox="0 0 300 120" className="fe-canvas">
-        <path className="fe-draw d1" d="M20 90 C 70 10, 120 130, 170 50 S 260 80, 282 34" />
-        <path className="fe-draw d2" d="M60 108 L 250 108" />
-      </svg>
+      <div className="fe-board-stage">
+        <svg viewBox="0 0 300 120" className="fe-canvas" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
+          <path className="fe-draw d1" d="M20 90 C 70 10, 120 130, 170 50 S 260 80, 282 34" />
+          <path className="fe-draw d2" d="M60 108 L 250 108" />
+        </svg>
+      </div>
     </div>
   );
 }
@@ -333,7 +355,149 @@ function TourScenePoll() {
   );
 }
 
-const TOUR_SCENES = { chat: TourSceneChat, vanish: TourSceneVanish, calls: TourSceneCalls, share: TourSceneShare, watch: TourSceneWatch, board: TourSceneBoard, vault: TourSceneVault, poll: TourScenePoll };
+function TourSceneMention() {
+  return (
+    <div className="fe-scene fe-msgscene">
+      <div className="fe-msgline"><em>A</em><span className="fe-msg"><b>@</b>Sam how's the deck?</span></div>
+      <div className="fe-msgline fe-ins"><em>M</em><span className="fe-msg">Almost done <b className="fe-at">@You</b></span></div>
+      <i className="fe-mention">@Sam ➜ ring</i>
+    </div>
+  );
+}
+
+function TourSceneSchedule() {
+  return (
+    <div className="fe-scene fe-msgscene">
+      <div className="fe-msgline"><em>A</em><span className="fe-msg">Remind me to ship at 9am 📅</span></div>
+      <div className="fe-clockchip fe-tick"><CalendarClock size={13} /><span>09:00 · tomorrow</span></div>
+      <div className="fe-msgline fe-ins"><em>bot</em><span className="fe-msg">Scheduled ✅</span></div>
+    </div>
+  );
+}
+
+function TourSceneExport() {
+  return (
+    <div className="fe-scene fe-msgscene">
+      <div className="fe-docchip fe-glow"><FileUp size={13} /><span>room-export.html</span><em className="fe-save">💾</em></div>
+      <div className="fe-docrow">· end-to-end chat · files · links</div>
+      <i className="fe-mention">exported in one tap</i>
+    </div>
+  );
+}
+
+function TourSceneViewOnce() {
+  return (
+    <div className="fe-scene fe-msgscene">
+      <div className="fe-ph"><span>📸</span><i className="fe-lock"><Eye size={13} /></i></div>
+      <i className="fe-mention">view-once · no copies</i>
+    </div>
+  );
+}
+
+function TourScenePush() {
+  return (
+    <div className="fe-scene fe-msgscene">
+      <div className="fe-notif fe-push"><Globe size={13} /><span>New message from Sam</span></div>
+      <i className="fe-mention">even when the tab is closed</i>
+    </div>
+  );
+}
+
+function TourSceneVoiceNote() {
+  return (
+    <div className="fe-scene fe-msgscene">
+      <div className="fe-voiceline"><Mic size={14} /><span className="fe-wavebar"><i /><i /><i /><i /><i /></span><em>0:14</em></div>
+      <i className="fe-mention">press to record, release to send</i>
+    </div>
+  );
+}
+
+function TourSceneSearch() {
+  return (
+    <div className="fe-scene fe-msgscene">
+      <div className="fe-searchbox fe-scan"><Search size={13} /><span>meeting notes</span></div>
+      <div className="fe-msgline fe-ins"><em>hit</em><span className="fe-msg">…the <b>meeting notes</b> are here…</span></div>
+      <i className="fe-mention">instant full-room search</i>
+    </div>
+  );
+}
+
+function TourSceneVoiceCall() {
+  return (
+    <div className="fe-scene fe-callgrid">
+      <div className="fe-tile fe-you fe-t3"><span className="fe-tava">You</span></div>
+      <div className="fe-tile fe-t0"><span className="fe-tava">A</span><span className="fe-wave"><i /><i /><i /></span></div>
+      <div className="fe-calldock"><Phone size={12} />Voice only</div>
+    </div>
+  );
+}
+
+function TourSceneBg() {
+  return (
+    <div className="fe-scene fe-msgscene">
+      <div className="fe-bgchip fe-hue"><Palette size={13} /><span>beach-office</span></div>
+      <div className="fe-tile fe-you fe-t3"><span className="fe-tava">You</span><em className="fe-bglabel">blurred</em></div>
+      <i className="fe-mention">backdrop or blur on any call</i>
+    </div>
+  );
+}
+
+function TourSceneQR() {
+  return (
+    <div className="fe-scene fe-qrscene">
+      <div className="fe-qr"><QrCode size={44} /></div>
+    </div>
+  );
+}
+
+function TourScenePresence() {
+  return (
+    <div className="fe-scene fe-msgscene">
+      <div className="fe-presrow"><i className="fe-dot on" />Ava · typing… <em>A</em></div>
+      <div className="fe-presrow"><i className="fe-dot" />Marcus <em>M</em></div>
+      <div className="fe-presrow"><i className="fe-dot on" />You <em>Y</em></div>
+    </div>
+  );
+}
+
+function TourSceneStealth() {
+  return (
+    <div className="fe-scene fe-msgscene">
+      <span className="fe-msg fe-dim">🤫 someone's peeking…</span>
+      <div className="fe-msgline fe-blur"><span className="fe-scr">▚▞▚▞▜▞▚</span></div>
+      <i className="fe-mention">tap to blur instantly</i>
+    </div>
+  );
+}
+
+function TourSceneOffline() {
+  return (
+    <div className="fe-scene fe-msgscene">
+      <div className="fe-notif fe-reconn"><WifiOff size={13} /><span>connection dropped — reconnecting…</span></div>
+      <i className="fe-mention">app shell loads instantly, auto-reconnects</i>
+    </div>
+  );
+}
+
+function TourSceneFast() {
+  return (
+    <div className="fe-scene fe-msgscene">
+      <div className="fe-fastbar"><Zap size={13} /><span className="fe-wavebar"><i /><i /><i /><i /><i /></span><em>2.1 GB/sec</em></div>
+      <i className="fe-mention">huge files, instant relay</i>
+    </div>
+  );
+}
+
+function TourSceneTheme() {
+  return (
+    <div className="fe-scene fe-msgscene">
+      <div className="fe-searchbox fe-theme"><Sparkles size={13} /><span>room accent · violet</span></div>
+      <div className="fe-presrow"><i className="fe-dot" />everyone sees the new look</div>
+    </div>
+  );
+}
+
+const TOUR_SCENES = { chat: TourSceneChat, vanish: TourSceneVanish, calls: TourSceneCalls, share: TourSceneShare, watch: TourSceneWatch, board: TourSceneBoard, vault: TourSceneVault, poll: TourScenePoll, mention: TourSceneMention, schedule: TourSceneSchedule, export: TourSceneExport, viewonce: TourSceneViewOnce, push: TourScenePush, voicenote: TourSceneVoiceNote, search: TourSceneSearch, voicecall: TourSceneVoiceCall, bg: TourSceneBg, qr: TourSceneQR, presence: TourScenePresence, stealth: TourSceneStealth, offline: TourSceneOffline, fast: TourSceneFast, theme: TourSceneTheme };
 
 function FeatureExplorer() {
   const [active, setActive] = useState(0);
@@ -392,14 +556,45 @@ function FeatureExplorer() {
 const TOUR_CSS = `
 .fe-eyebrow{color:var(--tint,#818cf8);font-size:.62rem;font-weight:850;letter-spacing:.14em;text-transform:uppercase;}
 .fe-title{margin:.35em 0 .9em;color:var(--chakra-colors-textPrimary);font-size:clamp(1.15rem,2.4vw,1.45rem);font-weight:800;letter-spacing:-.03em;line-height:1.15;}
-.fe-stage{position:relative;border-radius:16px;border:1px solid var(--chakra-colors-border);background:
- radial-gradient(120% 140% at 85% -10%, color-mix(in srgb, var(--tint) 16%, transparent), transparent 55%),
+.fe-stage{position:relative;flex:1;border-radius:16px;border:1px solid color-mix(in srgb, var(--tint) 26%, var(--chakra-colors-border));background:
+ radial-gradient(120% 140% at 85% -10%, color-mix(in srgb, var(--tint) 18%, transparent), transparent 55%),
+ radial-gradient(90% 120% at 8% 100%, color-mix(in srgb, var(--tint) 12%, transparent), transparent 60%),
  var(--chakra-colors-badgeBg);
  min-height:196px;display:flex;flex-direction:column;justify-content:center;padding:18px;overflow:hidden;
- animation:fe-stagein .5s cubic-bezier(.16,1,.3,1) both;}
-@keyframes fe-stagein{from{opacity:0;transform:translateY(14px) scale(.985);}to{opacity:1;transform:none;}}
-.fe-blurb{margin-top:14px;color:var(--chakra-colors-textSecondary);font-size:.76rem;line-height:1.5;}
-.fe-scene{position:relative;height:118px;}
+ box-shadow:inset 0 1px 0 rgba(255,255,255,.06), inset 0 0 46px color-mix(in srgb, var(--tint) 9%, transparent);
+ animation:fe-stagein .6s cubic-bezier(.22,1,.36,1) both;}
+.fe-stage::before{content:"";position:absolute;inset:-45%;z-index:0;pointer-events:none;
+ background:radial-gradient(34% 45% at 80% 8%, color-mix(in srgb,var(--tint) 36%,transparent), transparent 62%),
+            radial-gradient(30% 42% at 12% 92%, color-mix(in srgb,var(--tint) 22%,transparent), transparent 64%);
+ filter:blur(12px);opacity:.85;animation:fe-aurora 11s ease-in-out infinite alternate;}
+.fe-stage::after{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;opacity:.5;
+ background-image:radial-gradient(rgba(255,255,255,.3) 1px, transparent 1.5px);background-size:26px 26px;
+ mask-image:radial-gradient(58% 62% at 50% 46%, #000 18%, transparent 100%);-webkit-mask-image:radial-gradient(58% 62% at 50% 46%, #000 18%, transparent 100%);
+ animation:fe-sparkles 32s linear infinite;}
+@keyframes fe-aurora{from{transform:translate3d(-2.5%,-1.5%,0) rotate(-1.5deg) scale(.98);}to{transform:translate3d(2.5%,1.5%,0) rotate(1.5deg) scale(1.05);}}
+@keyframes fe-stagein{from{opacity:0;transform:translateY(18px) scale(.972);filter:blur(5px);}55%{opacity:1;}to{opacity:1;transform:translateY(0) scale(1);filter:blur(0);}}
+@keyframes fe-sparkles{to{background-position:520px 520px;}}
+.fe-blurb{position:relative;z-index:1;margin-top:14px;color:var(--chakra-colors-textSecondary);font-size:.76rem;line-height:1.5;text-align:center;animation:fe-fade .5s ease both;animation-delay:.22s;}
+.fe-scene{position:relative;z-index:1;height:118px;margin:auto;animation:fe-fade .45s ease both;animation-delay:.1s;}
+@keyframes fe-fade{from{opacity:0;}to{opacity:1;}}
+
+/* scene polish */
+.fe-device{animation:fe-drift 6.5s ease-in-out infinite;}
+.fe-device:nth-child(3){animation-delay:-3.2s;}
+@keyframes fe-drift{0%,100%{transform:translateY(0);}50%{transform:translateY(-2.5px);}}
+.fe-bubble{border-color:color-mix(in srgb,var(--tint) 22%,transparent);}
+.fe-bubble.fe-out::after{content:"⋯";margin-left:4px;color:var(--chakra-colors-textSecondary);opacity:.85;animation:fe-ellipsis 1.5s ease-in-out infinite;font-weight:800;}
+@keyframes fe-ellipsis{0%,100%{opacity:.35;}50%{opacity:1;}}
+.fe-wire::after{content:"";position:absolute;top:50%;left:0;width:100%;height:2px;transform:translateY(-50%);
+ background:linear-gradient(90deg,transparent,rgba(129,140,248,.5),rgba(236,72,153,.5),transparent);opacity:.5;}
+.fe-pkt{box-shadow:0 0 0 4px color-mix(in srgb,var(--tint) 12%,transparent),0 4px 16px rgba(0,0,0,.4),0 0 14px color-mix(in srgb,var(--tint) 40%,transparent);}
+.fe-canvas{filter:drop-shadow(0 0 7px rgba(52,211,153,.35)) drop-shadow(0 0 3px rgba(96,165,250,.4));}
+.fe-player::after{content:"";position:absolute;inset:0;pointer-events:none;
+ background:linear-gradient(105deg,transparent 42%,rgba(255,255,255,.07) 50%,transparent 58%);background-size:220% 100%;
+ animation:fe-scan 5.5s linear infinite;}
+@keyframes fe-scan{to{background-position:-220% 0;}}
+.fe-calldock{animation:fe-callpulse 3.2s ease-in-out infinite;}
+@keyframes fe-callpulse{0%,100%{box-shadow:0 0 0 0 rgba(34,211,238,0);}50%{box-shadow:0 0 18px rgba(34,211,238,.28);}}
 
 /* chat */
 .fe-devices{display:flex;align-items:center;gap:10px;}
@@ -469,10 +664,11 @@ const TOUR_CSS = `
 
 /* board */
 .fe-boardwrap{display:flex;align-items:center;gap:12px;}
+.fe-board-stage{flex:1 1 auto;min-width:0;height:104px;position:relative;}
 .fe-tools{display:flex;flex-direction:column;gap:6px;padding:8px 5px;border-radius:10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.09);}
 .fe-tools i{width:9px;height:9px;border-radius:3px;background:#64748b;}
 .fe-tools i:first-child{background:#34d399;}
-.fe-canvas{flex:1;height:104px;}
+.fe-canvas{position:absolute;inset:0;width:100%;height:100%;}
 .fe-draw{fill:none;stroke-linecap:round;stroke-width:3.5;stroke-dasharray:420;stroke-dashoffset:420;}
 .d1{stroke:#34d399;animation:fe-sketch 4.6s ease-in-out infinite;}
 .d2{stroke:#60a5fa;stroke-width:2.5;stroke-dasharray:200;stroke-dashoffset:200;animation:fe-sketch2 4.6s ease-in-out .9s infinite;}
@@ -514,16 +710,152 @@ const TOUR_CSS = `
 .fe-progress{height:2px;border-radius:2px;background:rgba(255,255,255,.07);margin-top:12px;overflow:hidden;}
 .fe-prog-fill{display:block;height:100%;width:100%;background:linear-gradient(90deg,var(--tint),#fff3);transform-origin:left;animation-name:fe-prog;animation-timing-function:linear;animation-fill-mode:forwards;}
 @keyframes fe-prog{from{transform:scaleX(0);}to{transform:scaleX(1);}}
+
+/* expanded tour scenes */
+.fe-msgscene{display:flex;flex-direction:column;gap:8px;padding:4px 0;}
+.fe-msgline{display:flex;align-items:center;gap:7px;font-size:.72rem;color:var(--chakra-colors-textPrimary);}
+.fe-msgline em{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;flex-shrink:0;font-style:normal;font-size:.6rem;font-weight:800;color:#fff;background:linear-gradient(135deg,#6366f1,#8b5cf6);}
+.fe-msgline.fe-ins em{background:linear-gradient(135deg,#ec4899,#f43f5e);}
+.fe-msg{background:rgba(255,255,255,.06);border:1px solid var(--chakra-colors-border);padding:5px 9px;border-radius:10px;}
+.fe-msg b{color:var(--tint,#818cf8);}
+.fe-msg .fe-at{background:color-mix(in srgb,var(--tint) 20%,transparent);border-radius:5px;padding:0 3px;}
+.fe-mention{font-style:normal;font-size:.6rem;color:var(--chakra-colors-textSecondary);opacity:.85;}
+.fe-clockchip,.fe-docchip,.fe-notif,.fe-searchbox,.fe-fastbar{display:inline-flex;align-items:center;gap:6px;font-size:.68rem;color:var(--chakra-colors-textPrimary);background:rgba(255,255,255,.06);border:1px solid var(--chakra-colors-border);padding:6px 9px;border-radius:10px;}
+.fe-docrow,.fe-presrow{font-size:.66rem;color:var(--chakra-colors-textSecondary);}
+.fe-presrow{display:flex;align-items:center;gap:6px;}
+.fe-dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.2);display:inline-block;}
+.fe-dot.on{background:#22c55e;box-shadow:0 0 8px #22c55e55;}
+.fe-ph{position:relative;width:56px;height:56px;border-radius:12px;display:grid;place-items:center;font-size:1.4rem;background:linear-gradient(135deg,rgba(255,255,255,.08),rgba(255,255,255,.02));border:1px solid var(--chakra-colors-border);}
+.fe-lock{position:absolute;right:-6px;top:-6px;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;background:#f59e0b;color:#111;}
+.fe-voiceline{display:inline-flex;align-items:center;gap:8px;font-size:.68rem;color:var(--chakra-colors-textPrimary);background:rgba(255,255,255,.06);border:1px solid var(--chakra-colors-border);padding:7px 10px;border-radius:14px;}
+.fe-voiceline .fe-wavebar{display:inline-flex;align-items:center;gap:2px;}
+.fe-wavebar i{width:3px;height:14px;border-radius:2px;background:linear-gradient(180deg,#ec4899,#f43f5e);animation:fe-wave 1s ease-in-out infinite;display:inline-block;}
+.fe-wavebar i:nth-child(2){animation-delay:.15s}.fe-wavebar i:nth-child(3){animation-delay:.3s}.fe-wavebar i:nth-child(4){animation-delay:.45s}.fe-wavebar i:nth-child(5){animation-delay:.6s}
+@keyframes fe-wave{0%,100%{transform:scaleY(.5);}50%{transform:scaleY(1);}}
+.fe-qr{width:56px;height:56px;border-radius:10px;display:grid;place-items:center;background:#fff;color:#111;}
+.fe-qrscene{display:grid;place-items:center;padding:4px 0;}
+.fe-qrscene .fe-qr{width:116px;height:116px;border-radius:22px;}
+.fe-qrscene .fe-qr svg{width:76px;height:76px;}
+.fe-msg .fe-at{display:inline-block;animation:fe-atpulse 2.4s ease-in-out infinite;}
+@keyframes fe-atpulse{0%,100%{color:#fff;}50%{color:#c4b5fd;box-shadow:0 0 12px rgba(139,92,246,.55);}}
+.fe-tick{animation:fe-tick 2.2s ease-in-out infinite;}
+@keyframes fe-tick{0%,100%{transform:scale(1);}50%{transform:scale(1.06);}}
+.fe-glow{animation:fe-glow 3.2s ease-in-out infinite;}
+@keyframes fe-glow{0%,100%{box-shadow:0 0 0 rgba(16,185,129,0);}50%{box-shadow:0 0 18px rgba(16,185,129,.32);}}
+.fe-push{animation:fe-blink 2.8s ease-in-out infinite;}
+@keyframes fe-blink{0%,100%{opacity:1;}50%{opacity:.55;}}
+.fe-reconn{animation:fe-reconn 2.6s ease-in-out infinite;}
+@keyframes fe-reconn{0%,100%{transform:translateY(0);}50%{transform:translateY(-3px);}}
+.fe-scan{position:relative;overflow:hidden;animation:fe-scanborder 2.8s ease-in-out infinite;}
+@keyframes fe-scanborder{0%,100%{border-color:rgba(99,102,241,.35);}50%{border-color:rgba(99,102,241,.75);}}
+.fe-scan::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(99,102,241,.3),transparent);transform:translateX(-100%);animation:fe-scan 2.4s ease-in-out infinite;}
+@keyframes fe-scan{0%{transform:translateX(-100%);}60%,100%{transform:translateX(100%);}}
+.fe-theme{animation:fe-themeglow 4.5s ease-in-out infinite;}
+@keyframes fe-themeglow{0%,100%{box-shadow:0 0 0 rgba(167,139,250,0);}50%{box-shadow:0 0 20px rgba(217,70,239,.4);}}
+.fe-hue{animation:fe-bg 3.4s ease-in-out infinite;}
+@keyframes fe-bg{0%,100%{border-color:rgba(168,85,247,.35);}50%{border-color:rgba(236,72,153,.6);}}
+.fe-presrow .fe-dot.on{animation:fe-dotring 2.2s ease-out infinite;}
+@keyframes fe-dotring{0%{box-shadow:0 0 0 0 rgba(34,197,94,.55);}70%,100%{box-shadow:0 0 0 8px rgba(34,197,94,0);}}
+.fe-ph .fe-lock{animation:fe-lock 2.6s ease-in-out infinite;}
+@keyframes fe-lock{0%,100%{transform:scale(1);}50%{transform:scale(1.12);}}
+.fe-qrscene .fe-qr{animation:fe-qrbreathe 3s ease-in-out infinite;}
+@keyframes fe-qrbreathe{0%,100%{box-shadow:0 0 0 rgba(239,68,68,0);}50%{box-shadow:0 0 26px rgba(239,68,68,.38);}}
+.fe-bgchip{display:inline-flex;align-items:center;gap:6px;font-size:.66rem;color:var(--chakra-colors-textPrimary);background:rgba(255,255,255,.06);border:1px solid var(--chakra-colors-border);padding:6px 9px;border-radius:10px;margin-bottom:6px;}
+.fe-bglabel{font-style:normal;font-size:.55rem;color:var(--chakra-colors-textSecondary);}
+.fe-blur{filter:blur(5px)!important;opacity:.7;}
+.fe-msgline.fe-blur .fe-scr{font-size:.8rem;letter-spacing:.05em;}
+.fe-dim{opacity:.6;}
+.fe-save{font-style:normal;}
+@media (min-width:${BREAKPOINTS.xl}px){
+  .fe-title{font-size:clamp(1.35rem,2.4vw,1.75rem);}
+  .fe-blurb{font-size:.84rem;}
+  .fe-scene{height:236px;}
+  .fe-devices,.fe-callgrid,.fe-sharewrap,.fe-watchwrap,.fe-boardwrap,.fe-pollwrap{width:100%;}
+  .fe-vanish-wrap,.fe-sharewrap,.fe-watchwrap,.fe-vaultwrap,.fe-pollwrap{justify-content:center;}
+  .fe-boardwrap{justify-content:flex-start;}
+  .fe-msgscene{align-items:center;justify-content:center;}
+  .fe-msgscene>*{max-width:100%;}
+  .fe-devices{gap:20px;}
+  .fe-devices{gap:20px;}
+  .fe-device{gap:14px;}
+  .fe-ava{width:58px;height:58px;border-radius:16px;font-size:1.08rem;}
+  .fe-bubble{padding:13px 18px;border-radius:16px;font-size:.92rem;}
+  .fe-real{padding:13px 18px;}
+  .fe-pkt{width:36px;height:36px;border-radius:10px;}
+  .fe-pkt svg{width:17px;height:17px;}
+  .fe-wire{height:3px;}
+  .fe-scr,.fe-real{font-size:.8rem;}
+  .fe-callgrid{gap:12px;}
+  .fe-tile{border-radius:16px;}
+  .fe-tava{width:50px;height:50px;font-size:1rem;}
+  .fe-wave i{width:5px;}
+  .fe-calldock{font-size:.7rem;padding:8px 14px;gap:10px;}
+  .fe-winbar{padding:9px 12px;}
+  .fe-winbar i{width:9px;height:9px;}
+  .fe-winbar em{font-size:.7rem;}
+  .fe-winbody{height:120px;}
+  .fe-cursor{font-size:1.2rem;}
+  .fe-live{font-size:.64rem;padding:4px 10px;}
+  .fe-player{height:180px;border-radius:16px;}
+  .fe-ha{width:24px;height:24px;font-size:.7rem;}
+  .fe-watchmeta{font-size:.7rem;}
+  .fe-boardwrap{position:relative;}
+  .fe-board-stage{position:absolute;top:36px;bottom:36px;left:44px;right:0;flex:none;width:auto;height:auto;}
+  .fe-draw{stroke-width:4.5;}
+  .fe-tools{gap:8px;padding:11px 8px;}
+  .fe-tools i{width:12px;height:12px;}
+  .fe-filechip{padding:13px 18px;border-radius:14px;gap:10px;font-size:.86rem;}
+  .fe-vaultbar{width:250px;height:6px;}
+  .fe-vaultline svg{width:42px;height:42px;}
+  .fe-pollq{font-size:.98rem;}
+  .fe-pollrow{font-size:.78rem;}
+  .fe-pollbar{height:11px;}
+  .fe-pollrow span{width:78px;}
+  .fe-pollrow b{width:46px;}
+  .fe-msgscene{gap:14px;}
+  .fe-ph{width:92px;height:92px;border-radius:18px;font-size:2rem;}
+  .fe-lock{width:28px;height:28px;}
+  .fe-lock svg{width:18px;height:18px;}
+  .fe-msgline{gap:10px;font-size:.86rem;}
+  .fe-msgline em{width:34px;height:34px;font-size:.86rem;}
+  .fe-msg{padding:12px 16px;border-radius:13px;font-size:.9rem;}
+  .fe-mention{font-size:.74rem;}
+  .fe-notif,.fe-searchbox,.fe-fastbar,.fe-clockchip,.fe-docchip,.fe-bgchip,.fe-voiceline{font-size:.86rem;padding:12px 16px;border-radius:14px;gap:9px;}
+  .fe-wavebar i,.fe-fastbar .fe-wavebar i{width:5px;height:20px;}
+  .fe-vanish-card{padding:18px 24px;border-radius:18px;gap:13px;font-size:.94rem;}
+  .fe-vanish-card svg{width:26px;height:26px;}
+  .fe-ring{width:36px;height:36px;}
+  .fe-vanish-note{font-size:.74rem;}
+  .fe-qr{width:92px;height:92px;border-radius:15px;}
+  .fe-qr svg{width:54px !important;height:54px !important;}
+  .fe-qrscene{display:grid;}
+  .fe-qrscene .fe-qr{width:132px;height:132px;border-radius:24px;}
+  .fe-qrscene .fe-qr svg{width:88px !important;height:88px !important;}
+  .fe-presrow{font-size:.82rem;}
+  .fe-dot{width:10px;height:10px;}
+}
+@media (min-width:1440px){
+  .fe-scene{height:282px;}
+  .fe-ava{width:66px;height:66px;font-size:1.2rem;}
+  .fe-tava{width:54px;height:54px;}
+  .fe-bubble{font-size:.98rem;padding:15px 20px;}
+  .fe-real{padding:15px 20px;}
+  .fe-player{height:205px;}
+}
 @media (prefers-reduced-motion: reduce){
+  .fe-stage{animation:none;}
   .fe-stage *, .fe-prog-fill{animation:none !important;}
+  .fe-stage::before, .fe-stage::after{animation:none !important;}
 }
 `;
 
 const TourPanel = styled.div`
   position: relative;
   z-index: 2;
+  display: flex;
+  flex-direction: column;
   width: min(560px, calc(100vw - 32px));
-  padding: clamp(18px, 3vw, 26px);
+  padding: clamp(22px, 3vw, 36px);
   border-radius: 22px;
   background: var(--chakra-colors-surface);
   backdrop-filter: blur(36px);
@@ -533,19 +865,27 @@ const TourPanel = styled.div`
   animation: fade-in-up .7s cubic-bezier(.16,1,.3,1) both;
   animation-delay: .25s;
   box-sizing: border-box;
+
+  @media (min-width: 1100px) {
+    flex: 6 1 0;
+    width: auto;
+    max-width: none;
+    min-width: 0;
+  }
 `;
 
-/* ══════════════════════════════════════════════════════════
-   DEV PICKER — temporary: tick the features to keep in the
-   tour, copy the selection, share it back. Remove before ship.
-   ══════════════════════════════════════════════════════════ */
-const DEV_PICKER_GROUPS = [
+
+const FEATURE_CATALOG = [
   {
-    group: "Messaging core", items: [
+    group: "Messaging core",
+    icon: MessagesSquare,
+    tint: "#818cf8",
+    blurb: "Everything you expect from a chat — private by default.",
+    items: [
       "End-to-end encrypted chat",
-      "Vanishing messages (Off / 1h / 24h / 7d / 30d)",
+      "Vanishing messages (5m up to 90 days)",
       "View-once photos & videos",
-      "Reply · Edit · Delete for everyone · Forward · Copy",
+      "Reply · Edit · Delete · Forward · Copy",
       "Emoji reactions",
       "Typing indicators + read receipts",
       "@mentions with autocomplete",
@@ -553,240 +893,125 @@ const DEV_PICKER_GROUPS = [
       "Message search & pinned messages",
       "Scheduled messages",
       "Voice message recording",
-      "GIF picker + code blocks + link previews",
+      "GIF picker · code blocks · link previews",
       "Chat export as HTML",
-      "QR Code Room Sharing (landing page & session)",
-      "Unread Message Badge + Jump to Bottom",
-      "Bookmarked / Starred Messages",
-      "Custom Notification Sounds",
-      "Mute notification sounds toggle",
-      "Rate Limiting (Spam Guard)",
-      "Client-side content moderation (word filter)"
+      "QR-code room sharing",
+      "Unread badge + jump to bottom",
+      "Bookmarked / starred messages",
+      "Custom notification sounds",
+      "Client-side word filter"
     ]
   },
   {
-    group: "Files & media", items: [
-      "Encrypted vault — any file type, encrypted on device",
-      "Realtime large-file relay (>100MB, no storage cap)",
+    group: "Files & media",
+    icon: FolderLock,
+    tint: "#60a5fa",
+    blurb: "Encrypted on your device before anything leaves it.",
+    items: [
+      "Encrypted files — any type, sealed before upload",
+      "Realtime large-file relay (100MB+ practical, 100GB hard cap)",
       "Universal viewer: PDF, docs, audio/video, PiP",
-      "Gallery ‹ › navigation between shared media",
-      "Client-side image compression before upload"
+      "Gallery left/right media navigation",
+      "Client-side image compression"
     ]
   },
   {
-    group: "Calls & meetings", items: [
+    group: "Calls & meetings",
+    icon: Video,
+    tint: "#22d3ee",
+    blurb: "Crystal-clear groups with a toolkit for fun and focus.",
+    items: [
       "HD group video calls (grid / spotlight / theater)",
       "Voice-only calls",
       "Screen sharing",
-      "Video beauty filters",
+      "Video & Audio filters",
       "Voice changer",
       "Call recording",
       "Floating emoji reactions in-call",
-      "Watch parties — synced co-watch streams",
+      "Watch parties — synced co-watch",
       "Collaborative whiteboard"
-    ]
-  },
-  {
-    group: "Rooms & privacy", items: [
-      "No accounts, no phone numbers",
-      "Per-room security codes",
-      "Stealth mode",
-      "Custom room backgrounds (+ owner lock)",
-      "Online presence list",
-      "Anti-shoulder surfing (Stealth masking blur)",
-      "Panic emergency exit hotkey (Esc x3)",
-      "Offline App Caching (PWA service worker)",
-      "IP-Based Room Access Controls"
-    ]
-  },
-  {
-    group: "Admin", items: [
-      "Admin dashboard — approve/reject rooms",
-      "In-room owner controls — kick, mute, destroy",
-      "Audit log timeline for room owners"
     ]
   }
 ];
 
-/* Verification badges shown on the right of each feature:
-   ok  = exercised end-to-end in a live two-user browser session
-   fix = broken before, fixed this session (needs a real-device pass for call media)
-*/
-const FEATURE_VERIFY = {
-  "End-to-end encrypted chat": "ok",
-  "Vanishing messages (Off / 1h / 24h / 7d / 30d)": "ok",
-  "View-once photos & videos": "ok",
-  "Reply · Edit · Delete for everyone · Forward · Copy": "ok",
-  "Emoji reactions": "ok",
-  "Typing indicators + read receipts": "ok",
-  "@mentions with autocomplete": "ok",
-  "Polls & live voting": "ok",
-  "Message search & pinned messages": "ok",
-  "Scheduled messages": "ok",
-  "Voice message recording": "ok",
-  "GIF picker + code blocks + link previews": "ok",
-  "Chat export as HTML": "ok",
-  "QR Code Room Sharing (landing page & session)": "ok",
-  "Unread Message Badge + Jump to Bottom": "ok",
-  "Bookmarked / Starred Messages": "ok",
-  "Custom Notification Sounds": "ok",
-  "Mute notification sounds toggle": "ok",
-  "Rate Limiting (Spam Guard)": "ok",
-  "Client-side content moderation (word filter)": "ok",
-
-  "Encrypted vault — any file type, encrypted on device": "ok",
-  "Realtime large-file relay (>100MB, no storage cap)": "ok",
-  "Universal viewer: PDF, docs, audio/video, PiP": "ok",
-  "Gallery ‹ › navigation between shared media": "ok",
-  "Client-side image compression before upload": "ok",
-
-  "HD group video calls (grid / spotlight / theater)": "ok",
-  "Voice-only calls": "ok",
-  "Screen sharing": "ok",
-  "Video beauty filters": "ok",
-  "Voice changer": "ok",
-  "Call recording": "ok",
-  "Floating emoji reactions in-call": "ok",
-  "Watch parties — synced co-watch streams": "ok",
-  "Collaborative whiteboard": "ok",
-
-  "No accounts, no phone numbers": "ok",
-  "Per-room security codes": "ok",
-  "Stealth mode": "ok",
-  "Custom room backgrounds (+ owner lock)": "ok",
-  "Online presence list": "ok",
-  "Anti-shoulder surfing (Stealth masking blur)": "ok",
-  "Panic emergency exit hotkey (Esc x3)": "ok",
-  "Offline App Caching (PWA service worker)": "ok",
-  "IP-Based Room Access Controls": "ok",
-
-  "Admin dashboard — approve/reject rooms": "ok",
-  "In-room owner controls — kick, mute, destroy": "ok",
-  "Audit log timeline for room owners": "ok"
-};
-
-function FeatureDevPicker() {
-  const all = useMemo(() => DEV_PICKER_GROUPS.flatMap((g) => g.items), []);
-  const [open, setOpen] = useState(false);
-  const [sel, setSel] = useState(() => new Set(all));
-  const toggle = (it) => setSel((prev) => {
-    const n = new Set(prev);
-    if (n.has(it)) n.delete(it); else n.add(it);
-    return n;
-  });
-  const toggleAll = () => setSel(sel.size === all.length ? new Set() : new Set(all));
-
-  const buildText = () => {
-    const lines = ["TOUR FEATURES — KEEP LIST:", ""];
-    DEV_PICKER_GROUPS.forEach((g) => {
-      const picked = g.items.filter((i) => sel.has(i));
-      if (!picked.length) return;
-      lines.push(g.group.toUpperCase());
-      picked.forEach((i) => {
-        const v = FEATURE_VERIFY[i];
-        lines.push("  " + (v === "ok" ? "✅ verified working" : v === "fix" ? "🔧 fixed" : "•") + " " + i);
-      });
-      lines.push("");
-    });
-    return lines.join("\n").trim();
-  };
-
-  const copySel = async () => {
-    const text = buildText();
-    try { await navigator.clipboard.writeText(text); }
-    catch {
-      const ta = document.createElement("textarea");
-      ta.value = text; ta.style.position = "fixed"; ta.style.top = "-9999px";
-      document.body.appendChild(ta); ta.select();
-      try { document.execCommand("copy"); } catch { }
-      ta.remove();
-    }
-    toast.success(`Copied ${sel.size} feature${sel.size === 1 ? "" : "s"} — paste it in the chat`);
-  };
-
-  useEffect(() => {
-    if (!open) return undefined;
-    const onKey = (e) => { if (e.key === "Escape") setOpen(false); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open]);
-
+const FeatureCatalog = () => {
   return (
     <>
-      {/* <button
-        type="button"
-        onClick={() => setOpen(true)}
-        style={{
-          position: "fixed", right: 14, bottom: 14, zIndex: 9000,
-          display: "inline-flex", alignItems: "center", gap: 6,
-          padding: "8px 13px", borderRadius: 999,
-          border: "1px solid rgba(255,255,255,.18)", background: "rgba(10,12,20,.82)",
-          color: "#e2e8f0", fontSize: ".68rem", fontWeight: 800, letterSpacing: ".04em",
-          cursor: "pointer", backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)",
-          boxShadow: "0 6px 18px rgba(0,0,0,.35)"
-        }}
-      >
-        🧩 PICK TOUR FEATURES
-      </button> */}
-
-      {open && (
-        <div
-          role="dialog" aria-modal="true" aria-label="Pick tour features"
-          onClick={(e) => { if (e.target === e.currentTarget) setOpen(false); }}
-          style={{ position: "fixed", inset: 0, zIndex: 9500, background: "rgba(2,4,10,.72)", display: "grid", placeItems: "center", padding: 16 }}
-        >
-          <div style={{
-            width: "min(560px, 100%)", maxHeight: "86dvh", display: "flex", flexDirection: "column",
-            borderRadius: 18, border: "1px solid rgba(255,255,255,.12)", background: "#0b0e17",
-            boxShadow: "0 30px 80px rgba(0,0,0,.55)", overflow: "hidden"
-          }}>
-            <div style={{ padding: "16px 18px 12px", borderBottom: "1px solid rgba(255,255,255,.08)", display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ color: "#fff", fontWeight: 850, fontSize: ".95rem" }}>Tick what stays in the tour</div>
-                <div style={{ color: "#94a3b8", fontSize: ".68rem", marginTop: 2 }}>{sel.size} of {all.length} selected · <span style={{ color: "#34d399" }}>✅ verified live</span> · <span style={{ color: "#fbbf24" }}>🔧 fixed this session</span></div>
-              </div>
-              <button type="button" onClick={toggleAll} style={{ background: "transparent", border: "1px solid rgba(255,255,255,.16)", borderRadius: 8, color: "#cbd5e1", fontSize: ".64rem", fontWeight: 700, padding: "6px 9px", cursor: "pointer" }}>
-                {sel.size === all.length ? "None" : "All"}
-              </button>
-              <button type="button" onClick={() => setOpen(false)} aria-label="Close" style={{ background: "transparent", border: 0, color: "#94a3b8", fontSize: "1.05rem", cursor: "pointer", lineHeight: 1 }}>✕</button>
-            </div>
-
-            <div style={{ overflowY: "auto", padding: "6px 18px 14px" }}>
-              {DEV_PICKER_GROUPS.map((g) => (
-                <div key={g.group} style={{ marginTop: 12 }}>
-                  <div style={{ color: "#818cf8", fontSize: ".62rem", fontWeight: 850, letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 6 }}>{g.group}</div>
-                  {g.items.map((it) => {
-                    const v = FEATURE_VERIFY[it];
-                    return (
-                      <label key={it} style={{ display: "flex", alignItems: "center", gap: 9, padding: "6px 4px", borderRadius: 8, cursor: "pointer", color: sel.has(it) ? "#f1f5f9" : "#64748b", fontSize: ".76rem", transition: "color .15s ease" }}>
-                        <input type="checkbox" checked={sel.has(it)} onChange={() => toggle(it)} style={{ width: 15, height: 15, accentColor: "#818cf8", cursor: "pointer" }} />
-                        <span style={{ flex: 1 }}>{it}</span>
-                        {v === "ok" && <span title="Verified in a live two-user session" style={{ flexShrink: 0, fontSize: ".6rem", fontWeight: 850, letterSpacing: ".06em", color: "#34d399", background: "rgba(52,211,153,.12)", border: "1px solid rgba(52,211,153,.3)", borderRadius: 999, padding: "2px 8px" }}>✅ VERIFIED</span>}
-                        {v === "fix" && <span title="Fixed this session — needs a real-device pass" style={{ flexShrink: 0, fontSize: ".6rem", fontWeight: 850, letterSpacing: ".06em", color: "#fbbf24", background: "rgba(251,191,36,.1)", border: "1px solid rgba(251,191,36,.28)", borderRadius: 999, padding: "2px 8px" }}>🔧 FIXED</span>}
-                      </label>
-                    );
-                  })}
+      <style>{CATALOG_CSS}</style>
+      <section className="cat-section">
+        <header className="cat-header">
+          <div className="cat-eyebrow">Everything inside AnonChat</div>
+          <h3 className="cat-title">One room. Every tool you need.</h3>
+          <p className="cat-sub">Messaging, files and calls — ready the moment you join. Encrypted by default and covered end-to-end.</p>
+        </header>
+        <div className="cat-grid">
+          {FEATURE_CATALOG.map((g) => {
+            const Icon = g.icon;
+            return (
+              <article className="cat-card" key={g.group} style={{ "--tint": g.tint }}>
+                <div className="cat-head">
+                  <span className="cat-head-icon"><Icon size={18} strokeWidth={2.2} /></span>
+                  <div>
+                    <div className="cat-group-name">{g.group}</div>
+                    <div className="cat-group-count">{g.items.length} features</div>
+                  </div>
                 </div>
-              ))}
-            </div>
-
-            <div style={{ padding: "12px 18px 16px", borderTop: "1px solid rgba(255,255,255,.08)", display: "flex", gap: 10, justifyContent: "flex-end" }}>
-              <button type="button" onClick={() => setOpen(false)} style={{ background: "transparent", border: "1px solid rgba(255,255,255,.16)", borderRadius: 10, color: "#cbd5e1", fontSize: ".74rem", fontWeight: 700, padding: "10px 14px", cursor: "pointer" }}>Cancel</button>
-              <button
-                type="button"
-                onClick={copySel}
-                disabled={sel.size === 0}
-                style={{ border: 0, borderRadius: 10, background: sel.size ? "linear-gradient(135deg,#ff3f5e,#c22b47)" : "#334155", color: "#fff", fontSize: ".74rem", fontWeight: 800, padding: "10px 18px", cursor: sel.size ? "pointer" : "not-allowed", boxShadow: sel.size ? "0 6px 18px rgba(255,63,94,.35)" : "none" }}
-              >
-                Copy selected ({sel.size})
-              </button>
-            </div>
-          </div>
+                <p className="cat-blurb">{g.blurb}</p>
+                <ul className="cat-features">
+                  {g.items.map((it) => (
+                    <li key={it}>
+                      <span className="cat-check" aria-hidden="true"><Check size={11} strokeWidth={3.2} /></span>
+                      <span>{it}</span>
+                    </li>
+                  ))}
+                </ul>
+              </article>
+            );
+          })}
         </div>
-      )}
+        <div className="cat-closer">
+          <span className="cat-join-ring"><ArrowRight size={16} strokeWidth={2.4} /></span>
+          <span>Join with just a room ID and a security code — no sign-up, ever.</span>
+        </div>
+      </section>
     </>
   );
+};
+
+const CATALOG_CSS = `
+.cat-section{display:flex;flex-direction:column;gap:clamp(16px,3vw,26px);width:100%;margin-top:clamp(26px,5vw,44px);border-top:1px solid rgba(255,255,255,.05);padding-top:clamp(24px,4vw,38px);box-sizing:border-box;}
+.cat-eyebrow{color:var(--chakra-colors-brandPrimary);font-size:.66rem;font-weight:850;letter-spacing:.15em;text-transform:uppercase;}
+.cat-title{margin:.35em 0 0;color:var(--chakra-colors-textPrimary);font-size:clamp(1.3rem,3vw,1.8rem);font-weight:850;letter-spacing:-.03em;}
+.cat-sub{margin:.5em 0 0;color:var(--chakra-colors-textSecondary);font-size:clamp(.8rem,1.8vw,.9rem);line-height:1.55;max-width:70ch;}
+.cat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:16px;}
+@media (min-width:${BREAKPOINTS.xl}px){
+  .cat-grid{display:flex;gap:18px;justify-content:center;}
+  .cat-card{flex:1 1 0;min-width:0;}
 }
+.cat-card{position:relative;display:flex;flex-direction:column;gap:12px;padding:18px;border-radius:18px;box-sizing:border-box;
+ background:linear-gradient(160deg,color-mix(in srgb,var(--tint) 9%,transparent),transparent 40%),var(--chakra-colors-surface);
+ border:1px solid var(--chakra-colors-border);backdrop-filter:blur(30px);-webkit-backdrop-filter:blur(30px);
+ box-shadow:0 10px 34px rgba(0,0,0,.22),inset 0 1px 0 var(--chakra-colors-borderSubtle);
+ transition:transform .22s cubic-bezier(.16,1,.3,1),border-color .22s ease,box-shadow .22s ease;}
+.cat-card:hover{transform:translateY(-4px);border-color:color-mix(in srgb,var(--tint) 45%,transparent);box-shadow:0 18px 44px rgba(0,0,0,.3),0 0 0 1px color-mix(in srgb,var(--tint) 18%,transparent),0 0 30px color-mix(in srgb,var(--tint) 14%,transparent);}
+.cat-card::before{content:"";position:absolute;top:0;left:14px;right:14px;height:1px;background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--tint) 70%,transparent),transparent);}
+.cat-head{display:flex;align-items:center;gap:11px;}
+.cat-head-icon{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;flex-shrink:0;
+ background:color-mix(in srgb,var(--tint) 16%,transparent);border:1px solid color-mix(in srgb,var(--tint) 30%,transparent);color:#fff;box-shadow:0 0 18px color-mix(in srgb,var(--tint) 22%,transparent);}
+.cat-group-name{color:var(--chakra-colors-textPrimary);font-size:.92rem;font-weight:800;letter-spacing:-.01em;}
+.cat-group-count{color:var(--chakra-colors-textSecondary);font-size:.66rem;font-weight:650;margin-top:1px;}
+.cat-blurb{margin:0;color:var(--chakra-colors-textSecondary);font-size:.74rem;line-height:1.5;padding-bottom:4px;border-bottom:1px solid var(--chakra-colors-border);}
+.cat-features{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:7px;}
+.cat-features li{display:flex;align-items:flex-start;gap:8px;color:var(--chakra-colors-textPrimary);font-size:.77rem;line-height:1.35;font-weight:560;}
+.cat-check{flex-shrink:0;margin-top:2px;width:16px;height:16px;border-radius:5px;display:grid;place-items:center;
+ background:color-mix(in srgb,var(--tint) 22%,transparent);border:1px solid color-mix(in srgb,var(--tint) 45%,transparent);color:#fff;}
+.cat-closer{display:flex;align-items:center;gap:11px;justify-content:center;flex-wrap:wrap;color:var(--chakra-colors-textSecondary);font-size:.8rem;font-weight:650;text-align:center;margin-top:4px;}
+.cat-join-ring{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;flex-shrink:0;
+ background:linear-gradient(135deg,var(--chakra-colors-brandPrimary),var(--chakra-colors-brandAccent,var(--chakra-colors-brandSecondary)));color:#fff;box-shadow:0 6px 18px color-mix(in srgb,var(--chakra-colors-brandPrimary) 45%,transparent);}
+@media (max-width:${BREAKPOINTS.md}px){.cat-grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr));}.cat-closer{padding:0 6px;}}
+@media (max-width:${BREAKPOINTS.sm}px){.cat-grid{grid-template-columns:1fr;}}
+@media (prefers-reduced-motion:reduce){.cat-card{transition:none;}.cat-card:hover{transform:none;}}
+`;
 
 const LandingGrid = styled.div`
   position: relative;
@@ -803,12 +1028,10 @@ const LandingGrid = styled.div`
   @media (min-width: 1100px) {
     flex-direction: row;
     align-items: stretch;
-    gap: clamp(36px, 5vw, 64px);
-    max-width: 1220px;
-    margin: 0 auto;
-    ${TourPanel} { order: -1; display: flex; flex-direction: column; justify-content: center; }
+    gap: clamp(28px, 3.5vw, 44px);
   }
 `;
+
 
 // Platform-aware aspect ratio for media embeds and file uploads
 const getMediaAspectRatio = (sourceStr = "", fileType = "") => {
@@ -1288,590 +1511,171 @@ const TypingIndicator = styled.div`
    light pulses travel between them — messages with no sender, no face,
    no trace. Single rAF loop, DPR-capped at 1.5, pauses when the tab is
    hidden, and renders a single static frame under prefers-reduced-motion. */
-function WhisperNetwork() {
-  const canvasRef = useRef(null);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || !canvas.parentElement) return undefined;
-    const ctx = canvas.getContext("2d");
-    const parent = canvas.parentElement;
-
-    let raf = 0;
-    let running = true;
-    let width = 1;
-    let height = 1;
-    let nodes = [];
-    let pulses = [];
-    let frameCount = 0;
-    let brandA = "#ff3f5e";
-    const LINK_DIST = 132;
-    const LINK_D2 = LINK_DIST * LINK_DIST;
-
-    const readColors = () => {
-      try {
-        const cs = getComputedStyle(document.documentElement);
-        brandA = cs.getPropertyValue("--chakra-colors-brandPrimary").trim() || brandA;
-      } catch (e) { /* keep fallback */ }
-    };
-
-    const targetCount = () =>
-      Math.max(14, Math.min(28, Math.round((width * height) / 44000)));
-
-    const seedNodes = () => {
-      nodes = Array.from({ length: targetCount() }, () => ({
-        x: Math.random() * width,
-        y: Math.random() * height,
-        vx: (Math.random() - 0.5) * 13,
-        vy: (Math.random() - 0.5) * 13,
-        r: 1.2 + Math.random() * 1.5,
-        hub: Math.random() < 0.16
-      }));
-    };
-
-    const resize = () => {
-      const rect = parent.getBoundingClientRect();
-      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
-      width = Math.max(1, rect.width);
-      height = Math.max(1, rect.height);
-      canvas.width = Math.round(width * dpr);
-      canvas.height = Math.round(height * dpr);
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      if (nodes.length !== targetCount()) seedNodes();
-    };
-
-    const drawFrame = (dt) => {
-      // Drift + soft wrap
-      for (const n of nodes) {
-        n.x += n.vx * dt;
-        n.y += n.vy * dt;
-        if (n.x < -24) n.x = width + 24; else if (n.x > width + 24) n.x = -24;
-        if (n.y < -24) n.y = height + 24; else if (n.y > height + 24) n.y = -24;
-      }
-
-      ctx.clearRect(0, 0, width, height);
-
-      // Proximity links — the quiet mesh
-      ctx.lineWidth = 1;
-      for (let i = 0; i < nodes.length; i++) {
-        const a = nodes[i];
-        for (let j = i + 1; j < nodes.length; j++) {
-          const b = nodes[j];
-          const dx = a.x - b.x;
-          const dy = a.y - b.y;
-          const d2 = dx * dx + dy * dy;
-          if (d2 < LINK_D2) {
-            const t = 1 - Math.sqrt(d2) / LINK_DIST;
-            ctx.strokeStyle = "rgba(148,163,184," + (t * 0.15).toFixed(3) + ")";
-            ctx.beginPath();
-            ctx.moveTo(a.x, a.y);
-            ctx.lineTo(b.x, b.y);
-            ctx.stroke();
-          }
-        }
-      }
-
-      // Nodes — no avatars, no names
-      for (const n of nodes) {
-        ctx.beginPath();
-        ctx.arc(n.x, n.y, n.hub ? n.r + 0.7 : n.r, 0, 6.2832);
-        ctx.fillStyle = n.hub ? brandA : "rgba(203,213,225,.5)";
-        ctx.fill();
-      }
-
-      // Spawn a travelling pulse between two linked nodes
-      if (nodes.length > 3 && pulses.length < 7) {
-        const a = nodes[(Math.random() * nodes.length) | 0];
-        let best = null;
-        let bd = Infinity;
-        for (const c of nodes) {
-          if (c === a) continue;
-          const dx = a.x - c.x;
-          const dy = a.y - c.y;
-          const dd = dx * dx + dy * dy;
-          if (dd > 900 && dd < LINK_D2 && dd < bd) { bd = dd; best = c; }
-        }
-        if (best) pulses.push({ a, b: best, t: 0, sp: 0.5 + Math.random() * 0.55 });
-      }
-
-      // Pulses — words in motion
-      pulses = pulses.filter((p) => p.t < 1);
-      for (const p of pulses) {
-        p.t += p.sp * dt;
-        const t = Math.max(0, Math.min(1, p.t));
-        const ease = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
-        const x = p.a.x + (p.b.x - p.a.x) * ease;
-        const y = p.a.y + (p.b.y - p.a.y) * ease;
-        const alpha = Math.sin(Math.PI * t);
-        ctx.beginPath();
-        ctx.arc(x, y, 4.2, 0, 6.2832);
-        ctx.fillStyle = brandA.startsWith("#")
-          ? hexGlow(brandA, alpha * 0.25)
-          : "rgba(129,140,248," + (alpha * 0.25).toFixed(3) + ")";
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(x, y, 1.7, 0, 6.2832);
-        ctx.fillStyle = "rgba(255,255,255," + (alpha * 0.95).toFixed(3) + ")";
-        ctx.fill();
-      }
-    };
-
-    const step = (ts) => {
-      if (!running) return;
-      if ((frameCount++ & 255) === 0) readColors(); // cheap theme sync
-      drawFrame(0.016);
-      raf = requestAnimationFrame(step);
-    };
-
-    resize();
-    readColors();
-
-    const reduceMotion =
-      window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-    if (reduceMotion) {
-      drawFrame(0); // one calm frame, no loop
-      const onResizeStatic = () => { resize(); drawFrame(0); };
-      window.addEventListener("resize", onResizeStatic);
-      return () => window.removeEventListener("resize", onResizeStatic);
-    }
-
-    raf = requestAnimationFrame(step);
-
-    const handleVisibility = () => {
-      if (document.hidden) {
-        running = false;
-        cancelAnimationFrame(raf);
-      } else if (!running) {
-        running = true;
-        raf = requestAnimationFrame(step);
-      }
-    };
-    document.addEventListener("visibilitychange", handleVisibility);
-
-    let resizeTimer = null;
-    const debouncedResize = () => {
-      clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(resize, 150);
-    };
-    window.addEventListener("resize", debouncedResize);
-
-    return () => {
-      running = false;
-      cancelAnimationFrame(raf);
-      clearTimeout(resizeTimer);
-      document.removeEventListener("visibilitychange", handleVisibility);
-      window.removeEventListener("resize", debouncedResize);
-    };
-  }, []);
-
-  return (
-    <canvas
-      ref={canvasRef}
-      aria-hidden="true"
-      style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none", zIndex: 0 }}
-    />
-  );
-}
-
-function hexGlow(hex, alpha) {
-  const h = hex.replace("#", "");
-  const full = h.length === 3 ? h.split("").map((c) => c + c).join("") : h;
-  const r = parseInt(full.slice(0, 2), 16) || 129;
-  const g = parseInt(full.slice(2, 4), 16) || 140;
-  const b = parseInt(full.slice(4, 6), 16) || 248;
-  return "rgba(" + r + "," + g + "," + b + "," + alpha.toFixed(3) + ")";
-}
 
 
 const LandingWrapper = styled.div`
   position: relative;
-
   display: flex;
-  justify-content: center;
+  flex-direction: column;
   align-items: center;
-
+  justify-content: flex-start;
   width: 100%;
-  min-width: 0;
-
-  /*
-   * IMPORTANT:
-   * Never give this container a fixed height.
-   * Content is allowed to make it taller than the viewport.
-   */
   min-height: 100dvh;
   height: auto;
-
-  padding: 32px 24px;
-
+  padding: 52px 20px 60px;
   box-sizing: border-box;
-
-  background: var(--chakra-colors-bg);
-
-  /*
-   * clip prevents horizontal FX from creating a scroll container,
-   * while still allowing the document to grow vertically.
-   */
+  background: linear-gradient(180deg, #08090d 0%, #0c0d14 40%, #0e1018 100%);
   overflow-x: clip;
   overflow-y: visible;
-
   isolation: isolate;
-
-  /* =========================
-     GRID
-     ========================= */
 
   &::before {
     content: "";
-
     position: absolute;
     inset: 0;
-
     background-image:
-      linear-gradient(
-        rgba(255, 255, 255, 0.02) 1px,
-        transparent 1px
-      ),
-      linear-gradient(
-        90deg,
-        rgba(255, 255, 255, 0.02) 1px,
-        transparent 1px
-      );
-
-    background-size: 30px 30px;
+      linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
+    background-size: 48px 48px;
     background-position: center;
-
     pointer-events: none;
-
     z-index: -1;
   }
 
-  /* =========================
-     GLOW
-     ========================= */
-
-  &::after {
-    content: "";
-
-    position: absolute;
-
-    width: clamp(200px, 40vw, 400px);
-    height: clamp(200px, 40vw, 400px);
-
-    top: 15%;
-    left: 15%;
-
-    background: radial-gradient(
-      circle,
-      var(--chakra-colors-brandPrimary) 0%,
-      transparent 70%
-    );
-
-    opacity: 0.16;
-    filter: blur(50px);
-
-    pointer-events: none;
-
-    z-index: -1;
-
-    animation: floating-glow-1 14s infinite alternate ease-in-out;
+  @media (min-width: ${BREAKPOINTS.md}px) {
+    padding-top: 96px;
   }
-
-  /* =========================
-     TABLET
-     ========================= */
-
-  @media (max-width: ${BREAKPOINTS.lg}px) {
-    align-items: flex-start;
-
-    min-height: 100dvh;
-
-    padding: 32px 20px 48px;
-
-    &::before {
-      background-size: 25px 25px;
-    }
-
-    &::after {
-      width: 280px;
-      height: 280px;
-
-      top: 5%;
-      left: 50%;
-
-      transform: translateX(-50%);
-
-      opacity: 0.12;
-      filter: blur(45px);
-    }
-  }
-
-  /* =========================
-     MOBILE
-     ========================= */
-
   @media (max-width: ${BREAKPOINTS.sm}px) {
-    /*
-     * Let the content determine the height.
-     * This is the important part.
-     */
-    display: flex;
-
-    align-items: flex-start;
-    justify-content: center;
-
-    min-height: 100dvh;
-    height: auto;
-
-    padding: 20px 12px 48px;
-
-    overflow-x: clip;
-    overflow-y: visible;
-
-    &::before {
-      background-size: 22px 22px;
-      opacity: 0.6;
-    }
-
-    &::after {
-      width: 220px;
-      height: 220px;
-
-      top: 0;
-      left: 50%;
-
-      transform: translateX(-50%);
-
-      opacity: 0.08;
-      filter: blur(35px);
-
-      animation-duration: 18s;
-    }
+    padding: 54px 16px 48px;
+    &::before { background-size: 36px 36px; }
   }
-
-  /* =========================
-     SMALL PHONES
-     ========================= */
-
   @media (max-width: ${BREAKPOINTS.xs}px) {
-    padding: 16px 8px 40px;
-
-    &::before {
-      background-size: 20px 20px;
-    }
-
-    &::after {
-      width: 180px;
-      height: 180px;
-    }
+    padding: 52px 12px 40px;
+    &::before { background-size: 28px 28px; }
   }
 `;
 
-/* ── Landing FX system: aurora, starfield, parallax bubbles, orbit rings ── */
-const bubbleFloat = keyframes`
-  0%, 100% { transform: translateY(0) rotate(0deg); }
-  50% { transform: translateY(-22px) rotate(-2deg); }
-`;
-const bubbleFloatAlt = keyframes`
-  0%, 100% { transform: translate(0, 0) rotate(0deg); }
-  40% { transform: translate(9px, -13px) rotate(1.6deg); }
-  70% { transform: translate(-7px, -20px) rotate(-1.2deg); }
-`;
-const bubbleIn = keyframes`
-  from { opacity: 0; transform: translateY(26px) scale(0.86); filter: blur(6px); }
-  to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
-`;
-
-const FeatureBubble = styled.div`
+const LandingBrandbar = styled.div`
   position: absolute;
-  left: ${(p) => p.$x};
-  top: ${(p) => p.$y};
-  pointer-events: none;
-  z-index: 1;
-  opacity: 0;
-  /* depth-layered mouse parallax — outer wrapper owns parallax */
-  transform: translate3d(
-    calc(var(--mx, 0) * ${(p) => p.$depth}px),
-    calc(var(--my, 0) * ${(p) => p.$depth}px), 0);
-  animation: ${bubbleIn} 1s cubic-bezier(0.16, 1, 0.3, 1) ${(p) => p.$delay}s forwards;
-  will-change: transform;
-
-  @media (max-width: 1100px) {
-    ${(p) => p.$hideSm && "display: none;"}
-  }
-
-  /* On phones the card is the hero — floating pills just add noise */
-  @media (max-width: ${BREAKPOINTS.md}px) {
-    display: none;
-  }
-`;
-
-const BubblePill = styled.div`
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 4;
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding: 10px 16px 10px 11px;
-  border-radius: 999px;
-  background: linear-gradient(135deg, rgba(22,25,38,0.72), rgba(22,25,38,0.55));
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow:
-    0 14px 44px rgba(0, 0, 0, 0.32),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    0 0 34px ${(p) => p.$tint}30,
-    inset 0 0 22px ${(p) => p.$tint}12;
-  color: var(--chakra-colors-textPrimary);
-  font-size: 0.78rem;
-  font-weight: 650;
-  letter-spacing: 0.01em;
-  white-space: nowrap;
-  animation: ${(p) => (p.$alt ? bubbleFloatAlt : bubbleFloat)} ${(p) => p.$dur}s ease-in-out ${(p) => p.$delay}s infinite;
+  justify-content: space-between;
+  gap: 12px;
+  height: clamp(48px, 7vh, 60px);
+  padding: 0 clamp(16px, 5vw, 64px);
+  box-sizing: border-box;
+  pointer-events: none;
 
-  .fb-icon {
-    width: 27px;
-    height: 27px;
-    border-radius: 50%;
+  .lb-brand {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    pointer-events: auto;
+    animation: fade-in-up .7s cubic-bezier(.16,1,.3,1) both;
+  }
+
+  .lb-mark {
+    width: 30px;
+    height: 30px;
+    border-radius: 10px;
     display: grid;
     place-items: center;
-    background: linear-gradient(135deg, ${(p) => p.$tint}33, ${(p) => p.$tint}14);
-    color: ${(p) => p.$tint};
-    box-shadow: inset 0 0 0 1px ${(p) => p.$tint}44, 0 0 18px ${(p) => p.$tint}40;
+    color: #fff;
     flex-shrink: 0;
+    background: linear-gradient(135deg, var(--chakra-colors-brandPrimary), var(--chakra-colors-brandSecondary));
+    box-shadow: 0 4px 16px color-mix(in srgb, var(--chakra-colors-brandPrimary) 45%, transparent);
   }
 
-  @media (max-width: ${BREAKPOINTS.md}px) {
-    padding: 8px 12px 8px 9px;
-    font-size: 0.68rem;
-    gap: 7px;
-    .fb-icon { width: 23px; height: 23px; }
-    .fb-icon svg { width: 11px; height: 11px; }
+  .lb-name {
+    color: var(--chakra-colors-textPrimary);
+    font-size: .95rem;
+    font-weight: 800;
+    letter-spacing: -.02em;
+    line-height: 1;
   }
 
-  @media (prefers-reduced-motion: reduce) { animation: none; }
+  .lb-version {
+    color: var(--chakra-colors-textSecondary);
+    font-size: .6rem;
+    font-weight: 750;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    padding: 3px 7px;
+    border-radius: 999px;
+    border: 1px solid var(--chakra-colors-border);
+    background: color-mix(in srgb, var(--chakra-colors-surface) 70%, transparent);
+  }
+
+  .lb-tag {
+    display: block;
+    margin-top: 3px;
+    color: var(--chakra-colors-textSecondary);
+    font-size: .68rem;
+    font-weight: 600;
+    opacity: .82;
+  }
+
+  @media (max-width: ${BREAKPOINTS.sm}px) {
+    justify-content: center;
+    padding: 0 12px;
+    .lb-tag { display: none; }
+  }
 `;
 
-const titleShimmer = keyframes`
-  0% { background-position: -200% center; }
-  100% { background-position: 200% center; }
-`;
+
 const ShimmerTitle = styled.span`
-  background: linear-gradient(110deg,
-    var(--chakra-colors-textPrimary) 38%,
-    var(--chakra-colors-brandPrimary) 47%,
-    var(--chakra-colors-brandAccent, var(--chakra-colors-brandSecondary)) 50%,
-    var(--chakra-colors-brandPrimary) 53%,
-    var(--chakra-colors-textPrimary) 62%);
-  background-size: 200% auto;
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  animation: ${titleShimmer} 5.5s linear infinite;
-
-  @media (prefers-reduced-motion: reduce) { animation: none; }
+  color: var(--chakra-colors-textPrimary);
+  letter-spacing: -0.02em;
 `;
 
-const cardEnter = keyframes`
-  from { opacity: 0; transform: perspective(1200px) rotateX(7deg) translateY(34px) scale(0.965); filter: blur(8px); }
-  to { opacity: 1; transform: perspective(1200px) rotateX(0) translateY(0) scale(1); filter: blur(0); }
-`;
-/* The join card is a "beacon": a slow breathing dual-gone glow behind it and
-   one soft light beam flowing along its edge — no hard rotating shapes. */
+/* Subtle glow behind the join card — no animation, no beacon */
 const CardHalo = styled.div`
   position: absolute;
-  inset: -34px;
+  inset: -40px;
   border-radius: 40px;
   z-index: -1;
   pointer-events: none;
-  background:
-    radial-gradient(ellipse at 30% 20%, color-mix(in srgb, var(--chakra-colors-brandPrimary) 55%, transparent) 0%, transparent 62%),
-    radial-gradient(ellipse at 75% 85%, color-mix(in srgb, var(--chakra-colors-brandAccent, var(--chakra-colors-brandSecondary)) 50%, transparent) 0%, transparent 58%);
-  filter: blur(46px);
-  opacity: 0.5;
-  animation: beaconBreathe 7s ease-in-out infinite;
+  background: radial-gradient(ellipse at 50% 50%, color-mix(in srgb, var(--chakra-colors-brandPrimary) 14%, transparent) 0%, transparent 70%);
+  filter: blur(50px);
+  opacity: 0.6;
 
-  @keyframes beaconBreathe {
-    0%, 100% { opacity: 0.34; transform: scale(0.985); }
-    50% { opacity: 0.6; transform: scale(1.015); }
-  }
-
-  @media (max-width: ${BREAKPOINTS.md}px) { filter: blur(34px); inset: -26px; }
-  @media (prefers-reduced-motion: reduce) { animation: none; opacity: 0.3; }
-`;
-
-/* Soft light flowing along the card edge — blurred so it reads as a moving
-   sheen of light, not a spinning polygon. */
-const CardBeam = styled.div`
-  position: absolute;
-  inset: -1px;
-  border-radius: 23px;
-  z-index: 2;
-  pointer-events: none;
-  padding: 1px;
-  overflow: hidden;
-
-  &::before {
-    content: "";
-    position: absolute;
-    inset: -120%;
-    background: conic-gradient(from 0deg,
-      transparent 0deg,
-      transparent 300deg,
-      color-mix(in srgb, var(--chakra-colors-brandPrimary) 80%, #fff) 340deg,
-      transparent 360deg);
-    animation: beamOrbit 8s linear infinite;
-  }
-
-  /* mask everything except a hairline ring at the card edge */
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-          mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-          mask-composite: exclude;
-
-  @keyframes beamOrbit { to { transform: rotate(360deg); } }
-
-  @media (max-width: ${BREAKPOINTS.md}px) { display: none; }
-  @media (prefers-reduced-motion: reduce) {
-    &::before { animation-duration: 240s; }
+  @media (max-width: ${BREAKPOINTS.md}px) {
+    inset: -28px;
+    filter: blur(36px);
   }
 `;
 
 const JoinContainer = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
   width: 100%;
-  max-width: min(420px, calc(100vw - 32px));
+  max-width: 440px;
   background: var(--chakra-colors-surface);
-  backdrop-filter: blur(36px);
-  -webkit-backdrop-filter: blur(36px);
-  padding: clamp(20px, 4vw, 32px);
-  border-radius: 22px;
-  border: 1px solid var(--chakra-colors-border);
-  animation: ${cardEnter} 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
-
-  @media (prefers-reduced-motion: reduce) {
-    animation: none;
-  }
-  box-shadow: 
-    0 4px 30px rgba(0, 0, 0, 0.15),
-    0 25px 60px rgba(0, 0, 0, 0.25),
-    inset 0 1px 0 var(--chakra-colors-borderSubtle);
-  margin: 0 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  padding: clamp(24px, 4vw, 36px);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 12px 40px rgba(0, 0, 0, 0.35);
   box-sizing: border-box;
   z-index: 2;
   position: relative;
 
   @media (max-width: ${BREAKPOINTS.sm}px) {
-    width: calc(100vw - 32px);
-    max-width: none;
-    margin: 0 16px;
-    padding: 24px 20px;
-    gap: 12px;
-    border-radius: 18px;
+    width: 100%;
+    padding: 22px 20px;
+    border-radius: 16px;
   }
 
-  @media (min-width: 900px) {
-    max-width: 440px;
-    padding: 34px;
+  @media (min-width: 1100px) {
+    flex: 4 1 0;
+    max-width: none;
+    min-width: 0;
   }
 `;
 
@@ -1883,25 +1687,22 @@ const JoinInput = styled.input`
   min-height: 46px;
   padding: 12px 14px 12px 42px;
   border-radius: 11px;
-  border: 1px solid var(--chakra-colors-border);
-  background: var(--chakra-colors-badgeBg);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
   color: var(--chakra-colors-textPrimary);
   outline: none;
   font-size: 0.92rem;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
 
   &:hover {
-    border-color: var(--chakra-colors-brandSecondary);
-    background: var(--chakra-colors-surfaceHover);
+    border-color: rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.045);
   }
 
   &:focus {
     border-color: var(--chakra-colors-brandPrimary);
-    background: rgba(0, 0, 0, 0.4);
-    box-shadow: 
-      0 0 0 1px var(--chakra-colors-brandPrimary),
-      0 0 15px var(--chakra-colors-brandGlow);
+    background: rgba(255, 255, 255, 0.05);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--chakra-colors-brandPrimary) 18%, transparent);
   }
 
   &::placeholder {
@@ -1998,49 +1799,38 @@ const EyeButton = styled.button`
 `;
 
 const JoinButton = styled.button`
-  padding: 12px;
-  border-radius: 11px;
+  padding: 13px;
+  border-radius: 12px;
   border: none;
   background: linear-gradient(135deg, var(--chakra-colors-brandPrimary), var(--chakra-colors-brandSecondary));
   color: #fff;
   font-size: 0.95rem;
   font-weight: 700;
+  letter-spacing: 0.01em;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   margin-top: 4px;
-  min-height: 46px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-  position: relative;
-  overflow: hidden;
-
-  &::after {
-    content: "";
-    position: absolute;
-    top: 0; left: -100%; width: 100%; height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
-    transition: 0.5s;
-  }
+  min-height: 48px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 
   &:hover {
-    transform: translateY(-2px);
-    box-shadow: 
-      0 8px 25px rgba(0, 0, 0, 0.4),
-      0 0 20px var(--chakra-colors-brandGlow);
-    &::after {
-      left: 100%;
-    }
+    filter: brightness(1.08);
+    box-shadow: 0 6px 20px color-mix(in srgb, var(--chakra-colors-brandPrimary) 30%, transparent);
   }
 
   &:active {
-    transform: translateY(0);
+    transform: translateY(0.5px);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    filter: none;
   }
 
   @media (max-width: ${BREAKPOINTS.sm}px) {
-    padding: 10px;
+    padding: 11px;
     font-size: 0.9rem;
-    min-height: 42px;
-    border-radius: 10px;
-    margin-top: 4px;
+    min-height: 44px;
   }
 `;
 
@@ -2164,29 +1954,51 @@ const PreviewCloseButton = styled.button`
 const PreviewContent = styled.div`
   flex: 1 1 auto;
   min-height: 0;
+
   overflow-y: auto;
   overflow-x: hidden;
+
   display: grid;
+
   grid-template-columns: ${(props) =>
     props.$singleFile
-      ? "1fr"
-      : "repeat(auto-fit, minmax(240px, 1fr))"
-  };
+      ? "minmax(0, 1fr)"
+      : "repeat(auto-fit, minmax(240px, 1fr))"};
+
   justify-items: center;
-  align-items: ${(props) => (props.$singleFile ? "stretch" : "center")};
+
+  /* IMPORTANT: do not stretch the single card vertically */
+  align-items: ${(props) =>
+    props.$singleFile ? "center" : "center"};
+
   justify-content: center;
+
   gap: 18px;
   padding: 24px;
+
   width: 100%;
-  align-content: ${(props) => (props.$singleFile ? "center" : "start")};
+  box-sizing: border-box;
+
+  /* Don't stretch the grid row */
+  align-content: ${(props) =>
+    props.$singleFile ? "center" : "start"};
 
   @media (max-width: ${BREAKPOINTS.lg}px) {
     padding: 16px;
     gap: 12px;
-    display: ${(props) => (props.$singleFile ? "grid" : "flex")};
-    flex-direction: ${(props) => (props.$singleFile ? "unset" : "column")};
-    grid-template-columns: ${(props) => (props.$singleFile ? "1fr" : "unset")};
+
+    display: ${(props) =>
+      props.$singleFile ? "grid" : "flex"};
+
+    flex-direction: ${(props) =>
+      props.$singleFile ? "unset" : "column"};
+
+    grid-template-columns: ${(props) =>
+      props.$singleFile ? "minmax(0, 1fr)" : "unset"};
+
+    align-items: center;
     align-content: start;
+
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
   }
@@ -2194,62 +2006,116 @@ const PreviewContent = styled.div`
 
 const PreviewCard = styled.div`
   position: relative;
+
   width: 100%;
-  height: ${(props) => (props.$singleFile ? "100%" : "auto")};
-  min-height: ${(props) => (props.$singleFile ? "420px" : "220px")};
+  max-width: 100%;
+
+  /* VERY IMPORTANT */
+  height: fit-content;
+  min-height: 0;
+
   display: flex;
   flex-direction: column;
-  border-radius: ${(props) => (props.$singleFile ? "20px" : "22px")};
+
+  align-self: center;
+
+  border-radius: ${(props) =>
+    props.$singleFile ? "20px" : "22px"};
+
   background: var(--chakra-colors-badgeBg);
+
   border: 1px solid var(--chakra-colors-border);
+
   box-shadow: var(--chakra-shadows-cardShadow);
+
   overflow: hidden;
+
   transition: all 0.24s cubic-bezier(0.2, 0, 0, 1);
+
   will-change: transform, border-color;
   backface-visibility: hidden;
 
   @media (hover: hover) {
     &:hover {
-      transform: ${(props) => (props.$singleFile ? "none" : "translateY(-3px)")};
+      transform: ${(props) =>
+        props.$singleFile
+          ? "none"
+          : "translateY(-3px)"};
+
       border-color: var(--chakra-colors-brandPrimary);
+
       box-shadow: var(--chakra-shadows-cardShadowHover);
     }
   }
 
   @media (max-width: ${BREAKPOINTS.lg}px) {
-    min-height: ${(props) => (props.$singleFile ? "320px" : "auto")};
+    width: 100%;
+    height: fit-content;
+    min-height: 0;
     max-height: none;
+
     flex-shrink: 0;
-    flex-direction: ${(props) => (props.$singleFile ? "column" : "row")};
-    align-items: ${(props) => (props.$singleFile ? "stretch" : "center")};
+
+    flex-direction: ${(props) =>
+      props.$singleFile ? "column" : "row"};
+
+    align-items: ${(props) =>
+      props.$singleFile ? "stretch" : "center"};
   }
 `;
 
 const PreviewMediaWrapper = styled.div`
   position: relative;
-  width: ${(props) => (props.$singleFile ? "100%" : "100%")};
-  height: ${(props) => (props.$singleFile ? "360px" : "160px")};
+
+  width: 100%;
+
+  /* This is now the ONLY thing determining media height */
+  aspect-ratio: 16 / 9;
+
+  height: auto;
+  min-height: 0;
+
+  flex: 0 0 auto;
+
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, rgba(0, 0, 0, 0.16) 0%, rgba(0, 0, 0, 0.08) 100%);
+
+  background: #000;
+
   overflow: hidden;
 
   @media (max-width: ${BREAKPOINTS.lg}px) {
-    height: ${(props) => (props.$singleFile ? "260px" : "80px")};
-    width: ${(props) => (props.$singleFile ? "100%" : "80px")};
-    min-width: ${(props) => (props.$singleFile ? "auto" : "80px")};
-    border-radius: ${(props) => (props.$singleFile ? "0" : "12px")};
-    flex-shrink: 0;
+    width: ${(props) =>
+      props.$singleFile ? "100%" : "80px"};
+
+    aspect-ratio: ${(props) =>
+      props.$singleFile ? "16 / 9" : "1 / 1"};
+
+    height: auto;
+    min-height: 0;
+
+    flex: 0 0 auto;
+
+    min-width: ${(props) =>
+      props.$singleFile ? "0" : "80px"};
+
+    border-radius: ${(props) =>
+      props.$singleFile ? "0" : "12px"};
   }
 `;
 
 const PreviewMedia = styled.img`
   width: 100%;
   height: 100%;
-  object-fit: contain;
+
   display: block;
-  background: transparent;
+
+  object-fit: contain;
+  object-position: center;
+
+  background: #000;
+
   user-select: none;
   -webkit-user-drag: none;
 `;
@@ -2257,9 +2123,14 @@ const PreviewMedia = styled.img`
 const PreviewVideo = styled.video`
   width: 100%;
   height: 100%;
-  object-fit: contain;
+
   display: block;
-  background: rgba(0, 0, 0, 0.08);
+
+  object-fit: contain;
+  object-position: center;
+
+  background: #000;
+
   user-select: none;
   -webkit-user-drag: none;
 `;
@@ -4165,13 +4036,13 @@ const UploadProgressCard = ({ file, isMobile }) => {
         `}</style>
 
         {/* the content itself — sharpens as it sends */}
-        <div style={{ position: "relative", width: "100%", maxHeight: isMobile ? 240 : 300, overflow: "hidden" }}>
+        <div style={{ position: "relative", width: "100%", maxHeight: isMobile ? 240 : 300, background: "#0a0b12", overflow: "hidden" }}>
           {meta.kind === "image" ? (
             <img
               src={file.previewUrl}
               alt=""
               style={{
-                width: "100%", maxHeight: isMobile ? 240 : 300, objectFit: "cover", display: "block",
+                width: "100%", height: isMobile ? 240 : 300, objectFit: "contain", display: "block",
                 filter: `blur(${((100 - eased) * 0.09).toFixed(2)}px) brightness(${(0.55 + eased * 0.0045).toFixed(3)})`,
                 transition: "filter .25s linear"
               }}
@@ -4181,7 +4052,7 @@ const UploadProgressCard = ({ file, isMobile }) => {
               src={`${file.previewUrl}#t=0.1`}
               muted playsInline preload="metadata"
               style={{
-                width: "100%", maxHeight: isMobile ? 240 : 300, objectFit: "cover", display: "block",
+                width: "100%", height: isMobile ? 240 : 300, objectFit: "contain", display: "block",
                 filter: `blur(${((100 - eased) * 0.09).toFixed(2)}px) brightness(${(0.55 + eased * 0.0045).toFixed(3)})`,
                 transition: "filter .25s linear"
               }}
@@ -4906,7 +4777,6 @@ export default function ChatRoom() {
   const socketRef = useRef(null);
   const liveFileRxRef = useRef(new Map());
   const onResolvedRef = useRef(null);
-  const audioRef = useRef(new Audio(notificationSound));
   const userColorsRef = useRef({});
   const roomKeyRef = useRef(null);
   const reconnectRef = useRef({ droppedInRoom: false });
@@ -5037,6 +4907,13 @@ export default function ChatRoom() {
     try { localStorage.setItem("cheprabai_muteSounds", next ? "1" : "0"); } catch { /* private mode */ }
     return next;
   });
+  // Notification sound choice: persisted in localStorage; socket handlers read via ref
+  const [soundChoice, setSoundChoice] = useState(getSoundChoice);
+  const soundChoiceRef = useRef(soundChoice);
+  const muteSoundsRef = useRef(muteSounds);
+  useEffect(() => { muteSoundsRef.current = muteSounds; }, [muteSounds]);
+  useEffect(() => { soundChoiceRef.current = soundChoice; persistSoundChoice(soundChoice); }, [soundChoice]);
+
   const [shoulderSurfingProtection, setShoulderSurfingProtection] = useState(() => {
     try { return localStorage.getItem("cheprabai_shoulderSurfing") === "1"; } catch { return false; }
   });
@@ -5135,9 +5012,11 @@ export default function ChatRoom() {
   const [showGifPicker, setShowGifPicker] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showWhiteboard, setShowWhiteboard] = useState(false);
-  const [meetingBoardOpen, setMeetingBoardOpen] = useState(false);
   const [showMeeting, setShowMeeting] = useState(false);
-  const closeMeeting = useCallback(() => { setMeetingBoardOpen(false); setShowMeeting(false); }, []);
+  const closeMeeting = useCallback(() => { setShowMeeting(false); }, []);
+  // Track an open standalone whiteboard so the plan upsell never pops over it.
+  const showWhiteboardRef = useRef(false);
+  useEffect(() => { showWhiteboardRef.current = showWhiteboard; }, [showWhiteboard]);
   const [roomPlan, setRoomPlan] = useState(null);
   const [roomPlanLimits, setRoomPlanLimits] = useState({});
   const planAutoOpenedRef = useRef(false);
@@ -5186,6 +5065,10 @@ export default function ChatRoom() {
   const [customEphemeralValue, setCustomEphemeralValue] = useState("");
   const [customEphemeralUnit, setCustomEphemeralUnit] = useState("min");
   const [confirmation, setConfirmation] = useState(null);
+  const [exportPwdOpen, setExportPwdOpen] = useState(false);
+  const [exportPwdValue, setExportPwdValue] = useState("");
+  const [exportPwdErr, setExportPwdErr] = useState("");
+  const exportPwdResolveRef = useRef(null);
   const DEFAULT_EPHEMERAL_DURATION = 300; // fallback seconds (5 min) — 15s was silently destroying messages
 
   const isCustomEphemeral = roomEphemeralDuration > 0 && !EPHEMERAL_PRESETS.some((p) => p.value === roomEphemeralDuration);
@@ -5746,7 +5629,7 @@ export default function ChatRoom() {
       setStealthToken(parsedStealth);
       stealthTokenRef.current = parsedStealth;
       if (parsedRoomId) {
-        setUserName("Stealth Admin");
+        setUserName("Stealth Observer");
         if (parsedKey) {
           setSecurityCode(parsedKey);
           generateKeyFromSecret(parsedKey + parsedRoomId, parsedRoomId)
@@ -5810,7 +5693,7 @@ export default function ChatRoom() {
             setPlanOverride(data.planOverride || null);
             if (data.plan === "free" && !planAutoOpenedRef.current) {
               planAutoOpenedRef.current = true;
-              setShowPlanModal(true);
+              if (!showWhiteboardRef.current) setShowPlanModal(true);
             }
             return;
           }
@@ -5885,7 +5768,7 @@ export default function ChatRoom() {
       toast.error(
         reason
           ? `Request rejected: ${reason}`
-          : "Your room creation request was rejected by the admin.",
+          : "Your room creation request was declined.",
         { autoClose: 6000 }
       );
     }
@@ -6583,8 +6466,8 @@ export default function ChatRoom() {
       setMessages((m) => m.some((x) => formattedMsg.id && x.id === formattedMsg.id) ? m : [...m, formattedMsg]);
       if (formattedMsg.id && formattedMsg.userName !== un) socketRef.current.emit("messageViewed", { messageId: formattedMsg.id });
       if (msg.userName !== un) {
-        if (!muteSounds) {
-          audioRef.current.cloneNode(true).play().catch(() => { });
+        if (!muteSoundsRef.current) {
+          playNotificationSound(soundChoiceRef.current, notificationSound);
         }
 
         // Update unread count if scrolled up
@@ -6648,7 +6531,7 @@ export default function ChatRoom() {
     });
     socketRef.current.on("kicked-from-room", ({ targetSocketId, targetName, adminName }) => {
       if (socketRef.current?.id === targetSocketId || targetName === un) {
-        toast.error(`🚫 You have been removed from this room by ${adminName || 'the admin/owner'}.`);
+        toast.error(`🚫 You have been removed from this room by ${adminName || 'the room owner'}.`);
         leaveRoomNowRef.current?.();
       } else {
         toast.info(`ℹ️ ${targetName} was removed from the room.`);
@@ -6657,7 +6540,7 @@ export default function ChatRoom() {
     });
     socketRef.current.on("admin-kick-user", ({ peerId, name, adminName, isRoomKick }) => {
       if (peerId === socketRef.current?.id || name === un) {
-        toast.error(`🚫 You have been removed from this room by ${adminName || 'the admin/owner'}.`);
+        toast.error(`🚫 You have been removed from this room by ${adminName || 'the room owner'}.`);
         leaveRoomNowRef.current?.();
       } else {
         setOnlineUsers((users) => users.filter((u) => u.id !== peerId && u.name !== name));
@@ -7319,7 +7202,7 @@ export default function ChatRoom() {
           }
           shouldBypassCloudinary = true;
         } else {
-          toast.error(`"${file.name}" exceeds this room's ${planMaxMB >= 1024 ? `${(planMaxMB / 1024).toFixed(0)} GB` : `${Math.round(planMaxMB)} MB`} upload limit. Contact the room admin to upgrade the plan.`);
+          toast.error(`"${file.name}" exceeds this room's ${planMaxMB >= 1024 ? `${(planMaxMB / 1024).toFixed(0)} GB` : `${Math.round(planMaxMB)} MB`} upload limit. Contact the room owner to upgrade the plan.`);
           return;
         }
       }
@@ -7683,7 +7566,7 @@ export default function ChatRoom() {
 
   const toggleReaction = (messageId, emoji) => {
     if (features.reactions === false) {
-      toast.error("Reactions are currently disabled by the admin.");
+      toast.error("Reactions are currently disabled by the room owner.");
       return;
     }
     const localId = socketRef.current?.id || "local";
@@ -7855,7 +7738,7 @@ export default function ChatRoom() {
     setIsDragOver(false);
     dragCounterRef.current = 0;
     if (features.fileSharing === false) {
-      toast.error("File sharing is currently disabled by the admin.");
+      toast.error("File sharing is currently disabled by the room owner.");
       return;
     }
     const files = Array.from(e.dataTransfer?.files || []);
@@ -8015,14 +7898,37 @@ export default function ChatRoom() {
 
   /* ================= EXPORT CHAT ================= */
   const exportChat = async () => {
+    const userColorMap = {};
+    let colorIdx = 0;
+    const getExportColor = (name) => {
+      if (!userColorMap[name]) {
+        userColorMap[name] = colorPalette[colorIdx % colorPalette.length];
+        colorIdx++;
+      }
+      return userColorMap[name];
+    };
+
     const payloadMessages = messages
       .filter(m => m.type !== "system" && !m.__livefile)
-      .map(m => ({
-        userName: m.userName || "Unknown User",
-        text: m.text || (m.file ? `[File: ${m.file.name}]` : m.gif ? "[GIF]" : ""),
-        ts: m.ts,
-        ...(m.file && { file: { name: m.file.name, type: m.file.type || "Unknown type" } })
-      }));
+      .map(m => {
+        const isOwn = m.userName === userName;
+        const text = m.text || (m.file ? `[File: ${m.file.name}]` : m.gif ? "[GIF]" : m.poll ? m.poll.question : "");
+        return {
+          userName: m.userName || "Unknown User",
+          isOwn,
+          color: getExportColor(m.userName),
+          text,
+          ts: m.ts,
+          ...(m.file && { file: { name: m.file.name, type: m.file.type || "Unknown type", url: m.file.url || "" } }),
+          ...(m.gif && m.gif.url && { gif: { url: m.gif.url } }),
+          ...(m.poll && { poll: { question: m.poll.question, options: m.poll.options, votes: m.poll.votes || {}, totalVotes: Object.values(m.poll.votes || {}).reduce((a, b) => a + (Array.isArray(b) ? b.length : 0), 0) } }),
+          ...(m.reactions && Object.keys(m.reactions).length > 0 && { reactions: m.reactions }),
+          ...(m.replyTo && { replyTo: { userName: m.replyTo.userName, text: m.replyTo.preview || m.replyTo.text || "Attachment" } }),
+          ...(m.forwarded && { forwarded: true, forwardedFrom: m.forwardedFrom || "" }),
+          ...(m.viewOnce && { viewOnce: true }),
+          ...(m.ephemeralDuration > 0 && { ephemeral: true }),
+        };
+      });
     if (!payloadMessages.length) {
       toast.info("Nothing to export yet.");
       return;
@@ -8040,14 +7946,18 @@ export default function ChatRoom() {
 
     // Encrypted self-contained HTML archive (PBKDF2 + AES-GCM, decrypted
     // in-browser by the file itself). Falls back to plain text if WebCrypto
-    // or the password prompt is unavailable.
-    try {
-      const password = window.prompt("Set a password to protect the exported chat (min 6 chars):");
+    // or the password modal is unavailable.
+    let password = null;
+    if (window.isSecureContext && crypto?.subtle) {
+      password = await new Promise((resolve) => {
+        exportPwdResolveRef.current = resolve;
+        setExportPwdValue("");
+        setExportPwdErr("");
+        setExportPwdOpen(true);
+      });
       if (!password) return;
-      if (password.length < 6) {
-        toast.error("Password must be at least 6 characters.");
-        return;
-      }
+    }
+    try {
       const enc = new TextEncoder();
       const salt = crypto.getRandomValues(new Uint8Array(16));
       const iv = crypto.getRandomValues(new Uint8Array(12));
@@ -8874,70 +8784,54 @@ export default function ChatRoom() {
   if (!joined || !authenticated) {
     return (
       <>
-        <LandingWrapper
-          onMouseMove={(e) => {
-            const el = e.currentTarget;
-            const r = el.getBoundingClientRect();
-            el.style.setProperty("--mx", ((e.clientX - r.left) / r.width - 0.5).toFixed(3));
-            el.style.setProperty("--my", ((e.clientY - r.top) / r.height - 0.5).toFixed(3));
-          }}
-        >
+        <LandingWrapper>
           <ToastContainer position="top-center" autoClose={3000} limit={3} theme="dark" />
-          <WhisperNetwork />
           <div aria-hidden="true" style={{
             position: "absolute", inset: 0, zIndex: 0, pointerEvents: "none",
-            background: "radial-gradient(ellipse at 50% 40%, transparent 34%, rgba(6,8,14,.16) 74%, rgba(6,8,14,.3) 100%)"
+            background: "radial-gradient(ellipse at 50% -5%, rgba(99,102,241,0.09) 0%, transparent 55%)"
           }} />
-          <FeatureBubble $x="5%" $y="20%" $depth={33} $delay={0.05}>
-            <BubblePill $tint="#818cf8" $dur={9} $delay={0.05} $alt>
-              <span className="fb-icon"><LockKeyhole size={13} /></span>End-to-end encrypted
-            </BubblePill>
-          </FeatureBubble>
-          <FeatureBubble $x="83%" $y="13%" $depth={44} $delay={0.15}>
-            <BubblePill $tint="#fb7185" $dur={11} $delay={0.15} $alt>
-              <span className="fb-icon"><Timer size={13} /></span>Disappearing messages
-            </BubblePill>
-          </FeatureBubble>
-          <FeatureBubble $x="86%" $y="45%" $depth={55} $delay={0.3}>
-            <BubblePill $tint="#22d3ee" $dur={8} $delay={0.3} $alt>
-              <span className="fb-icon"><Video size={13} /></span>HD video calls
-            </BubblePill>
-          </FeatureBubble>
-          <FeatureBubble $x="77%" $y="77%" $depth={22} $delay={0.6}>
-            <BubblePill $tint="#fbbf24" $dur={12} $delay={0.6} $alt>
-              <span className="fb-icon"><MonitorUp size={13} /></span>Screen sharing
-            </BubblePill>
-          </FeatureBubble>
-          <FeatureBubble $x="11%" $y="84%" $depth={33} $delay={0.75} $hideSm>
-            <BubblePill $tint="#a78bfa" $dur={9.5} $delay={0.75} $alt>
-              <span className="fb-icon"><FileUp size={13} /></span>Encrypted file vault
-            </BubblePill>
-          </FeatureBubble>
+          <LandingBrandbar>
+            <div className="lb-brand">
+              <span className="lb-mark"><MessagesSquare size={16} strokeWidth={2.4} /></span>
+              <span style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span className="lb-name">AnonChat</span>
+                  <span className="lb-version">Beta</span>
+                </span>
+                <span className="lb-tag">Private encrypted workspace</span>
+              </span>
+            </div>
+          </LandingBrandbar>
           <LandingGrid>
             <FeatureExplorer />
             <JoinContainer>
               <CardHalo />
-              <CardBeam />
-              <div style={{ textAlign: "center", marginBottom: 4 }}>
+              <div style={{ textAlign: "center", marginBottom: 6 }}>
                 <div style={{
                   display: "inline-flex",
-                  background: "rgba(255, 63, 94, 0.10)",
-                  border: "1px solid rgba(255, 63, 94, 0.30)",
-                  boxShadow: "0 0 0 5px rgba(255,63,94,.04), 0 8px 20px rgba(0,0,0,.18)",
-                  padding: 11,
-                  borderRadius: 14,
-                  marginBottom: 12
+                  alignItems: "center",
+                  gap: 7,
+                  padding: "6px 14px",
+                  borderRadius: 999,
+                  border: "1px solid rgba(129,140,248,0.22)",
+                  background: "rgba(99,102,241,0.08)",
+                  color: "var(--chakra-colors-brandPrimary)",
+                  fontSize: ".66rem",
+                  fontWeight: 800,
+                  letterSpacing: ".13em",
+                  textTransform: "uppercase",
+                  marginBottom: 18
                 }}>
-                  <ShieldCheck size={24} strokeWidth={2.2} color="var(--chakra-colors-brandPrimary)" />
+                  <ShieldCheck size={13} strokeWidth={2.5} />
+                  Private · Encrypted · No sign-up
                 </div>
-                <div style={{ color: "var(--chakra-colors-brandPrimary)", fontSize: ".67rem", fontWeight: 850, letterSpacing: ".13em", textTransform: "uppercase", marginBottom: 6 }}>Private workspace</div>
-                <h2 style={{ color: "var(--chakra-colors-textPrimary)", margin: 0, fontSize: "clamp(1.35rem, 3.5vw, 1.7rem)", fontWeight: 800, letterSpacing: "-.04em" }}>
-                  <ShimmerTitle>{roomId.trim() ? `Join room ${roomId.trim()}` : "Join a secure room"}</ShimmerTitle>
+                <h2 style={{ color: "var(--chakra-colors-textPrimary)", margin: 0, fontSize: "clamp(1.45rem, 4vw, 1.85rem)", fontWeight: 800, letterSpacing: "-.03em", lineHeight: 1.15 }}>
+                  <ShimmerTitle>{roomId.trim() ? `Join room ${roomId.trim()}` : "Private rooms, minus the setup."}</ShimmerTitle>
                 </h2>
-                <p style={{ color: "var(--chakra-colors-textSecondary)", fontSize: "clamp(.8rem, 1.8vw, .88rem)", margin: "8px auto 0", maxWidth: 290, lineHeight: 1.5 }}>
+                <p style={{ color: "var(--chakra-colors-textSecondary)", fontSize: "clamp(.82rem, 2vw, .9rem)", margin: "10px auto 0", maxWidth: 320, lineHeight: 1.55 }}>
                   {roomId.trim()
                     ? "You've been invited. Enter your details to join this encrypted room."
-                    : "No names. No traces. Just conversation — sealed on your device before it ever leaves."}
+                    : "Chats, calls and files — sealed with end-to-end encryption. No account, no traces."}
                 </p>
               </div>
 
@@ -9072,7 +8966,22 @@ export default function ChatRoom() {
                 <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 9 }}>{getButtonText()} <ArrowRight size={18} /></span>
               </JoinButton>
 
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7, color: "var(--chakra-colors-textSecondary)", fontSize: ".75rem", lineHeight: 1.4, textAlign: "center", animation: "fade-in-up .55s ease-out both", animationDelay: "520ms" }}><LockKeyhole size={14} aria-hidden="true" /> End-to-end encrypted session</div>
+              <div style={{
+                display: "flex",
+                flexWrap: "wrap",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "10px 18px",
+                color: "var(--chakra-colors-textSecondary)",
+                fontSize: ".72rem",
+                fontWeight: 600,
+                lineHeight: 1.4,
+                textAlign: "center"
+              }}>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><LockKeyhole size={12} aria-hidden="true" /> AES-256 GCM</span>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><UserRound size={12} aria-hidden="true" /> No sign-up required</span>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Timer size={12} aria-hidden="true" /> Auto-expiring rooms</span>
+              </div>
 
               {roomId.trim() && (
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, marginTop: 14, animation: "fade-in-up .55s ease-out both", animationDelay: "560ms" }}>
@@ -9149,7 +9058,7 @@ export default function ChatRoom() {
 
             </JoinContainer>
           </LandingGrid>
-          <FeatureDevPicker />
+          <FeatureCatalog />
           {renderAvatarCropDialog()}
           {confirmation && <div role="dialog" aria-modal="true" style={{ position: "fixed", inset: 0, zIndex: 23000, background: "rgba(0,0,0,.68)", display: "grid", placeItems: "center", padding: 20 }}><div style={{ width: "min(420px, 100%)", padding: 24, borderRadius: 18, background: "var(--chakra-colors-surface)", border: "1px solid rgba(255,255,255,.05)" }}><h3 style={{ margin: "0 0 8px" }}>{confirmation.title}</h3><p style={{ margin: "0 0 22px", color: "var(--chakra-colors-textSecondary)", lineHeight: 1.5 }}>{confirmation.body}</p><div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}><button type="button" onClick={() => setConfirmation(null)} style={{ minHeight: 44, padding: "9px 14px", borderRadius: 10, border: "1px solid rgba(255,255,255,.15)", background: "transparent", color: "inherit", cursor: "pointer" }}>Cancel</button><button type="button" onClick={() => { confirmation.onConfirm(); setConfirmation(null); }} style={{ minHeight: 44, padding: "9px 14px", borderRadius: 10, border: 0, background: "var(--chakra-colors-brandPrimary)", color: "white", fontWeight: 700, cursor: "pointer" }}>{confirmation.confirmLabel}</button></div></div></div>}
         </LandingWrapper>
@@ -9967,6 +9876,52 @@ export default function ChatRoom() {
                           </span>
                         </div>
 
+                        {/* Notification sound picker — choose which sound plays for
+                            incoming messages (silent option included). */}
+                        <div style={{
+                          display: "flex", alignItems: "center", gap: 10,
+                          padding: "8px 12px", borderRadius: 12,
+                          background: "rgba(255,255,255,0.07)",
+                          border: "1px solid rgba(255,255,255,0.07)",
+                          marginTop: 8,
+                        }}>
+                          <span style={{ flex: 1, minWidth: 0, fontSize: "0.8rem", fontWeight: 700 }}>Notification sound</span>
+                          <button
+                            type="button"
+                            onClick={() => playNotificationSound(soundChoice, notificationSound)}
+                            title="Preview this sound"
+                            style={{
+                              marginRight: 8, padding: "5px 10px", borderRadius: 8,
+                              border: "1px solid rgba(255,255,255,0.12)",
+                              background: "rgba(255,255,255,0.06)",
+                              color: "#fff", fontSize: "0.7rem", fontWeight: 700,
+                              cursor: "pointer", lineHeight: 1
+                            }}
+                          >
+                            ▶ Test
+                          </button>
+                          <select
+                            value={soundChoice}
+                            onChange={(e) => setSoundChoice(e.target.value)}
+                            title="Choose the sound played for incoming messages"
+                            style={{
+                              background: "rgba(0,0,0,0.35)",
+                              border: "1px solid rgba(255,255,255,0.12)",
+                              borderRadius: 8,
+                              padding: "5px 8px",
+                              color: "#fff",
+                              fontSize: "0.76rem",
+                              outline: "none",
+                              cursor: "pointer",
+                              maxWidth: 130
+                            }}
+                          >
+                            {SOUND_CHOICES.map((s) => (
+                              <option key={s.id} value={s.id}>{s.label}</option>
+                            ))}
+                          </select>
+                        </div>
+
                         <div
                           role="switch"
                           aria-checked={shoulderSurfingProtection}
@@ -10199,6 +10154,7 @@ export default function ChatRoom() {
                   return;
                 }
                 socketRef.current.emit("start-call", { roomId, userName, avatar: userAvatar });
+                setShowPlanModal(false);
                 setShowMeeting(true);
               }} title="Start Video Call">
                 <FaVideo />
@@ -10206,7 +10162,7 @@ export default function ChatRoom() {
             )}
 
             {features.whiteboard !== false && (
-              <ActionButton onClick={() => (showMeeting ? setMeetingBoardOpen(true) : setShowWhiteboard(true))} title={showMeeting ? "Whiteboard opens inside the call" : "Open Whiteboard"}>
+              <ActionButton onClick={() => { setShowPlanModal(false); setShowWhiteboard(true); }} title="Open Whiteboard">
                 <FaPenNib />
               </ActionButton>
             )}
@@ -11019,6 +10975,29 @@ export default function ChatRoom() {
               </PreviewActions>
             </PreviewModal>
           </PreviewOverlay>
+        )}
+
+        {exportPwdOpen && (
+          <div role="dialog" aria-modal="true" aria-label="Protect exported chat" style={{ position: "fixed", inset: 0, zIndex: 23500, background: "rgba(6,8,14,.72)", backdropFilter: "blur(8px)", display: "grid", placeItems: "center", padding: 20 }} onClick={() => { setExportPwdOpen(false); exportPwdResolveRef.current?.(null); exportPwdResolveRef.current = null; }}>
+            <section style={{ width: "min(400px, 100%)", padding: 24, borderRadius: 18, background: "var(--chakra-colors-surface)", border: "1px solid rgba(255,255,255,.08)", boxShadow: "0 20px 60px rgba(0,0,0,.5)" }} onClick={(e) => e.stopPropagation()}>
+              <h3 style={{ margin: "0 0 8px", fontSize: "1rem" }}>Protect exported chat</h3>
+              <p style={{ margin: "0 0 18px", color: "var(--chakra-colors-textSecondary)", lineHeight: 1.5, fontSize: ".84rem" }}>Set a password to seal the archive. The HTML file encrypts its messages and asks for this password when opened (min 6 characters).</p>
+              <input
+                type="password"
+                autoFocus
+                value={exportPwdValue}
+                onChange={(e) => { setExportPwdValue(e.target.value); if (exportPwdErr) setExportPwdErr(""); }}
+                onKeyDown={(e) => { if (e.key === "Enter") document.getElementById("export-pwd-confirm")?.click(); }}
+                placeholder="Password (min 6 chars)"
+                style={{ width: "100%", minHeight: 46, padding: "0 12px", borderRadius: 11, border: `1px solid ${exportPwdErr ? "rgba(255,107,107,.6)" : "rgba(255,255,255,.14)"}`, background: "rgba(255,255,255,.05)", color: "#fff", fontSize: ".9rem", outline: "none" }}
+              />
+              {exportPwdErr && <p style={{ margin: "8px 0 0", color: "#ff6b6b", fontSize: ".76rem" }}>{exportPwdErr}</p>}
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 22 }}>
+                <button type="button" onClick={() => { setExportPwdOpen(false); exportPwdResolveRef.current?.(null); exportPwdResolveRef.current = null; }} style={{ minHeight: 44, padding: "9px 16px", borderRadius: 11, border: "1px solid rgba(255,255,255,.15)", background: "transparent", color: "inherit", cursor: "pointer", fontWeight: 700 }}>Cancel</button>
+                <button id="export-pwd-confirm" type="button" onClick={() => { const p = exportPwdValue; if (p.length < 6) { setExportPwdErr("Password must be at least 6 characters."); return; } setExportPwdOpen(false); exportPwdResolveRef.current?.(p); exportPwdResolveRef.current = null; }} style={{ minHeight: 44, padding: "9px 18px", borderRadius: 11, border: 0, background: "var(--chakra-colors-brandPrimary)", color: "white", fontWeight: 800, cursor: "pointer" }}>Encrypt & Export</button>
+              </div>
+            </section>
+          </div>
         )}
 
         {showPlanModal && (
@@ -12143,8 +12122,6 @@ export default function ChatRoom() {
               ownerToken={ownerToken}
               userAvatar={userAvatar}
               onClose={closeMeeting}
-              whiteboardOpen={meetingBoardOpen}
-              onToggleWhiteboard={(v) => setMeetingBoardOpen(Boolean(v))}
               features={features}
               roomPlan={roomPlan}
             />

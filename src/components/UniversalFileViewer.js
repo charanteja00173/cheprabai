@@ -915,20 +915,33 @@ export default function UniversalFileViewer({ url, name, type, size, mode, embed
   const shellRef = useRef(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const videoRef = useRef(null);
-  const pipSupported = typeof document !== "undefined" && "pictureInPictureEnabled" in document && document.pictureInPictureEnabled;
+  const pipSupported = typeof document !== "undefined" && "pictureInPictureEnabled" in document && document.pictureInPictureEnabled && typeof document.createElement("video")?.requestPictureInPicture === "function";
   const handlePip = useCallback(async () => {
     const v = videoRef.current;
     if (!v) return;
     try {
       if (document.pictureInPictureElement === v) {
         await document.exitPictureInPicture();
-      } else {
+        return;
+      }
+      if (typeof v.requestPictureInPicture === "function") {
         await v.requestPictureInPicture();
         toast.success("📺 Playing in Picture-in-picture");
+        return;
       }
     } catch (e) {
-      toast.error("Picture-in-picture isn't available for this video");
+      // fall through to fullscreen fallback on any failure
     }
+    // Native PiP unavailable (Safari/iOS/unsupported) or it failed — fall back
+    // to fullscreen so the user still gets a floating, maximised video.
+    try {
+      if (document.fullscreenElement) {
+        document.exitFullscreen?.();
+      } else if (shellRef.current?.requestFullscreen) {
+        await shellRef.current.requestFullscreen();
+      }
+    } catch { /* nothing else we can do */ }
+    toast.info("Picture-in-picture isn't supported here — switched to fullscreen");
   }, []);
 
   // Floating window for OPENED WEBSITES via the Document Picture-in-Picture
@@ -1166,8 +1179,8 @@ export default function UniversalFileViewer({ url, name, type, size, mode, embed
               <FaExternalLinkAlt />
             </ActionButton>
           )}
-          {kind === "video" && pipSupported && (
-            <ActionButton onClick={handlePip} title="Picture-in-picture">
+          {kind === "video" && (
+            <ActionButton onClick={handlePip} title={pipSupported ? "Picture-in-picture" : "Floating video (fullscreen fallback)"}>
               <FaPhotoVideo />
             </ActionButton>
           )}
