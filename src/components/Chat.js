@@ -4795,6 +4795,7 @@ export default function ChatRoom() {
   const socketRef = useRef(null);
   const liveFileRxRef = useRef(new Map());
   const livefileAckRef = useRef(new Map()); // fileId -> resolve() for completion handshake
+  const liveTxAbortRef = useRef(false); // set true when our socket drops mid-relay so senders un-stick fast
   const onResolvedRef = useRef(null);
   const userColorsRef = useRef({});
   const roomKeyRef = useRef(null);
@@ -6657,6 +6658,7 @@ export default function ChatRoom() {
 
     socketRef.current.on("connect", () => {
       setIsConnected(true);
+      liveTxAbortRef.current = false;
       if ((joined && rid && un) || reconnectRef.current.droppedInRoom) {
         // Only re-issue joinRoom on connect if we were already inside the room
         // and got dropped mid-session (or the reconnect lost in-room state).
@@ -6675,6 +6677,18 @@ export default function ChatRoom() {
 
     socketRef.current.on("disconnect", () => {
       setIsConnected(false);
+      // Abort any in-flight realtime relay fast — retrying into a dropped socket
+      // is what makes transfers look stuck for minutes. Will be cleared on the
+      // next connect / before a new shareFileLive.
+      liveTxAbortRef.current = true;
+      // A dropped connection kills any partially-received relay: purge the
+      // placeholder so it doesn't sit stuck at "receiving" for minutes.
+      const rxMap = liveFileRxRef.current;
+      if (rxMap.size) {
+        const tempIds = [...rxMap.values()].map((e) => e.tempId).filter(Boolean);
+        rxMap.clear();
+        if (tempIds.length) setMessages((prev) => prev.filter((m2) => !tempIds.includes(m2.id)));
+      }
       if (roomKeyRef.current) reconnectRef.current.droppedInRoom = true;
     });
 
@@ -6998,6 +7012,9 @@ export default function ChatRoom() {
       return;
     }
     liveFileTxRef.current = true;
+    // A stale disconnect-flag from an earlier aborted transfer must not kill a
+    // fresh share; only a disconnect DURING this transfer should abort it.
+    liveTxAbortRef.current = false;
     const tempId = `liveshare-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const fileId = `lf-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     let previewUrl = null;
@@ -7068,6 +7085,11 @@ export default function ChatRoom() {
         const attempt = (tryCount) => {
           let settled = false;
           const done = (fn, val) => { if (!settled) { settled = true; fn(val); } };
+          if (liveTxAbortRef.current) {
+            // Socket dropped mid-transfer: bail immediately, don't burn retries.
+            done(reject, new Error("Connection dropped while sharing — the other participant may have left."));
+            return;
+          }
           const timer = setTimeout(() => {
             // Timed out — if we still have retries left, back off and retry.
             // socket.io reconnects in the background, so this usually succeeds
@@ -7134,6 +7156,9 @@ export default function ChatRoom() {
 
       await new Promise((resolve, reject) => {
         const sendNext = () => {
+          if (liveTxAbortRef.current) {
+            sendError = new Error("Connection dropped while sharing — the other participant may have left.");
+          }
           if (sendError) {
             reject(sendError);
             return;
@@ -7186,6 +7211,10 @@ export default function ChatRoom() {
       // time, we treat the transfer as interrupted instead of falsely done.
       const RECEIVED_ACK_TIMEOUT_MS = 20000;
       await new Promise((resolve, reject) => {
+        if (liveTxAbortRef.current) {
+          reject(new Error(`Realtime share of "${file.name}" may not have reached the recipient — they may have disconnected before it finished.`));
+          return;
+        }
         let settled = false;
         const finish = (fn) => { if (!settled) { settled = true; fn(); } };
         const timer = setTimeout(() => {
