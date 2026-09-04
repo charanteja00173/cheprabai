@@ -958,8 +958,7 @@ const FEATURE_CATALOG = [
       "/ai prompt with autocomplete popup",
       "Compose, summarize, translate & explain",
       "Google Search grounding for real web results",
-      "Inline images & videos rendered in chat",
-      "Key server-side — never exposed to the client"
+      "Inline images & videos rendered in chat"
     ]
   }
 ];
