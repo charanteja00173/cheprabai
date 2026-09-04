@@ -7750,8 +7750,13 @@ export default function ChatRoom() {
       const aiPrompt = message.trim().slice(4).trim();
       if (!aiPrompt) { toast.info("Usage: /ai <your question>"); return; }
       setMessage("");
-      const aiMsgId = `ai-${Date.now()}`;
-      setMessages(m => [...m, { id: aiMsgId, userName: "CheprabAI", ts: Date.now(), file: { name: "CheprabAI", type: "ai", loading: true } }]);
+      // Show the user's question as their own message, then the AI response below it
+      const userMsgId = `ai-q-${Date.now()}`;
+      const aiMsgId = `ai-a-${Date.now()}`;
+      setMessages(m => [...m,
+        { id: userMsgId, userName, ts: Date.now(), text: aiPrompt },
+        { id: aiMsgId, userName: "CheprabAI", ts: Date.now(), file: { name: "CheprabAI", type: "ai", loading: true } }
+      ]);
       try {
         const backendUrl = process.env.REACT_APP_BACKEND_URL || (window.location.hostname === "localhost" ? "http://localhost:4000" : (process.env.REACT_APP_SOCKET_ENDPOINT || "https://cheprabai-backend.vercel.app"));
         const resp = await fetch(`${backendUrl}/api/ai`, {
@@ -10792,7 +10797,42 @@ export default function ChatRoom() {
                         ) : (
                           <div style={{ background: "rgba(124,58,237,0.08)", border: "1px solid rgba(124,58,237,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: "0.84rem", lineHeight: 1.55, color: "var(--chakra-colors-textPrimary)", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
                             <div style={{ fontSize: "0.7rem", fontWeight: 700, color: "#7c3aed", marginBottom: 6, letterSpacing: "0.03em" }}>✦ CheprabAI</div>
-                            {m.file.text || ""}
+                            {(() => {
+                              const text = m.file.text || "";
+                              // Parse markdown images ![alt](url) and plain image/video URLs
+                              const parts = [];
+                              const imgRegex = /!\[([^\]]*)\]\(([^)]+)\)/g;
+                              const urlRegex = /(https?:\/\/[^\s<>"]+\.(?:jpg|jpeg|png|gif|webp|svg|mp4|webm|mov))/gi;
+                              let lastIdx = 0;
+                              let match;
+                              // First extract markdown images
+                              while ((match = imgRegex.exec(text)) !== null) {
+                                if (match.index > lastIdx) parts.push({ type: "text", content: text.slice(lastIdx, match.index) });
+                                parts.push({ type: "image", url: match[2], alt: match[1] });
+                                lastIdx = imgRegex.lastIndex;
+                              }
+                              if (lastIdx < text.length) {
+                                let remaining = text.slice(lastIdx);
+                                // Then extract plain URLs for images/videos
+                                const plainParts = [];
+                                let plainLast = 0;
+                                let urlMatch;
+                                while ((urlMatch = urlRegex.exec(remaining)) !== null) {
+                                  if (urlMatch.index > plainLast) plainParts.push({ type: "text", content: remaining.slice(plainLast, urlMatch.index) });
+                                  const u = urlMatch[1];
+                                  const isVideo = /\.(mp4|webm|mov)$/i.test(u);
+                                  plainParts.push({ type: isVideo ? "video" : "image", url: u, alt: "" });
+                                  plainLast = urlRegex.lastIndex;
+                                }
+                                if (plainLast < remaining.length) plainParts.push({ type: "text", content: remaining.slice(plainLast) });
+                                parts.push(...plainParts);
+                              }
+                              return parts.map((p, i) => {
+                                if (p.type === "text") return <span key={i}>{p.content}</span>;
+                                if (p.type === "video") return <video key={i} src={p.url} controls style={{ maxWidth: "100%", borderRadius: 8, margin: "6px 0" }} />;
+                                return <img key={i} src={p.url} alt={p.alt} style={{ maxWidth: "100%", borderRadius: 8, margin: "6px 0", cursor: "pointer" }} onClick={() => window.open(p.url, "_blank")} />;
+                              });
+                            })()}
                           </div>
                         )}
                       </div>
