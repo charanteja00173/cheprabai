@@ -5155,6 +5155,24 @@ export default function ChatRoom() {
     try { localStorage.setItem("cheprabai:aiMode", next ? "on" : "off"); } catch {}
     return next;
   });
+  // AI rate-limit cooldown — blocks sends for the retry-after window so users
+  // don't hammer the API while the free tier is cooling down.
+  const aiCooldownRef = useRef(0); // epoch ms when the cooldown ends
+  const [aiCooldownLeft, setAiCooldownLeft] = useState(0);
+  const aiCooldownTimer = useRef(null);
+  const startAiCooldown = (seconds) => {
+    const end = Date.now() + Math.max(seconds, 1) * 1000;
+    aiCooldownRef.current = end;
+    const tick = () => {
+      const left = Math.max(0, Math.ceil((aiCooldownRef.current - Date.now()) / 1000));
+      setAiCooldownLeft(left);
+      if (left <= 0 && aiCooldownTimer.current) { clearInterval(aiCooldownTimer.current); aiCooldownTimer.current = null; }
+    };
+    tick();
+    if (aiCooldownTimer.current) clearInterval(aiCooldownTimer.current);
+    aiCooldownTimer.current = setInterval(tick, 1000);
+  };
+  const aiOnCooldown = () => Date.now() < aiCooldownRef.current;
   const SLASH_COMMANDS = [
     ...(aiEligible && aiModeEnabled ? [{ cmd: "/ai", label: "AI Assistant", desc: "Ask CheprabAI anything", icon: "✦" }] : []),
   ];
@@ -7821,6 +7839,10 @@ export default function ChatRoom() {
         toast.info("✦ CheprabAI is turned off. Tap the AI icon in the header to enable it.");
         return;
       }
+      if (aiOnCooldown()) {
+        toast.info(`⏳ CheprabAI is cooling down — please wait ~${aiCooldownLeft} ${aiCooldownLeft === 1 ? "second" : "seconds"}.`);
+        return;
+      }
       const aiPrompt = message.trim().slice(4).trim();
       if (!aiPrompt) { toast.info("Usage: /ai <your question>"); return; }
       setMessage("");
@@ -7831,18 +7853,22 @@ export default function ChatRoom() {
         { id: userMsgId, userName, ts: Date.now(), text: aiPrompt },
         { id: aiMsgId, userName: "CheprabAI", ts: Date.now(), file: { name: "CheprabAI", type: "ai", loading: true } }
       ]);
+      let aiResp = null;
+      let retryAfter = 0;
       try {
         const backendUrl = process.env.REACT_APP_BACKEND_URL || (window.location.hostname === "localhost" ? "http://localhost:4000" : (process.env.REACT_APP_SOCKET_ENDPOINT || "https://cheprabai-backend.vercel.app"));
-        const resp = await fetch(`${backendUrl}/api/ai`, {
+        aiResp = await fetch(`${backendUrl}/api/ai`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ prompt: aiPrompt, plan: roomPlan || "free" }),
         });
-        const data = await resp.json();
-        if (!resp.ok || data.error) throw new Error(data.error || "AI request failed");
+        const data = await aiResp.json();
+        retryAfter = data.retryAfter || 0;
+        if (!aiResp.ok || data.error) throw new Error(data.error || "AI request failed");
         setMessages(m => m.map(msg => msg.id === aiMsgId ? { ...msg, file: { name: "CheprabAI", type: "ai", text: data.text, media: Array.isArray(data.media) ? data.media : null, loading: false } } : msg));
       } catch (err) {
         setMessages(m => m.filter(msg => msg.id !== aiMsgId));
+        if (retryAfter > 0) startAiCooldown(retryAfter);
         toast.error(err.message || "AI request failed.");
       }
       return;
@@ -7850,6 +7876,10 @@ export default function ChatRoom() {
 
     // ── AI MODE: when enabled, every plain text message is answered by the AI ──
     if (!customData && aiModeEnabled && (roomPlan === "pro" || roomPlan === "enterprise") && !message.trim().startsWith("/") && !message.trim().startsWith("```")) {
+      if (aiOnCooldown()) {
+        toast.info(`⏳ CheprabAI is cooling down — please wait ~${aiCooldownLeft} ${aiCooldownLeft === 1 ? "second" : "seconds"}.`);
+        return;
+      }
       const aiPrompt = message.trim();
       setMessage("");
       const userMsgId = `ai-q-${Date.now()}`;
@@ -7858,18 +7888,22 @@ export default function ChatRoom() {
         { id: userMsgId, userName, ts: Date.now(), text: aiPrompt },
         { id: aiMsgId, userName: "CheprabAI", ts: Date.now(), file: { name: "CheprabAI", type: "ai", loading: true } }
       ]);
+      let aiResp = null;
+      let retryAfter = 0;
       try {
         const backendUrl = process.env.REACT_APP_BACKEND_URL || (window.location.hostname === "localhost" ? "http://localhost:4000" : (process.env.REACT_APP_SOCKET_ENDPOINT || "https://cheprabai-backend.vercel.app"));
-        const resp = await fetch(`${backendUrl}/api/ai`, {
+        aiResp = await fetch(`${backendUrl}/api/ai`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ prompt: aiPrompt, plan: roomPlan || "free" }),
         });
-        const data = await resp.json();
-        if (!resp.ok || data.error) throw new Error(data.error || "AI request failed");
+        const data = await aiResp.json();
+        retryAfter = data.retryAfter || 0;
+        if (!aiResp.ok || data.error) throw new Error(data.error || "AI request failed");
         setMessages(m => m.map(msg => msg.id === aiMsgId ? { ...msg, file: { name: "CheprabAI", type: "ai", text: data.text, media: Array.isArray(data.media) ? data.media : null, loading: false } } : msg));
       } catch (err) {
         setMessages(m => m.filter(msg => msg.id !== aiMsgId));
+        if (retryAfter > 0) startAiCooldown(retryAfter);
         toast.error(err.message || "AI request failed.");
       }
       return;
@@ -10615,10 +10649,11 @@ export default function ChatRoom() {
             {aiEligible && (
               <ActionButton
                 onClick={toggleAiMode}
-                title={aiModeEnabled ? "CheprabAI is ON — click to turn off" : "CheprabAI is OFF — click to turn on"}
-                style={{ color: aiModeEnabled ? "#7c3aed" : "inherit" }}
+                title={aiCooldownLeft > 0 ? `⏳ CheprabAI cooling down — ${aiCooldownLeft}s` : (aiModeEnabled ? "CheprabAI is ON — click to turn off" : "CheprabAI is OFF — click to turn on")}
+                style={{ color: aiModeEnabled ? "#7c3aed" : "inherit", opacity: aiCooldownLeft > 0 ? 0.55 : 1 }}
               >
                 <Bot size={18} strokeWidth={aiModeEnabled ? 2.4 : 1.6} />
+                {aiCooldownLeft > 0 && <span style={{ fontSize: "0.62rem", marginLeft: 2 }}>{aiCooldownLeft}s</span>}
               </ActionButton>
             )}
 
