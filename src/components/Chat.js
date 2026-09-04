@@ -7795,7 +7795,7 @@ export default function ChatRoom() {
         });
         const data = await resp.json();
         if (!resp.ok || data.error) throw new Error(data.error || "AI request failed");
-        setMessages(m => m.map(msg => msg.id === aiMsgId ? { ...msg, file: { name: "CheprabAI", type: "ai", text: data.text, loading: false } } : msg));
+        setMessages(m => m.map(msg => msg.id === aiMsgId ? { ...msg, file: { name: "CheprabAI", type: "ai", text: data.text, media: Array.isArray(data.media) ? data.media : null, loading: false } } : msg));
       } catch (err) {
         setMessages(m => m.filter(msg => msg.id !== aiMsgId));
         toast.error(err.message || "AI request failed.");
@@ -10862,6 +10862,19 @@ export default function ChatRoom() {
                                 return <img key={i} src={p.url} alt={p.alt} style={{ maxWidth: "100%", borderRadius: 8, margin: "6px 0", cursor: "pointer" }} onClick={() => window.open(p.url, "_blank")} />;
                               });
                             })()}
+                            {Array.isArray(m.file.media) && m.file.media.length > 0 && (
+                              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 8, marginTop: 10 }}>
+                                {m.file.media.map((md, i) => (
+                                  <div key={i} style={{ position: "relative", borderRadius: 8, overflow: "hidden", border: "1px solid rgba(124,58,237,0.2)", background: "#000" }}>
+                                    {md.type === "video" ? (
+                                      <video src={md.url} poster={md.preview} controls muted playsInline style={{ width: "100%", aspectRatio: "1/1", objectFit: "cover", display: "block", cursor: "pointer" }} onClick={() => setFullscreen({ url: md.url, type: "video" })} />
+                                    ) : (
+                                      <img src={md.preview || md.url} alt={md.alt || ""} loading="lazy" style={{ width: "100%", aspectRatio: "1/1", objectFit: "cover", display: "block", cursor: "pointer" }} onClick={() => setFullscreen({ url: md.url, type: "image" })} />
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
