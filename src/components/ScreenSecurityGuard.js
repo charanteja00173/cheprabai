@@ -33,7 +33,7 @@ export default function ScreenSecurityGuard({ children }) {
     const announceAttempt = (source) => {
       triggerBlackout();
       poisonClipboard();
-      window.dispatchEvent(new CustomEvent("cheprabai:screenshot-attempt", { detail: { source } }));
+      window.dispatchEvent(new CustomEvent("anonchat:screenshot-attempt", { detail: { source } }));
       toast.error("🔒 Screenshots & recording are disabled for security.", { toastId: "sec-shot" });
     };
 
@@ -114,12 +114,12 @@ export default function ScreenSecurityGuard({ children }) {
 
     // 3. Auto-blackout when the window loses focus or is hidden
     const handleBlur = () => {
-      if (window.__cheprabaiScreenSharing) return;
+      if (window.__anonchatScreenSharing) return;
       setIsBlurred(true);
     };
     const handleFocus = () => setIsBlurred(false);
     const handleVisibilityChange = () => {
-      if (document.hidden && !window.__cheprabaiScreenSharing) setIsBlurred(true);
+      if (document.hidden && !window.__anonchatScreenSharing) setIsBlurred(true);
       else setIsBlurred(false);
     };
 
@@ -132,7 +132,7 @@ export default function ScreenSecurityGuard({ children }) {
 
     // 4. Print blackout — printing the page produces a warning page instead of content
     const styleEl = document.createElement("style");
-    styleEl.id = "cheprabai-print-guard";
+    styleEl.id = "anonchat-print-guard";
     styleEl.textContent = `
       @media print {
         .screen-protected-content { display: none !important; }
@@ -154,7 +154,7 @@ export default function ScreenSecurityGuard({ children }) {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       clearInterval(clipboardGuard);
       if (flashTimer) clearTimeout(flashTimer);
-      document.getElementById("cheprabai-print-guard")?.remove();
+      document.getElementById("anonchat-print-guard")?.remove();
     };
   }, []);
 

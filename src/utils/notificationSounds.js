@@ -12,7 +12,7 @@ export const SOUND_CHOICES = [
   { id: "none", label: "Silent", kind: "none" }
 ];
 
-const STORAGE_KEY = "cheprabai_sound_choice";
+const STORAGE_KEY = "anonchat_sound_choice";
 
 export function getSoundChoice() {
   try {

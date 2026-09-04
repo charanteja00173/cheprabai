@@ -68,7 +68,7 @@ export const FEATURE_GROUPS = [
       { key: "stealthMode", label: "Stealth Mode", desc: "Anonymous joining" },
       { key: "themes", label: "Theme Switching", desc: "Change chat themes" },
       { key: "keyboardShortcuts", label: "Keyboard Shortcuts", desc: "Shortcuts help panel" },
-      { key: "aiAssistant", label: "AI Assistant", desc: "CheprabAI in-chat copilot" },
+      { key: "aiAssistant", label: "AI Assistant", desc: "AnonChatAI in-chat copilot" },
     ],
   },
 ];

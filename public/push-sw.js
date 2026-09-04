@@ -1,9 +1,9 @@
-/* Cheprabai push + offline service worker
+/* AnonChat push + offline service worker
    – Caches the app shell on install for instant offline loads
    – Shows push notifications from the backend
    – Handles notification clicks to focus/open the app */
 
-const CACHE_NAME = "cheprabai-shell-v1";
+const CACHE_NAME = "anonchat-shell-v1";
 
 // App shell assets to precache on install
 const APP_SHELL = [
@@ -99,13 +99,13 @@ self.addEventListener("fetch", (event) => {
 self.addEventListener("push", (event) => {
   let data = {};
   try { data = event.data ? event.data.json() : {}; } catch (e) { data = { title: "New message", body: "" }; }
-  const title = data.title || "Cheprabai";
+  const title = data.title || "AnonChat";
   event.waitUntil(
     self.registration.showNotification(title, {
       body: data.body || "",
       icon: "/logo192.png",
       badge: "/favicon-32x32.png",
-      tag: data.tag || "cheprabai",
+      tag: data.tag || "anonchat",
       renotify: true,
       data: { roomId: data.roomId || null },
       vibrate: [80, 40, 80]

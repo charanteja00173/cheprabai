@@ -4,10 +4,10 @@
  * Enterprise-grade Signal Protocol key store with automatic localStorage
  * persistence. Falls back to in-memory storage if localStorage is unavailable.
  *
- * Keys are stored under the namespace: cheprabai_signal_{namespace}_*
+ * Keys are stored under the namespace: anonchat_signal_{namespace}_*
  */
 
-const STORAGE_PREFIX = "cheprabai_signal_";
+const STORAGE_PREFIX = "anonchat_signal_";
 
 function isLocalStorageAvailable() {
   try {

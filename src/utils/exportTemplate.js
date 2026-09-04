@@ -4,7 +4,7 @@ export function createDecryptionHtmlTemplate(roomId, b64Data, b64Salt, b64Iv) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cheprabai: ${escapeHtml(roomId)}</title>
+  <title>AnonChat: ${escapeHtml(roomId)}</title>
   <style>
     :root {
       --bg: #0b0c10;

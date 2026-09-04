@@ -205,7 +205,7 @@ export function sendFileP2P({ socket, peerId, file, viewOnce, fromName, onProgre
       reject(err);
     };
 
-    const channel = pc.createDataChannel("cheprabai-file");
+    const channel = pc.createDataChannel("anonchat-file");
     channel.binaryType = "arraybuffer";
     connections.set(peerId, { pc, channel });
 

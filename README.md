@@ -1,4 +1,4 @@
-# Cheprabai — Secure Real-time Workspace
+# AnonChat — Secure Real-time Workspace
 
 A privacy-first, cross-platform communication app: end-to-end encrypted chat, WebRTC video calls, collaborative whiteboard, and encrypted file sharing — in a fully responsive PWA-ready interface.
 
@@ -50,7 +50,7 @@ Click-to-play embeds for 13+ platforms — YouTube, Instagram (posts/reels/IGTV)
 - Admin control center: feature flags, moderation, platform settings
 
 ### AI Assistant
-- **CheprabAI** — type `/ai <prompt>` to get an instant answer, draft, summary, or translation without leaving the chat
+- **AnonChatAI** — type `/ai <prompt>` to get an instant answer, draft, summary, or translation without leaving the chat
 - Slash-command popup (`/`) with autocomplete, same UX as @mentions
 - Google Search grounding — the AI can find real images and videos from the web and render them inline
 - Privacy-first: the API key lives server-side; prompts are proxied through the backend, never sent directly from the client
@@ -83,7 +83,7 @@ Click-to-play embeds for 13+ platforms — YouTube, Instagram (posts/reels/IGTV)
 ## Project layout
 
 ```
-cheprabai/
+anonchat/
 ├── src/
 │   ├── components/        # Chat, LiveMeeting, UniversalFileViewer, admin UIs…
 │   ├── utils/             # clipboard, crypto helpers, export templates
@@ -104,7 +104,7 @@ cheprabai/
 ### Backend
 
 ```bash
-cd cheprabai-backend
+cd anonchat-backend
 npm install
 cp .env.example .env        # then fill in values (see below)
 npm run dev                 # or: npm start
@@ -126,13 +126,13 @@ Runs on `http://localhost:4000` by default.
 | `GIPHY_API_KEY` | no | GIF search (proxied server-side) |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | no | Web Push (generate with `web-push generate-vapid-keys`) |
 | `ADMIN_WHATSAPP_PHONE` / `CALLMEBOT_API_KEY` | no | Admin WhatsApp alerts |
-| `GEMINI_API_KEY` | no | Google Gemini API key for CheprabAI assistant |
+| `GEMINI_API_KEY` | no | Google Gemini API key for AnonChatAI assistant |
 | `GEMINI_MODEL` | no | Gemini model name (default `gemini-2.5-flash`) |
 
 ### Frontend
 
 ```bash
-cd cheprabai
+cd anonchat
 npm install
 cp .env.example .env        # then fill in values
 npm start                   # dev server on http://localhost:3000

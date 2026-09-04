@@ -3085,7 +3085,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
   // ─── Graceful Leave with Cleanup ───
   const handleLeaveCall = useCallback(() => {
-    window.__cheprabaiScreenSharing = false;
+    window.__anonchatScreenSharing = false;
     // Stop recording if active
     if (recorderRef.current && recorderRef.current.state !== "inactive") {
       try { recorderRef.current.stop(); } catch (e) {}
@@ -3508,7 +3508,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
     return () => {
       isCancelled = true;
-      window.__cheprabaiScreenSharing = false;
+      window.__anonchatScreenSharing = false;
       if (socket && typeof socket.emit === "function") {
         socket.emit("leave-call", { roomId });
         socket.off("existing-callers");
@@ -3821,7 +3821,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     }
 
     originalTracksRef.current = { video: null, audio: null };
-    window.__cheprabaiScreenSharing = false;
+    window.__anonchatScreenSharing = false;
     syncPreviewWithFx(); // preview matches what peers receive (FX re-applied if active)
     toast.info("Screen sharing ended.");
     // stopScreenShare runs only from user toggles; syncPreviewWithFx reads refs
@@ -3857,7 +3857,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       });
       mixedStreamRef.current = mixed.stream;
       mixedStreamCleanupRef.current = mixed.cleanup;
-      window.__cheprabaiScreenSharing = true;
+      window.__anonchatScreenSharing = true;
       if (socket && typeof socket.emit === "function") {
         socket.emit("screenshare-started", { peerId: peerRef.current?.id });
       }

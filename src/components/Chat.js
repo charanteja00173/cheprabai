@@ -6,7 +6,6 @@ import {
   // Link, 
   useNavigate, useParams, useSearchParams
 } from "react-router-dom";
-import axios from "axios";
 import styled, { keyframes } from "styled-components";
 import {
   FaPaperPlane,
@@ -48,7 +47,6 @@ import { createDecryptionHtmlTemplate } from "../utils/exportTemplate";
 import { BREAKPOINTS, useIsMobile } from "../hooks/useIsMobile";
 import { AtSign, BarChart3, Bot, CalendarClock, Clapperboard, Download, Eye, EyeOff, FileUp, FolderLock, Globe, Hash, Image, KeyRound, LockKeyhole, MessagesSquare, Mic, MonitorUp, Palette, PenTool, Phone, QrCode, ScreenShare, Search, ShieldCheck, Sparkles, Timer, Upload, UserRound, Users, Video, WifiOff, Zap, ArrowRight, Check, Copy } from "lucide-react";
 import {
-  encryptBinary,
   decryptBinary,
   exportKey,
   importKey,
@@ -145,15 +143,9 @@ function getGalleryItems() {
   return Array.from(mediaGalleryRegistry.values());
 }
 
-/* Storage provider (Cloudinary) rejects single files above this size on the
-   current plan — failing fast beats uploading for minutes and dying at 99%.
-   Matching the backend's 1 GB hard limit. Files >20 MB bypass Cloudinary and
-   are served locally while a background sync uploads to Cloudinary. */
+/* Absolute ceiling for a realtime-shared file. Matching the backend's 1 GB
+   hard limit — failing fast beats streaming for minutes and dying at 99%. */
 const MAX_UPLOAD_BYTES = 1024 * 1024 * 1024; // 1 GB
-const formatUploadLimit = () => {
-  const mb = MAX_UPLOAD_BYTES / (1024 * 1024);
-  return mb >= 1024 ? `${(mb / 1024).toFixed(0)} GB` : `${Math.round(mb)} MB`;
-};
 
 /* ══════════════════════════════════════════════════════════
    Vanishing-message durations — shown WhatsApp-style, in the
@@ -201,11 +193,6 @@ const formatNearestUnit = (totalSeconds) => {
   // the app's 1 GB multer hard cap enforced in uploadFile.
   const LIVE_SHARE_PRACTICAL_MAX_BYTES = 100 * 1024 * 1024 * 1024; // 100 GB (any size up to the hard ceiling)
 
-  // The backend is deployed on Vercel serverless, which hard-caps the request
-  // body at ~4.5 MB (413) regardless of what Express/multer allows. So any file
-  // at or above this floor MUST go through the realtime socket relay (no such
-  // body limit) instead of the HTTP /api/upload endpoint.
-  const REALTIME_FLOOR_BYTES = 4 * 1024 * 1024; // 4 MB — Vercel serverless body cap
 /* eslint-disable-next-line no-unused-vars */
 const bytesToB64 = (bytes) => {
   let s = "";
@@ -288,7 +275,7 @@ const TOUR_FEATURES = [
   { id: "offline", icon: WifiOff, label: "Resilient connections", tint: "#0d9488", blurb: "App shell loads instantly and auto-reconnects if your connection drops." },
   { id: "fast", icon: Zap, label: "Lightning relay", tint: "#eab308", blurb: "Realtime relay streams huge files without grinding to a halt." },
   { id: "theme", icon: Sparkles, label: "Chat themes", tint: "#d946ef", blurb: "Recolor the room your way with a tap — even mid-chat." },
-  { id: "ai", icon: Bot, label: "AI Assistant", tint: "#7c3aed", blurb: "Type /ai to ask CheprabAI anything — compose, translate, search the web, and more." }
+  { id: "ai", icon: Bot, label: "AI Assistant", tint: "#7c3aed", blurb: "Flip on AI mode and AnonChatAI answers every message — images, videos, web search and more." }
 ];
 
 function TourSceneChat() {
@@ -540,8 +527,13 @@ function TourSceneTheme() {
 function TourSceneAi() {
   return (
     <div className="fe-scene fe-msgscene">
-      <div className="fe-searchbox"><Sparkles size={13} /><span>/ai show me images of cats</span></div>
-      <div style={{ background: "rgba(124,58,237,0.1)", border: "1px solid rgba(124,58,237,0.2)", borderRadius: 8, padding: "6px 10px", fontSize: "0.68rem", color: "#a78bfa", marginTop: 6, lineHeight: 1.4 }}>✦ CheprabAI<br />Here are some cats…</div>
+      <div className="fe-searchbox" style={{ border: "1px solid rgba(124,58,237,0.4)", background: "rgba(124,58,237,0.12)" }}><Bot size={13} color="#7c3aed" /><span style={{ flex: 1 }}>show me dogs</span><span style={{ fontSize: "0.6rem", fontWeight: 700, color: "#7c3aed" }}>AI ON</span></div>
+      <div style={{ background: "rgba(124,58,237,0.1)", border: "1px solid rgba(124,58,237,0.2)", borderRadius: 8, padding: "6px 10px", fontSize: "0.68rem", color: "#a78bfa", marginTop: 6, lineHeight: 1.4 }}>✦ AnonChatAI<br />Here are some dogs 👇</div>
+      <div style={{ display: "flex", gap: 5, marginTop: 6 }}>
+        <div style={{ flex: 1, aspectRatio: "1/1", borderRadius: 6, background: "linear-gradient(135deg,#7c3aed,#a855f7)" }} />
+        <div style={{ flex: 1, aspectRatio: "1/1", borderRadius: 6, background: "linear-gradient(135deg,#059669,#34d399)" }} />
+        <div style={{ flex: 1, aspectRatio: "1/1", borderRadius: 6, background: "linear-gradient(135deg,#db2777,#f472b6)" }} />
+      </div>
     </div>
   );
 }
@@ -985,12 +977,15 @@ const FEATURE_CATALOG = [
     group: "AI Assistant",
     icon: Bot,
     tint: "#7c3aed",
-    blurb: "CheprabAI — your in-chat copilot.",
+    blurb: "AnonChatAI — your in-chat copilot. Pro & Enterprise.",
     items: [
-      "/ai prompt with autocomplete popup",
+      "AI mode toggle — on/off at will, persisted",
+      "Every message answered by AnonChatAI when enabled",
+      "Also available on demand via the /ai slash command",
       "Compose, summarize, translate & explain",
-      "Google Search grounding for real web results",
-      "Inline images & videos rendered in chat"
+      "Real web search + inline images, GIFs & videos",
+      "YouTube / Vimeo embeds rendered right in chat",
+      "Auto rate-limit cooldown so you never hit errors"
     ]
   }
 ];
@@ -4833,12 +4828,12 @@ function GifCardComponent({ gif, onSelect }) {
 
 // ── Local chat-history cache helpers (module scope) ─────────────────────────
 const readHistoryCache = (rid) => {
-  try { return JSON.parse(localStorage.getItem(`cheprabai:room-cache:${rid}`) || "[]"); } catch { return []; }
+  try { return JSON.parse(localStorage.getItem(`anonchat:room-cache:${rid}`) || "[]"); } catch { return []; }
 };
 const writeHistoryCache = (rid, list) => {
   try {
     const capped = (list || []).slice(-200);
-    localStorage.setItem(`cheprabai:room-cache:${rid}`, JSON.stringify(capped));
+    localStorage.setItem(`anonchat:room-cache:${rid}`, JSON.stringify(capped));
   } catch { /* storage unavailable (private mode) — skip */ }
 };
 
@@ -4872,7 +4867,7 @@ export default function ChatRoom() {
     return routeRoomId ? decodeURIComponent(routeRoomId) : "";
   });
   const [userName, setUserName] = useState("");
-  const [userAvatar, setUserAvatar] = useState(() => localStorage.getItem("cheprabai:user-avatar") || "");
+  const [userAvatar, setUserAvatar] = useState(() => localStorage.getItem("anonchat:user-avatar") || "");
   const [avatarCrop, setAvatarCrop] = useState(null);
   const userAvatarRef = useRef(userAvatar);
   const [roomBackground, setRoomBackground] = useState("");
@@ -4932,15 +4927,15 @@ export default function ChatRoom() {
     // Inline onclick inside dangerouslySetInnerHTML can't reach React handlers,
     // and pasting code INTO attribute strings breaks on quotes (require('fs')…).
     // So blocks register their payload here and buttons pass only a safe id.
-    window.__cheprabaiCodeRegistry = {};
+    window.__anonchatCodeRegistry = {};
     let seq = 0;
-    window.__cheprabaiRegisterCode = (code, lang) => {
+    window.__anonchatRegisterCode = (code, lang) => {
       const id = "cb" + ++seq;
-      window.__cheprabaiCodeRegistry[id] = { code, lang };
+      window.__anonchatCodeRegistry[id] = { code, lang };
       return id;
     };
-    window.__cheprabaiOpenCodeById = (id) => {
-      const entry = window.__cheprabaiCodeRegistry[id];
+    window.__anonchatOpenCodeById = (id) => {
+      const entry = window.__anonchatCodeRegistry[id];
       if (!entry) return;
       const isHtml =
         (entry.lang || "").toLowerCase() === "html" ||
@@ -4949,8 +4944,8 @@ export default function ChatRoom() {
       setCodePane(isHtml ? "ui" : "code");
       setCodeViewer({ code: entry.code, lang: entry.lang || "", html: isHtml });
     };
-    window.__cheprabaiCopyCodeById = (id, btn) => {
-      const entry = window.__cheprabaiCodeRegistry[id];
+    window.__anonchatCopyCodeById = (id, btn) => {
+      const entry = window.__anonchatCodeRegistry[id];
       if (!entry) return;
       const done = () => {
         if (!btn) return;
@@ -4977,27 +4972,27 @@ export default function ChatRoom() {
       }
     };
     return () => {
-      delete window.__cheprabaiOpenCodeById;
-      delete window.__cheprabaiCopyCodeById;
-      delete window.__cheprabaiRegisterCode;
-      delete window.__cheprabaiCodeRegistry;
+      delete window.__anonchatOpenCodeById;
+      delete window.__anonchatCopyCodeById;
+      delete window.__anonchatRegisterCode;
+      delete window.__anonchatCodeRegistry;
     };
   }, []);
   // Swipe-to-reply gesture — user preference, persisted locally (default: on)
   const [swipeReplyEnabled, setSwipeReplyEnabled] = useState(() => {
-    try { return localStorage.getItem("cheprabai_swipeReply") !== "0"; } catch { return true; }
+    try { return localStorage.getItem("anonchat_swipeReply") !== "0"; } catch { return true; }
   });
   const toggleSwipeReply = () => setSwipeReplyEnabled(prev => {
     const next = !prev;
-    try { localStorage.setItem("cheprabai_swipeReply", next ? "1" : "0"); } catch { /* private mode */ }
+    try { localStorage.setItem("anonchat_swipeReply", next ? "1" : "0"); } catch { /* private mode */ }
     return next;
   });
   const [muteSounds, setMuteSounds] = useState(() => {
-    try { return localStorage.getItem("cheprabai_muteSounds") === "1"; } catch { return false; }
+    try { return localStorage.getItem("anonchat_muteSounds") === "1"; } catch { return false; }
   });
   const toggleMuteSounds = () => setMuteSounds(prev => {
     const next = !prev;
-    try { localStorage.setItem("cheprabai_muteSounds", next ? "1" : "0"); } catch { /* private mode */ }
+    try { localStorage.setItem("anonchat_muteSounds", next ? "1" : "0"); } catch { /* private mode */ }
     return next;
   });
   // Notification sound choice: persisted in localStorage; socket handlers read via ref
@@ -5008,11 +5003,11 @@ export default function ChatRoom() {
   useEffect(() => { soundChoiceRef.current = soundChoice; persistSoundChoice(soundChoice); }, [soundChoice]);
 
   const [shoulderSurfingProtection, setShoulderSurfingProtection] = useState(() => {
-    try { return localStorage.getItem("cheprabai_shoulderSurfing") === "1"; } catch { return false; }
+    try { return localStorage.getItem("anonchat_shoulderSurfing") === "1"; } catch { return false; }
   });
   const toggleShoulderSurfing = () => setShoulderSurfingProtection(prev => {
     const next = !prev;
-    try { localStorage.setItem("cheprabai_shoulderSurfing", next ? "1" : "0"); } catch { /* private mode */ }
+    try { localStorage.setItem("anonchat_shoulderSurfing", next ? "1" : "0"); } catch { /* private mode */ }
     return next;
   });
   const [isWindowBlurred, setIsWindowBlurred] = useState(false);
@@ -5088,13 +5083,13 @@ export default function ChatRoom() {
   const [ownerToken, setOwnerToken] = useState(() => {
     const match = window.location.pathname.match(/\/room\/([^/]+)/);
     const rId = match ? match[1] : "";
-    return rId ? sessionStorage.getItem(`cheprabai:owner-token:${rId}`) || "" : "";
+    return rId ? sessionStorage.getItem(`anonchat:owner-token:${rId}`) || "" : "";
   });
   const [onlineUsers, setOnlineUsers] = useState([]);
 
   React.useEffect(() => {
     if (roomId) {
-      const savedToken = sessionStorage.getItem(`cheprabai:owner-token:${roomId}`);
+      const savedToken = sessionStorage.getItem(`anonchat:owner-token:${roomId}`);
       setOwnerToken(savedToken || "");
     } else {
       setOwnerToken("");
@@ -5148,11 +5143,11 @@ export default function ChatRoom() {
   // ── Slash commands ──
   const aiEligible = roomPlan === "pro" || roomPlan === "enterprise";
   const [aiModeEnabled, setAiModeEnabled] = useState(() => {
-    try { return localStorage.getItem("cheprabai:aiMode") !== "off"; } catch { return true; }
+    try { return localStorage.getItem("anonchat:aiMode") !== "off"; } catch { return true; }
   });
   const toggleAiMode = () => setAiModeEnabled((v) => {
     const next = !v;
-    try { localStorage.setItem("cheprabai:aiMode", next ? "on" : "off"); } catch {}
+    try { localStorage.setItem("anonchat:aiMode", next ? "on" : "off"); } catch {}
     return next;
   });
   // AI rate-limit cooldown — blocks sends for the retry-after window so users
@@ -5174,7 +5169,7 @@ export default function ChatRoom() {
   };
   const aiOnCooldown = () => Date.now() < aiCooldownRef.current;
   const SLASH_COMMANDS = [
-    ...(aiEligible && aiModeEnabled ? [{ cmd: "/ai", label: "AI Assistant", desc: "Ask CheprabAI anything", icon: "✦" }] : []),
+    ...(aiEligible && aiModeEnabled ? [{ cmd: "/ai", label: "AI Assistant", desc: "Ask AnonChatAI anything", icon: "✦" }] : []),
   ];
   const [slashSuggestions, setSlashSuggestions] = useState([]);
   const [slashIndex, setSlashIndex] = useState(0);
@@ -5304,7 +5299,7 @@ export default function ChatRoom() {
 
   // ── Bookmarks / Saved Messages ──
   const [bookmarks, setBookmarks] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("cheprabai:bookmarks") || "[]"); } catch { return []; }
+    try { return JSON.parse(localStorage.getItem("anonchat:bookmarks") || "[]"); } catch { return []; }
   });
   const [showBookmarks, setShowBookmarks] = useState(false);
 
@@ -5349,7 +5344,7 @@ export default function ChatRoom() {
       securityCode,
       avatar: userAvatarRef.current,
       stealthToken: stealthTokenRef.current || undefined,
-      ownerToken: sessionStorage.getItem(`cheprabai:owner-token:${rId}`) || undefined,
+      ownerToken: sessionStorage.getItem(`anonchat:owner-token:${rId}`) || undefined,
       sessionToken,
     };
   }, [roomId, userName, securityCode]);
@@ -5495,13 +5490,13 @@ export default function ChatRoom() {
     const shareUrl = `${window.location.origin}/?room=${encodeURIComponent(roomId.trim())}`;
     const code = (securityCode || "").trim();
     const shareText = code
-      ? `Join my secure room "${roomId.trim()}" on Cheprabai:\nLink: ${shareUrl}\nSecurity Code: ${code}`
-      : `Join my secure room "${roomId.trim()}" on Cheprabai:\nLink: ${shareUrl}`;
+      ? `Join my secure room "${roomId.trim()}" on AnonChat:\nLink: ${shareUrl}\nSecurity Code: ${code}`
+      : `Join my secure room "${roomId.trim()}" on AnonChat:\nLink: ${shareUrl}`;
 
     if (navigator.share) {
       try {
         await navigator.share({
-          title: "Join my secure chat room on Cheprabai",
+          title: "Join my secure chat room on AnonChat",
           text: shareText,
         });
       } catch (err) {
@@ -5693,7 +5688,7 @@ export default function ChatRoom() {
 
   useEffect(() => {
     if (joined && roomId) {
-      const bg = localStorage.getItem(`cheprabai:room-background:${roomId}`) || "";
+      const bg = localStorage.getItem(`anonchat:room-background:${roomId}`) || "";
       setRoomBackground(bg);
       if ("Notification" in window && Notification.permission === "default") {
         Notification.requestPermission().then((perm) => {
@@ -6625,7 +6620,7 @@ export default function ChatRoom() {
               : formattedMsg.text;
           new Notification(formattedMsg.userName || "New Message", {
             body: bodyText,
-            tag: "cheprabai-message",
+            tag: "anonchat-message",
             renotify: true
           });
         }
@@ -6688,7 +6683,7 @@ export default function ChatRoom() {
     socketRef.current.on("roomOwner", (token) => {
       setOwnerToken(token);
       if (token && rid) {
-        sessionStorage.setItem(`cheprabai:owner-token:${rid}`, token);
+        sessionStorage.setItem(`anonchat:owner-token:${rid}`, token);
       }
     });
     socketRef.current.on("messageViewUpdated", ({ messageId, viewedBy }) => {
@@ -6698,7 +6693,7 @@ export default function ChatRoom() {
       setMessages((items) => items.map((item) => item.id === messageId ? { ...item, reactions } : item));
     });
     socketRef.current.on("roomBackgroundUpdated", ({ background }) => {
-      localStorage.setItem(`cheprabai:room-background:${rid}`, background || "");
+      localStorage.setItem(`anonchat:room-background:${rid}`, background || "");
       setRoomBackground(background || "");
     });
     socketRef.current.on("roomBackgroundPolicy", ({ locked }) => setBackgroundLocked(Boolean(locked)));
@@ -7508,264 +7503,36 @@ export default function ChatRoom() {
       }
     }
 
-    let tempId;
-    let previewUrl = null;
-    let shouldBypassCloudinary = false;
-    try {
-      // Effective upload cap = the room's plan maxFileSize (per-room override
-      // wins; -1/unset means the 1 GB multer hard ceiling). Enforced client-side
-      // for a fast error, and again server-side by /api/upload per room.
-      const planMaxMB = roomPlanLimits?.maxFileSize;
-      const planMaxBytes = planMaxMB == null || planMaxMB === -1 ? MAX_UPLOAD_BYTES : Math.min(planMaxMB * 1024 * 1024, MAX_UPLOAD_BYTES);
-      if (file.size > planMaxBytes) {
-        // A plan's file-size cap is ABSOLUTE — it must never be bypassed by the
-        // realtime socket relay (that only exists as a fallback for a file that
-        // is within-plan but the server can't store). Otherwise a free (5 MB)
-        // plan could blast a 146 MB file over the socket and knock peers off.
-        if (planMaxMB == null || planMaxMB === -1) {
-          if (file.size > 1024 * 1024 * 1024) {
-            toast.error(`"${file.name}" exceeds the maximum 1 GB upload limit.`);
-            return;
-          }
-          shouldBypassCloudinary = true;
-        } else {
-          toast.error(`"${file.name}" exceeds this room's ${planMaxMB >= 1024 ? `${(planMaxMB / 1024).toFixed(0)} GB` : `${Math.round(planMaxMB)} MB`} upload limit. Contact the room owner to upgrade the plan.`);
+    // Real-time only, zero Cloudinary: every file (any size) is streamed live
+    // to the other participant over P2P WebRTC or the socket relay. There is no
+    // durable server copy anymore, so a live recipient must be online.
+    const planMaxMB = roomPlanLimits?.maxFileSize;
+    const planMaxBytes = planMaxMB == null || planMaxMB === -1 ? MAX_UPLOAD_BYTES : Math.min(planMaxMB * 1024 * 1024, MAX_UPLOAD_BYTES);
+    if (file.size > planMaxBytes) {
+      // A plan's file-size cap is absolute — it is never bypassed by the socket
+      // relay. Otherwise a free plan could blast a large file over the socket
+      // and knock peers off.
+      if (planMaxMB == null || planMaxMB === -1) {
+        if (file.size > 1024 * 1024 * 1024) {
+          toast.error(`"${file.name}" exceeds the maximum 1 GB upload limit.`);
           return;
         }
-      }
-      // Route by size UP-FRONT — no more guessing between two mechanisms.
-      // The backend is on Vercel serverless (~4 MB body cap), so anything at or
-      // above REALTIME_FLOOR_BYTES can never go through the HTTP /api/upload
-      // (it would 413). Those files go straight to realtime sharing instead.
-      const planAllowsSize = planMaxMB == null || planMaxMB === -1 || file.size <= planMaxMB * 1024 * 1024;
-      const hasLiveRecipient = onlineUsers.length >= 2;
-      const overHttpFloor = file.size >= REALTIME_FLOOR_BYTES && file.size <= LIVE_SHARE_PRACTICAL_MAX_BYTES;
-      if (!scheduleTime && planAllowsSize && overHttpFloor) {
-        if (hasLiveRecipient) {
-          await shareFileLive(file, viewOnce);
-          return;
-        }
-        // No recipient online — the socket relay can't carry it, and Vercel
-        // would 413 on the HTTP path. Fail fast instead of a doomed upload.
-        toast.error(`"${file.name}" (${(file.size / 1024 / 1024).toFixed(1)} MB) is too large for this server to store directly. Ask someone to join the room, then send it again to share in realtime.`);
-        return;
-      }
-
-      tempId = `uploading-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      const looksMedia = /^(image|video)\//.test(file.type) ||
-        /\.(png|jpe?g|gif|webp|avif|bmp|svg|mp4|mov|webm|mkv|m4v)$/i.test(file.name || "");
-      if (looksMedia) {
-        try { previewUrl = URL.createObjectURL(file); } catch { previewUrl = null; }
-      }
-      const willEncrypt = Boolean(roomKey && file.size <= 200 * 1024 * 1024);
-      setMessages(m => [...m, {
-        id: tempId,
-        userName,
-        file: {
-          name: file.name, type: file.type, size: file.size,
-          loading: true, progress: 0, speed: 0,
-          loaded: 0, total: file.size,
-          phase: willEncrypt ? "encrypting" : "uploading",
-          ...(previewUrl && { previewUrl })
-        },
-        ts: Date.now()
-      }]);
-
-      const updateTempFile = (patch) => {
-        setMessages(msgs => msgs.map(msg => msg.id === tempId ? { ...msg, file: { ...msg.file, ...patch } } : msg));
-      };
-
-      let fileToUpload = file;
-      let ivString = null;
-      let keyB64 = null;
-
-      if (willEncrypt) {
-        const fileBuffer = await file.arrayBuffer();
-        const encrypted = await encryptBinary(roomKey, fileBuffer);
-        const encryptedBlob = new Blob([encrypted.data], { type: "application/octet-stream" });
-        fileToUpload = new File([encryptedBlob], file.name + ".enc", { type: "application/octet-stream" });
-        ivString = btoa(String.fromCharCode(...new Uint8Array(encrypted.iv)));
-        keyB64 = await exportKey(roomKey);
-        updateTempFile({ phase: "uploading" });
-      }
-
-
-      const formData = new FormData();
-      formData.append("file", fileToUpload);
-      if (roomIdRef.current && roomIdRef.current.trim()) {
-        formData.append("roomId", roomIdRef.current.trim());
-      }
-
-      // Real-time progress tracking: smooth % + live transfer speed
-      let lastTickTime = performance.now();
-      let lastTickLoaded = 0;
-      let lastEmit = 0;
-      const doUpload = () => axios.post(
-        `${backendUrl}/api/upload`,
-        formData,
-        {
-          headers: { 
-            "Content-Type": "multipart/form-data",
-            ...(shouldBypassCloudinary && { "bypass-cloudinary": "true" })
-          },
-          // Never let a dead connection spin forever: generous per-MB budget
-          // with a 90s floor so slow mobile uploads still succeed.
-          timeout: Math.max(90000, Math.round((fileToUpload.size / (1024 * 1024)) * 12000)),
-          onUploadProgress: (progressEvent) => {
-            // Some axios/browser combos never populate `total` for multipart —
-            // fall back to the known payload size so progress ALWAYS works.
-            const total = progressEvent.total || fileToUpload.size;
-            if (!total) return;
-            const now = performance.now();
-            const loaded = Math.min(progressEvent.loaded, total);
-            const percent = Math.min(100, (loaded * 100) / total);
-            const dt = now - lastTickTime;
-            if (dt >= 400) {
-              const bytesSinceTick = loaded - lastTickLoaded;
-              if (bytesSinceTick > 0) {
-                updateTempFile({ speed: Math.round((bytesSinceTick / dt) * 1000) });
-              }
-              lastTickTime = now;
-              lastTickLoaded = loaded;
-            }
-            // Throttle React updates to ~12fps for buttery-smooth reveal without re-render storms
-            if (now - lastEmit >= 80 || percent >= 100) {
-              lastEmit = now;
-              updateTempFile({
-                // True byte-level percentage — no artificial caps
-                progress: Math.floor(percent),
-                loaded,
-                total,
-                ...(percent >= 100 ? { phase: "finalizing" } : {})
-              });
-            }
-          }
-        }
-      );
-      // One giant POST through a PaaS proxy is fragile on mobile networks —
-      // retry once on dropped connections / server hiccups before giving up.
-      let res;
-      for (let attempt = 1; ; attempt++) {
-        try {
-          res = await doUpload();
-          break;
-        } catch (upErr) {
-          const status = upErr.response?.status;
-          const retryable = !upErr.response || upErr.code === "ECONNABORTED" || (status >= 500 && status <= 599);
-          if (attempt >= 2 || !retryable) throw upErr;
-          updateTempFile({ phase: "uploading", progress: 0, loaded: 0 });
-          lastTickTime = performance.now();
-          lastTickLoaded = 0;
-          await new Promise((r) => setTimeout(r, 1500));
-        }
-      }
-
-      const fileData = {
-        url: res.data.secure_url,
-        name: file.name,
-        type: file.type || res.data.format,
-        publicId: res.data.public_id,
-        resourceType: res.data.resource_type,
-        ...(viewOnce && /^(image|video)\//.test(file.type) && { viewOnce: true }),
-        ...(ivString && { iv: ivString })
-      };
-      if (!fileData.url) {
-        throw new Error(res.data?.error || "Upload service did not return a file URL. Please try again.");
-      }
-      if (scheduleTime) {
-        const plainPayload = {
-          file: { ...fileData, ...(keyB64 && { keyB64 }) },
-          ...(replyTo && { replyTo })
-        };
-        let payload = plainPayload;
-        if (roomKey) {
-          const encrypted = await encryptMessage(roomKey, JSON.stringify(plainPayload));
-          payload = {
-            encryptedPayload: encrypted,
-            // Only include non-sensitive file refs for non-E2EE viewers; keyB64 stays inside encryptedPayload only
-            file: { url: fileData.url, name: fileData.name, type: fileData.type }
-          };
-        }
-        await new Promise((resolve, reject) => {
-          socketRef.current.emit("scheduleMessage", {
-            roomId,
-            userName,
-            senderAvatar: userAvatar,
-            payload,
-            sendAt: scheduleTime,
-            ephemeral: ephemeralMode,
-            ephemeralDuration: roomEphemeralDuration
-          }, (res) => {
-            if (res?.error) reject(new Error(res.error));
-            else resolve(res);
-          });
-        });
       } else {
-        // Register the local blob so my own echoed file message renders
-        // instantly from the preview instead of re-downloading/decrypting.
-        if (ivString && previewUrl) {
-          localFileObjectsRef.current.set(ivString, { url: previewUrl, name: file.name, type: file.type });
-        }
-        await handleSend({ file: fileData }, keyB64);
-      }
-      setMessages(m => m.filter(msg => msg.id !== tempId));
-      if (ivString) localFileObjectsRef.current.delete(ivString);
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
-    } catch (err) {
-      console.error(err);
-      const status = err.response?.status;
-      const detail = err.response?.data?.error || err.message;
-      const planLimitRejected = err.response?.data?.planLimit === true;
-      const tooLarge = status === 413 || /too large|file size/i.test(String(detail));
-      if (planLimitRejected && !scheduleTime) {
-        // A plan's explicit file-size cap is absolute — surface the upgrade
-        // message instead of relaying the file over the socket (which would
-        // bypass the plan and risk disconnecting peers).
-        setMessages(m => m.filter(msg => msg.id !== tempId));
-        if (previewUrl) URL.revokeObjectURL(previewUrl);
-        toast.error(detail || "File exceeds this room's plan upload limit.");
+        toast.error(`"${file.name}" exceeds this room's ${planMaxMB >= 1024 ? `${(planMaxMB / 1024).toFixed(0)} GB` : `${Math.round(planMaxMB)} MB`} upload limit. Contact the room owner to upgrade the plan.`);
         return;
       }
-      if (tooLarge && !scheduleTime) {
-        setMessages(m => m.filter(msg => msg.id !== tempId));
-        if (previewUrl) URL.revokeObjectURL(previewUrl);
-        if (onlineUsers.length >= 2) {
-          toast.info(`"${file.name}" exceeds the server upload limit — falling back to realtime sharing.`);
-          await shareFileLive(file, viewOnce);
-        } else {
-          toast.error(`"${file.name}" exceeds the server upload limit. Tip: Realtime sharing fallback needs someone else in the room.`);
-        }
-        return;
-      }
-      let errorMsg = "File upload failed!";
-      if (tooLarge) {
-        errorMsg = `"${file.name}" exceeds the ${formatUploadLimit()} upload limit.`;
-      } else if (!err.response) {
-        errorMsg = `Upload failed — network dropped while sending "${file.name}". Check your connection and retry.`;
-      } else if (detail) {
-        errorMsg = String(detail);
-      }
-      // Big files should never dead-end: an upload failure at size gets a
-      // realtime-relay second chance — but only while the relay can carry it
-      // safely. Beyond the practical cap the socket relay risks flooding peers,
-      // so large files error cleanly (relying on the durable Cloudinary path).
-      const bigFile = file.size >= REALTIME_FLOOR_BYTES;
-      const peersOnline = onlineUsers.length >= 2;
-      const relayable = file.size <= LIVE_SHARE_PRACTICAL_MAX_BYTES;
-      if (bigFile && peersOnline && !scheduleTime && relayable) {
-        setMessages(m => m.filter(msg => msg.id !== tempId));
-        if (previewUrl) URL.revokeObjectURL(previewUrl);
-        toast.info(`Direct upload failed for "${file.name}" — switching to realtime sharing.`, { autoClose: 5000 });
-        await shareFileLive(file, viewOnce);
-        return;
-      }
-      if (bigFile && !peersOnline) {
-        errorMsg += " Tip: realtime sharing fallback needs someone else in the room.";
-      }
-      toast.error(errorMsg);
-      if (tempId) setMessages(m => m.filter(msg => msg.id !== tempId));
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
     }
+    if (scheduleTime) {
+      // Real-time relay can't deliver at a later time (no durable store), so
+      // scheduled file sends aren't supported in realtime-only mode.
+      toast.info("Scheduled file messages aren't available in realtime-only sharing. The file will be sent now.");
+      scheduleTime = null;
+    }
+    if (onlineUsers.length < 2) {
+      toast.error(`"${file.name}" can't be sent right now — realtime sharing needs a live recipient. Ask someone to join the room, then resend; it streams instantly.`);
+      return;
+    }
+    await shareFileLive(file, viewOnce);
   };
 
   /* ================= PASTE SUPPORT ================= */
@@ -7830,17 +7597,17 @@ export default function ChatRoom() {
     if (!customData && message.trim().startsWith("/ai ")) {
       // AI Assistant is a Pro / Enterprise feature — gate it on the room plan.
       if (roomPlan !== "pro" && roomPlan !== "enterprise") {
-        toast.info("✦ CheprabAI is available on Pro and Enterprise plans.");
+        toast.info("✦ AnonChatAI is available on Pro and Enterprise plans.");
         setShowPlanModal(true);
         return;
       }
       // AI can be turned off at will by the user.
       if (!aiModeEnabled) {
-        toast.info("✦ CheprabAI is turned off. Tap the AI icon in the header to enable it.");
+        toast.info("✦ AnonChatAI is turned off. Tap the AI icon in the header to enable it.");
         return;
       }
       if (aiOnCooldown()) {
-        toast.info(`⏳ CheprabAI is cooling down — please wait ~${aiCooldownLeft} ${aiCooldownLeft === 1 ? "second" : "seconds"}.`);
+        toast.info(`⏳ AnonChatAI is cooling down — please wait ~${aiCooldownLeft} ${aiCooldownLeft === 1 ? "second" : "seconds"}.`);
         return;
       }
       const aiPrompt = message.trim().slice(4).trim();
@@ -7851,12 +7618,12 @@ export default function ChatRoom() {
       const aiMsgId = `ai-a-${Date.now()}`;
       setMessages(m => [...m,
         { id: userMsgId, userName, ts: Date.now(), text: aiPrompt },
-        { id: aiMsgId, userName: "CheprabAI", ts: Date.now(), file: { name: "CheprabAI", type: "ai", loading: true } }
+        { id: aiMsgId, userName: "AnonChatAI", ts: Date.now(), file: { name: "AnonChatAI", type: "ai", loading: true } }
       ]);
       let aiResp = null;
       let retryAfter = 0;
       try {
-        const backendUrl = process.env.REACT_APP_BACKEND_URL || (window.location.hostname === "localhost" ? "http://localhost:4000" : (process.env.REACT_APP_SOCKET_ENDPOINT || "https://cheprabai-backend.vercel.app"));
+        const backendUrl = process.env.REACT_APP_BACKEND_URL || (window.location.hostname === "localhost" ? "http://localhost:4000" : (process.env.REACT_APP_SOCKET_ENDPOINT || "https://anonchat-backend.vercel.app"));
         aiResp = await fetch(`${backendUrl}/api/ai`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -7865,7 +7632,7 @@ export default function ChatRoom() {
         const data = await aiResp.json();
         retryAfter = data.retryAfter || 0;
         if (!aiResp.ok || data.error) throw new Error(data.error || "AI request failed");
-        setMessages(m => m.map(msg => msg.id === aiMsgId ? { ...msg, file: { name: "CheprabAI", type: "ai", text: data.text, media: Array.isArray(data.media) ? data.media : null, loading: false } } : msg));
+        setMessages(m => m.map(msg => msg.id === aiMsgId ? { ...msg, file: { name: "AnonChatAI", type: "ai", text: data.text, media: Array.isArray(data.media) ? data.media : null, loading: false } } : msg));
       } catch (err) {
         setMessages(m => m.filter(msg => msg.id !== aiMsgId));
         if (retryAfter > 0) startAiCooldown(retryAfter);
@@ -7877,7 +7644,7 @@ export default function ChatRoom() {
     // ── AI MODE: when enabled, every plain text message is answered by the AI ──
     if (!customData && aiModeEnabled && (roomPlan === "pro" || roomPlan === "enterprise") && !message.trim().startsWith("/") && !message.trim().startsWith("```")) {
       if (aiOnCooldown()) {
-        toast.info(`⏳ CheprabAI is cooling down — please wait ~${aiCooldownLeft} ${aiCooldownLeft === 1 ? "second" : "seconds"}.`);
+        toast.info(`⏳ AnonChatAI is cooling down — please wait ~${aiCooldownLeft} ${aiCooldownLeft === 1 ? "second" : "seconds"}.`);
         return;
       }
       const aiPrompt = message.trim();
@@ -7886,12 +7653,12 @@ export default function ChatRoom() {
       const aiMsgId = `ai-a-${Date.now()}`;
       setMessages(m => [...m,
         { id: userMsgId, userName, ts: Date.now(), text: aiPrompt },
-        { id: aiMsgId, userName: "CheprabAI", ts: Date.now(), file: { name: "CheprabAI", type: "ai", loading: true } }
+        { id: aiMsgId, userName: "AnonChatAI", ts: Date.now(), file: { name: "AnonChatAI", type: "ai", loading: true } }
       ]);
       let aiResp = null;
       let retryAfter = 0;
       try {
-        const backendUrl = process.env.REACT_APP_BACKEND_URL || (window.location.hostname === "localhost" ? "http://localhost:4000" : (process.env.REACT_APP_SOCKET_ENDPOINT || "https://cheprabai-backend.vercel.app"));
+        const backendUrl = process.env.REACT_APP_BACKEND_URL || (window.location.hostname === "localhost" ? "http://localhost:4000" : (process.env.REACT_APP_SOCKET_ENDPOINT || "https://anonchat-backend.vercel.app"));
         aiResp = await fetch(`${backendUrl}/api/ai`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -7900,7 +7667,7 @@ export default function ChatRoom() {
         const data = await aiResp.json();
         retryAfter = data.retryAfter || 0;
         if (!aiResp.ok || data.error) throw new Error(data.error || "AI request failed");
-        setMessages(m => m.map(msg => msg.id === aiMsgId ? { ...msg, file: { name: "CheprabAI", type: "ai", text: data.text, media: Array.isArray(data.media) ? data.media : null, loading: false } } : msg));
+        setMessages(m => m.map(msg => msg.id === aiMsgId ? { ...msg, file: { name: "AnonChatAI", type: "ai", text: data.text, media: Array.isArray(data.media) ? data.media : null, loading: false } } : msg));
       } catch (err) {
         setMessages(m => m.filter(msg => msg.id !== aiMsgId));
         if (retryAfter > 0) startAiCooldown(retryAfter);
@@ -7989,7 +7756,7 @@ export default function ChatRoom() {
       stopTyping();
     }
     setReplyTo(null);
-    localStorage.removeItem(`cheprabai:draft:${roomId}`);
+    localStorage.removeItem(`anonchat:draft:${roomId}`);
   };
 
   const toggleReaction = (messageId, emoji) => {
@@ -8176,7 +7943,7 @@ export default function ChatRoom() {
   };
 
   /* ================= LOCAL DRAFT RETENTION ================= */
-  const draftKey = `cheprabai:draft:${roomId}`;
+  const draftKey = `anonchat:draft:${roomId}`;
 
   // Restore draft on mount
   useEffect(() => {
@@ -8282,7 +8049,7 @@ export default function ChatRoom() {
         next = [...prev, { id: msg.id, text: msg.text, userName: msg.userName, ts: msg.ts, roomId }];
         toast.success("🔖 Message bookmarked!");
       }
-      localStorage.setItem("cheprabai:bookmarks", JSON.stringify(next));
+      localStorage.setItem("anonchat:bookmarks", JSON.stringify(next));
       return next;
     });
   };
@@ -8549,7 +8316,7 @@ export default function ChatRoom() {
       tone: "primary",
       onConfirm: () => {
         try {
-          localStorage.setItem("cheprabai:user-avatar", value);
+          localStorage.setItem("anonchat:user-avatar", value);
           setUserAvatar(value);
           socketRef.current?.emit("updateProfile", { avatar: value });
           toast.success("Profile photo updated.");
@@ -8616,7 +8383,7 @@ export default function ChatRoom() {
         reader.onload = () => {
           try {
             const value = String(reader.result);
-            localStorage.setItem(`cheprabai:room-background:${roomId}`, value);
+            localStorage.setItem(`anonchat:room-background:${roomId}`, value);
             setRoomBackground(value);
             if (scope === "everyone") socketRef.current?.emit("setRoomBackground", { background: value, scope }, (result) => { if (!result?.success) toast.error(result?.error || "Could not update the shared background."); });
             URL.revokeObjectURL(localPreview);
@@ -9756,11 +9523,11 @@ export default function ChatRoom() {
     codeBlocks.forEach((block) => {
       const escapedCodeForHtml = escapeHtml(block.code);
       const regId =
-        typeof window !== "undefined" && typeof window.__cheprabaiRegisterCode === "function"
-          ? window.__cheprabaiRegisterCode(block.code, block.lang || "")
+        typeof window !== "undefined" && typeof window.__anonchatRegisterCode === "function"
+          ? window.__anonchatRegisterCode(block.code, block.lang || "")
           : null;
-      const copyCodeJs = `window.__cheprabaiCopyCodeById && window.__cheprabaiCopyCodeById('${regId}',this)`;
-      const expandJs = `window.__cheprabaiOpenCodeById && window.__cheprabaiOpenCodeById('${regId}')`;
+      const copyCodeJs = `window.__anonchatCopyCodeById && window.__anonchatCopyCodeById('${regId}',this)`;
+      const expandJs = `window.__anonchatOpenCodeById && window.__anonchatOpenCodeById('${regId}')`;
 
       // HTML blocks get a live rendered preview with a UI/Code switch —
       // they're documents, not just text.
@@ -9989,10 +9756,10 @@ export default function ChatRoom() {
                     navigator.clipboard.writeText(codeViewer.code)
                       .then(() => toast.success("📋 All code copied!"))
                       .catch(() => toast.error("Could not copy code"));
-                  } else if (window.__cheprabaiCopyCodeById) {
+                  } else if (window.__anonchatCopyCodeById) {
                     // Reuse the registry path so the fallback also confirms
-                    const id = window.__cheprabaiRegisterCode(codeViewer.code, "");
-                    window.__cheprabaiCopyCodeById(id, null);
+                    const id = window.__anonchatRegisterCode(codeViewer.code, "");
+                    window.__anonchatCopyCodeById(id, null);
                   }
                 }}
                 style={{ marginLeft: "auto", background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.1)", color: "#c9d1d9", cursor: "pointer", fontSize: ".74rem", fontWeight: 600, padding: "5px 12px", borderRadius: 7 }}
@@ -10486,7 +10253,7 @@ export default function ChatRoom() {
                         </div>
                       )}
 
-                      {(userAvatar || roomBackground) && <button type="button" onClick={() => setConfirmation({ title: "Reset your appearance?", body: ownerToken ? "Your profile photo and the owner-managed room background will be removed." : "Your profile photo and local chat background will be removed from this device.", confirmLabel: "Reset appearance", onConfirm: () => { localStorage.removeItem("cheprabai:user-avatar"); localStorage.removeItem(`cheprabai:room-background:${roomId}`); setUserAvatar(""); setRoomBackground(""); socketRef.current?.emit("updateProfile", { avatar: "" }); if (ownerToken) socketRef.current?.emit("setRoomBackground", { background: "", scope: "everyone" }); toast.success("Appearance reset."); } })} style={{ minHeight: 44, borderRadius: 10, border: "1px solid rgba(255,107,107,.35)", color: "#ff9aa2", background: "rgba(255,71,87,.08)", cursor: "pointer", fontSize: ".8rem", fontWeight: 700 }}>Reset appearance</button>}
+                      {(userAvatar || roomBackground) && <button type="button" onClick={() => setConfirmation({ title: "Reset your appearance?", body: ownerToken ? "Your profile photo and the owner-managed room background will be removed." : "Your profile photo and local chat background will be removed from this device.", confirmLabel: "Reset appearance", onConfirm: () => { localStorage.removeItem("anonchat:user-avatar"); localStorage.removeItem(`anonchat:room-background:${roomId}`); setUserAvatar(""); setRoomBackground(""); socketRef.current?.emit("updateProfile", { avatar: "" }); if (ownerToken) socketRef.current?.emit("setRoomBackground", { background: "", scope: "everyone" }); toast.success("Appearance reset."); } })} style={{ minHeight: 44, borderRadius: 10, border: "1px solid rgba(255,107,107,.35)", color: "#ff9aa2", background: "rgba(255,71,87,.08)", cursor: "pointer", fontSize: ".8rem", fontWeight: 700 }}>Reset appearance</button>}
                       <button
                         onClick={exportChat}
                         style={{
@@ -10649,7 +10416,7 @@ export default function ChatRoom() {
             {aiEligible && (
               <ActionButton
                 onClick={toggleAiMode}
-                title={aiCooldownLeft > 0 ? `⏳ CheprabAI cooling down — ${aiCooldownLeft}s` : (aiModeEnabled ? "CheprabAI is ON — click to turn off" : "CheprabAI is OFF — click to turn on")}
+                title={aiCooldownLeft > 0 ? `⏳ AnonChatAI cooling down — ${aiCooldownLeft}s` : (aiModeEnabled ? "AnonChatAI is ON — click to turn off" : "AnonChatAI is OFF — click to turn on")}
                 style={{ color: aiModeEnabled ? "#7c3aed" : "inherit", opacity: aiCooldownLeft > 0 ? 0.55 : 1 }}
               >
                 <Bot size={18} strokeWidth={aiModeEnabled ? 2.4 : 1.6} />
@@ -10942,7 +10709,7 @@ export default function ChatRoom() {
                           </div>
                         ) : (
                           <div style={{ background: "rgba(124,58,237,0.08)", border: "1px solid rgba(124,58,237,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: "0.84rem", lineHeight: 1.55, color: "var(--chakra-colors-textPrimary)", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-                            <div style={{ fontSize: "0.7rem", fontWeight: 700, color: "#7c3aed", marginBottom: 6, letterSpacing: "0.03em" }}>✦ CheprabAI</div>
+                            <div style={{ fontSize: "0.7rem", fontWeight: 700, color: "#7c3aed", marginBottom: 6, letterSpacing: "0.03em" }}>✦ AnonChatAI</div>
                             {(() => {
                               const text = m.file.text || "";
                               // Parse markdown images ![alt](url) and plain image/video URLs
