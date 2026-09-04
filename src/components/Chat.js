@@ -948,6 +948,19 @@ const FEATURE_CATALOG = [
       "Watch parties — synced co-watch",
       "Collaborative whiteboard"
     ]
+  },
+  {
+    group: "AI Assistant",
+    icon: Bot,
+    tint: "#7c3aed",
+    blurb: "CheprabAI — your in-chat copilot.",
+    items: [
+      "/ai prompt with autocomplete popup",
+      "Compose, summarize, translate & explain",
+      "Google Search grounding for real web results",
+      "Inline images & videos rendered in chat",
+      "Key server-side — never exposed to the client"
+    ]
   }
 ];
 
