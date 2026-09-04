@@ -505,7 +505,16 @@ function TourSceneTheme() {
   );
 }
 
-const TOUR_SCENES = { chat: TourSceneChat, vanish: TourSceneVanish, calls: TourSceneCalls, share: TourSceneShare, watch: TourSceneWatch, board: TourSceneBoard, vault: TourSceneVault, poll: TourScenePoll, mention: TourSceneMention, schedule: TourSceneSchedule, export: TourSceneExport, viewonce: TourSceneViewOnce, push: TourScenePush, voicenote: TourSceneVoiceNote, search: TourSceneSearch, voicecall: TourSceneVoiceCall, bg: TourSceneBg, qr: TourSceneQR, presence: TourScenePresence, stealth: TourSceneStealth, offline: TourSceneOffline, fast: TourSceneFast, theme: TourSceneTheme };
+function TourSceneAi() {
+  return (
+    <div className="fe-scene fe-msgscene">
+      <div className="fe-searchbox"><Sparkles size={13} /><span>/ai show me images of cats</span></div>
+      <div style={{ background: "rgba(124,58,237,0.1)", border: "1px solid rgba(124,58,237,0.2)", borderRadius: 8, padding: "6px 10px", fontSize: "0.68rem", color: "#a78bfa", marginTop: 6, lineHeight: 1.4 }}>✦ CheprabAI<br />Here are some cats…</div>
+    </div>
+  );
+}
+
+const TOUR_SCENES = { chat: TourSceneChat, vanish: TourSceneVanish, calls: TourSceneCalls, share: TourSceneShare, watch: TourSceneWatch, board: TourSceneBoard, vault: TourSceneVault, poll: TourScenePoll, mention: TourSceneMention, schedule: TourSceneSchedule, export: TourSceneExport, viewonce: TourSceneViewOnce, push: TourScenePush, voicenote: TourSceneVoiceNote, search: TourSceneSearch, voicecall: TourSceneVoiceCall, bg: TourSceneBg, qr: TourSceneQR, presence: TourScenePresence, stealth: TourSceneStealth, offline: TourSceneOffline, fast: TourSceneFast, theme: TourSceneTheme, ai: TourSceneAi };
 
 function FeatureExplorer() {
   const [active, setActive] = useState(0);
