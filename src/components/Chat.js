@@ -7745,7 +7745,7 @@ export default function ChatRoom() {
       const aiMsgId = `ai-${Date.now()}`;
       setMessages(m => [...m, { id: aiMsgId, userName: "CheprabAI", ts: Date.now(), file: { name: "CheprabAI", type: "ai", loading: true } }]);
       try {
-        const backendUrl = process.env.REACT_APP_BACKEND_URL || "http://localhost:4000";
+        const backendUrl = process.env.REACT_APP_BACKEND_URL || (window.location.hostname === "localhost" ? "http://localhost:4000" : (process.env.REACT_APP_SOCKET_ENDPOINT || "https://cheprabai-backend.vercel.app"));
         const resp = await fetch(`${backendUrl}/api/ai`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
