@@ -225,6 +225,38 @@ const b64ToBytes = (b64) => {
 
 /* ── Full feature catalog — every capability inside AnonChat, grouped ── */
 
+// Classify a URL found in an AI reply so it can be rendered inline:
+// direct images, direct video files, or embeddable players (YouTube, Vimeo, …).
+const classifyMediaUrl = (u) => {
+  const host = (() => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return ""; } })();
+
+  const ytRules = [
+    [/youtu\.be\/([\w-]{11})/, (id) => `https://www.youtube.com/embed/${id}`],
+    [/youtube\.com.*[?&]v=([\w-]{11})/, (id) => `https://www.youtube.com/embed/${id}`],
+    [/youtube\.com\/embed\/([\w-]{11})/, (id) => `https://www.youtube.com/embed/${id}`],
+    [/youtube\.com\/shorts\/([\w-]{11})/, (id) => `https://www.youtube.com/embed/${id}`],
+  ];
+  for (const [re, fn] of ytRules) {
+    const m = u.match(re);
+    if (m) return { type: "embed", url: fn(m[1]) };
+  }
+
+  const vimeo = u.match(/vimeo\.com\/(?:video\/)?(\d+)/i);
+  if (vimeo) return { type: "embed", url: `https://player.vimeo.com/video/${vimeo[1]}` };
+
+  if (/\.(mp4|webm|mov)(\?|$)/i.test(u)) return { type: "video", url: u };
+  if (/\.(jpg|jpeg|png|gif|webp|svg|avif)(\?|$)/i.test(u)) return { type: "image", url: u };
+
+  // Twitch, Dailymotion, SoundCloud, Spotify, etc. as known embeddable hosts
+  const twitch = u.match(/twitch\.tv\/(?:videos\/)?(\d+)/i);
+  if (twitch) return { type: "embed", url: `https://player.twitch.tv/?video=${twitch[1]}&parent=${window.location.hostname}&autoplay=false` };
+  const dailymotion = u.match(/dailymotion\.com\/video\/([a-zA-Z0-9]+)/i);
+  if (dailymotion) return { type: "embed", url: `https://www.dailymotion.com/embed/video/${dailymotion[1]}` };
+
+  void host;
+  return { type: "link", url: u };
+};
+
 
 /* ══════════════════════════════════════════════════════════
    FEATURE EXPLORER — join-screen interactive product tour.
@@ -10831,7 +10863,6 @@ export default function ChatRoom() {
                               // Parse markdown images ![alt](url) and plain image/video URLs
                               const parts = [];
                               const imgRegex = /!\[([^\]]*)\]\(([^)]+)\)/g;
-                              const urlRegex = /(https?:\/\/[^\s<>"]+\.(?:jpg|jpeg|png|gif|webp|svg|mp4|webm|mov))/gi;
                               let lastIdx = 0;
                               let match;
                               // First extract markdown images
@@ -10842,24 +10873,37 @@ export default function ChatRoom() {
                               }
                               if (lastIdx < text.length) {
                                 let remaining = text.slice(lastIdx);
-                                // Then extract plain URLs for images/videos
+                                // Extract plain URLs for images/videos/embeds
+                                const plainUrlRegex = /(https?:\/\/[^\s<>")\]]+)/gi;
                                 const plainParts = [];
                                 let plainLast = 0;
                                 let urlMatch;
-                                while ((urlMatch = urlRegex.exec(remaining)) !== null) {
+                                while ((urlMatch = plainUrlRegex.exec(remaining)) !== null) {
                                   if (urlMatch.index > plainLast) plainParts.push({ type: "text", content: remaining.slice(plainLast, urlMatch.index) });
-                                  const u = urlMatch[1];
-                                  const isVideo = /\.(mp4|webm|mov)$/i.test(u);
-                                  plainParts.push({ type: isVideo ? "video" : "image", url: u, alt: "" });
-                                  plainLast = urlRegex.lastIndex;
+                                  const u = urlMatch[1].replace(/[),.;:]+$/, "");
+                                  const kind = classifyMediaUrl(u);
+                                  if (kind !== "link") {
+                                    plainParts.push({ type: kind.type, url: kind.url || u, alt: "", embed: kind.embed });
+                                  } else {
+                                    plainParts.push({ type: "link", url: u });
+                                  }
+                                  plainLast = urlMatch.lastIndex;
                                 }
                                 if (plainLast < remaining.length) plainParts.push({ type: "text", content: remaining.slice(plainLast) });
                                 parts.push(...plainParts);
                               }
                               return parts.map((p, i) => {
                                 if (p.type === "text") return <span key={i}>{p.content}</span>;
+                                if (p.type === "embed") {
+                                  return (
+                                    <div key={i} style={{ position: "relative", width: "100%", aspectRatio: "16/9", margin: "8px 0", borderRadius: 10, overflow: "hidden", background: "#000" }}>
+                                      <iframe src={p.url} title="video embed" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: 0 }} />
+                                    </div>
+                                  );
+                                }
                                 if (p.type === "video") return <video key={i} src={p.url} controls style={{ maxWidth: "100%", borderRadius: 8, margin: "6px 0" }} />;
-                                return <img key={i} src={p.url} alt={p.alt} style={{ maxWidth: "100%", borderRadius: 8, margin: "6px 0", cursor: "pointer" }} onClick={() => window.open(p.url, "_blank")} />;
+                                if (p.type === "image") return <img key={i} src={p.url} alt={p.alt} style={{ maxWidth: "100%", borderRadius: 8, margin: "6px 0", cursor: "pointer" }} onClick={() => window.open(p.url, "_blank")} />;
+                                return <a key={i} href={p.url} target="_blank" rel="noreferrer" style={{ color: "#7c3aed", textDecoration: "underline", wordBreak: "break-all" }}>{p.url}</a>;
                               });
                             })()}
                             {Array.isArray(m.file.media) && m.file.media.length > 0 && (
