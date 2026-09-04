@@ -5538,20 +5538,16 @@ export default function ChatRoom() {
     URL.revokeObjectURL(url);
   };
 
-  const handleShareQr = async (url, rootEl) => {
-    // Capture the QR as an image. We ALWAYS resolve to the QR image (download or
-    // native file-share) — never fall back to copying the room text, which is
-    // what made tapping the QR look like it "copied the room details" instead of
-    // sharing the QR itself.
+  // Rasterize the QR to a crisp PNG File. ALWAYS resolves to the QR image
+  // (download or native file-share) — never the room text, which is what made
+  // tapping the QR look like it "copied the room details" instead of sharing it.
+  const buildQrFile = (rootEl) => new Promise((resolve, reject) => {
     const svg = (rootEl && rootEl.querySelector("svg")) || document.querySelector(".qr-container-el svg");
     if (!svg) {
-      toast.error("Could not find the QR code to share.");
+      reject(new Error("QR not found"));
       return;
     }
-
     const svgString = new XMLSerializer().serializeToString(svg);
-    // Inject a white background + explicit dimensions into the SVG so the PNG is
-    // never blank and renders at a crisp, shareable size regardless of layout.
     const vb = (svg.getAttribute("viewBox") || "0 0 250 250").split(" ").map(Number);
     const width = Math.max(256, Math.round(vb[2]) || 250);
     const height = Math.max(256, Math.round(vb[3]) || 250);
@@ -5559,10 +5555,8 @@ export default function ChatRoom() {
       svgString.startsWith("<svg")
         ? svgString.replace(/^<svg([^>]*)/, `<svg$1 width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg" style="background:#ffffff"`)
         : svgString;
-
     const svgBlob = new Blob([decorated], { type: "image/svg+xml;charset=utf-8" });
     const SVGURL = URL.createObjectURL(svgBlob);
-
     const image = new Image();
     image.onload = () => {
       try {
@@ -5575,34 +5569,83 @@ export default function ChatRoom() {
         context.drawImage(image, 0, 0, width, height);
         URL.revokeObjectURL(SVGURL);
         canvas.toBlob((blob) => {
-          if (!blob) {
-            toast.error("Could not generate the QR image.");
-            return;
-          }
-          const file = new File([blob], "anonchat-qr.png", { type: "image/png" });
-          if (navigator.canShare && navigator.canShare({ files: [file] })) {
-            navigator.share({ files: [file], title: "Join AnonChat Room", text: `Join my secure AnonChat room: ${url}` })
-              .catch((shareErr) => {
-                if (shareErr && shareErr.name !== "AbortError") downloadBlob(blob);
-              });
-          } else {
-            downloadBlob(blob);
-            toast.success("QR code downloaded!");
-          }
+          if (!blob) { reject(new Error("Could not generate QR image.")); return; }
+          resolve(new File([blob], "anonchat-qr.png", { type: "image/png" }));
         }, "image/png");
       } catch (err) {
         console.error("Error rasterizing QR code:", err);
-        toast.error("Could not generate the QR image.");
+        reject(err);
       }
     };
     image.onerror = () => {
       console.error("QR SVG failed to load for rasterization");
       URL.revokeObjectURL(SVGURL);
-      toast.error("Could not generate the QR image.");
+      reject(new Error("QR image failed to load."));
     };
     image.src = SVGURL;
+  });
+
+  // ── Custom QR share menu ──
+  const [qrShareOpen, setQrShareOpen] = useState(false);
+  const qrShareRootRef = useRef(null);
+  const qrShareurl = window.location.href;
+  const openQrShare = (el) => { qrShareRootRef.current = el; setQrShareOpen(true); };
+  const closeQrShare = () => { setQrShareOpen(false); };
+  const copyRoomLink = async () => {
+    try { await navigator.clipboard.writeText(qrShareurl); toast.success("Room link copied!"); closeQrShare(); }
+    catch { toast.error("Could not copy the link."); }
+  };
+  const mailShare = () => { window.location.href = `mailto:?subject=${encodeURIComponent("Join my AnonChat room")}&body=${encodeURIComponent(`Join my secure AnonChat room: ${qrShareurl}`)}`; closeQrShare(); };
+  const downloadQr = async () => {
+    try {
+      const blob = await buildQrFile(qrShareRootRef.current);
+      downloadBlob(blob);
+      toast.success("QR code downloaded!");
+    } catch (err) {
+      toast.error(err.message || "Could not generate the QR image.");
+    }
+    closeQrShare();
+  };
+  const nativeShareQr = async () => {
+    try {
+      const blob = await buildQrFile(qrShareRootRef.current);
+      const file = new File([blob], "anonchat-qr.png", { type: "image/png" });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        navigator.share({ files: [file], title: "Join AnonChat Room", text: `Join my secure AnonChat room: ${qrShareurl}` })
+          .catch(() => {});
+      } else {
+        await copyRoomLink();
+      }
+    } catch (err) {
+      toast.error(err.message || "Could not share the QR image.");
+    }
+    closeQrShare();
   };
   const isScrollingRef = useRef(false);
+
+  const renderQrShareMenu = () => {
+    if (!qrShareOpen) return null;
+    const canNativeShare = typeof navigator !== "undefined" && !!navigator.canShare;
+    const rowBase = { display: "flex", alignItems: "center", gap: 12, width: "100%", minHeight: 50, padding: "0 12px", borderRadius: 12, border: 0, background: "transparent", color: "inherit", cursor: "pointer", fontSize: "0.9rem", fontWeight: 650, textAlign: "left" };
+    const cell = { width: 34, height: 34, borderRadius: 10, display: "grid", placeItems: "center", fontSize: "1.05rem", flexShrink: 0 };
+    return (
+      <div role="dialog" aria-modal="true" aria-label="Share options" onClick={closeQrShare}
+        style={{ position: "fixed", inset: 0, zIndex: 22500, background: "rgba(0,0,0,.62)", backdropFilter: "blur(6px)", display: "grid", placeItems: "center", padding: 20 }}>
+        <section onClick={(e) => e.stopPropagation()} style={{ width: "min(100%, 360px)", padding: 18, borderRadius: 20, background: "var(--chakra-colors-surface)", border: "1px solid rgba(255,255,255,.05)", boxShadow: "0 24px 80px rgba(0,0,0,.45)" }}>
+          <h3 style={{ margin: "0 0 4px", fontSize: "1.15rem" }}>Share room</h3>
+          <p style={{ margin: "0 0 14px", color: "var(--chakra-colors-textSecondary)", fontSize: "0.82rem" }}>Share the invite link or the QR image with friends.</p>
+          <div style={{ display: "grid", gap: 4 }}>
+            <button type="button" onClick={copyRoomLink} style={rowBase}><span style={{ ...cell, background: "rgba(99,102,241,.16)" }}>🔗</span> Copy link</button>
+            <button type="button" onClick={() => { window.open(`https://wa.me/?text=${encodeURIComponent(`Join my secure AnonChat room: ${window.location.href}`)}`, "_blank"); closeQrShare(); }} style={rowBase}><span style={{ ...cell, background: "rgba(37,211,102,.16)" }}>💬</span> WhatsApp</button>
+            <button type="button" onClick={mailShare} style={rowBase}><span style={{ ...cell, background: "rgba(251,191,36,.16)" }}>✉️</span> Email</button>
+            <button type="button" onClick={downloadQr} style={rowBase}><span style={{ ...cell, background: "rgba(236,72,153,.16)" }}>⬇️</span> Download QR code</button>
+            {canNativeShare && <button type="button" onClick={nativeShareQr} style={rowBase}><span style={{ ...cell, background: "rgba(124,58,237,.16)" }}>⋯</span> More options…</button>}
+          </div>
+          <button type="button" onClick={closeQrShare} style={{ marginTop: 12, width: "100%", minHeight: 44, borderRadius: 11, border: "1px solid rgba(255,255,255,.15)", background: "rgba(255,255,255,.03)", color: "inherit", cursor: "pointer", fontWeight: 700 }}>Close</button>
+        </section>
+      </div>
+    );
+  };
 
   // ── Drag & Drop ──
   const [isDragOver, setIsDragOver] = useState(false);
@@ -9262,7 +9305,7 @@ export default function ChatRoom() {
                   {showLandingQr && (
                     <div 
                       className="qr-container-el"
-                      onClick={(e) => handleShareQr(window.location.href, e.currentTarget)}
+                      onClick={(e) => { e.stopPropagation(); openQrShare(e.currentTarget); }}
                       style={{
                         background: "#ffffff",
                         padding: 16,
@@ -9292,6 +9335,7 @@ export default function ChatRoom() {
           </LandingGrid>
           <FeatureCatalog />
           {renderAvatarCropDialog()}
+          {renderQrShareMenu()}
           {confirmation && <div role="dialog" aria-modal="true" style={{ position: "fixed", inset: 0, zIndex: 23000, background: "rgba(0,0,0,.68)", display: "grid", placeItems: "center", padding: 20 }}><div style={{ width: "min(420px, 100%)", padding: 24, borderRadius: 18, background: "var(--chakra-colors-surface)", border: "1px solid rgba(255,255,255,.05)" }}><h3 style={{ margin: "0 0 8px" }}>{confirmation.title}</h3><p style={{ margin: "0 0 22px", color: "var(--chakra-colors-textSecondary)", lineHeight: 1.5 }}>{confirmation.body}</p><div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}><button type="button" onClick={() => setConfirmation(null)} style={{ minHeight: 44, padding: "9px 14px", borderRadius: 10, border: "1px solid rgba(255,255,255,.15)", background: "transparent", color: "inherit", cursor: "pointer" }}>Cancel</button><button type="button" onClick={() => { confirmation.onConfirm(); setConfirmation(null); }} style={{ minHeight: 44, padding: "9px 14px", borderRadius: 10, border: 0, background: "var(--chakra-colors-brandPrimary)", color: "white", fontWeight: 700, cursor: "pointer" }}>{confirmation.confirmLabel}</button></div></div></div>}
         </LandingWrapper>
       </>
@@ -10007,7 +10051,7 @@ export default function ChatRoom() {
                         }} onClick={(e) => e.stopPropagation()}>
                           <div 
                             className="qr-container-el"
-                            onClick={(e) => handleShareQr(window.location.href, e.currentTarget)}
+                            onClick={(e) => openQrShare(e.currentTarget)}
                             style={{
                               background: "#ffffff",
                               padding: 16,
@@ -12059,6 +12103,7 @@ export default function ChatRoom() {
         )}
 
         {renderAvatarCropDialog()}
+        {renderQrShareMenu()}
         {backgroundTarget && <div role="dialog" aria-modal="true" aria-label="Choose background audience" style={{ position: "fixed", inset: 0, zIndex: 21500, display: "grid", placeItems: "center", padding: 20, background: "rgba(0,0,0,.68)", backdropFilter: "blur(8px)" }}><section style={{ width: "min(100%, 420px)", padding: 24, borderRadius: 18, background: "var(--chakra-colors-surface)", border: "1px solid rgba(255,255,255,.05)" }}><h3 style={{ margin: "0 0 8px" }}>Where should this background apply?</h3><p style={{ margin: "0 0 20px", color: "var(--chakra-colors-textSecondary)", lineHeight: 1.5 }}>Choose a personal background, or enforce one for the whole room.</p><div style={{ display: "grid", gap: 10 }}><button type="button" onClick={() => { const file = backgroundTarget; setBackgroundTarget(null); applyBackgroundChange(file, "personal"); }} style={{ minHeight: 48, borderRadius: 11, border: "1px solid rgba(255,255,255,.15)", background: "rgba(255,255,255,.03)", color: "inherit", cursor: "pointer", fontWeight: 750 }}>Only me</button><button type="button" onClick={() => { const file = backgroundTarget; setBackgroundTarget(null); applyBackgroundChange(file, "everyone"); }} style={{ minHeight: 48, borderRadius: 11, border: 0, background: "var(--chakra-colors-brandPrimary)", color: "white", cursor: "pointer", fontWeight: 800 }}>Everyone in this room</button><button type="button" onClick={() => setBackgroundTarget(null)} style={{ minHeight: 40, border: 0, background: "transparent", color: "var(--chakra-colors-textSecondary)", cursor: "pointer" }}>Cancel</button></div></section></div>}
         {confirmation && (
           <div role="dialog" aria-modal="true" style={{ position: "fixed", inset: 0, zIndex: 21000, background: "rgba(0,0,0,.68)", display: "grid", placeItems: "center", padding: 20 }}>
