@@ -5114,8 +5114,9 @@ export default function ChatRoom() {
   const [cursorPosition, setCursorPosition] = useState(0);
 
   // ── Slash commands ──
+  const aiEligible = roomPlan === "pro" || roomPlan === "enterprise";
   const SLASH_COMMANDS = [
-    { cmd: "/ai", label: "AI Assistant", desc: "Ask CheprabAI anything", icon: "✦" },
+    ...(aiEligible ? [{ cmd: "/ai", label: "AI Assistant", desc: "Ask CheprabAI anything", icon: "✦" }] : []),
   ];
   const [slashSuggestions, setSlashSuggestions] = useState([]);
   const [slashIndex, setSlashIndex] = useState(0);
@@ -7769,6 +7770,12 @@ export default function ChatRoom() {
 
     // ── /ai slash command ────────────────────────────────────────────────────
     if (!customData && message.trim().startsWith("/ai ")) {
+      // AI Assistant is a Pro / Enterprise feature — gate it on the room plan.
+      if (roomPlan !== "pro" && roomPlan !== "enterprise") {
+        toast.info("✦ CheprabAI is available on Pro and Enterprise plans.");
+        setShowPlanModal(true);
+        return;
+      }
       const aiPrompt = message.trim().slice(4).trim();
       if (!aiPrompt) { toast.info("Usage: /ai <your question>"); return; }
       setMessage("");
@@ -7784,7 +7791,7 @@ export default function ChatRoom() {
         const resp = await fetch(`${backendUrl}/api/ai`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ prompt: aiPrompt }),
+          body: JSON.stringify({ prompt: aiPrompt, plan: roomPlan || "free" }),
         });
         const data = await resp.json();
         if (!resp.ok || data.error) throw new Error(data.error || "AI request failed");
