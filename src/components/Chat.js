@@ -46,7 +46,7 @@ import ThemeSwitcher from "./ThemeSwitcher";
 import { sendFileP2P, registerP2PReceiver, P2P_CHUNK_BYTES } from "../p2pFileTransfer";
 import { createDecryptionHtmlTemplate } from "../utils/exportTemplate";
 import { BREAKPOINTS, useIsMobile } from "../hooks/useIsMobile";
-import { AtSign, BarChart3, CalendarClock, Clapperboard, Download, Eye, EyeOff, FileUp, FolderLock, Globe, Hash, Image, KeyRound, LockKeyhole, MessagesSquare, Mic, MonitorUp, Palette, PenTool, Phone, QrCode, ScreenShare, Search, ShieldCheck, Sparkles, Timer, Upload, UserRound, Users, Video, WifiOff, Zap, ArrowRight, Check, Copy } from "lucide-react";
+import { AtSign, BarChart3, Bot, CalendarClock, Clapperboard, Download, Eye, EyeOff, FileUp, FolderLock, Globe, Hash, Image, KeyRound, LockKeyhole, MessagesSquare, Mic, MonitorUp, Palette, PenTool, Phone, QrCode, ScreenShare, Search, ShieldCheck, Sparkles, Timer, Upload, UserRound, Users, Video, WifiOff, Zap, ArrowRight, Check, Copy } from "lucide-react";
 import {
   encryptBinary,
   decryptBinary,
@@ -256,7 +256,7 @@ const TOUR_FEATURES = [
   { id: "offline", icon: WifiOff, label: "Resilient connections", tint: "#0d9488", blurb: "App shell loads instantly and auto-reconnects if your connection drops." },
   { id: "fast", icon: Zap, label: "Lightning relay", tint: "#eab308", blurb: "Realtime relay streams huge files without grinding to a halt." },
   { id: "theme", icon: Sparkles, label: "Chat themes", tint: "#d946ef", blurb: "Recolor the room your way with a tap — even mid-chat." },
-  { id: "ai", icon: Sparkles, label: "AI Assistant", tint: "#7c3aed", blurb: "Type /ai to ask CheprabAI anything — compose, translate, search the web, and more." }
+  { id: "ai", icon: Bot, label: "AI Assistant", tint: "#7c3aed", blurb: "Type /ai to ask CheprabAI anything — compose, translate, search the web, and more." }
 ];
 
 function TourSceneChat() {
