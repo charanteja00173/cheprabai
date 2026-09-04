@@ -5147,8 +5147,16 @@ export default function ChatRoom() {
 
   // ── Slash commands ──
   const aiEligible = roomPlan === "pro" || roomPlan === "enterprise";
+  const [aiModeEnabled, setAiModeEnabled] = useState(() => {
+    try { return localStorage.getItem("cheprabai:aiMode") !== "off"; } catch { return true; }
+  });
+  const toggleAiMode = () => setAiModeEnabled((v) => {
+    const next = !v;
+    try { localStorage.setItem("cheprabai:aiMode", next ? "on" : "off"); } catch {}
+    return next;
+  });
   const SLASH_COMMANDS = [
-    ...(aiEligible ? [{ cmd: "/ai", label: "AI Assistant", desc: "Ask CheprabAI anything", icon: "✦" }] : []),
+    ...(aiEligible && aiModeEnabled ? [{ cmd: "/ai", label: "AI Assistant", desc: "Ask CheprabAI anything", icon: "✦" }] : []),
   ];
   const [slashSuggestions, setSlashSuggestions] = useState([]);
   const [slashIndex, setSlashIndex] = useState(0);
@@ -7806,6 +7814,11 @@ export default function ChatRoom() {
       if (roomPlan !== "pro" && roomPlan !== "enterprise") {
         toast.info("✦ CheprabAI is available on Pro and Enterprise plans.");
         setShowPlanModal(true);
+        return;
+      }
+      // AI can be turned off at will by the user.
+      if (!aiModeEnabled) {
+        toast.info("✦ CheprabAI is turned off. Tap the AI icon in the header to enable it.");
         return;
       }
       const aiPrompt = message.trim().slice(4).trim();
@@ -10571,6 +10584,16 @@ export default function ChatRoom() {
             >
               <FaCrown />
             </ActionButton>
+
+            {aiEligible && (
+              <ActionButton
+                onClick={toggleAiMode}
+                title={aiModeEnabled ? "CheprabAI is ON — click to turn off" : "CheprabAI is OFF — click to turn on"}
+                style={{ color: aiModeEnabled ? "#7c3aed" : "inherit" }}
+              >
+                <Bot size={18} strokeWidth={aiModeEnabled ? 2.4 : 1.6} />
+              </ActionButton>
+            )}
 
             <ActionButton onClick={handleShareRoomLink} title="Copy Invite Link">
               <FaShare />
