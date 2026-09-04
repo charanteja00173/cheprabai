@@ -7737,6 +7737,30 @@ export default function ChatRoom() {
     }
     if (!customData && !message.trim()) return;
 
+    // ── /ai slash command ────────────────────────────────────────────────────
+    if (!customData && message.trim().startsWith("/ai ")) {
+      const aiPrompt = message.trim().slice(4).trim();
+      if (!aiPrompt) { toast.info("Usage: /ai <your question>"); return; }
+      setMessage("");
+      const aiMsgId = `ai-${Date.now()}`;
+      setMessages(m => [...m, { id: aiMsgId, userName: "CheprabAI", ts: Date.now(), file: { name: "CheprabAI", type: "ai", loading: true } }]);
+      try {
+        const backendUrl = process.env.REACT_APP_BACKEND_URL || "http://localhost:4000";
+        const resp = await fetch(`${backendUrl}/api/ai`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt: aiPrompt }),
+        });
+        const data = await resp.json();
+        if (!resp.ok || data.error) throw new Error(data.error || "AI request failed");
+        setMessages(m => m.map(msg => msg.id === aiMsgId ? { ...msg, file: { name: "CheprabAI", type: "ai", text: data.text, loading: false } } : msg));
+      } catch (err) {
+        setMessages(m => m.filter(msg => msg.id !== aiMsgId));
+        toast.error(err.message || "AI request failed.");
+      }
+      return;
+    }
+
     // Code block mode: fence the message unless the user already fenced it
     let textToSend = message;
     if (codeBlockMode && !message.includes("```")) {
@@ -10713,7 +10737,21 @@ export default function ChatRoom() {
 
                 {m.file && (
                   <div style={{ position: "relative", width: "100%", minWidth: 0, flexShrink: 0 }}>
-                    {m.file.loading ? (
+                    {m.file.type === "ai" ? (
+                      <div style={{ padding: isMobile ? "10px 12px" : "12px 14px" }}>
+                        {m.file.loading ? (
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--chakra-colors-textSecondary)", fontSize: "0.82rem" }}>
+                            <span style={{ display: "inline-block", width: 14, height: 14, border: "2px solid #7c3aed", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
+                            Thinking…
+                          </div>
+                        ) : (
+                          <div style={{ background: "rgba(124,58,237,0.08)", border: "1px solid rgba(124,58,237,0.25)", borderRadius: 10, padding: "10px 14px", fontSize: "0.84rem", lineHeight: 1.55, color: "var(--chakra-colors-textPrimary)", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                            <div style={{ fontSize: "0.7rem", fontWeight: 700, color: "#7c3aed", marginBottom: 6, letterSpacing: "0.03em" }}>✦ CheprabAI</div>
+                            {m.file.text || ""}
+                          </div>
+                        )}
+                      </div>
+                    ) : m.file.loading ? (
                       <div style={{ padding: isMobile ? "10px 12px" : "12px 14px" }}>
                         <UploadProgressCard file={m.file} isMobile={isMobile} />
                       </div>
