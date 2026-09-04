@@ -49,6 +49,13 @@ Click-to-play embeds for 13+ platforms — YouTube, Instagram (posts/reels/IGTV)
 - Room themes, custom backgrounds, avatars, room insights (latency, participants)
 - Admin control center: feature flags, moderation, platform settings
 
+### AI Assistant
+- **CheprabAI** — type `/ai <prompt>` to get an instant answer, draft, summary, or translation without leaving the chat
+- Slash-command popup (`/`) with autocomplete, same UX as @mentions
+- Google Search grounding — the AI can find real images and videos from the web and render them inline
+- Privacy-first: the API key lives server-side; prompts are proxied through the backend, never sent directly from the client
+- Rate-limited (12 req/min per IP) to prevent abuse
+
 ### Security hardening
 - Anti-capture guard: black-frame flash + clipboard poisoning on screenshot attempts, print blackout, unfocus shield, traceable watermarks over call video
 - SSRF-hardened link preview service (private-IP/DNS-rebinding blocking, redirect re-validation, size/time caps)
@@ -119,6 +126,8 @@ Runs on `http://localhost:4000` by default.
 | `GIPHY_API_KEY` | no | GIF search (proxied server-side) |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | no | Web Push (generate with `web-push generate-vapid-keys`) |
 | `ADMIN_WHATSAPP_PHONE` / `CALLMEBOT_API_KEY` | no | Admin WhatsApp alerts |
+| `GEMINI_API_KEY` | no | Google Gemini API key for CheprabAI assistant |
+| `GEMINI_MODEL` | no | Gemini model name (default `gemini-2.5-flash`) |
 
 ### Frontend
 
@@ -161,6 +170,7 @@ npx serve -s build          # quick local smoke test
 | `/api/push/vapid` | GET | Web Push public key |
 | `/api/push/subscribe` | POST | Register a push subscription for a room |
 | `/api/push/unsubscribe` | POST | Remove a push subscription |
+| `/api/ai` | POST | AI assistant proxy (Gemini). `{ prompt }` → `{ text }`. Rate-limited, key server-side |
 | `/api/platform/settings` | GET | Public platform feature flags |
 
 Real-time events (Socket.IO): `joinRoom`, `sendMessage`, `newMessage`, `editMessage`, `messageReaction`, `scheduleMessage`, `typing`, call signaling (`join-call`, `user-connected-call`, screen-share/media broadcast events), and more — see `server.js`.

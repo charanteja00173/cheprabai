@@ -255,7 +255,8 @@ const TOUR_FEATURES = [
   { id: "stealth", icon: EyeOff, label: "Stealth blur", tint: "#64748b", blurb: "Blur your chat instantly when someone peeks over your shoulder." },
   { id: "offline", icon: WifiOff, label: "Resilient connections", tint: "#0d9488", blurb: "App shell loads instantly and auto-reconnects if your connection drops." },
   { id: "fast", icon: Zap, label: "Lightning relay", tint: "#eab308", blurb: "Realtime relay streams huge files without grinding to a halt." },
-  { id: "theme", icon: Sparkles, label: "Chat themes", tint: "#d946ef", blurb: "Recolor the room your way with a tap — even mid-chat." }
+  { id: "theme", icon: Sparkles, label: "Chat themes", tint: "#d946ef", blurb: "Recolor the room your way with a tap — even mid-chat." },
+  { id: "ai", icon: Sparkles, label: "AI Assistant", tint: "#7c3aed", blurb: "Type /ai to ask CheprabAI anything — compose, translate, search the web, and more." }
 ];
 
 function TourSceneChat() {
