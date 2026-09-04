@@ -5091,6 +5091,14 @@ export default function ChatRoom() {
   const [showMentionSuggestions, setShowMentionSuggestions] = useState(false);
   const [cursorPosition, setCursorPosition] = useState(0);
 
+  // ── Slash commands ──
+  const SLASH_COMMANDS = [
+    { cmd: "/ai", label: "AI Assistant", desc: "Ask CheprabAI anything", icon: "✦" },
+  ];
+  const [slashSuggestions, setSlashSuggestions] = useState([]);
+  const [slashIndex, setSlashIndex] = useState(0);
+  const [showSlashSuggestions, setShowSlashSuggestions] = useState(false);
+
   // ── Message Forwarding ──
   const [forwardTarget, setForwardTarget] = useState(null);
   const [forwardRoomId, setForwardRoomId] = useState("");
@@ -9003,6 +9011,17 @@ export default function ChatRoom() {
     } else {
       setShowMentionSuggestions(false);
     }
+
+    // Check for / slash command trigger
+    if (lastWord.startsWith("/") && !lastWord.includes("@")) {
+      const query = lastWord.toLowerCase();
+      const matches = SLASH_COMMANDS.filter(c => c.cmd.startsWith(query));
+      setSlashSuggestions(matches);
+      setShowSlashSuggestions(matches.length > 0 && value.length <= 50);
+      setSlashIndex(0);
+    } else {
+      setShowSlashSuggestions(false);
+    }
   };
 
   const handleInputKeyDown = (e) => {
@@ -9019,6 +9038,20 @@ export default function ChatRoom() {
       } else if (e.key === "Escape") {
         e.preventDefault();
         setShowMentionSuggestions(false);
+      }
+    } else if (showSlashSuggestions) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setSlashIndex(prev => (prev + 1) % slashSuggestions.length);
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setSlashIndex(prev => (prev - 1 + slashSuggestions.length) % slashSuggestions.length);
+      } else if (e.key === "Enter" || e.key === "Tab") {
+        e.preventDefault();
+        selectSlash(slashIndex);
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        setShowSlashSuggestions(false);
       }
     } else {
       if (e.key === "Enter" && !e.shiftKey) {
@@ -9040,6 +9073,18 @@ export default function ChatRoom() {
     const newText = textBeforeCursor.slice(0, lastAtIndex) + "@" + selectedUser.name + " " + textAfterCursor;
     setMessage(newText);
     setShowMentionSuggestions(false);
+  };
+
+  const selectSlash = (index) => {
+    if (index < 0 || index >= slashSuggestions.length) return;
+    const cmd = slashSuggestions[index].cmd;
+    setMessage(cmd + " ");
+    setShowSlashSuggestions(false);
+    // Focus the input so the user can immediately start typing their prompt
+    setTimeout(() => {
+      const input = document.querySelector('#message-input') || document.querySelector('textarea');
+      if (input) { input.focus(); const len = input.value.length; try { input.setSelectionRange(len, len); } catch {} }
+    }, 0);
   };
 
   /* ================= UI ================= */
@@ -11596,6 +11641,53 @@ export default function ChatRoom() {
                     </div>
                   );
                 })}
+              </div>
+            )}
+
+            {showSlashSuggestions && slashSuggestions.length > 0 && (
+              <div
+                style={{
+                  position: "absolute",
+                  bottom: "calc(100% + 4px)",
+                  left: isMobile ? 12 : 24,
+                  right: isMobile ? 12 : 24,
+                  background: "rgba(20, 20, 25, 0.95)",
+                  backdropFilter: "blur(20px)",
+                  border: "1px solid rgba(124,58,237,0.25)",
+                  borderRadius: "14px",
+                  boxShadow: "0 -8px 24px rgba(0,0,0,0.4), 0 10px 30px rgba(0,0,0,0.3)",
+                  maxHeight: "200px",
+                  overflowY: "auto",
+                  zIndex: 21000,
+                  display: "flex",
+                  flexDirection: "column",
+                  padding: "6px"
+                }}
+              >
+                {slashSuggestions.map((cmd, idx) => (
+                  <div
+                    key={cmd.cmd}
+                    onClick={() => selectSlash(idx)}
+                    style={{
+                      padding: "8px 12px",
+                      borderRadius: "8px",
+                      cursor: "pointer",
+                      background: idx === slashIndex ? "rgba(124,58,237,0.15)" : "transparent",
+                      color: idx === slashIndex ? "#a78bfa" : "var(--chakra-colors-textPrimary)",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "10px",
+                      transition: "all 0.2s ease",
+                      fontWeight: idx === slashIndex ? "bold" : "normal"
+                    }}
+                  >
+                    <span style={{ fontSize: "1rem", width: 24, textAlign: "center", flexShrink: 0 }}>{cmd.icon}</span>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: "0.88rem", fontWeight: 700 }}>{cmd.cmd}</div>
+                      <div style={{ fontSize: "0.72rem", opacity: 0.55 }}>{cmd.desc}</div>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
 
