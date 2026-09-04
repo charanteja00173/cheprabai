@@ -7848,6 +7848,33 @@ export default function ChatRoom() {
       return;
     }
 
+    // ── AI MODE: when enabled, every plain text message is answered by the AI ──
+    if (!customData && aiModeEnabled && (roomPlan === "pro" || roomPlan === "enterprise") && !message.trim().startsWith("/") && !message.trim().startsWith("```")) {
+      const aiPrompt = message.trim();
+      setMessage("");
+      const userMsgId = `ai-q-${Date.now()}`;
+      const aiMsgId = `ai-a-${Date.now()}`;
+      setMessages(m => [...m,
+        { id: userMsgId, userName, ts: Date.now(), text: aiPrompt },
+        { id: aiMsgId, userName: "CheprabAI", ts: Date.now(), file: { name: "CheprabAI", type: "ai", loading: true } }
+      ]);
+      try {
+        const backendUrl = process.env.REACT_APP_BACKEND_URL || (window.location.hostname === "localhost" ? "http://localhost:4000" : (process.env.REACT_APP_SOCKET_ENDPOINT || "https://cheprabai-backend.vercel.app"));
+        const resp = await fetch(`${backendUrl}/api/ai`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt: aiPrompt, plan: roomPlan || "free" }),
+        });
+        const data = await resp.json();
+        if (!resp.ok || data.error) throw new Error(data.error || "AI request failed");
+        setMessages(m => m.map(msg => msg.id === aiMsgId ? { ...msg, file: { name: "CheprabAI", type: "ai", text: data.text, media: Array.isArray(data.media) ? data.media : null, loading: false } } : msg));
+      } catch (err) {
+        setMessages(m => m.filter(msg => msg.id !== aiMsgId));
+        toast.error(err.message || "AI request failed.");
+      }
+      return;
+    }
+
     // Code block mode: fence the message unless the user already fenced it
     let textToSend = message;
     if (codeBlockMode && !message.includes("```")) {
