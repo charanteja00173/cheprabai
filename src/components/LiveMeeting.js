@@ -78,8 +78,8 @@ const MeetingContainer = styled.div`
     inset: auto;
     bottom: 24px;
     right: 24px;
-    width: 320px;
-    height: 190px;
+    width: 220px;
+    height: 130px;
     border-radius: 16px;
     box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255,255,255,0.07);
     cursor: grab;
@@ -2592,8 +2592,8 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
       const boundsPadding = 10;
       const isCompact = window.matchMedia(`(max-width: ${BREAKPOINTS.lg}px)`).matches;
-      const pipWidth = isCompact ? 260 : 320;
-      const pipHeight = isCompact ? 160 : 190;
+      const pipWidth = isCompact ? 150 : 220;
+      const pipHeight = isCompact ? 90 : 130;
       const initialRight = isCompact ? 16 : 24;
       const initialBottom = isCompact ? 16 : 24;
 
@@ -4441,7 +4441,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         data-pip-container={isMinimized ? "" : undefined}
         style={isMinimized ? (() => {
           const w = window.innerWidth;
-          const base = w <= 480 ? { width: 160, height: 100 } : w <= 768 ? { width: 200, height: 120 } : { width: 320, height: 190 };
+          const base = w <= 480 ? { width: 120, height: 75 } : w <= 768 ? { width: 150, height: 90 } : { width: 220, height: 130 };
           return {
             transform: `translate3d(${pipPositionRef.current.x}px, ${pipPositionRef.current.y}px, 0)`,
             width: `${Math.round(base.width * pipScale)}px`,
