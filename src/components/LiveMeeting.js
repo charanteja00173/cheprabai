@@ -1577,6 +1577,12 @@ const FileStreamControlsCard = styled.div`
   z-index: 1000;
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 
+  &.ctrls-hidden {
+    opacity: 0;
+    transform: translateY(18px);
+    pointer-events: none;
+  }
+
   @media (max-width: ${BREAKPOINTS.lg}px) {
     left: 12px;
     right: 12px;
@@ -2360,6 +2366,10 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const [fileStreamName, setFileStreamName] = useState("");
   const [fileStreamSpeed, setFileStreamSpeed] = useState(1);
   const [fileStreamVolume, setFileStreamVolume] = useState(1);
+  const [fileCtrlsHidden, setFileCtrlsHidden] = useState(false);
+  // Pro auto-hide: in fullscreen/theater the stream controls fade away after a
+  // moment of inactivity and are revealed on any pointer/touch activity (hover
+  // on desktop, tap on mobile). Normal (windowed) view keeps them always visible.
   const [showStreamModal, setShowStreamModal] = useState(false);
   const [streamUrlInput, setStreamUrlInput] = useState("");
   const [coWatch, setCoWatch] = useState(null);
@@ -2450,6 +2460,32 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   // 🎬 Theater mode: fullscreen stage + right rail of participant cards + bottom-right focus card
   const [theaterMode, setTheaterMode] = useState(false);
   const [focusPeerId, setFocusPeerId] = useState(null);
+
+  // Pro auto-hide: in fullscreen/theater the stream controls fade away after a
+  // moment of inactivity and are revealed on any pointer/touch activity (hover
+  // on desktop, tap on mobile). Normal (windowed) view keeps them always visible.
+  useEffect(() => {
+    if (!isFileStreaming || !(isFullscreen || theaterMode)) {
+      setFileCtrlsHidden(false);
+      return undefined;
+    }
+    let hideTimer = null;
+    const wake = () => {
+      setFileCtrlsHidden(false);
+      if (hideTimer) clearTimeout(hideTimer);
+      hideTimer = setTimeout(() => setFileCtrlsHidden(true), 2600);
+    };
+    wake();
+    document.addEventListener("pointermove", wake, { passive: true });
+    document.addEventListener("pointerdown", wake);
+    document.addEventListener("touchstart", wake, { passive: true });
+    return () => {
+      document.removeEventListener("pointermove", wake);
+      document.removeEventListener("pointerdown", wake);
+      document.removeEventListener("touchstart", wake);
+      if (hideTimer) clearTimeout(hideTimer);
+    };
+  }, [isFileStreaming, isFullscreen, theaterMode]);
 
   const toggleMinimizePeer = useCallback((peerId) => {
     setMinimizedPeers(prev => {
@@ -5415,7 +5451,7 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
         {/* File Streaming Playback Controls (Host Only) */}
         {isFileStreaming && isRoomHost && (
-          <FileStreamControlsCard className="file-stream-controls">
+          <FileStreamControlsCard className={`file-stream-controls${fileCtrlsHidden ? " ctrls-hidden" : ""}`}>
             {/* Row 1: Title + Stop */}
             <div className="stream-header">
               <div className="stream-info">

@@ -212,6 +212,22 @@ const b64ToBytes = (b64) => {
 
 /* ── Full feature catalog — every capability inside AnonChat, grouped ── */
 
+// Composite identity for dedup that survives reconnects/replays even when a
+// message arrives without a server id (or with a regenerated one). Two rows are
+// "the same" only if they share the server id, OR share sender + timestamp +
+// content — this keeps repeated identical messages out of the feed.
+const stableMsgKey = (m) => {
+  if (!m) return "";
+  if (m.id) return `id:${m.id}`;
+  const content = m.text
+    || m.file?.url || m.file?.name
+    || (m.poll ? JSON.stringify(m.poll) : "")
+    || (m.gift ? JSON.stringify(m.gift) : "")
+    || (m.question ? m.question : "")
+    || JSON.stringify(m.payload || {});
+  return `local:${m.userName}|${m.ts}|${content}`;
+};
+
 // Classify a URL found in an AI reply so it can be rendered inline:
 // direct images, direct video files, or embeddable players (YouTube, Vimeo, …).
 const classifyMediaUrl = (u) => {
@@ -6553,9 +6569,9 @@ export default function ChatRoom() {
           m.file && (m.file.loading || m.file.progress !== undefined));
         const seen = new Set();
         return [...keepLocal, ...cached, ...formatted].filter(m => {
-          if (!m.id) return true;
-          if (seen.has(m.id)) return false;
-          seen.add(m.id);
+          const k = stableMsgKey(m);
+          if (seen.has(k)) return false;
+          seen.add(k);
           return true;
         });
       });
@@ -6590,8 +6606,8 @@ export default function ChatRoom() {
         return item;
       })).then(r => r.filter(Boolean)));
       setMessages(prev => {
-        const have = new Set(prev.map(m => m.id).filter(Boolean));
-        const fresh = formatted.filter(f => !f.id || !have.has(f.id));
+        const have = new Set(prev.map(stableMsgKey));
+        const fresh = formatted.filter(f => !have.has(stableMsgKey(f)));
         return [...fresh, ...prev];
       });
       setHasMoreMessages(hasMore);
@@ -6639,7 +6655,10 @@ export default function ChatRoom() {
           };
         }
       }
-      setMessages((m) => m.some((x) => formattedMsg.id && x.id === formattedMsg.id) ? m : [...m, formattedMsg]);
+      setMessages((m) => {
+        const k = stableMsgKey(formattedMsg);
+        return m.some((x) => stableMsgKey(x) === k) ? m : [...m, formattedMsg];
+      });
       if (formattedMsg.id && formattedMsg.userName !== un) socketRef.current.emit("messageViewed", { messageId: formattedMsg.id });
       if (msg.userName !== un) {
         if (!muteSoundsRef.current) {
