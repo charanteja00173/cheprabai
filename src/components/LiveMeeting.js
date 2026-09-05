@@ -10,6 +10,7 @@ import {
   FaTrash, FaVolumeUp, FaVolumeMute, FaVolumeDown, FaChartLine, FaCrown,
   FaLeaf, FaBolt, FaHeadphones, FaGem, FaExclamationTriangle,
   FaPlay, FaPause, FaPlayCircle,
+  FaPhotoVideo,
   FaRedo, FaUndo, FaStop, FaThumbtack,
   FaMagic, FaPalette, FaPlus, FaMinus
 } from "react-icons/fa";
@@ -1560,14 +1561,13 @@ const WidgetNameTag = styled.div`
 
 const FileStreamControlsCard = styled.div`
   position: absolute;
-  bottom: 80px;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 16px;
+  right: 16px;
+  bottom: 84px;
   background: linear-gradient(135deg, rgba(17, 19, 32, 0.97), rgba(10, 11, 20, 0.99));
   border: 1px solid rgba(129, 140, 248, 0.15);
-  border-radius: 14px;
+  border-radius: 16px;
   padding: 12px 16px;
-  width: min(90vw, 420px);
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
@@ -1578,27 +1578,28 @@ const FileStreamControlsCard = styled.div`
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 
   @media (max-width: ${BREAKPOINTS.lg}px) {
-    bottom: 70px;
-    width: min(92vw, 380px);
+    left: 12px;
+    right: 12px;
+    bottom: 74px;
     padding: 10px 14px;
     gap: 6px;
-    border-radius: 12px;
+    border-radius: 14px;
   }
 
   @media (max-width: ${BREAKPOINTS.md}px) {
-    bottom: auto;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    width: min(94vw, 340px);
+    left: 8px;
+    right: 8px;
+    bottom: 82px;
     padding: 10px 12px;
-    border-radius: 12px;
+    border-radius: 14px;
   }
 
   @media (max-width: ${BREAKPOINTS.xs}px) {
-    width: calc(100vw - 16px);
+    left: 6px;
+    right: 6px;
     padding: 8px 10px;
     gap: 5px;
-    border-radius: 10px;
+    border-radius: 12px;
   }
 
   .stream-header {
@@ -1649,12 +1650,21 @@ const FileStreamControlsCard = styled.div`
       
       &::-webkit-slider-thumb {
         -webkit-appearance: none;
-        width: 12px;
-        height: 12px;
+        width: 15px;
+        height: 15px;
         border-radius: 50%;
         background: #818cf8;
         cursor: pointer;
-        box-shadow: 0 0 6px rgba(129, 140, 248, 0.5);
+        box-shadow: 0 0 8px rgba(129, 140, 248, 0.6);
+      }
+      &::-moz-range-thumb {
+        width: 15px;
+        height: 15px;
+        border-radius: 50%;
+        background: #818cf8;
+        cursor: pointer;
+        border: none;
+        box-shadow: 0 0 8px rgba(129, 140, 248, 0.6);
       }
     }
   }
@@ -1773,22 +1783,22 @@ const FileStreamControlsCard = styled.div`
   }
 
   @media (max-width: ${BREAKPOINTS.sm}px) {
-    .stream-info { font-size: 0.68rem; }
-    .stream-time { gap: 4px; font-size: 0.65rem; }
-    .controls-group { gap: 3px; }
+    .stream-info { font-size: 0.7rem; }
+    .stream-time { gap: 4px; font-size: 0.66rem; }
+    .controls-group { gap: 4px; }
 
     .ctrl-btn {
-      width: 30px;
-      height: 30px;
-      border-radius: 7px;
-      font-size: 0.7rem;
-      &.play-btn { width: 38px; height: 38px; font-size: 0.85rem; }
-      &.speed-btn { padding: 0 6px; font-size: 0.62rem; }
+      width: 36px;
+      height: 36px;
+      border-radius: 9px;
+      font-size: 0.76rem;
+      &.play-btn { width: 44px; height: 44px; font-size: 0.95rem; }
+      &.speed-btn { padding: 0 8px; font-size: 0.66rem; }
     }
 
     .volume-control {
-      padding: 2px 5px;
-      .vol-slider { width: 36px; }
+      padding: 3px 6px;
+      .vol-slider { width: 38px; }
     }
   }
 `;
@@ -2371,6 +2381,39 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const watchAnchorRef = useRef(null); // { remoteTs, position, playing }
   const watchFlyRef = useRef(null);
 
+  // Native always-on-top Picture-in-Picture for the watch party video
+  const [watchPiP, setWatchPiP] = useState(false);
+  const toggleWatchPiP = useCallback(async () => {
+    const v = watchVideoRef.current;
+    if (!v) return;
+    try {
+      if (document.pictureInPictureElement === v) {
+        await document.exitPictureInPicture();
+        return;
+      }
+      if (typeof v.requestPictureInPicture === "function") {
+        await v.requestPictureInPicture();
+        toast.success("Floating on top — keep watching anywhere");
+        return;
+      }
+    } catch { /* PiP unavailable below — inform the user */ }
+    toast.info("Picture-in-picture isn't supported in this browser");
+  }, []);
+
+  // Keep the button in sync if the PiP window's own close button is used
+  useEffect(() => {
+    const v = watchVideoRef.current;
+    if (!v || typeof v.addEventListener !== "function") return undefined;
+    const onEnter = () => setWatchPiP(true);
+    const onLeave = () => setWatchPiP(false);
+    v.addEventListener("enterpictureinpicture", onEnter);
+    v.addEventListener("leavepictureinpicture", onLeave);
+    return () => {
+      v.removeEventListener("enterpictureinpicture", onEnter);
+      v.removeEventListener("leavepictureinpicture", onLeave);
+    };
+  }, [watchTogether]);
+
   const startWatchTogether = useCallback((url, name) => {
     let pretty = name;
     if (!pretty) {
@@ -2384,6 +2427,10 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
   const stopWatchTogether = useCallback(() => {
     setWatchTogether(null);
+    setWatchPiP(false);
+    if (document.pictureInPictureElement && typeof document.exitPictureInPicture === "function") {
+      document.exitPictureInPicture().catch(() => {});
+    }
     watchAnchorRef.current = null;
     if (watchFlyRef.current) { clearInterval(watchFlyRef.current); watchFlyRef.current = null; }
     if (socket && typeof socket.emit === "function") socket.emit("syncMedia", { action: "stop", ts: Date.now() });
@@ -4683,9 +4730,11 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                           </span>
                         </TheaterBadgeRow>
 
-                        <TheaterCloseBtn onClick={exitTheater} title="Exit fullscreen (Esc)">
+                        {theaterMode && (
+                        <TheaterCloseBtn onClick={exitTheater} title="Exit theater view (Esc)">
                           <FaTimes />
                         </TheaterCloseBtn>
+                        )}
 
                         {showAvatar ? (
                           <AvatarPlaceholder>
@@ -5883,6 +5932,27 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                 ) : (
                   <span style={{ marginLeft: "auto", fontSize: ".7rem", color: "rgba(255,255,255,.5)", fontWeight: 600 }}>Synced with host · press Esc to view meeting</span>
                 )}
+                <button
+                  type="button"
+                  onClick={toggleWatchPiP}
+                  title={watchPiP ? "Exit picture-in-picture" : "Pop out to always-on-top picture-in-picture (keep watching while minimized)"}
+                  style={{
+                    background: watchPiP ? "rgba(129,140,248,0.25)" : "rgba(255,255,255,0.1)",
+                    border: "1px solid rgba(255,255,255,0.15)",
+                    color: watchPiP ? "#c7d2fe" : "#fff",
+                    fontWeight: 700,
+                    fontSize: ".74rem",
+                    padding: "6px 12px",
+                    borderRadius: 999,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6
+                  }}
+                >
+                  {watchPiP ? <FaCompress /> : <FaPhotoVideo />}
+                  {watchPiP ? "Exit PiP" : "PiP"}
+                </button>
                 <button
                   type="button"
                   onClick={() => { if (isRoomHost) stopWatchTogether(); }}
