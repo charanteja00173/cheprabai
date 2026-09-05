@@ -45,7 +45,7 @@ import ThemeSwitcher from "./ThemeSwitcher";
 import { sendFileP2P, registerP2PReceiver, P2P_CHUNK_BYTES } from "../p2pFileTransfer";
 import { createDecryptionHtmlTemplate } from "../utils/exportTemplate";
 import { BREAKPOINTS, useIsMobile } from "../hooks/useIsMobile";
-import { AtSign, BarChart3, Bot, CalendarClock, Clapperboard, Download, Eye, EyeOff, FileUp, FolderLock, Globe, Hash, Image, KeyRound, LockKeyhole, MessagesSquare, Mic, MonitorUp, Palette, PenTool, Phone, QrCode, ScreenShare, Search, ShieldCheck, Sparkles, Timer, Upload, UserRound, Users, Video, WifiOff, Zap, ArrowRight, Check, Copy } from "lucide-react";
+import { AtSign, BarChart3, Bot, CalendarClock, Clapperboard, Download, Eye, EyeOff, FileUp, FolderLock, Globe, Hash, KeyRound, LockKeyhole, MessagesSquare, Mic, MonitorUp, Palette, PenTool, Phone, QrCode, ScreenShare, Search, ShieldCheck, Sparkles, Timer, Upload, UserRound, Users, Video, WifiOff, Zap, ArrowRight, Check, Copy } from "lucide-react";
 import {
   decryptBinary,
   exportKey,
@@ -5573,7 +5573,7 @@ export default function ChatRoom() {
         : svgString;
     const svgBlob = new Blob([decorated], { type: "image/svg+xml;charset=utf-8" });
     const SVGURL = URL.createObjectURL(svgBlob);
-    const image = new Image();
+    const image = new window.Image();
     image.onload = () => {
       try {
         const canvas = document.createElement("canvas");
@@ -5610,6 +5610,22 @@ export default function ChatRoom() {
   const copyRoomLink = async () => {
     try { await navigator.clipboard.writeText(qrShareurl); toast.success("Room link copied!"); closeQrShare(); }
     catch { toast.error("Could not copy the link."); }
+  };
+  const whatsappShareQr = async () => {
+    try {
+      const blob = await buildQrFile(qrShareRootRef.current);
+      const file = new File([blob], "anonchat-qr.png", { type: "image/png" });
+      const text = `Join my secure AnonChat room: ${qrShareurl}`;
+      if (navigator.canShare && navigator.canShare({ files: [file], text })) {
+        navigator.share({ files: [file], title: "Join AnonChat Room", text })
+          .catch(() => {});
+      } else {
+        window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+      }
+    } catch (err) {
+      window.open(`https://wa.me/?text=${encodeURIComponent(`Join my secure AnonChat room: ${qrShareurl}`)}`, "_blank");
+    }
+    closeQrShare();
   };
   const mailShare = () => { window.location.href = `mailto:?subject=${encodeURIComponent("Join my AnonChat room")}&body=${encodeURIComponent(`Join my secure AnonChat room: ${qrShareurl}`)}`; closeQrShare(); };
   const downloadQr = async () => {
@@ -5652,7 +5668,7 @@ export default function ChatRoom() {
           <p style={{ margin: "0 0 14px", color: "var(--chakra-colors-textSecondary)", fontSize: "0.82rem" }}>Share the invite link or the QR image with friends.</p>
           <div style={{ display: "grid", gap: 4 }}>
             <button type="button" onClick={copyRoomLink} style={rowBase}><span style={{ ...cell, background: "rgba(99,102,241,.16)" }}>🔗</span> Copy link</button>
-            <button type="button" onClick={() => { window.open(`https://wa.me/?text=${encodeURIComponent(`Join my secure AnonChat room: ${window.location.href}`)}`, "_blank"); closeQrShare(); }} style={rowBase}><span style={{ ...cell, background: "rgba(37,211,102,.16)" }}>💬</span> WhatsApp</button>
+            <button type="button" onClick={whatsappShareQr} style={rowBase}><span style={{ ...cell, background: "rgba(37,211,102,.16)" }}>💬</span> WhatsApp</button>
             <button type="button" onClick={mailShare} style={rowBase}><span style={{ ...cell, background: "rgba(251,191,36,.16)" }}>✉️</span> Email</button>
             <button type="button" onClick={downloadQr} style={rowBase}><span style={{ ...cell, background: "rgba(236,72,153,.16)" }}>⬇️</span> Download QR code</button>
             {canNativeShare && <button type="button" onClick={nativeShareQr} style={rowBase}><span style={{ ...cell, background: "rgba(124,58,237,.16)" }}>⋯</span> More options…</button>}
@@ -7512,7 +7528,7 @@ export default function ChatRoom() {
     return new Promise((resolve) => {
       const reader = new FileReader();
       reader.onload = (e) => {
-        const img = new Image();
+        const img = new window.Image();
         img.onload = () => {
           const canvas = document.createElement("canvas");
           let width = img.width;
@@ -8395,7 +8411,7 @@ export default function ChatRoom() {
 
   const confirmAvatarCrop = () => {
     if (!avatarCrop) return;
-    const imageElement = new Image();
+    const imageElement = new window.Image();
     imageElement.onload = () => {
       const sourceSize = Math.min(imageElement.naturalWidth, imageElement.naturalHeight) / avatarCrop.zoom;
       const startX = (imageElement.naturalWidth - sourceSize) / 2;

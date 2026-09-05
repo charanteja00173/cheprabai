@@ -1882,10 +1882,17 @@ const createMixedStream = (mainStream, cameraStream, options = {}) => {
 
       // Draw camera track in corner if camera is enabled (not muted/black)
       if (cameraVideo.readyState >= 2 && cameraVideoTrack.enabled) {
-        const pipW = 240;
-        const pipH = 135;
-        const x = canvas.width - pipW - 24;
-        const y = canvas.height - pipH - 24;
+        const pipW = Math.max(110, Math.round(outW * 0.12));
+        const pipH = Math.round(pipW * 9 / 16);
+        const pos = (options.getPipPos && options.getPipPos()) || null;
+        let x, y;
+        if (pos && typeof pos.x === "number") {
+          x = Math.max(0, Math.min(canvas.width - pipW, pos.x * canvas.width));
+          y = Math.max(0, Math.min(canvas.height - pipH, pos.y * canvas.height));
+        } else {
+          x = canvas.width - pipW - 24;
+          y = canvas.height - pipH - 24;
+        }
 
         ctx.save();
         ctx.shadowColor = "rgba(0, 0, 0, 0.4)";
@@ -2487,6 +2494,56 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     };
   }, [isFileStreaming, isFullscreen, theaterMode]);
 
+  // ── Draggable camera self-view PiP (composited into the shared screen) ──
+  // Normalized position of the camera chip in the composed stream; null = default corner.
+  const cameraPipPosRef = useRef(null);
+  const camDragRef = useRef(null);
+  const onCamPipPointerDown = useCallback((e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const base = cameraPipPosRef.current || { x: 0.82, y: 0.88 };
+    camDragRef.current = { startX: e.clientX, startY: e.clientY, baseX: base.x, baseY: base.y, w: rect.width, h: rect.height };
+    e.preventDefault();
+  }, []);
+  const onCamPipPointerMove = useCallback((e) => {
+    const d = camDragRef.current;
+    if (!d) return;
+    const nx = d.baseX + (e.clientX - d.startX) / d.w;
+    const ny = d.baseY + (e.clientY - d.startY) / d.h;
+    cameraPipPosRef.current = { x: Math.max(0.02, Math.min(0.98, nx)), y: Math.max(0.02, Math.min(0.98, ny)) };
+  }, []);
+  const endCamPipDrag = useCallback(() => { camDragRef.current = null; }, []);
+
+  // ── Native always-on-top PiP for the host's file stream player ──
+  const [fileStreamPip, setFileStreamPip] = useState(false);
+  const toggleFileStreamPip = useCallback(async () => {
+    const v = fileVideoRef.current;
+    if (!v) return;
+    try {
+      if (document.pictureInPictureElement === v) {
+        await document.exitPictureInPicture();
+        return;
+      }
+      if (typeof v.requestPictureInPicture === "function") {
+        await v.requestPictureInPicture();
+        toast.success("Floating on top — keep watching anywhere");
+        return;
+      }
+    } catch { /* PiP may be unavailable below */ }
+    toast.info("Picture-in-picture isn't supported in this browser");
+  }, []);
+  useEffect(() => {
+    const v = fileVideoRef.current;
+    if (!v || typeof v.addEventListener !== "function") return undefined;
+    const onEnter = () => setFileStreamPip(true);
+    const onLeave = () => setFileStreamPip(false);
+    v.addEventListener("enterpictureinpicture", onEnter);
+    v.addEventListener("leavepictureinpicture", onLeave);
+    return () => {
+      v.removeEventListener("enterpictureinpicture", onEnter);
+      v.removeEventListener("leavepictureinpicture", onLeave);
+    };
+  }, [isFileStreaming]);
+
   const toggleMinimizePeer = useCallback((peerId) => {
     setMinimizedPeers(prev => {
       const next = new Set(prev);
@@ -2629,6 +2686,8 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
   // ── Theater / streaming rail: pick a sensible default focus participant ──
   const railVisible = theaterMode || isFileStreaming;
+  // Local sharer can drag the composited camera self-view around the theater stage
+  const camPipDragActive = isFileStreaming || window.__anonchatScreenSharing === true;
   useEffect(() => {
     if (railVisible) {
       setFocusPeerId(prev => {
@@ -3936,7 +3995,8 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       const mixed = createMixedStream(screenStream, localStreamRef.current, {
         mixAudio: true,
         getVideoFilter: () => videoFilterRef.current,
-        getVoiceFilter: () => voiceFilterRef.current
+        getVoiceFilter: () => voiceFilterRef.current,
+        getPipPos: () => cameraPipPosRef.current
       });
       mixedStreamRef.current = mixed.stream;
       mixedStreamCleanupRef.current = mixed.cleanup;
@@ -4082,7 +4142,8 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
       const mixed = createMixedStream(stream, localStreamRef.current, {
         mixAudio: true,
         getVideoFilter: () => videoFilterRef.current,
-        getVoiceFilter: () => voiceFilterRef.current
+        getVoiceFilter: () => voiceFilterRef.current,
+        getPipPos: () => cameraPipPosRef.current
       });
       fileStreamRef.current = mixed.stream;
         mixedStreamCleanupRef.current = mixed.cleanup;
@@ -4242,7 +4303,8 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     const mixed = createMixedStream(stream, localStreamRef.current, {
       mixAudio: true,
       getVideoFilter: () => videoFilterRef.current,
-      getVoiceFilter: () => voiceFilterRef.current
+      getVoiceFilter: () => voiceFilterRef.current,
+      getPipPos: () => cameraPipPosRef.current
     });
     fileStreamRef.current = mixed.stream;
     mixedStreamCleanupRef.current = mixed.cleanup;
@@ -4766,18 +4828,26 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                           </span>
                         </TheaterBadgeRow>
 
-                        {/* {theaterMode && (
+                        {theaterMode && (
                         <TheaterCloseBtn onClick={exitTheater} title="Exit theater view (Esc)">
                           <FaTimes />
                         </TheaterCloseBtn>
-                        )} */}
+                        )}
 
                         {showAvatar ? (
                           <AvatarPlaceholder>
                             <div className="circle">{getInitials(isLocal ? userName : info?.name)}</div>
                           </AvatarPlaceholder>
                         ) : isLocal ? (
-                          <video ref={localVideoCallbackRef} autoPlay playsInline muted />
+                          <video
+                            ref={localVideoCallbackRef}
+                            autoPlay playsInline muted
+                            style={camPipDragActive ? { cursor: "grab", touchAction: "none" } : undefined}
+                            onPointerDown={camPipDragActive ? onCamPipPointerDown : undefined}
+                            onPointerMove={camPipDragActive ? onCamPipPointerMove : undefined}
+                            onPointerUp={camPipDragActive ? endCamPipDrag : undefined}
+                            onPointerCancel={camPipDragActive ? endCamPipDrag : undefined}
+                          />
                         ) : (
                           <video ref={makeRemoteVideoRef(spotlightPeerId, info)} autoPlay playsInline />
                         )}
@@ -5479,9 +5549,14 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
 
             {/* Row 3: Speed | Skip/Play Controls | Volume */}
             <div className="stream-footer">
-              <button className="ctrl-btn speed-btn" onClick={cycleFileStreamSpeed} title="Playback Speed">
-                {fileStreamSpeed}x
-              </button>
+              <div className="controls-group">
+                <button className="ctrl-btn" onClick={toggleFileStreamPip} title={fileStreamPip ? "Exit Picture-in-Picture" : "Picture-in-Picture"}>
+                  {fileStreamPip ? <FaCompress /> : <FaPhotoVideo />}
+                </button>
+                <button className="ctrl-btn speed-btn" onClick={cycleFileStreamSpeed} title="Playback Speed">
+                  {fileStreamSpeed}x
+                </button>
+              </div>
 
               <div className="controls-group">
                 <button className="ctrl-btn" onClick={() => skipFileStream(-10)} title="Back 10s">
