@@ -4766,11 +4766,11 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                           </span>
                         </TheaterBadgeRow>
 
-                        {theaterMode && (
+                        {/* {theaterMode && (
                         <TheaterCloseBtn onClick={exitTheater} title="Exit theater view (Esc)">
                           <FaTimes />
                         </TheaterCloseBtn>
-                        )}
+                        )} */}
 
                         {showAvatar ? (
                           <AvatarPlaceholder>
