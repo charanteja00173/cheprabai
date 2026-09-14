@@ -143,9 +143,8 @@ function getGalleryItems() {
   return Array.from(mediaGalleryRegistry.values());
 }
 
-/* Absolute ceiling for a realtime-shared file. Matching the backend's 1 GB
-   hard limit — failing fast beats streaming for minutes and dying at 99%. */
-const MAX_UPLOAD_BYTES = 1024 * 1024 * 1024; // 1 GB
+/* Absolute ceiling for a realtime-shared file. Set to 100 GB for virtually unlimited realtime streaming. */
+const MAX_UPLOAD_BYTES = 100 * 1024 * 1024 * 1024; // 100 GB
 
 /* ══════════════════════════════════════════════════════════
    Vanishing-message durations — shown WhatsApp-style, in the
@@ -185,7 +184,7 @@ const formatNearestUnit = (totalSeconds) => {
    REALTIME FILE RELAY helpers — large files skip storage and
    travel chunk-by-chunk through the room's message channel.
    ══════════════════════════════════════════════════════════ */
-  const LIVE_SHARE_CHUNK_BYTES = 4 * 1024 * 1024; // 4 MB (base64 ~5.3 MB on wire, well under backend 30 MB maxPayload / 100 MB buffer)
+  const LIVE_SHARE_CHUNK_BYTES = 512 * 1024; // 512 KB binary ArrayBuffer chunks (fast, zero Base64 wire overhead)
  const LIVE_SHARE_MAX_BYTES = 100 * 1024 * 1024 * 1024; // 100 GB
   // Realtime relay pushes every chunk over the room socket, so gigantic files
   // are slow and need both users connected for the whole transfer. We let any
@@ -7302,16 +7301,9 @@ export default function ChatRoom() {
       await emitChunkMsg({ __livefile: "meta", id: fileId, fid: fileId, name: file.name, mime: file.type, size: file.size, totalChunks, viewOnce: Boolean(viewOnce && /^(image|video)\//.test(file.type)) }).then((id) => sentIds.push(id));
 
       const startedAt = performance.now();
-      const blobToBase64 = (blob) => new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result.split(",")[1]);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-      });
 
-      // Throttled so a transfer can never fire a burst that overwhelms the
-      // recipient's socket/browser — high concurrency is what knocked peers off.
-      const MAX_CONCURRENT_CHUNKS = 8;
+      // High-throughput binary ArrayBuffer streaming over Socket.IO (zero Base64 overhead)
+      const MAX_CONCURRENT_CHUNKS = 6;
       let inFlight = 0;
       let nextSeq = 0;
       let sendError = null;
@@ -7340,8 +7332,8 @@ export default function ChatRoom() {
             (async () => {
               try {
                 const sliceBlob = file.slice(seq * LIVE_SHARE_CHUNK_BYTES, (seq + 1) * LIVE_SHARE_CHUNK_BYTES);
-                const b64Data = await blobToBase64(sliceBlob);
-                const id2 = await emitChunkMsg({ __livefile: "chunk", id: fileId, fid: fileId, seq, data: b64Data });
+                const chunkBuf = await sliceBlob.arrayBuffer();
+                const id2 = await emitChunkMsg({ __livefile: "chunk", id: fileId, fid: fileId, seq, data: chunkBuf });
                 sentIds.push(id2);
                 
                 inFlight--;
@@ -7433,13 +7425,21 @@ export default function ChatRoom() {
     if (kind === "chunk") {
       if (entry.parts[msg.seq] == null) {
         try {
-          entry.parts[msg.seq] = b64ToBytes(msg.data);
+          if (msg.data instanceof ArrayBuffer) {
+            entry.parts[msg.seq] = new Uint8Array(msg.data);
+          } else if (msg.data && msg.data.buffer instanceof ArrayBuffer) {
+            entry.parts[msg.seq] = new Uint8Array(msg.data.buffer, msg.data.byteOffset, msg.data.byteLength);
+          } else if (typeof msg.data === "string") {
+            entry.parts[msg.seq] = b64ToBytes(msg.data);
+          }
           entry.got++;
         } catch (e) {
-          console.error("Failed to decode chunk:", msg.seq, e);
+          console.error("Failed to store chunk:", msg.seq, e);
         }
       }
-      if (entry.got % 3 === 0 || entry.got === entry.totalChunks) {
+      const now = Date.now();
+      if (!entry._lastReport || now - entry._lastReport >= 150 || entry.got === entry.totalChunks) {
+        entry._lastReport = now;
         const loaded = Math.min(entry.got * LIVE_SHARE_CHUNK_BYTES, entry.size);
         setMessages(prev => prev.map(m2 => m2.id === entry.tempId ? { ...m2, file: { ...m2.file, progress: Math.floor((loaded * 100) / entry.size), loaded } } : m2));
       }
@@ -7591,8 +7591,8 @@ export default function ChatRoom() {
       // relay. Otherwise a free plan could blast a large file over the socket
       // and knock peers off.
       if (planMaxMB == null || planMaxMB === -1) {
-        if (file.size > 1024 * 1024 * 1024) {
-          toast.error(`"${file.name}" exceeds the maximum 1 GB upload limit.`);
+        if (file.size > 100 * 1024 * 1024 * 1024) {
+          toast.error(`"${file.name}" exceeds the maximum 100 GB upload limit.`);
           return;
         }
       } else {

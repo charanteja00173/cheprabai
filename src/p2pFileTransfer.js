@@ -38,8 +38,8 @@ const ICE_SERVERS = [
   }
 ];
 
-const P2P_CHUNK_BYTES = 1024 * 1024; // 1 MB binary chunks
-const P2P_CONNECT_TIMEOUT_MS = 25000;
+const P2P_CHUNK_BYTES = 256 * 1024; // 256 KB binary chunks (optimal for WebRTC DataChannel)
+const P2P_CONNECT_TIMEOUT_MS = 10000; // 10s connection timeout for faster failover to relay
 
 // Registry of socket.id -> { pc, channel }
 const connections = new Map();
@@ -163,12 +163,12 @@ function handleInbound(peerId, dc, ev, onMeta, onDone, onProgress) {
       ctx.parts[seq] = payload;
       ctx.got++;
     }
-    // Throttle UI progress updates so a large file (thousands of 1 MB chunks)
+    // Throttle UI progress updates so a large file (thousands of chunks)
     // doesn't flood React with a re-render per chunk — that stalls the receiver's
     // event loop and can break the transfer. Keep the last chunk unthrottled so
     // the UI always lands on 100%.
     const now = typeof Date !== "undefined" ? Date.now() : 0;
-    if (!ctx._lastReport || now - ctx._lastReport >= 200 || ctx.got === ctx.totalChunks) {
+    if (!ctx._lastReport || now - ctx._lastReport >= 100 || ctx.got === ctx.totalChunks) {
       ctx._lastReport = now;
       if (typeof ctx.append === "function") {
         ctx.append({ seq, data: payload, got: ctx.got, totalChunks: ctx.totalChunks, size: ctx.size });
@@ -234,14 +234,10 @@ export function sendFileP2P({ socket, peerId, file, viewOnce, fromName, onProgre
           totalChunks, viewOnce: Boolean(viewOnce), fromName: fromName || ""
         }));
 
-        // Flow control so a LARGE file can't overrun the DataChannel's send
-        // buffer and abort mid-transfer (a full buffer throws on send()). We
-        // pause once the outbound queue climbs past HIGH MB and resume on the
-        // "bufferedamountlow" event once it drains to LOW. Browsers that don't
-        // expose buffered amount silently fall back to time-pacing below.
+        // Optimized Flow Control for high-throughput DataChannel streaming
         const supportsFlow = typeof channel.bufferedAmount === "number" && typeof channel.addEventListener === "function";
-        const HIGH = 12 * 1024 * 1024; // pause at 12 MB queued
-        const LOW = 3 * 1024 * 1024;   // resume at 3 MB remaining
+        const HIGH = 2 * 1024 * 1024; // pause at 2 MB queued
+        const LOW = 512 * 1024;       // resume at 512 KB remaining
         let paused = false;
         let resumeResolve = null;
         const onLow = () => { if (paused) { paused = false; if (resumeResolve) { const r = resumeResolve; resumeResolve = null; r(); } } };
@@ -250,40 +246,62 @@ export function sendFileP2P({ socket, peerId, file, viewOnce, fromName, onProgre
           try { channel.addEventListener("bufferedamountlow", onLow); } catch {}
         }
         // eslint-disable-next-line no-loop-func
-        const waitIfPaused = async () => { while (paused) { await Promise.race([new Promise((r) => { resumeResolve = r; }), new Promise((r) => setTimeout(r, 500))]); } };
+        const waitIfPaused = async () => {
+          while (paused && channel.bufferedAmount > LOW) {
+            await Promise.race([
+              // eslint-disable-next-line no-loop-func
+              new Promise((r) => { resumeResolve = r; }),
+              new Promise((r) => setTimeout(r, 10))
+            ]);
+          }
+          paused = false;
+        };
+
+        const readChunk = (seq) => {
+          if (seq >= totalChunks) return null;
+          const start = seq * P2P_CHUNK_BYTES;
+          const end = Math.min(start + P2P_CHUNK_BYTES, file.size);
+          return file.slice(start, end).arrayBuffer();
+        };
 
         let loadedBytes = 0;
+        let lastProgressReport = 0;
+        let nextBufPromise = readChunk(0);
+
         for (let seq = 0; seq < totalChunks; seq++) {
           if (supportsFlow && !paused && channel.bufferedAmount > HIGH) {
             paused = true;
             resumeResolve = null;
           }
           await waitIfPaused();
-          const start = seq * P2P_CHUNK_BYTES;
-          const end = Math.min(start + P2P_CHUNK_BYTES, file.size);
-          const slice = file.slice(start, end);
-          const buf = await slice.arrayBuffer();
+
+          const buf = await nextBufPromise;
+          nextBufPromise = readChunk(seq + 1);
+
+          if (!buf) break;
           const frame = new Uint8Array(4 + buf.byteLength);
           new DataView(frame.buffer).setUint32(0, seq, false);
           frame.set(new Uint8Array(buf), 4);
           if (channel.readyState !== "open") throw new Error("P2P channel closed mid-transfer");
-          // send with a small bounded retry: a transient buffer-full can throw;
-          // wait for room and retry instead of tearing the whole transfer down.
+
+          // Bounded retry for transient send buffer backpressure
           for (let attempt = 0; ; attempt++) {
             try {
               channel.send(frame.buffer);
               break;
             } catch (e) {
               if (channel.readyState !== "open" || attempt >= 5) throw e;
-              await new Promise((r) => setTimeout(r, Math.min(50 * (attempt + 1), 400)));
+              await new Promise((r) => setTimeout(r, Math.min(20 * (attempt + 1), 200)));
             }
           }
           loadedBytes += buf.byteLength;
-          if (typeof onProgress === "function") {
-            onProgress({ fid, loaded: loadedBytes, total: file.size, progress: Math.floor((loadedBytes * 100) / file.size) });
+          const now = Date.now();
+          if (!lastProgressReport || now - lastProgressReport >= 100 || seq === totalChunks - 1) {
+            lastProgressReport = now;
+            if (typeof onProgress === "function") {
+              onProgress({ fid, loaded: loadedBytes, total: file.size, progress: Math.floor((loadedBytes * 100) / file.size) });
+            }
           }
-          const every = totalChunks >= 4096 ? 64 : totalChunks >= 512 ? 16 : 4;
-          if (seq % every === 0) await new Promise((r) => setTimeout(r, 0));
         }
 
         channel.send(JSON.stringify({ livefileEnd: true, fid }));
