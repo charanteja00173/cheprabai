@@ -21,6 +21,9 @@ const ICE_SERVERS = [
   { urls: "stun:stun.l.google.com:19302" },
   { urls: "stun:stun1.l.google.com:19302" },
   { urls: "stun:stun2.l.google.com:19302" },
+  { urls: "stun:stun3.l.google.com:19302" },
+  { urls: "stun:stun4.l.google.com:19302" },
+  { urls: "stun:stun.cloudflare.com:3478" },
   {
     urls: "turn:openrelay.metered.ca:80",
     username: "openrelayproject",
@@ -39,7 +42,7 @@ const ICE_SERVERS = [
 ];
 
 const P2P_CHUNK_BYTES = 256 * 1024; // 256 KB binary chunks (optimal for WebRTC DataChannel)
-const P2P_CONNECT_TIMEOUT_MS = 10000; // 10s connection timeout for faster failover to relay
+const P2P_CONNECT_TIMEOUT_MS = 7000; // 7s connection timeout for fast failover to socket relay
 
 // Registry of socket.id -> { pc, channel }
 const connections = new Map();
@@ -211,6 +214,12 @@ export function sendFileP2P({ socket, peerId, file, viewOnce, fromName, onProgre
 
     pc.onicecandidate = (e) => {
       if (e.candidate) socket.emit("webrtc-ice", { to: peerId, from: socket.id, candidate: e.candidate });
+    };
+
+    pc.oniceconnectionstatechange = () => {
+      if (pc.iceConnectionState === "failed" || pc.iceConnectionState === "disconnected") {
+        fail(new Error(`P2P ICE connection ${pc.iceConnectionState}`));
+      }
     };
 
     function senderAnswer({ from, answer }) {

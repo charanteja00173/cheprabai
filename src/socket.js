@@ -10,6 +10,13 @@ export const socket = io(
     : "",
   {
     transports: ["websocket", "polling"],
+    upgrade: true,
+    rememberUpgrade: true,
+    reconnection: true,
+    reconnectionAttempts: Infinity,
+    reconnectionDelay: 500,
+    reconnectionDelayMax: 2000,
+    timeout: 10000,
     autoConnect: false
   }
 );
