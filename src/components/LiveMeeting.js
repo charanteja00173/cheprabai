@@ -1563,251 +1563,141 @@ const WidgetNameTag = styled.div`
 
 const FileStreamControlsCard = styled.div`
   position: absolute;
-  left: 16px;
-  right: 16px;
-  bottom: 84px;
-  background: linear-gradient(135deg, rgba(17, 19, 32, 0.97), rgba(10, 11, 20, 0.99));
-  border: 1px solid rgba(129, 140, 248, 0.15);
-  border-radius: 16px;
-  padding: 12px 16px;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  left: 12px; right: 12px; bottom: 64px;
   z-index: 1000;
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  border-radius: 16px;
+  overflow: hidden;
+  background: rgba(8, 10, 18, 0.55);
+  backdrop-filter: blur(28px) saturate(1.8);
+  -webkit-backdrop-filter: blur(28px) saturate(1.8);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.5),
+    0 0 0 0.5px rgba(129, 140, 248, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
 
   &.ctrls-hidden {
     opacity: 0;
-    transform: translateY(18px);
+    transform: translateY(14px);
     pointer-events: none;
   }
 
-  @media (max-width: ${BREAKPOINTS.lg}px) {
-    left: 12px;
-    right: 12px;
-    bottom: 74px;
-    padding: 10px 14px;
-    gap: 6px;
-    border-radius: 14px;
-  }
-
   @media (max-width: ${BREAKPOINTS.md}px) {
-    left: 8px;
-    right: 8px;
-    bottom: 82px;
-    padding: 10px 12px;
-    border-radius: 14px;
+    left: 8px; right: 8px; bottom: 56px;
   }
-
   @media (max-width: ${BREAKPOINTS.xs}px) {
-    left: 6px;
-    right: 6px;
-    padding: 8px 10px;
-    gap: 5px;
-    border-radius: 12px;
+    left: 4px; right: 4px; bottom: 52px; border-radius: 12px;
   }
 
-  .stream-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 6px;
-  }
-
-  .stream-info {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: #fff;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    min-width: 0;
-    flex: 1;
-
-    .pulse-icon {
-      color: #ef4444;
-      animation: pulse-glow 1.5s infinite;
-      flex-shrink: 0;
-    }
-  }
-
-  .stream-time {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 0.7rem;
-    font-weight: 600;
-    color: rgba(255, 255, 255, 0.5);
-    font-variant-numeric: tabular-nums;
-
+  /* ── Glowing seek bar spanning full width at top ── */
+  .wt-seek {
+    position: relative; width: 100%; height: 4px; background: rgba(255,255,255,0.06);
+    cursor: pointer; transition: height 0.2s ease;
     input[type="range"] {
-      flex: 1;
-      height: 4px;
-      border-radius: 2px;
-      outline: none;
-      background: rgba(255,255,255,0.07);
-      cursor: pointer;
-      -webkit-appearance: none;
-      appearance: none;
-      
+      position: absolute; inset: 0; width: 100%; height: 100%; margin: 0;
+      background: transparent; cursor: pointer; -webkit-appearance: none; appearance: none; outline: none; z-index: 2;
       &::-webkit-slider-thumb {
-        -webkit-appearance: none;
-        width: 15px;
-        height: 15px;
-        border-radius: 50%;
-        background: #818cf8;
-        cursor: pointer;
-        box-shadow: 0 0 8px rgba(129, 140, 248, 0.6);
+        -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%;
+        background: #818cf8; border: 2px solid rgba(255,255,255,0.9);
+        box-shadow: 0 0 10px rgba(129,140,248,0.7), 0 0 20px rgba(129,140,248,0.3);
+        opacity: 0; transition: opacity 0.2s;
       }
       &::-moz-range-thumb {
-        width: 15px;
-        height: 15px;
-        border-radius: 50%;
-        background: #818cf8;
-        cursor: pointer;
-        border: none;
-        box-shadow: 0 0 8px rgba(129, 140, 248, 0.6);
+        width: 14px; height: 14px; border-radius: 50%;
+        background: #818cf8; border: 2px solid rgba(255,255,255,0.9);
+        box-shadow: 0 0 10px rgba(129,140,248,0.7); opacity: 0; transition: opacity 0.2s;
       }
     }
-  }
-
-  .stream-footer {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 6px;
-  }
-
-  .controls-group {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-  }
-
-  .volume-control {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    background: rgba(255,255,255,0.07);
-    padding: 3px 6px;
-    border-radius: 8px;
-    border: 1px solid rgba(255,255,255,0.055);
-
-    .vol-icon {
-      color: rgba(255, 255, 255, 0.5);
-      font-size: 0.75rem;
-      flex-shrink: 0;
-      cursor: pointer;
-      transition: color 0.2s;
-      &:hover { color: #818cf8; }
+    &::before {
+      content: ""; position: absolute; top: 0; left: 0; height: 100%; border-radius: 0 2px 2px 0;
+      background: linear-gradient(90deg, #6366f1, #06b6d4);
+      box-shadow: 0 0 12px rgba(99,102,241,0.5), 0 0 4px rgba(6,182,212,0.4);
+      width: var(--seek-pct, 0%);
     }
+    &:hover { height: 6px; }
+    &:hover input[type="range"]::-webkit-slider-thumb,
+    &:hover input[type="range"]::-moz-range-thumb { opacity: 1; }
+  }
 
-    .vol-slider {
-      width: 50px;
-      height: 3px;
-      cursor: pointer;
-      -webkit-appearance: none;
-      appearance: none;
-      background: rgba(255,255,255,0.08);
-      border-radius: 2px;
-      outline: none;
+  /* ── Control row ── */
+  .wt-row {
+    display: flex; align-items: center; gap: 6px;
+    padding: 8px 12px 10px;
+  }
 
-      &::-webkit-slider-thumb {
-        -webkit-appearance: none;
-        width: 10px;
-        height: 10px;
-        border-radius: 50%;
-        background: #818cf8;
-      }
+  .wt-label {
+    display: flex; align-items: center; gap: 7px;
+    min-width: 0; flex: 1; overflow: hidden;
+    font-size: 0.72rem; font-weight: 650; color: rgba(255,255,255,0.88);
+    white-space: nowrap; text-overflow: ellipsis;
+    .live-dot {
+      width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+      background: #ef4444; box-shadow: 0 0 8px rgba(239,68,68,0.6);
+      animation: wt-pulse 1.4s ease-in-out infinite;
     }
   }
 
-  .ctrl-btn {
-    background: rgba(255,255,255,0.055);
-    border: 1px solid rgba(255,255,255,0.07);
-    color: rgba(255, 255, 255, 0.85);
-    width: 34px;
-    height: 34px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 0.75rem;
-    font-weight: 600;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.15s ease;
-    flex-shrink: 0;
+  .wt-time {
+    font-size: 0.64rem; font-weight: 600; color: rgba(255,255,255,0.45);
+    font-variant-numeric: tabular-nums; flex-shrink: 0; white-space: nowrap;
+    letter-spacing: 0.03em;
+  }
 
-    &:hover {
-      background: rgba(255, 255, 255, 0.14);
-      transform: scale(1.05);
-    }
-    &:active { transform: scale(0.95); }
+  .wt-btn {
+    width: 30px; height: 30px; border-radius: 50%; border: none; flex-shrink: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: rgba(255,255,255,0.06);
+    color: rgba(255,255,255,0.72);
+    font-size: 0.72rem; cursor: pointer;
+    transition: all 0.18s cubic-bezier(0.16,1,0.3,1);
+    backdrop-filter: blur(8px);
+    &:hover { background: rgba(255,255,255,0.12); color: #fff; transform: scale(1.08); }
+    &:active { transform: scale(0.92); }
 
-    &.play-btn {
-      width: 44px;
-      height: 44px;
-      border-radius: 50%;
-      background: linear-gradient(135deg, #6366f1, #818cf8);
-      color: #fff;
-      font-size: 0.92rem;
-      border: none;
-      box-shadow: 0 4px 16px rgba(99, 102, 241, 0.4);
-      &:hover {
-        background: linear-gradient(135deg, #4f46e5, #6366f1);
-        box-shadow: 0 6px 20px rgba(99, 102, 241, 0.55);
-      }
+    &.wt-play {
+      width: 34px; height: 34px; font-size: 0.82rem;
+      background: linear-gradient(135deg, rgba(99,102,241,0.4), rgba(6,182,212,0.35));
+      color: #e0e7ff;
+      box-shadow: 0 2px 12px rgba(99,102,241,0.3), inset 0 1px 0 rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.08);
+      &:hover { box-shadow: 0 4px 18px rgba(99,102,241,0.45); background: linear-gradient(135deg, rgba(99,102,241,0.55), rgba(6,182,212,0.45)); }
     }
 
-    &.stop-btn {
-      background: var(--chakra-colors-dangerBg);
-      color: var(--chakra-colors-danger);
-      border-color: var(--chakra-colors-dangerBorder);
-      &:hover { background: var(--chakra-colors-danger); color: var(--chakra-colors-onDanger); }
+    &.wt-stop {
+      background: rgba(239,68,68,0.12);
+      color: rgba(239,68,68,0.85);
+      border: 1px solid rgba(239,68,68,0.15);
+      &:hover { background: rgba(239,68,68,0.25); color: #fca5a5; }
     }
 
-    &.speed-btn {
-      width: auto;
-      padding: 0 8px;
-      font-size: 0.68rem;
-      font-weight: 800;
-      letter-spacing: 0.02em;
-      background: rgba(129, 140, 248, 0.1);
-      border-color: rgba(129, 140, 248, 0.2);
-      color: #a5b4fc;
+    &.wt-speed {
+      width: auto; padding: 0 8px; border-radius: 8px; font-size: 0.62rem; font-weight: 800;
+      letter-spacing: 0.04em; color: #a5b4fc;
+      background: rgba(99,102,241,0.1);
+      border: 1px solid rgba(99,102,241,0.15);
     }
   }
 
-  @keyframes pulse-glow {
-    0% { opacity: 0.3; }
-    50% { opacity: 1; }
-    100% { opacity: 0.3; }
+  .wt-vol {
+    display: flex; align-items: center; gap: 4px; flex-shrink: 0;
+    background: rgba(255,255,255,0.04); border-radius: 8px; padding: 3px 6px;
+    border: 1px solid rgba(255,255,255,0.04);
+    .wt-vol-icon { cursor: pointer; font-size: 0.72rem; color: rgba(255,255,255,0.5); transition: color 0.2s; &:hover { color: #818cf8; } }
+    input[type="range"] {
+      width: 44px; height: 3px; background: rgba(255,255,255,0.08); border-radius: 2px;
+      outline: none; cursor: pointer; -webkit-appearance: none; appearance: none;
+      &::-webkit-slider-thumb { -webkit-appearance: none; width: 10px; height: 10px; border-radius: 50%; background: #818cf8; box-shadow: 0 0 6px rgba(129,140,248,0.5); }
+      &::-moz-range-thumb { width: 10px; height: 10px; border-radius: 50%; background: #818cf8; border: none; }
+    }
   }
+
+  @keyframes wt-pulse { 0%,100% { opacity: 0.4; } 50% { opacity: 1; } }
 
   @media (max-width: ${BREAKPOINTS.sm}px) {
-    .stream-info { font-size: 0.7rem; }
-    .stream-time { gap: 4px; font-size: 0.66rem; }
-    .controls-group { gap: 4px; }
-
-    .ctrl-btn {
-      width: 36px;
-      height: 36px;
-      border-radius: 9px;
-      font-size: 0.76rem;
-      &.play-btn { width: 44px; height: 44px; font-size: 0.95rem; }
-      &.speed-btn { padding: 0 8px; font-size: 0.66rem; }
-    }
-
-    .volume-control {
-      padding: 3px 6px;
-      .vol-slider { width: 38px; }
-    }
+    .wt-row { padding: 6px 8px 8px; gap: 4px; }
+    .wt-btn { width: 28px; height: 28px; font-size: 0.66rem; &.wt-play { width: 32px; height: 32px; font-size: 0.78rem; } }
+    .wt-vol input[type="range"] { width: 32px; }
   }
 `;
 
@@ -5524,69 +5414,29 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
         {/* File Streaming Playback Controls (Host Only) */}
         {isFileStreaming && isRoomHost && (
           <FileStreamControlsCard className={`file-stream-controls${fileCtrlsHidden ? " ctrls-hidden" : ""}`}>
-            {/* Row 1: Title + Stop */}
-            <div className="stream-header">
-              <div className="stream-info">
-                <FaPlayCircle className="pulse-icon" />
-                <span>{fileStreamName}</span>
-              </div>
-              <button className="ctrl-btn stop-btn" onClick={stopFileStream} title="Stop Stream">
-                <FaStop size={10} />
+            <div className="wt-seek" style={{ "--seek-pct": `${(fileStreamProgress / (fileStreamDuration || 1)) * 100}%` }}>
+              <input type="range" min={0} max={fileStreamDuration || 100} step={0.1} value={fileStreamProgress} onChange={e => seekFileStream(Number(e.target.value))} />
+            </div>
+            <div className="wt-row">
+              <span className="wt-label"><span className="live-dot" />{fileStreamName}</span>
+              <span className="wt-time">{formatDuration(Math.round(fileStreamProgress))} / {formatDuration(Math.round(fileStreamDuration))}</span>
+              <button className="wt-btn" onClick={toggleFileStreamPip} title={fileStreamPip ? "Exit PiP" : "Picture-in-Picture"}>
+                {fileStreamPip ? <FaCompress /> : <FaPhotoVideo />}
               </button>
-            </div>
-
-            {/* Row 2: Seek Bar */}
-            <div className="stream-time">
-              <span>{formatDuration(Math.round(fileStreamProgress))}</span>
-              <input 
-                type="range" 
-                min={0} 
-                max={fileStreamDuration || 100} 
-                step={0.1}
-                value={fileStreamProgress} 
-                onChange={e => seekFileStream(Number(e.target.value))}
-              />
-              <span>{formatDuration(Math.round(fileStreamDuration))}</span>
-            </div>
-
-            {/* Row 3: Speed | Skip/Play Controls | Volume */}
-            <div className="stream-footer">
-              <div className="controls-group">
-                <button className="ctrl-btn" onClick={toggleFileStreamPip} title={fileStreamPip ? "Exit Picture-in-Picture" : "Picture-in-Picture"}>
-                  {fileStreamPip ? <FaCompress /> : <FaPhotoVideo />}
-                </button>
-                <button className="ctrl-btn speed-btn" onClick={cycleFileStreamSpeed} title="Playback Speed">
-                  {fileStreamSpeed}x
-                </button>
-              </div>
-
-              <div className="controls-group">
-                <button className="ctrl-btn" onClick={() => skipFileStream(-10)} title="Back 10s">
-                  <FaUndo />
-                </button>
-                <button className="ctrl-btn play-btn" onClick={toggleFileStreamPlay} title={isFileStreamPaused ? "Play" : "Pause"}>
-                  {isFileStreamPaused ? <FaPlay style={{ marginLeft: 2 }} /> : <FaPause />}
-                </button>
-                <button className="ctrl-btn" onClick={() => skipFileStream(10)} title="Forward 10s">
-                  <FaRedo />
-                </button>
-              </div>
-
-              <div className="volume-control">
-                <span className="vol-icon" onClick={toggleFileStreamMute}>
+              <button className="wt-btn wt-speed" onClick={cycleFileStreamSpeed} title="Playback Speed">{fileStreamSpeed}x</button>
+              <button className="wt-btn" onClick={() => skipFileStream(-10)} title="Back 10s"><FaUndo /></button>
+              <button className="wt-btn wt-play" onClick={toggleFileStreamPlay} title={isFileStreamPaused ? "Play" : "Pause"}>
+                {isFileStreamPaused ? <FaPlay style={{ marginLeft: 2 }} /> : <FaPause />}
+              </button>
+              <button className="wt-btn" onClick={() => skipFileStream(10)} title="Forward 10s"><FaRedo /></button>
+              <div className="wt-vol">
+                <span className="wt-vol-icon" onClick={toggleFileStreamMute}>
                   {fileStreamVolume === 0 ? <FaVolumeMute /> : fileStreamVolume < 0.5 ? <FaVolumeDown /> : <FaVolumeUp />}
                 </span>
-                <input
-                  className="vol-slider"
-                  type="range"
-                  min={0}
-                  max={1}
-                  step={0.05}
-                  value={fileStreamVolume}
-                  onChange={e => changeFileStreamVolume(Number(e.target.value))}
-                  title={`Volume: ${Math.round(fileStreamVolume * 100)}%`}
-                />
+                <input type="range" min={0} max={1} step={0.05} value={fileStreamVolume}
+                  onChange={e => changeFileStreamVolume(Number(e.target.value))} title={`Volume: ${Math.round(fileStreamVolume * 100)}%`} />
               </div>
+              <button className="wt-btn wt-stop" onClick={stopFileStream} title="Stop Stream"><FaStop size={8} /></button>
             </div>
           </FileStreamControlsCard>
         )}
