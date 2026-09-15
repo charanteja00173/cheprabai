@@ -54,7 +54,7 @@ import {
   workerEncryptMessage as encryptMessage,
   workerDecryptMessage as decryptMessage
 } from "../utils/crypto";
-import { copyRoomShareLink, parseRoomRouteParams } from "../utils/shareLink";
+import { buildRoomShareUrl, copyRoomShareLink, parseRoomRouteParams } from "../utils/shareLink";
 import { safeCopyText, safeCopyImage } from "../utils/clipboard";
 import { SOUND_CHOICES, getSoundChoice, setSoundChoice as persistSoundChoice, playNotificationSound } from "../utils/notificationSounds";
 import {
@@ -5502,7 +5502,7 @@ export default function ChatRoom() {
 
   const handleShareRoomLink = useCallback(async () => {
     if (!roomId.trim()) return;
-    const shareUrl = `${window.location.origin}/?room=${encodeURIComponent(roomId.trim())}`;
+    const shareUrl = buildRoomShareUrl(roomId.trim());
     const code = (securityCode || "").trim();
     const shareText = code
       ? `Join my secure room "${roomId.trim()}" on AnonChat:\nLink: ${shareUrl}\nSecurity Code: ${code}`
@@ -5612,7 +5612,13 @@ export default function ChatRoom() {
   // ── Custom QR share menu ──
   const [qrShareOpen, setQrShareOpen] = useState(false);
   const qrShareRootRef = useRef(null);
-  const qrShareurl = window.location.href;
+  // Canonical, scannable join link. `window.location.href` was wrong here: on the
+  // landing it is the bare origin (no room), so a scanned QR just reopened the
+  // homepage instead of the room. Always encode the deep link the app actually
+  // parses (`/room/<id>` → prefilled join screen).
+  const qrShareurl = roomId.trim()
+    ? buildRoomShareUrl(roomId.trim())
+    : (typeof window !== "undefined" ? window.location.href : "");
   const openQrShare = (el) => { qrShareRootRef.current = el; setQrShareOpen(true); };
   const closeQrShare = () => { setQrShareOpen(false); };
   const copyRoomLink = async () => {
@@ -5681,6 +5687,11 @@ export default function ChatRoom() {
             <QRCodeSVG value={qrShareurl} style={{ width: "min(100%, 240px)", height: "auto", display: "block" }} />
           </div>
           <div style={{ marginBottom: 12, padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,.08)", background: "rgba(255,255,255,.03)", fontSize: "0.72rem", color: "var(--chakra-colors-textSecondary)", wordBreak: "break-all", lineHeight: 1.45 }}>{qrShareurl}</div>
+          {securityCode.trim() && (
+            <div style={{ marginBottom: 12, padding: "8px 12px", borderRadius: 10, border: "1px dashed rgba(255,255,255,.12)", background: "rgba(99,102,241,.08)", fontSize: "0.72rem", color: "var(--chakra-colors-textSecondary)" }}>
+              Security code: <strong style={{ color: "var(--chakra-colors-textPrimary)", letterSpacing: "0.02em" }}>{securityCode.trim()}</strong>
+            </div>
+          )}
           <div style={{ display: "grid", gap: 4 }}>
             <button type="button" onClick={copyRoomLink} style={rowBase}><span style={{ ...cell, background: "rgba(99,102,241,.16)" }}>🔗</span> Copy link</button>
             <button type="button" onClick={whatsappShareQr} style={rowBase}><span style={{ ...cell, background: "rgba(37,211,102,.16)" }}>💬</span> WhatsApp</button>
@@ -9375,7 +9386,7 @@ export default function ChatRoom() {
                       onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.02)"}
                       onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
                     >
-                      <QRCodeSVG value={window.location.href} style={{ width: "100%", height: "auto", maxWidth: "250px", display: "block" }} />
+                      <QRCodeSVG value={qrShareurl} style={{ width: "100%", height: "auto", maxWidth: "250px", display: "block" }} />
                       <div style={{ fontSize: "0.7rem", color: "#6366f1", marginTop: 8, fontWeight: 700, letterSpacing: "0.02em" }}>✨ Tap to Share or Save</div>
                     </div>
                   )}
@@ -10118,7 +10129,7 @@ export default function ChatRoom() {
                             onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.02)"}
                             onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
                           >
-                            <QRCodeSVG value={window.location.href} style={{ width: "100%", height: "auto", maxWidth: "250px", display: "block" }} />
+                            <QRCodeSVG value={qrShareurl} style={{ width: "100%", height: "auto", maxWidth: "250px", display: "block" }} />
                             <div style={{ fontSize: "0.7rem", color: "#6366f1", marginTop: 8, fontWeight: 700, letterSpacing: "0.02em" }}>✨ Tap to Share or Save</div>
                           </div>
                           <div style={{ fontSize: "0.75rem", color: "var(--chakra-colors-textSecondary)", textAlign: "center", fontWeight: 500 }}>Scan this code to join this room instantly</div>
