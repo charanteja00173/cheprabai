@@ -11,7 +11,7 @@ import {
   FaLeaf, FaBolt, FaHeadphones, FaGem, FaExclamationTriangle,
   FaPlay, FaPause, FaPlayCircle,
   FaPhotoVideo,
-  FaRedo, FaUndo, FaStop, FaThumbtack,
+  FaStop, FaThumbtack,
   FaMagic, FaPalette, FaPlus, FaMinus
 } from "react-icons/fa";
 import * as PeerModule from "peerjs";
@@ -1563,19 +1563,33 @@ const WidgetNameTag = styled.div`
 
 const FileStreamControlsCard = styled.div`
   position: absolute;
-  left: 12px; right: 12px; bottom: 64px;
+  left: 0;
+  right: 0;
+  bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+  margin-left: auto;
+  margin-right: auto;
+  width: min(600px, calc(100% - 24px));
   z-index: 1000;
-  border-radius: 16px;
+  border-radius: 18px;
   overflow: hidden;
-  background: rgba(8, 10, 18, 0.55);
-  backdrop-filter: blur(28px) saturate(1.8);
-  -webkit-backdrop-filter: blur(28px) saturate(1.8);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(9, 11, 19, 0.5);
+  backdrop-filter: blur(32px) saturate(1.9);
+  -webkit-backdrop-filter: blur(32px) saturate(1.9);
+  border: 1px solid rgba(255, 255, 255, 0.07);
   box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.5),
-    0 0 0 0.5px rgba(129, 140, 248, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    0 12px 44px rgba(0, 0, 0, 0.55),
+    0 0 0 0.5px rgba(129, 140, 248, 0.1),
+    0 18px 70px rgba(56, 189, 248, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
   transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(120% 90% at 50% 0%, rgba(99, 102, 241, 0.12), transparent 55%);
+  }
 
   &.ctrls-hidden {
     opacity: 0;
@@ -1584,10 +1598,13 @@ const FileStreamControlsCard = styled.div`
   }
 
   @media (max-width: ${BREAKPOINTS.md}px) {
-    left: 8px; right: 8px; bottom: 56px;
+    width: min(600px, calc(100% - 16px));
+    bottom: calc(56px + env(safe-area-inset-bottom, 0px));
   }
   @media (max-width: ${BREAKPOINTS.xs}px) {
-    left: 4px; right: 4px; bottom: 52px; border-radius: 12px;
+    width: calc(100% - 8px);
+    bottom: calc(52px + env(safe-area-inset-bottom, 0px));
+    border-radius: 14px;
   }
 
   /* ── Glowing seek bar spanning full width at top ── */
@@ -1618,6 +1635,9 @@ const FileStreamControlsCard = styled.div`
     &:hover { height: 6px; }
     &:hover input[type="range"]::-webkit-slider-thumb,
     &:hover input[type="range"]::-moz-range-thumb { opacity: 1; }
+    @media (hover: none) {
+      input[type="range"] { &::-webkit-slider-thumb, &::-moz-range-thumb { opacity: 1; } }
+    }
   }
 
   /* ── Control row ── */
@@ -2143,8 +2163,6 @@ const createVideoFilterRenderer = (videoTrack, getVideoFilter) => {
 };
 
 /* ═══════════════════════════════ PURE FUNCTIONS (outside component) ═══════════════════════════════ */
-const SPEED_OPTIONS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
-
 const getInitials = (name) => {
   if (!name) return "?";
   return name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
@@ -2263,7 +2281,6 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   const [fileStreamProgress, setFileStreamProgress] = useState(0);
   const [isFileStreamPaused, setIsFileStreamPaused] = useState(false);
   const [fileStreamName, setFileStreamName] = useState("");
-  const [fileStreamSpeed, setFileStreamSpeed] = useState(1);
   const [fileStreamVolume, setFileStreamVolume] = useState(1);
   const [fileCtrlsHidden, setFileCtrlsHidden] = useState(false);
   // Pro auto-hide: in fullscreen/theater the stream controls fade away after a
@@ -2405,36 +2422,11 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
   }, []);
   const endCamPipDrag = useCallback(() => { camDragRef.current = null; }, []);
 
-  // ── Native always-on-top PiP for the host's file stream player ──
-  const [fileStreamPip, setFileStreamPip] = useState(false);
-  const toggleFileStreamPip = useCallback(async () => {
-    const v = fileVideoRef.current;
-    if (!v) return;
-    try {
-      if (document.pictureInPictureElement === v) {
-        await document.exitPictureInPicture();
-        return;
-      }
-      if (typeof v.requestPictureInPicture === "function") {
-        await v.requestPictureInPicture();
-        toast.success("Floating on top — keep watching anywhere");
-        return;
-      }
-    } catch { /* PiP may be unavailable below */ }
-    toast.info("Picture-in-picture isn't supported in this browser");
-  }, []);
-  useEffect(() => {
-    const v = fileVideoRef.current;
-    if (!v || typeof v.addEventListener !== "function") return undefined;
-    const onEnter = () => setFileStreamPip(true);
-    const onLeave = () => setFileStreamPip(false);
-    v.addEventListener("enterpictureinpicture", onEnter);
-    v.addEventListener("leavepictureinpicture", onLeave);
-    return () => {
-      v.removeEventListener("enterpictureinpicture", onEnter);
-      v.removeEventListener("leavepictureinpicture", onLeave);
-    };
-  }, [isFileStreaming]);
+  // Reliable always-on-top "PiP": shrink the whole meeting into the app's
+  // draggable floating window. Native <video> PiP is not used here because the
+  // stream is composited from a hidden 1×1 capture element, which PiP can't
+  // render — so native requests failed or showed an empty/black window.
+  const watchToPip = useCallback(() => setIsMinimized(true), []);
 
   const toggleMinimizePeer = useCallback((peerId) => {
     setMinimizedPeers(prev => {
@@ -4269,25 +4261,6 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
     }
   };
 
-  const skipFileStream = (seconds) => {
-    if (fileVideoRef.current) {
-      checkAndRecreateFileStreamIfNeeded();
-      const newTime = Math.max(0, Math.min(fileVideoRef.current.duration || 0, fileVideoRef.current.currentTime + seconds));
-      fileVideoRef.current.currentTime = newTime;
-      setFileStreamProgress(newTime);
-    }
-  };
-
-  const cycleFileStreamSpeed = () => {
-    if (fileVideoRef.current) {
-      const currentIdx = SPEED_OPTIONS.indexOf(fileStreamSpeed);
-      const nextIdx = (currentIdx + 1) % SPEED_OPTIONS.length;
-      const newSpeed = SPEED_OPTIONS[nextIdx];
-      fileVideoRef.current.playbackRate = newSpeed;
-      setFileStreamSpeed(newSpeed);
-    }
-  };
-
   const changeFileStreamVolume = (vol) => {
     if (fileVideoRef.current) {
       // HTMLMediaElement.volume throws outside [0, 1] — clamp every write
@@ -5418,17 +5391,11 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
               <input type="range" min={0} max={fileStreamDuration || 100} step={0.1} value={fileStreamProgress} onChange={e => seekFileStream(Number(e.target.value))} />
             </div>
             <div className="wt-row">
-              <span className="wt-label"><span className="live-dot" />{fileStreamName}</span>
+              <span className="wt-label"><span className="live-dot" />Watch Together</span>
               <span className="wt-time">{formatDuration(Math.round(fileStreamProgress))} / {formatDuration(Math.round(fileStreamDuration))}</span>
-              <button className="wt-btn" onClick={toggleFileStreamPip} title={fileStreamPip ? "Exit PiP" : "Picture-in-Picture"}>
-                {fileStreamPip ? <FaCompress /> : <FaPhotoVideo />}
-              </button>
-              <button className="wt-btn wt-speed" onClick={cycleFileStreamSpeed} title="Playback Speed">{fileStreamSpeed}x</button>
-              <button className="wt-btn" onClick={() => skipFileStream(-10)} title="Back 10s"><FaUndo /></button>
               <button className="wt-btn wt-play" onClick={toggleFileStreamPlay} title={isFileStreamPaused ? "Play" : "Pause"}>
                 {isFileStreamPaused ? <FaPlay style={{ marginLeft: 2 }} /> : <FaPause />}
               </button>
-              <button className="wt-btn" onClick={() => skipFileStream(10)} title="Forward 10s"><FaRedo /></button>
               <div className="wt-vol">
                 <span className="wt-vol-icon" onClick={toggleFileStreamMute}>
                   {fileStreamVolume === 0 ? <FaVolumeMute /> : fileStreamVolume < 0.5 ? <FaVolumeDown /> : <FaVolumeUp />}
@@ -5436,7 +5403,13 @@ export default function LiveMeeting({ socket, roomId, userName, onClose, isAdmin
                 <input type="range" min={0} max={1} step={0.05} value={fileStreamVolume}
                   onChange={e => changeFileStreamVolume(Number(e.target.value))} title={`Volume: ${Math.round(fileStreamVolume * 100)}%`} />
               </div>
-              <button className="wt-btn wt-stop" onClick={stopFileStream} title="Stop Stream"><FaStop size={8} /></button>
+              <button className="wt-btn" onClick={toggleFullscreen} title={isFullscreen || theaterMode ? "Exit fullscreen" : "Fullscreen"}>
+                {isFullscreen || theaterMode ? <FaCompress /> : <FaExpand />}
+              </button>
+              <button className="wt-btn" onClick={watchToPip} title="Minimize to Picture-in-Picture window">
+                <FaWindowMinimize size={11} />
+              </button>
+              <button className="wt-btn wt-stop" onClick={stopFileStream} title="Stop stream for everyone"><FaStop size={9} /></button>
             </div>
           </FileStreamControlsCard>
         )}
