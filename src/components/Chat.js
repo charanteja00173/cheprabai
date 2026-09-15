@@ -5543,10 +5543,11 @@ export default function ChatRoom() {
   }, [roomId, securityCode]);
 
   const downloadBlob = (blob, name) => {
+    const fileName = typeof name === "string" ? name : (blob && blob.name) || "anonchat-qr.png";
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = name;
+    a.download = fileName;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -5564,11 +5565,19 @@ export default function ChatRoom() {
     }
     const svgString = new XMLSerializer().serializeToString(svg);
     const vb = (svg.getAttribute("viewBox") || "0 0 250 250").split(" ").map(Number);
-    const width = Math.max(256, Math.round(vb[2]) || 250);
-    const height = Math.max(256, Math.round(vb[3]) || 250);
+    const target = Math.max(512, Math.min(1024, Math.round((vb[2] || 25) * 24)));
+    // qrcode.react stamps width/height/xmlns/style onto the <svg>, so injecting our
+    // own on top produced duplicate XML attributes — an XML well-formedness error, so
+    // the SVG never loaded into an <img> ("QR SVG failed to load for rasterization").
+    // Strip every layout attribute first, then stamp a clean, sized, white-backed SVG.
     const decorated =
       svgString.startsWith("<svg")
-        ? svgString.replace(/^<svg([^>]*)/, `<svg$1 width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg" style="background:#ffffff"`)
+        ? svgString.replace(/^<svg([^>]*)>/i, (m, attrStr) => {
+            const kept = attrStr
+              .replace(/\s(width|height|viewBox|xmlns|xlink|style|xmlns:[a-z0-9_]+|role|aria-[a-z-]+)="[^"]*"/gi, "")
+              .replace(/\sstyle='[^']*'/gi, "");
+            return `<svg${kept} viewBox="${vb.join(" ")}" width="${target}" height="${target}" xmlns="http://www.w3.org/2000/svg" style="background:#ffffff">`;
+          })
         : svgString;
     const svgBlob = new Blob([decorated], { type: "image/svg+xml;charset=utf-8" });
     const SVGURL = URL.createObjectURL(svgBlob);
@@ -5576,12 +5585,12 @@ export default function ChatRoom() {
     image.onload = () => {
       try {
         const canvas = document.createElement("canvas");
-        canvas.width = width;
-        canvas.height = height;
+        canvas.width = target;
+        canvas.height = target;
         const context = canvas.getContext("2d");
         context.fillStyle = "#ffffff";
         context.fillRect(0, 0, canvas.width, canvas.height);
-        context.drawImage(image, 0, 0, width, height);
+        context.drawImage(image, 0, 0, target, target);
         URL.revokeObjectURL(SVGURL);
         canvas.toBlob((blob) => {
           if (!blob) { reject(new Error("Could not generate QR image.")); return; }
@@ -5641,13 +5650,17 @@ export default function ChatRoom() {
     try {
       const blob = await buildQrFile(qrShareRootRef.current);
       const file = new File([blob], "anonchat-qr.png", { type: "image/png" });
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        navigator.share({ files: [file], title: "Join AnonChat Room", text: `Join my secure AnonChat room: ${qrShareurl}` })
-          .catch(() => {});
+      if (navigator.share) {
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: "Join AnonChat Room", text: `Join my secure AnonChat room: ${qrShareurl}` });
+        } else {
+          await navigator.share({ title: "Join AnonChat Room", text: `Join my secure AnonChat room: ${qrShareurl}` });
+        }
       } else {
         await copyRoomLink();
       }
     } catch (err) {
+      if (err && err.name === "AbortError") return;
       toast.error(err.message || "Could not share the QR image.");
     }
     closeQrShare();
@@ -5656,21 +5669,24 @@ export default function ChatRoom() {
 
   const renderQrShareMenu = () => {
     if (!qrShareOpen) return null;
-    const canNativeShare = typeof navigator !== "undefined" && !!navigator.canShare;
     const rowBase = { display: "flex", alignItems: "center", gap: 12, width: "100%", minHeight: 50, padding: "0 12px", borderRadius: 12, border: 0, background: "transparent", color: "inherit", cursor: "pointer", fontSize: "0.9rem", fontWeight: 650, textAlign: "left" };
     const cell = { width: 34, height: 34, borderRadius: 10, display: "grid", placeItems: "center", fontSize: "1.05rem", flexShrink: 0 };
     return (
       <div role="dialog" aria-modal="true" aria-label="Share options" onClick={closeQrShare}
         style={{ position: "fixed", inset: 0, zIndex: 22500, background: "rgba(0,0,0,.62)", backdropFilter: "blur(6px)", display: "grid", placeItems: "center", padding: 20 }}>
-        <section onClick={(e) => e.stopPropagation()} style={{ width: "min(100%, 360px)", padding: 18, borderRadius: 20, background: "var(--chakra-colors-surface)", border: "1px solid rgba(255,255,255,.05)", boxShadow: "0 24px 80px rgba(0,0,0,.45)" }}>
+        <section onClick={(e) => e.stopPropagation()} style={{ width: "min(100%, 360px)", padding: 18, borderRadius: 20, background: "var(--chakra-colors-surface)", border: "1px solid rgba(255,255,255,.05)", boxShadow: "0 24px 80px rgba(0,0,0,.45)", maxHeight: "90dvh", overflowY: "auto", display: "flex", flexDirection: "column" }}>
           <h3 style={{ margin: "0 0 4px", fontSize: "1.15rem" }}>Share room</h3>
-          <p style={{ margin: "0 0 14px", color: "var(--chakra-colors-textSecondary)", fontSize: "0.82rem" }}>Share the invite link or the QR image with friends.</p>
+          <p style={{ margin: "0 0 14px", color: "var(--chakra-colors-textSecondary)", fontSize: "0.82rem" }}>Scan the QR code or send the invite link below.</p>
+          <div style={{ background: "#ffffff", borderRadius: 14, padding: 14, display: "grid", placeItems: "center", marginBottom: 12 }}>
+            <QRCodeSVG value={qrShareurl} style={{ width: "min(100%, 240px)", height: "auto", display: "block" }} />
+          </div>
+          <div style={{ marginBottom: 12, padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,.08)", background: "rgba(255,255,255,.03)", fontSize: "0.72rem", color: "var(--chakra-colors-textSecondary)", wordBreak: "break-all", lineHeight: 1.45 }}>{qrShareurl}</div>
           <div style={{ display: "grid", gap: 4 }}>
             <button type="button" onClick={copyRoomLink} style={rowBase}><span style={{ ...cell, background: "rgba(99,102,241,.16)" }}>🔗</span> Copy link</button>
             <button type="button" onClick={whatsappShareQr} style={rowBase}><span style={{ ...cell, background: "rgba(37,211,102,.16)" }}>💬</span> WhatsApp</button>
             <button type="button" onClick={mailShare} style={rowBase}><span style={{ ...cell, background: "rgba(251,191,36,.16)" }}>✉️</span> Email</button>
             <button type="button" onClick={downloadQr} style={rowBase}><span style={{ ...cell, background: "rgba(236,72,153,.16)" }}>⬇️</span> Download QR code</button>
-            {canNativeShare && <button type="button" onClick={nativeShareQr} style={rowBase}><span style={{ ...cell, background: "rgba(124,58,237,.16)" }}>⋯</span> More options…</button>}
+            <button type="button" onClick={nativeShareQr} style={rowBase}><span style={{ ...cell, background: "rgba(124,58,237,.16)" }}>⋯</span> More options…</button>
           </div>
           <button type="button" onClick={closeQrShare} style={{ marginTop: 12, width: "100%", minHeight: 44, borderRadius: 11, border: "1px solid rgba(255,255,255,.15)", background: "rgba(255,255,255,.03)", color: "inherit", cursor: "pointer", fontWeight: 700 }}>Close</button>
         </section>

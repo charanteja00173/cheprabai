@@ -57,6 +57,13 @@ const AdminWrapper = styled.div`
     left: -120px;
     background: radial-gradient(circle, var(--chakra-colors-brandSecondary), transparent 70%);
   }
+  /* Fixed-position glow blobs extend past the viewport right edge and inflate the
+     document scroll width, creating a phantom horizontal scrollbar on phones and
+     tablets. They are purely decorative — drop them on smaller screens where the
+     glassmorphism panes and borders already carry the look. */
+  @media (max-width: ${BREAKPOINTS.lg}px) {
+    &::before, &::after { display: none; }
+  }
   background: var(--chakra-colors-bg);
   color: var(--chakra-colors-textPrimary);
   display: flex;

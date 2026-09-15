@@ -658,7 +658,9 @@ const ControlsDock = styled.footer`
     gap: 6px;
   }
 
-  @media (max-width: ${BREAKPOINTS.md}px) {
+  /* Matches where .desktop-only-controls is hidden (lg), so the mobile rows
+     never leave a gap where NO call controls render (landscape phones, tablets). */
+  @media (max-width: ${BREAKPOINTS.lg}px) {
     flex-direction: column;
     padding: 6px 8px;
     gap: 0;
@@ -680,7 +682,7 @@ const ControlsDock = styled.footer`
 const MobilePrimaryRow = styled.div`
   display: none;
 
-  @media (max-width: ${BREAKPOINTS.md}px) {
+  @media (max-width: ${BREAKPOINTS.lg}px) {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -693,7 +695,7 @@ const MobilePrimaryRow = styled.div`
 const MobileSecondaryRow = styled.div`
   display: none;
 
-  @media (max-width: ${BREAKPOINTS.md}px) {
+  @media (max-width: ${BREAKPOINTS.lg}px) {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -754,7 +756,7 @@ const DockButton = styled.button`
     gap: 5px;
   }
 
-  @media (max-width: ${BREAKPOINTS.md}px) {
+  @media (max-width: ${BREAKPOINTS.lg}px) {
     min-width: 38px;
     height: 38px;
     padding: 0;
